@@ -32,9 +32,14 @@ import core.slack    as slack
 # Safety constants
 # ---------------------------------------------------------------------------
 
-PILOT_SUPPLIER_IDS   = {28, 33}   # PubNative=28, AppStock=33
+PILOT_SUPPLIER_IDS   = {28, 33, 7, 24}   # PubNative=28, AppStock=33, Start.IO=7, BidMachine=24
 MAX_FLOOR_CHANGE_PCT = 25.0        # Never change a floor by more than 25 % in one step
 MIN_FLOOR            = 0.10        # Never set a floor below $0.10
+
+# Suppliers that are LOCKED — no new floor changes allowed.
+# Watchdog auto-reverts are still permitted (they use remove_floor_change, not apply_floor_change).
+# BidMachine (24) is locked after the Apr 15 $0.75 Reseller floor — top partner, no new touches.
+LOCKED_SUPPLIER_IDS  = {24}        # BidMachine=24
 
 # ---------------------------------------------------------------------------
 # Log path
@@ -233,6 +238,13 @@ def apply_floor_change(
         raise PermissionError(
             f"Publisher '{pub_display}' has supplier_id={sup_id} which is NOT in "
             f"PILOT_SUPPLIER_IDS={PILOT_SUPPLIER_IDS}.  Action blocked."
+        )
+
+    if sup_id in LOCKED_SUPPLIER_IDS:
+        raise PermissionError(
+            f"Publisher '{pub_display}' has supplier_id={sup_id} which is in "
+            f"LOCKED_SUPPLIER_IDS — no new floor changes allowed.  "
+            f"(Watchdog auto-reverts are still active.)"
         )
 
     # ------------------------------------------------------------------

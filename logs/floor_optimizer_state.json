@@ -1,0 +1,53 @@
+{
+  "date": "2026-04-15",
+  "positions": {
+    "AppStock|Unruly": {
+      "base_floor": 0.4,
+      "current_floor": 0.4,
+      "cumulative_change_pct": 0.0,
+      "last_adjusted": null
+    },
+    "AppStock|Magnite": {
+      "base_floor": 0.15,
+      "current_floor": 0.15,
+      "cumulative_change_pct": 0.0,
+      "last_adjusted": null
+    },
+    "PubNative - Display In-App US Interstitial|Magnite": {
+      "base_floor": 1.0,
+      "current_floor": 1.1664,
+      "cumulative_change_pct": 16.64000000000001,
+      "last_adjusted": "2026-04-15 14:07 ET"
+    },
+    "PubNative - In-App Magnite|Magnite": {
+      "base_floor": 1.0,
+      "current_floor": 1.1664,
+      "cumulative_change_pct": 16.64000000000001,
+      "last_adjusted": "2026-04-15 14:07 ET"
+    },
+    "PubNative - Display In-App EU|Sovrn": {
+      "base_floor": 0.1,
+      "current_floor": 0.1166,
+      "cumulative_change_pct": 16.59999999999999,
+      "last_adjusted": "2026-04-15 14:08 ET"
+    },
+    "PubNative - Display In-App APAC|Sovrn": {
+      "base_floor": 0.1,
+      "current_floor": 0.1166,
+      "cumulative_change_pct": 16.59999999999999,
+      "last_adjusted": "2026-04-15 14:08 ET"
+    },
+    "PubNative - Display In-App US Interstitial|Sovrn": {
+      "base_floor": 0.1,
+      "current_floor": 0.1166,
+      "cumulative_change_pct": 16.59999999999999,
+      "last_adjusted": "2026-04-15 14:09 ET"
+    },
+    "PubNative - In-App Magnite|Sovrn": {
+      "base_floor": 0.1,
+      "current_floor": 0.1166,
+      "cumulative_change_pct": 16.59999999999999,
+      "last_adjusted": "2026-04-15 14:09 ET"
+    }
+  }
+}

@@ -122,6 +122,7 @@ def setup_schedule():
     publisher_monetization = _import("agents.alerts.publisher_monetization")
     action_tracker         = _import("agents.alerts.action_tracker")
     daily_email            = _import("agents.reports.daily_email")
+    daily_recommendations  = _import("agents.alerts.daily_recommendations")
     win_rate_maximizer     = _import("agents.reports.win_rate_maximizer")
     floor_elasticity       = _import("agents.reports.floor_elasticity")
     weekly_review          = _import("agents.alerts.weekly_review")
@@ -153,6 +154,7 @@ def setup_schedule():
     schedule.every().day.at("07:00").do(_run("weekly_review",  weekly_review))   # Mon guard inside
 
     # ── Daily at 8:00 AM ET ───────────────────────────────────────────────────
+    schedule.every().day.at("08:30").do(_run("daily_recommendations",  daily_recommendations))
     schedule.every().day.at("08:00").do(_run("floor_gap",              floor_gap))
     schedule.every().day.at("08:00").do(_run("demand_saturation",      demand_saturation))
     schedule.every().day.at("08:00").do(_run("app_revenue",            app_revenue))
