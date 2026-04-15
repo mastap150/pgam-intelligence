@@ -1,0 +1,813 @@
+[
+  {
+    "date": "2026-04-12",
+    "pubnative": {
+      "gross_revenue": 44.8691,
+      "pub_payout": 34.3079,
+      "margin_pct": 23.5378,
+      "opportunities": 325949100,
+      "bid_requests": 844414300,
+      "bids": 907203,
+      "wins": 41520,
+      "impressions": 42433,
+      "opp_fill_pct": 0.013018,
+      "bid_fill_pct": 0.1074,
+      "win_rate_pct": 4.5767,
+      "ecpm": 1.0574,
+      "by_demand": [
+        {
+          "name": "Magnite",
+          "revenue": 28.5606,
+          "bid_fill_pct": 0.304,
+          "win_rate_pct": 4.3955,
+          "impressions": 21389
+        },
+        {
+          "name": "Pubmatic",
+          "revenue": 11.7043,
+          "bid_fill_pct": 0.1497,
+          "win_rate_pct": 8.6679,
+          "impressions": 18245
+        },
+        {
+          "name": "Xandr - Ad",
+          "revenue": 4.3073,
+          "bid_fill_pct": 0.06,
+          "win_rate_pct": 7.4839,
+          "impressions": 1166
+        },
+        {
+          "name": "Sovrn",
+          "revenue": 0.2949,
+          "bid_fill_pct": 0.0408,
+          "win_rate_pct": 0.7587,
+          "impressions": 1625
+        },
+        {
+          "name": "LoopMe",
+          "revenue": 0.0021,
+          "bid_fill_pct": 0.0085,
+          "win_rate_pct": 21.0526,
+          "impressions": 8
+        },
+        {
+          "name": "Unknown",
+          "revenue": 0.0,
+          "bid_fill_pct": 0.0,
+          "win_rate_pct": 0.0,
+          "impressions": 0
+        }
+      ]
+    },
+    "appstock": {
+      "gross_revenue": 13.8961,
+      "pub_payout": 10.5151,
+      "margin_pct": 24.3306,
+      "opportunities": 613198400,
+      "bid_requests": 252372300,
+      "bids": 263962,
+      "wins": 13761,
+      "impressions": 14107,
+      "opp_fill_pct": 0.002301,
+      "bid_fill_pct": 0.1046,
+      "win_rate_pct": 5.2133,
+      "ecpm": 0.985,
+      "by_demand": [
+        {
+          "name": "Pubmatic",
+          "revenue": 9.973,
+          "bid_fill_pct": 0.1784,
+          "win_rate_pct": 4.3823,
+          "impressions": 9799
+        },
+        {
+          "name": "Unruly",
+          "revenue": 3.6,
+          "bid_fill_pct": 0.0792,
+          "win_rate_pct": 13.6409,
+          "impressions": 3945
+        },
+        {
+          "name": "Xandr - Ad",
+          "revenue": 0.1879,
+          "bid_fill_pct": 0.0023,
+          "win_rate_pct": 10.0806,
+          "impressions": 72
+        },
+        {
+          "name": "Magnite",
+          "revenue": 0.1352,
+          "bid_fill_pct": 0.0298,
+          "win_rate_pct": 1.5291,
+          "impressions": 291
+        },
+        {
+          "name": "Unknown",
+          "revenue": 0.0,
+          "bid_fill_pct": 0.0,
+          "win_rate_pct": 0.0,
+          "impressions": 0
+        }
+      ]
+    },
+    "changes": {
+      "pubnative_revenue_dod": null,
+      "appstock_revenue_dod": null
+    },
+    "actions_applied": []
+  },
+  {
+    "date": "2026-04-13",
+    "pubnative": {
+      "gross_revenue": 54.194,
+      "pub_payout": 41.9158,
+      "margin_pct": 22.656,
+      "opportunities": 290311800,
+      "bid_requests": 809491300,
+      "bids": 894545,
+      "wins": 24209,
+      "impressions": 24660,
+      "opp_fill_pct": 0.008494,
+      "bid_fill_pct": 0.1105,
+      "win_rate_pct": 2.7063,
+      "ecpm": 2.1976,
+      "by_demand": [
+        {
+          "name": "Magnite",
+          "revenue": 47.5496,
+          "bid_fill_pct": 0.3293,
+          "win_rate_pct": 2.5907,
+          "impressions": 11535
+        },
+        {
+          "name": "Pubmatic",
+          "revenue": 4.967,
+          "bid_fill_pct": 0.0912,
+          "win_rate_pct": 7.8123,
+          "impressions": 9069
+        },
+        {
+          "name": "Xandr - Ad",
+          "revenue": 1.1808,
+          "bid_fill_pct": 0.0115,
+          "win_rate_pct": 13.6364,
+          "impressions": 342
+        },
+        {
+          "name": "Sovrn",
+          "revenue": 0.4949,
+          "bid_fill_pct": 0.0656,
+          "win_rate_pct": 1.0591,
+          "impressions": 3710
+        },
+        {
+          "name": "LoopMe",
+          "revenue": 0.0018,
+          "bid_fill_pct": 0.0064,
+          "win_rate_pct": 17.3913,
+          "impressions": 4
+        },
+        {
+          "name": "Unknown",
+          "revenue": 0.0,
+          "bid_fill_pct": 0.0,
+          "win_rate_pct": 0.0,
+          "impressions": 0
+        }
+      ]
+    },
+    "appstock": {
+      "gross_revenue": 6.3062,
+      "pub_payout": 4.7788,
+      "margin_pct": 24.2206,
+      "opportunities": 567295200,
+      "bid_requests": 131385800,
+      "bids": 147132,
+      "wins": 7778,
+      "impressions": 7936,
+      "opp_fill_pct": 0.001399,
+      "bid_fill_pct": 0.112,
+      "win_rate_pct": 5.2864,
+      "ecpm": 0.7946,
+      "by_demand": [
+        {
+          "name": "Pubmatic",
+          "revenue": 4.7341,
+          "bid_fill_pct": 0.2437,
+          "win_rate_pct": 4.5223,
+          "impressions": 5486
+        },
+        {
+          "name": "Unruly",
+          "revenue": 1.2812,
+          "bid_fill_pct": 0.1379,
+          "win_rate_pct": 13.5747,
+          "impressions": 2272
+        },
+        {
+          "name": "Xandr - Ad",
+          "revenue": 0.1579,
+          "bid_fill_pct": 0.0022,
+          "win_rate_pct": 7.8475,
+          "impressions": 38
+        },
+        {
+          "name": "Magnite",
+          "revenue": 0.133,
+          "bid_fill_pct": 0.0253,
+          "win_rate_pct": 1.1734,
+          "impressions": 140
+        },
+        {
+          "name": "Unknown",
+          "revenue": 0.0,
+          "bid_fill_pct": 0.0,
+          "win_rate_pct": 0.0,
+          "impressions": 0
+        }
+      ]
+    },
+    "changes": {
+      "pubnative_revenue_dod": 20.78,
+      "appstock_revenue_dod": -54.62
+    },
+    "actions_applied": []
+  },
+  {
+    "date": "2026-04-14",
+    "actions_applied": [
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 981,
+        "demand_name": "Unruly AppStock",
+        "old_floor": 0.0,
+        "new_floor": 0.4,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Unruly AppStock 22.8% win rate, avg bid $0.825 \u2014 $0.40 floor filters bottom bids, well below clearing price",
+        "timestamp": "2026-04-14T17:36:59.931464+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 982,
+        "demand_name": "Unruly AppStock oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.4,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Unruly AppStock 22.8% win rate, avg bid $0.825 \u2014 $0.40 floor filters bottom bids, well below clearing price",
+        "timestamp": "2026-04-14T17:37:05.346811+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 983,
+        "demand_name": "Unruly AppStock Prebid Server",
+        "old_floor": 0.0,
+        "new_floor": 0.4,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Unruly AppStock 22.8% win rate, avg bid $0.825 \u2014 $0.40 floor filters bottom bids, well below clearing price",
+        "timestamp": "2026-04-14T17:37:11.204128+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 984,
+        "demand_name": "Unruly AppStock Prebid Server oRTB2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.4,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Unruly AppStock 22.8% win rate, avg bid $0.825 \u2014 $0.40 floor filters bottom bids, well below clearing price",
+        "timestamp": "2026-04-14T17:37:16.945660+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 977,
+        "demand_name": "Magnite - AppStock - In App US",
+        "old_floor": 0.0,
+        "new_floor": 0.15,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite AppStock 2.7% win rate, avg bid $0.319 \u2014 $0.15 floor to filter lowest quality bids",
+        "timestamp": "2026-04-14T17:37:22.663736+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 978,
+        "demand_name": "Magnite - AppStock - In App oRTB 2.6 US",
+        "old_floor": 0.0,
+        "new_floor": 0.15,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite AppStock 2.7% win rate, avg bid $0.319 \u2014 $0.15 floor to filter lowest quality bids",
+        "timestamp": "2026-04-14T17:37:28.459143+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 979,
+        "demand_name": "Magnite - AppStock - In App Prebid Server US",
+        "old_floor": 0.0,
+        "new_floor": 0.15,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite AppStock 2.7% win rate, avg bid $0.319 \u2014 $0.15 floor to filter lowest quality bids",
+        "timestamp": "2026-04-14T17:37:34.716776+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115377,
+        "publisher_name": "AppStock",
+        "demand_id": 980,
+        "demand_name": "Magnite - AppStock - In App Prebid Server oRTB 2.6 US",
+        "old_floor": 0.0,
+        "new_floor": 0.15,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite AppStock 2.7% win rate, avg bid $0.319 \u2014 $0.15 floor to filter lowest quality bids",
+        "timestamp": "2026-04-14T17:37:40.630260+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 768,
+        "demand_name": "Sovrn PubNative_300x250",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:09.019378+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 769,
+        "demand_name": "Sovrn PubNative_300x250 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:15.506100+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 770,
+        "demand_name": "Sovrn - PubNative_300x600",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:21.466997+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 772,
+        "demand_name": "Sovrn - PubNative_320x50",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:27.942121+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 773,
+        "demand_name": "Sovrn - PubNative_320x50 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:33.632058+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:39.186107+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115349,
+        "publisher_name": "PubNative - Display In-App EU",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:38:44.672234+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 768,
+        "demand_name": "Sovrn PubNative_300x250",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:06.589557+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 769,
+        "demand_name": "Sovrn PubNative_300x250 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:12.704712+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 770,
+        "demand_name": "Sovrn - PubNative_300x600",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:19.148498+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 772,
+        "demand_name": "Sovrn - PubNative_320x50",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:25.073046+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 773,
+        "demand_name": "Sovrn - PubNative_320x50 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:31.098461+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:36.592444+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115357,
+        "publisher_name": "PubNative - Display In-App APAC",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:40:42.568194+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 858,
+        "demand_name": "Magnite - Pubnative - In App US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:41:45.830280+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 859,
+        "demand_name": "Magnite - Pubnative - In App oRTB 2.6 US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:41:51.721967+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 860,
+        "demand_name": "Magnite - PubNative - In App Prebid Server US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:41:57.591866+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 861,
+        "demand_name": "Magnite - PubNative - In App Prebid Server oRTB 2.6 US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:42:03.772358+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 768,
+        "demand_name": "Sovrn PubNative_300x250",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:09.909323+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 769,
+        "demand_name": "Sovrn PubNative_300x250 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:15.628017+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 770,
+        "demand_name": "Sovrn - PubNative_300x600",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:21.832246+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 772,
+        "demand_name": "Sovrn - PubNative_320x50",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:27.723574+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 773,
+        "demand_name": "Sovrn - PubNative_320x50 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:33.964114+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:39.446169+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115363,
+        "publisher_name": "PubNative - Display In-App US Interstitial",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:42:45.185442+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 858,
+        "demand_name": "Magnite - Pubnative - In App US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:42:51.206853+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 859,
+        "demand_name": "Magnite - Pubnative - In App oRTB 2.6 US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:42:57.404715+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 860,
+        "demand_name": "Magnite - PubNative - In App Prebid Server US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:43:03.437215+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 861,
+        "demand_name": "Magnite - PubNative - In App Prebid Server oRTB 2.6 US",
+        "old_floor": 0.0,
+        "new_floor": 1.0,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Magnite PubNative top performer $434/wk, avg bid $2.586 \u2014 $1.00 floor to improve eCPM on best demand",
+        "timestamp": "2026-04-14T17:43:09.378674+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 768,
+        "demand_name": "Sovrn PubNative_300x250",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:15.596979+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 769,
+        "demand_name": "Sovrn PubNative_300x250 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:21.416114+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 770,
+        "demand_name": "Sovrn - PubNative_300x600",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:26.922677+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 772,
+        "demand_name": "Sovrn - PubNative_320x50",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:32.458785+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 773,
+        "demand_name": "Sovrn - PubNative_320x50 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:38.256554+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:44.300778+00:00"
+      },
+      {
+        "action": "floor_change",
+        "publisher_id": 290115373,
+        "publisher_name": "PubNative - In-App Magnite",
+        "demand_id": 776,
+        "demand_name": "Sovrn - PubNative_728x90 oRTB 2.6",
+        "old_floor": 0.0,
+        "new_floor": 0.1,
+        "applied": true,
+        "dry_run": false,
+        "reason": "Pilot Week 1: Sovrn PubNative 1.2% win rate, avg bid $0.060, $2.51/wk on 1.53M bids \u2014 MIN_FLOOR to cut junk traffic",
+        "timestamp": "2026-04-14T17:43:50.117798+00:00"
+      }
+    ]
+  }
+]

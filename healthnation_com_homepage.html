@@ -1,0 +1,1035 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>HealthNation — Evidence-Based Health, Nutrition & Fitness Guides</title>
+  <meta name="description" content="Science-backed guides on nutrition, fitness, mental health, and longevity — reviewed by doctors and researchers. Real answers for real health questions." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --ink:         #111827;
+      --ink-mid:     #374151;
+      --ink-soft:    #6B7280;
+      --ink-faint:   #9CA3AF;
+      --sage:        #4A7C59;
+      --sage-light:  #6B9E7A;
+      --sage-pale:   #EEF5F1;
+      --sage-xpale:  #F6FAF7;
+      --teal:        #0D9488;
+      --teal-pale:   #CCFBF1;
+      --white:       #FFFFFF;
+      --gray-50:     #F9FAFB;
+      --gray-100:    #F3F4F6;
+      --gray-200:    #E5E7EB;
+      --serif:       'DM Serif Display', Georgia, serif;
+      --sans:        'Inter', system-ui, sans-serif;
+      --nav-h:       70px;
+      --radius:      6px;
+      --radius-lg:   12px;
+      --shadow-sm:   0 1px 6px rgba(0,0,0,.06);
+      --shadow-md:   0 4px 20px rgba(0,0,0,.09);
+      --shadow-lg:   0 8px 40px rgba(0,0,0,.12);
+    }
+
+    html { scroll-behavior: smooth; }
+    body { font-family: var(--sans); color: var(--ink); background: var(--white); line-height: 1.6; -webkit-font-smoothing: antialiased; }
+    img { display: block; width: 100%; object-fit: cover; }
+    a { color: inherit; text-decoration: none; }
+
+    /* ─── HEADER ─────────────────────────────────── */
+    .site-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--nav-h);
+      background: rgba(255,255,255,.97);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--gray-200);
+    }
+    .header-inner {
+      max-width: 1280px; margin: 0 auto; padding: 0 32px;
+      height: 100%; display: flex; align-items: center; gap: 4px;
+    }
+    .logo {
+      font-family: var(--serif); font-size: 21px; color: var(--ink);
+      margin-right: auto; display: flex; align-items: center; gap: 8px;
+      white-space: nowrap;
+    }
+    .logo-mark {
+      width: 30px; height: 30px; border-radius: 8px;
+      background: var(--sage); display: flex; align-items: center; justify-content: center;
+      color: white; font-size: 16px; flex-shrink: 0;
+    }
+
+    .main-nav { display: flex; align-items: center; gap: 2px; margin-right: 16px; }
+    .nav-item {
+      padding: 8px 13px; border-radius: var(--radius);
+      font-size: 14px; font-weight: 500; color: var(--ink-mid);
+      cursor: pointer; transition: background .15s, color .15s;
+      display: flex; align-items: center; gap: 4px; white-space: nowrap;
+    }
+    .nav-item:hover { background: var(--gray-100); color: var(--ink); }
+    .nav-item svg { opacity: .5; }
+
+    .nav-cta {
+      padding: 9px 18px; background: var(--sage); color: white;
+      border-radius: 50px; font-size: 13px; font-weight: 600;
+      white-space: nowrap; transition: background .15s; margin-left: 8px;
+    }
+    .nav-cta:hover { background: #3d6b4a; }
+
+    .nav-search {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; transition: background .15s; color: var(--ink-soft);
+    }
+    .nav-search:hover { background: var(--gray-100); color: var(--ink); }
+
+    /* ─── HERO ───────────────────────────────────── */
+    .hero {
+      padding-top: var(--nav-h);
+      background: linear-gradient(160deg, var(--sage-xpale) 0%, #ffffff 60%);
+      min-height: 88vh; display: flex; align-items: center;
+      position: relative; overflow: hidden;
+    }
+    .hero-blob {
+      position: absolute; top: -120px; right: -80px;
+      width: 600px; height: 600px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(74,124,89,.12) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-blob-2 {
+      position: absolute; bottom: -80px; left: -100px;
+      width: 400px; height: 400px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(13,148,136,.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .hero-inner {
+      max-width: 1280px; margin: 0 auto; padding: 80px 32px;
+      display: grid; grid-template-columns: 1fr 1fr; gap: 60px; align-items: center;
+      position: relative; z-index: 2;
+    }
+    .hero-text {}
+    .hero-overline {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--sage-pale); border: 1px solid rgba(74,124,89,.2);
+      padding: 6px 14px; border-radius: 50px;
+      font-size: 12px; font-weight: 600; color: var(--sage);
+      letter-spacing: .3px; margin-bottom: 24px;
+    }
+    .hero-overline span { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); }
+    .hero h1 {
+      font-family: var(--serif); font-size: clamp(40px, 5vw, 62px);
+      line-height: 1.1; color: var(--ink); margin-bottom: 20px;
+      letter-spacing: -.5px;
+    }
+    .hero h1 em { font-style: italic; color: var(--sage); }
+    .hero-sub {
+      font-size: 17px; color: var(--ink-soft); line-height: 1.7;
+      max-width: 460px; margin-bottom: 32px;
+    }
+    .hero-search-wrap {
+      display: flex; background: var(--white);
+      border: 1.5px solid var(--gray-200); border-radius: 50px;
+      overflow: hidden; box-shadow: var(--shadow-md); margin-bottom: 20px;
+    }
+    .hero-search-wrap:focus-within { border-color: var(--sage); box-shadow: 0 0 0 3px rgba(74,124,89,.12); }
+    .hero-search-wrap input {
+      flex: 1; border: none; outline: none; padding: 15px 22px;
+      font-family: var(--sans); font-size: 15px; color: var(--ink); background: transparent;
+    }
+    .hero-search-wrap input::placeholder { color: var(--ink-faint); }
+    .hero-search-wrap button {
+      padding: 10px 22px; background: var(--sage); color: white;
+      border: none; cursor: pointer; font-family: var(--sans);
+      font-size: 13px; font-weight: 600; border-radius: 44px; margin: 5px;
+      transition: background .15s;
+    }
+    .hero-search-wrap button:hover { background: #3d6b4a; }
+    .quick-topics { display: flex; flex-wrap: wrap; gap: 8px; }
+    .quick-tag {
+      padding: 6px 14px; background: var(--white);
+      border: 1px solid var(--gray-200); border-radius: 50px;
+      font-size: 12.5px; font-weight: 500; color: var(--ink-mid);
+      cursor: pointer; transition: all .2s;
+    }
+    .quick-tag:hover { border-color: var(--sage); color: var(--sage); background: var(--sage-pale); }
+
+    .hero-visual { position: relative; }
+    .hero-main-img {
+      border-radius: 20px; overflow: hidden; height: 500px;
+      box-shadow: var(--shadow-lg);
+    }
+    .hero-main-img img { height: 100%; }
+    .hero-badge {
+      position: absolute; bottom: -20px; left: -24px;
+      background: var(--white); border-radius: var(--radius-lg);
+      padding: 16px 20px; box-shadow: var(--shadow-lg);
+      display: flex; align-items: center; gap: 12px; min-width: 220px;
+    }
+    .badge-icon {
+      width: 42px; height: 42px; border-radius: 10px;
+      background: var(--sage-pale); display: flex; align-items: center;
+      justify-content: center; font-size: 20px; flex-shrink: 0;
+    }
+    .badge-text { font-size: 13px; font-weight: 600; color: var(--ink); line-height: 1.3; }
+    .badge-sub { font-size: 11px; color: var(--ink-soft); margin-top: 2px; }
+    .hero-badge-2 {
+      position: absolute; top: 24px; right: -24px;
+      background: var(--white); border-radius: var(--radius-lg);
+      padding: 14px 18px; box-shadow: var(--shadow-md);
+      display: flex; align-items: center; gap: 10px;
+    }
+    .badge-2-icon { font-size: 22px; }
+    .badge-2-text { font-size: 12px; font-weight: 600; color: var(--ink); }
+    .badge-2-sub { font-size: 11px; color: var(--ink-soft); }
+
+    /* ─── TRUST BAR ──────────────────────────────── */
+    .trust-bar {
+      background: var(--ink); padding: 16px 32px;
+      display: flex; justify-content: center; gap: 48px; flex-wrap: wrap;
+    }
+    .trust-item {
+      display: flex; align-items: center; gap: 9px;
+      font-size: 13px; color: rgba(255,255,255,.65); font-weight: 500;
+    }
+    .trust-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sage-light); flex-shrink: 0; }
+
+    /* ─── SECTION COMMONS ────────────────────────── */
+    .section { padding: 80px 32px; }
+    .section-inner { max-width: 1280px; margin: 0 auto; }
+    .section-header { margin-bottom: 40px; }
+    .section-overline {
+      font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--sage); margin-bottom: 10px;
+    }
+    .section-title {
+      font-family: var(--serif); font-size: clamp(28px, 3.5vw, 40px);
+      color: var(--ink); line-height: 1.15; letter-spacing: -.3px;
+    }
+    .section-title em { font-style: italic; color: var(--sage); }
+    .section-sub {
+      margin-top: 12px; font-size: 15.5px; color: var(--ink-soft);
+      max-width: 520px; line-height: 1.65;
+    }
+
+    /* ─── CATEGORY GRID ──────────────────────────── */
+    .categories { background: var(--gray-50); }
+    .cat-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .cat-card {
+      border-radius: var(--radius-lg); overflow: hidden;
+      background: var(--white); box-shadow: var(--shadow-sm);
+      cursor: pointer; transition: transform .25s, box-shadow .25s;
+      display: flex; flex-direction: column;
+    }
+    .cat-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .cat-img { height: 180px; overflow: hidden; }
+    .cat-img img { height: 100%; transition: transform .4s; }
+    .cat-card:hover .cat-img img { transform: scale(1.04); }
+    .cat-body { padding: 20px 22px; flex: 1; display: flex; flex-direction: column; gap: 6px; }
+    .cat-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--sage);
+    }
+    .cat-tag-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--sage); }
+    .cat-body h3 {
+      font-family: var(--serif); font-size: 20px; color: var(--ink);
+      line-height: 1.25;
+    }
+    .cat-body p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.55; flex: 1; }
+    .cat-footer {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 14px 22px; border-top: 1px solid var(--gray-100);
+    }
+    .cat-count { font-size: 12px; color: var(--ink-faint); font-weight: 500; }
+    .cat-arrow {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--sage-pale); display: flex; align-items: center; justify-content: center;
+      color: var(--sage); font-size: 13px; transition: background .2s;
+    }
+    .cat-card:hover .cat-arrow { background: var(--sage); color: white; }
+
+    /* ─── FEATURED ARTICLE ───────────────────────── */
+    .featured-wrap {
+      border-radius: var(--radius-lg); overflow: hidden;
+      background: var(--white); box-shadow: var(--shadow-md);
+      display: grid; grid-template-columns: 1.2fr 1fr;
+    }
+    .feat-img { height: 420px; }
+    .feat-img img { height: 100%; }
+    .feat-body {
+      padding: 44px 44px; display: flex; flex-direction: column;
+      justify-content: center; gap: 16px;
+    }
+    .feat-label {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--sage);
+    }
+    .feat-label-icon {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--sage); flex-shrink: 0;
+    }
+    .feat-body h2 {
+      font-family: var(--serif); font-size: clamp(22px, 2.5vw, 30px);
+      color: var(--ink); line-height: 1.25;
+    }
+    .feat-body p { font-size: 14.5px; color: var(--ink-soft); line-height: 1.65; }
+    .feat-reviewer {
+      display: flex; align-items: center; gap: 10px;
+      padding: 12px 16px; background: var(--gray-50); border-radius: var(--radius);
+      border-left: 3px solid var(--sage);
+    }
+    .reviewer-avatar {
+      width: 36px; height: 36px; border-radius: 50%; background: var(--sage-pale);
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+      flex-shrink: 0;
+    }
+    .reviewer-info { font-size: 12px; }
+    .reviewer-info strong { display: block; color: var(--ink); font-weight: 600; }
+    .reviewer-info span { color: var(--ink-soft); }
+    .feat-meta { display: flex; gap: 16px; align-items: center; }
+    .meta-pill {
+      padding: 4px 12px; border-radius: 50px; font-size: 11.5px; font-weight: 500;
+      background: var(--gray-100); color: var(--ink-mid);
+    }
+    .feat-read-btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 13px 24px; background: var(--sage); color: white;
+      border-radius: 50px; font-size: 14px; font-weight: 600;
+      transition: background .15s; align-self: flex-start;
+    }
+    .feat-read-btn:hover { background: #3d6b4a; }
+
+    /* ─── LATEST ARTICLES ────────────────────────── */
+    .latest { background: var(--gray-50); }
+    .article-filters {
+      display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 32px;
+    }
+    .art-filter {
+      padding: 7px 16px; border-radius: 50px;
+      border: 1.5px solid var(--gray-200);
+      font-size: 13px; font-weight: 500; color: var(--ink-mid);
+      cursor: pointer; transition: all .2s; background: var(--white);
+    }
+    .art-filter:hover, .art-filter.active {
+      background: var(--sage); color: white; border-color: var(--sage);
+    }
+    .articles-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    .article-card {
+      background: var(--white); border-radius: var(--radius-lg);
+      overflow: hidden; box-shadow: var(--shadow-sm);
+      cursor: pointer; transition: transform .25s, box-shadow .25s;
+      display: flex; flex-direction: column;
+    }
+    .article-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-md); }
+    .article-img { height: 200px; overflow: hidden; }
+    .article-img img { height: 100%; transition: transform .4s; }
+    .article-card:hover .article-img img { transform: scale(1.04); }
+    .article-body { padding: 20px 22px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .article-cat {
+      font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--sage);
+    }
+    .article-body h3 {
+      font-family: var(--serif); font-size: 18px; color: var(--ink);
+      line-height: 1.3; flex: 1;
+    }
+    .article-footer {
+      padding: 12px 22px; border-top: 1px solid var(--gray-100);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .article-read { font-size: 12px; color: var(--ink-faint); font-weight: 500; }
+    .article-tag {
+      font-size: 11px; padding: 3px 10px; border-radius: 50px;
+      background: var(--sage-pale); color: var(--sage); font-weight: 500;
+    }
+
+    /* ─── LONGEVITY SPOTLIGHT ────────────────────── */
+    .longevity {
+      background: linear-gradient(135deg, #0f2419 0%, #1a3d26 50%, #0d3033 100%);
+      padding: 80px 32px;
+    }
+    .longevity-inner { max-width: 1280px; margin: 0 auto; }
+    .longevity .section-overline { color: var(--teal); }
+    .longevity .section-title { color: white; }
+    .longevity .section-title em { color: #5eead4; font-style: italic; }
+    .longevity .section-sub { color: rgba(255,255,255,.6); }
+    .longevity-header { margin-bottom: 40px; }
+    .longevity-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+    }
+    .longevity-card {
+      background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.1);
+      border-radius: var(--radius-lg); padding: 28px 26px;
+      cursor: pointer; transition: background .2s, transform .25s;
+    }
+    .longevity-card:hover { background: rgba(255,255,255,.11); transform: translateY(-3px); }
+    .longevity-num {
+      font-family: var(--serif); font-size: 44px; color: rgba(94,234,212,.3);
+      line-height: 1; margin-bottom: 16px;
+    }
+    .longevity-card h3 {
+      font-family: var(--serif); font-size: 20px; color: white;
+      line-height: 1.3; margin-bottom: 10px;
+    }
+    .longevity-card p { font-size: 13.5px; color: rgba(255,255,255,.55); line-height: 1.6; }
+    .longevity-cta {
+      display: inline-flex; align-items: center; gap: 8px; margin-top: 32px;
+      padding: 13px 26px; background: var(--teal); color: white;
+      border-radius: 50px; font-size: 14px; font-weight: 600;
+      transition: background .15s;
+    }
+    .longevity-cta:hover { background: #0b7a70; }
+
+    /* ─── TOOLS ──────────────────────────────────── */
+    .tools { background: var(--white); }
+    .tools-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    }
+    .tool-card {
+      padding: 22px 24px; border-radius: var(--radius-lg);
+      border: 1.5px solid var(--gray-200); cursor: pointer;
+      transition: border-color .2s, box-shadow .2s, transform .2s;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .tool-card:hover { border-color: var(--sage); box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+    .tool-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: var(--sage-pale); display: flex; align-items: center;
+      justify-content: center; font-size: 22px; flex-shrink: 0;
+    }
+    .tool-text h4 { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 3px; }
+    .tool-text p { font-size: 12px; color: var(--ink-soft); }
+
+    /* ─── EXPERTS ────────────────────────────────── */
+    .experts { background: var(--gray-50); }
+    .experts-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px;
+    }
+    .expert-card {
+      background: var(--white); border-radius: var(--radius-lg);
+      padding: 28px; box-shadow: var(--shadow-sm);
+      display: flex; flex-direction: column; align-items: flex-start; gap: 14px;
+    }
+    .expert-avatar {
+      width: 64px; height: 64px; border-radius: 50%;
+      overflow: hidden; border: 3px solid var(--sage-pale);
+    }
+    .expert-avatar img { width: 100%; height: 100%; object-fit: cover; }
+    .expert-name { font-size: 16px; font-weight: 700; color: var(--ink); }
+    .expert-cred { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+    .expert-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      padding: 4px 10px; background: var(--sage-pale); border-radius: 50px;
+      font-size: 11px; font-weight: 600; color: var(--sage);
+    }
+    .expert-card p { font-size: 13.5px; color: var(--ink-soft); line-height: 1.6; flex: 1; }
+    .expert-link {
+      font-size: 13px; font-weight: 600; color: var(--sage);
+      display: flex; align-items: center; gap: 5px;
+      transition: gap .2s;
+    }
+    .expert-link:hover { gap: 9px; }
+
+    /* ─── NEWSLETTER ─────────────────────────────── */
+    .newsletter {
+      background: linear-gradient(135deg, var(--sage) 0%, #2d5c3d 100%);
+      padding: 80px 32px;
+    }
+    .newsletter-inner { max-width: 640px; margin: 0 auto; text-align: center; }
+    .newsletter .section-overline { color: rgba(255,255,255,.6); }
+    .newsletter .section-title { color: white; }
+    .newsletter .section-sub { color: rgba(255,255,255,.7); margin: 0 auto 32px; }
+    .newsletter-form {
+      display: flex; background: rgba(255,255,255,.15);
+      border: 1px solid rgba(255,255,255,.25); border-radius: 50px;
+      overflow: hidden; padding: 5px; max-width: 480px; margin: 0 auto;
+    }
+    .newsletter-form input {
+      flex: 1; background: transparent; border: none; outline: none;
+      padding: 12px 18px; font-family: var(--sans); font-size: 14px; color: white;
+    }
+    .newsletter-form input::placeholder { color: rgba(255,255,255,.45); }
+    .newsletter-form button {
+      padding: 12px 22px; background: white; color: var(--sage);
+      border: none; cursor: pointer; border-radius: 44px;
+      font-family: var(--sans); font-size: 13px; font-weight: 700;
+      white-space: nowrap; transition: opacity .15s;
+    }
+    .newsletter-form button:hover { opacity: .9; }
+    .newsletter-disclaimer { margin-top: 14px; font-size: 12px; color: rgba(255,255,255,.4); }
+    .newsletter-social-proof {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      margin-top: 20px;
+    }
+    .proof-avatars { display: flex; }
+    .proof-avatars span {
+      width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--sage); display: flex; align-items: center;
+      justify-content: center; font-size: 12px; background: var(--sage-pale);
+      margin-left: -8px;
+    }
+    .proof-avatars span:first-child { margin-left: 0; }
+    .proof-text { font-size: 12.5px; color: rgba(255,255,255,.65); }
+
+    /* ─── FOOTER ─────────────────────────────────── */
+    .footer { background: var(--ink); padding: 60px 32px 32px; }
+    .footer-inner { max-width: 1280px; margin: 0 auto; }
+    .footer-top {
+      display: grid; grid-template-columns: 2fr 1fr 1fr 1fr 1fr; gap: 48px;
+      padding-bottom: 48px; border-bottom: 1px solid rgba(255,255,255,.07);
+    }
+    .footer-brand .logo { color: white; margin-bottom: 14px; font-size: 18px; }
+    .footer-brand p { font-size: 13px; color: rgba(255,255,255,.4); line-height: 1.65; max-width: 230px; margin-bottom: 20px; }
+    .footer-disclaimer {
+      font-size: 11px; color: rgba(255,255,255,.25);
+      line-height: 1.6; max-width: 230px;
+    }
+    .footer-col h5 {
+      font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+      color: rgba(255,255,255,.35); margin-bottom: 16px;
+    }
+    .footer-col ul { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+    .footer-col ul li a { font-size: 13px; color: rgba(255,255,255,.5); transition: color .15s; }
+    .footer-col ul li a:hover { color: white; }
+    .footer-bottom {
+      padding-top: 28px; display: flex; justify-content: space-between;
+      align-items: center; flex-wrap: wrap; gap: 12px;
+    }
+    .footer-copy { font-size: 12px; color: rgba(255,255,255,.25); }
+    .footer-links { display: flex; gap: 20px; }
+    .footer-links a { font-size: 12px; color: rgba(255,255,255,.3); transition: color .15s; }
+    .footer-links a:hover { color: rgba(255,255,255,.65); }
+
+    /* ─── RESPONSIVE ─────────────────────────────── */
+    @media (max-width: 1100px) {
+      .cat-grid { grid-template-columns: repeat(2, 1fr); }
+      .longevity-grid { grid-template-columns: repeat(2, 1fr); }
+      .footer-top { grid-template-columns: 1fr 1fr 1fr; }
+    }
+    @media (max-width: 900px) {
+      .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+      .hero-visual { display: none; }
+      .featured-wrap { grid-template-columns: 1fr; }
+      .feat-img { height: 280px; }
+      .experts-grid { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 768px) {
+      .main-nav { display: none; }
+      .section { padding: 56px 20px; }
+      .cat-grid { grid-template-columns: 1fr; }
+      .articles-grid { grid-template-columns: 1fr; }
+      .longevity-grid { grid-template-columns: 1fr; }
+      .tools-grid { grid-template-columns: 1fr 1fr; }
+      .experts-grid { grid-template-columns: 1fr; }
+      .footer-top { grid-template-columns: 1fr 1fr; }
+      .hero-inner { padding: 48px 20px; }
+    }
+    @media (max-width: 480px) {
+      .tools-grid { grid-template-columns: 1fr; }
+      .footer-top { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ╔═══════════ HEADER ═══════════╗ -->
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#" class="logo">
+      <div class="logo-mark">🌿</div>
+      HealthNation
+    </a>
+    <nav class="main-nav">
+      <div class="nav-item">Nutrition <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div class="nav-item">Fitness <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div class="nav-item">Mental Health <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div class="nav-item">Longevity <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+      <div class="nav-item">Conditions <svg width="10" height="6" viewBox="0 0 10 6" fill="none"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg></div>
+    </nav>
+    <div class="nav-search">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+    </div>
+    <a href="#newsletter" class="nav-cta">Weekly Insights</a>
+  </div>
+</header>
+
+<!-- ╔═══════════ HERO ═══════════╗ -->
+<section class="hero">
+  <div class="hero-blob"></div>
+  <div class="hero-blob-2"></div>
+  <div class="hero-inner">
+    <div class="hero-text">
+      <div class="hero-overline">
+        <span></span>
+        Evidence-based health guidance for real people
+      </div>
+      <h1>Your Health,<br>Explained<br><em>Without the Noise</em></h1>
+      <p class="hero-sub">Science-backed content on nutrition, fitness, mental health, and longevity — reviewed by doctors and researchers, written for everyday life.</p>
+      <div class="hero-search-wrap">
+        <input type="text" placeholder="Search symptoms, conditions, or health topics…" />
+        <button>Search</button>
+      </div>
+      <div class="quick-topics">
+        <span class="quick-tag">🦠 Gut Health</span>
+        <span class="quick-tag">😴 Sleep</span>
+        <span class="quick-tag">⚖️ Weight Loss</span>
+        <span class="quick-tag">🧠 Stress</span>
+        <span class="quick-tag">⏳ Longevity</span>
+        <span class="quick-tag">🩸 Blood Sugar</span>
+      </div>
+    </div>
+    <div class="hero-visual">
+      <div class="hero-main-img">
+        <img src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800&q=80&fit=crop" alt="Healthy food preparation"/>
+      </div>
+      <div class="hero-badge">
+        <div class="badge-icon">🩺</div>
+        <div>
+          <div class="badge-text">Medically Reviewed</div>
+          <div class="badge-sub">Every article reviewed by a licensed physician</div>
+        </div>
+      </div>
+      <div class="hero-badge-2">
+        <div class="badge-2-icon">📚</div>
+        <div>
+          <div class="badge-2-text">Peer-reviewed sources</div>
+          <div class="badge-2-sub">All claims cite published research</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ TRUST BAR ═══════════╗ -->
+<div class="trust-bar">
+  <div class="trust-item"><div class="trust-dot"></div>Reviewed by licensed physicians</div>
+  <div class="trust-item"><div class="trust-dot"></div>Cites peer-reviewed research</div>
+  <div class="trust-item"><div class="trust-dot"></div>No affiliate bias</div>
+  <div class="trust-item"><div class="trust-dot"></div>1.8M monthly readers</div>
+</div>
+
+<!-- ╔═══════════ CATEGORIES ═══════════╗ -->
+<section class="section categories">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-overline">Browse by goal</p>
+      <h2 class="section-title">Explore by Health Goal</h2>
+      <p class="section-sub">Every category built on the same principle: the evidence first, practical application second.</p>
+    </div>
+    <div class="cat-grid">
+      <div class="cat-card">
+        <div class="cat-img"><img src="https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=600&q=75&fit=crop" alt="Nutrition"/></div>
+        <div class="cat-body">
+          <div class="cat-tag"><span class="cat-tag-dot"></span>Nutrition</div>
+          <h3>Nutrition Science for Real People</h3>
+          <p>Evidence-based guides covering macros, gut health, meal planning, diets, and supplements.</p>
+        </div>
+        <div class="cat-footer">
+          <span class="cat-count">200+ articles</span>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-img"><img src="https://images.unsplash.com/photo-1517836357463-d25dfeac3438?w=600&q=75&fit=crop" alt="Fitness"/></div>
+        <div class="cat-body">
+          <div class="cat-tag"><span class="cat-tag-dot"></span>Fitness</div>
+          <h3>Train Smarter. Recover Better.</h3>
+          <p>Strength training, Zone 2 cardio, VO2 max, recovery science, and sport-specific performance.</p>
+        </div>
+        <div class="cat-footer">
+          <span class="cat-count">180+ articles</span>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-img"><img src="https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=600&q=75&fit=crop" alt="Mental Health"/></div>
+        <div class="cat-body">
+          <div class="cat-tag"><span class="cat-tag-dot"></span>Mental Health</div>
+          <h3>Mental Health, Backed by Neuroscience</h3>
+          <p>Stress, anxiety, burnout, sleep, mindfulness — written with clinical accuracy.</p>
+        </div>
+        <div class="cat-footer">
+          <span class="cat-count">140+ articles</span>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-img"><img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=75&fit=crop" alt="Longevity"/></div>
+        <div class="cat-body">
+          <div class="cat-tag"><span class="cat-tag-dot"></span>Longevity</div>
+          <h3>The Science of Living Longer</h3>
+          <p>Blue Zones, VO2 max, muscle preservation, NAD+, fasting, and longevity biomarkers.</p>
+        </div>
+        <div class="cat-footer">
+          <span class="cat-count">90+ articles</span>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-img"><img src="https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=75&fit=crop" alt="Sleep"/></div>
+        <div class="cat-body">
+          <div class="cat-tag"><span class="cat-tag-dot"></span>Sleep</div>
+          <h3>Sleep Is Your Most Important Variable</h3>
+          <p>Sleep architecture, circadian rhythm, sleep disorders, and evidence-based optimization.</p>
+        </div>
+        <div class="cat-footer">
+          <span class="cat-count">75+ articles</span>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+      <div class="cat-card">
+        <div class="cat-img"><img src="https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=600&q=75&fit=crop" alt="Conditions"/></div>
+        <div class="cat-body">
+          <div class="cat-tag"><span class="cat-tag-dot"></span>Conditions</div>
+          <h3>Your Conditions, In Plain English</h3>
+          <p>Condition-specific guides covering causes, evidence-based treatment, and lifestyle interventions.</p>
+        </div>
+        <div class="cat-footer">
+          <span class="cat-count">120+ articles</span>
+          <div class="cat-arrow">→</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ FEATURED ARTICLE ═══════════╗ -->
+<section class="section">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-overline">This week's deep dive</p>
+      <h2 class="section-title">Editor's Pick</h2>
+    </div>
+    <div class="featured-wrap">
+      <div class="feat-img">
+        <img src="https://images.unsplash.com/photo-1538805060514-97d9cc17730c?w=800&q=80&fit=crop" alt="Zone 2 training running"/>
+      </div>
+      <div class="feat-body">
+        <div class="feat-label"><span class="feat-label-icon"></span>Fitness · Zone 2 Training</div>
+        <h2>The Complete Guide to Zone 2 Training: What the Research Actually Says</h2>
+        <p>Zone 2 cardio has become the most discussed training concept in longevity medicine — and for good reason. We break down the science, how to find your Zone 2, and exactly how much you need.</p>
+        <div class="feat-reviewer">
+          <div class="reviewer-avatar">👨‍⚕️</div>
+          <div class="reviewer-info">
+            <strong>Reviewed by Dr. James Whitfield, MD</strong>
+            <span>Sports Medicine & Exercise Physiology</span>
+          </div>
+        </div>
+        <div class="feat-meta">
+          <span class="meta-pill">12 min read</span>
+          <span class="meta-pill">Updated Mar 2025</span>
+          <span class="meta-pill">14 citations</span>
+        </div>
+        <a href="#" class="feat-read-btn">Read the Guide →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ LATEST ARTICLES ═══════════╗ -->
+<section class="section latest">
+  <div class="section-inner">
+    <div class="section-header">
+      <h2 class="section-title">Latest From HealthNation</h2>
+      <p class="section-sub">New articles published daily, each reviewed before going live.</p>
+    </div>
+    <div class="article-filters">
+      <button class="art-filter active">All</button>
+      <button class="art-filter">Nutrition</button>
+      <button class="art-filter">Fitness</button>
+      <button class="art-filter">Mental Health</button>
+      <button class="art-filter">Longevity</button>
+      <button class="art-filter">Sleep</button>
+    </div>
+    <div class="articles-grid">
+      <div class="article-card">
+        <div class="article-img"><img src="https://images.unsplash.com/photo-1505576399279-565b52d4ac71?w=600&q=75&fit=crop" alt="Gut health food"/></div>
+        <div class="article-body">
+          <div class="article-cat">Nutrition</div>
+          <h3>How to Improve Your Gut Health: What the Science Actually Says</h3>
+        </div>
+        <div class="article-footer">
+          <span class="article-read">11 min read</span>
+          <span class="article-tag">Gut Health</span>
+        </div>
+      </div>
+      <div class="article-card">
+        <div class="article-img"><img src="https://images.unsplash.com/photo-1486218119243-13883505764c?w=600&q=75&fit=crop" alt="Running cardio"/></div>
+        <div class="article-body">
+          <div class="article-cat">Fitness</div>
+          <h3>How to Improve Your VO2 Max — The Metric That Predicts How Long You'll Live</h3>
+        </div>
+        <div class="article-footer">
+          <span class="article-read">9 min read</span>
+          <span class="article-tag">Longevity</span>
+        </div>
+      </div>
+      <div class="article-card">
+        <div class="article-img"><img src="https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=600&q=75&fit=crop" alt="Meditation stress"/></div>
+        <div class="article-body">
+          <div class="article-cat">Mental Health</div>
+          <h3>What Chronic Stress Does to Your Body — And How to Interrupt It</h3>
+        </div>
+        <div class="article-footer">
+          <span class="article-read">8 min read</span>
+          <span class="article-tag">Stress</span>
+        </div>
+      </div>
+      <div class="article-card">
+        <div class="article-img"><img src="https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=600&q=75&fit=crop" alt="Intermittent fasting"/></div>
+        <div class="article-body">
+          <div class="article-cat">Nutrition</div>
+          <h3>Intermittent Fasting: What the Evidence Supports (and What It Doesn't)</h3>
+        </div>
+        <div class="article-footer">
+          <span class="article-read">10 min read</span>
+          <span class="article-tag">Fasting</span>
+        </div>
+      </div>
+      <div class="article-card">
+        <div class="article-img"><img src="https://images.unsplash.com/photo-1541781774459-bb2af2f05b55?w=600&q=75&fit=crop" alt="Sleep"/></div>
+        <div class="article-body">
+          <div class="article-cat">Sleep</div>
+          <h3>How to Fall Asleep Faster: 11 Strategies Backed by Sleep Science</h3>
+        </div>
+        <div class="article-footer">
+          <span class="article-read">7 min read</span>
+          <span class="article-tag">Sleep</span>
+        </div>
+      </div>
+      <div class="article-card">
+        <div class="article-img"><img src="https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=600&q=75&fit=crop" alt="Muscle building"/></div>
+        <div class="article-body">
+          <div class="article-cat">Fitness</div>
+          <h3>How to Build Muscle After 40: What Changes and What You Can Do About It</h3>
+        </div>
+        <div class="article-footer">
+          <span class="article-read">12 min read</span>
+          <span class="article-tag">Strength</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ LONGEVITY SPOTLIGHT ═══════════╗ -->
+<section class="longevity">
+  <div class="longevity-inner">
+    <div class="longevity-header">
+      <p class="section-overline">Live longer. Live better.</p>
+      <h2 class="section-title">What the Longest-Lived<br>People Do <em>Differently</em></h2>
+      <p class="section-sub">We break down Blue Zones research, the latest longevity science, and what it means for your daily routine.</p>
+    </div>
+    <div class="longevity-grid">
+      <div class="longevity-card">
+        <div class="longevity-num">01</div>
+        <h3>Blue Zones: The 9 Common Habits of the World's Longest-Lived People</h3>
+        <p>What Okinawa, Sardinia, and Loma Linda all have in common — and how to apply it.</p>
+      </div>
+      <div class="longevity-card">
+        <div class="longevity-num">02</div>
+        <h3>Why VO2 Max May Be the Single Best Predictor of Longevity</h3>
+        <p>The data behind cardiorespiratory fitness and all-cause mortality risk reduction.</p>
+      </div>
+      <div class="longevity-card">
+        <div class="longevity-num">03</div>
+        <h3>Muscle Mass After 40: Why Strength Training Is a Longevity Non-Negotiable</h3>
+        <p>Sarcopenia, metabolic health, and the evidence for resistance training as medicine.</p>
+      </div>
+    </div>
+    <a href="#" class="longevity-cta">Explore Longevity Science →</a>
+  </div>
+</section>
+
+<!-- ╔═══════════ TOOLS ═══════════╗ -->
+<section class="section tools">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-overline">Free to use</p>
+      <h2 class="section-title">Health Calculators &amp; Tools</h2>
+      <p class="section-sub">Evidence-based calculators to help you track the numbers that matter.</p>
+    </div>
+    <div class="tools-grid">
+      <div class="tool-card">
+        <div class="tool-icon">🔥</div>
+        <div class="tool-text"><h4>BMR Calculator</h4><p>Your base metabolic rate</p></div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🥩</div>
+        <div class="tool-text"><h4>Protein Calculator</h4><p>Daily intake by goal & weight</p></div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">😴</div>
+        <div class="tool-text"><h4>Sleep Debt Tracker</h4><p>How much sleep you owe</p></div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">🫁</div>
+        <div class="tool-text"><h4>VO2 Max Estimator</h4><p>Estimate from resting heart rate</p></div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">💧</div>
+        <div class="tool-text"><h4>Hydration Calculator</h4><p>Daily water needs by activity</p></div>
+      </div>
+      <div class="tool-card">
+        <div class="tool-icon">📊</div>
+        <div class="tool-text"><h4>Macros Calculator</h4><p>Protein, carbs, fat by goal</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ EXPERTS ═══════════╗ -->
+<section class="section experts">
+  <div class="section-inner">
+    <div class="section-header">
+      <p class="section-overline">Real credentials, real review</p>
+      <h2 class="section-title">Written &amp; Reviewed by Real Experts</h2>
+      <p class="section-sub">Every article on HealthNation is medically reviewed before publication. Here are some of the experts behind our content.</p>
+    </div>
+    <div class="experts-grid">
+      <div class="expert-card">
+        <div class="expert-avatar">
+          <img src="https://images.unsplash.com/photo-1559839734-2b71ea197ec2?w=200&q=80&fit=crop&crop=faces" alt="Dr. Sarah Chen"/>
+        </div>
+        <div>
+          <div class="expert-name">Dr. Sarah Chen</div>
+          <div class="expert-cred">MD, Internal Medicine</div>
+        </div>
+        <div class="expert-badge">✓ Medical Reviewer</div>
+        <p>Board-certified internist specializing in preventive medicine and metabolic health. Reviewed 60+ HealthNation articles.</p>
+        <a href="#" class="expert-link">View articles →</a>
+      </div>
+      <div class="expert-card">
+        <div class="expert-avatar">
+          <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=200&q=80&fit=crop&crop=faces" alt="Dr. Michael Torres"/>
+        </div>
+        <div>
+          <div class="expert-name">Dr. Michael Torres</div>
+          <div class="expert-cred">PhD, Nutritional Science</div>
+        </div>
+        <div class="expert-badge">✓ Lead Nutrition Reviewer</div>
+        <p>Nutrition researcher with 15 years in clinical trials. Primary reviewer for all nutrition and supplement content.</p>
+        <a href="#" class="expert-link">View articles →</a>
+      </div>
+      <div class="expert-card">
+        <div class="expert-avatar">
+          <img src="https://images.unsplash.com/photo-1594824476967-48c8b964273f?w=200&q=80&fit=crop&crop=faces" alt="Dr. Amara Okafor"/>
+        </div>
+        <div>
+          <div class="expert-name">Dr. Amara Okafor</div>
+          <div class="expert-cred">PsyD, Clinical Psychology</div>
+        </div>
+        <div class="expert-badge">✓ Mental Health Reviewer</div>
+        <p>Licensed clinical psychologist specializing in stress, anxiety, and evidence-based behavioral interventions.</p>
+        <a href="#" class="expert-link">View articles →</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ NEWSLETTER ═══════════╗ -->
+<section class="newsletter" id="newsletter">
+  <div class="newsletter-inner">
+    <p class="section-overline">Every Wednesday</p>
+    <h2 class="section-title">Weekly Health Insights.<br>No Fads. No Noise.</h2>
+    <p class="section-sub">One evidence-based health insight every Wednesday — new research, practical tips, and myth-busting. Free, always.</p>
+    <form class="newsletter-form" onsubmit="return false">
+      <input type="email" placeholder="your@email.com" />
+      <button type="submit">Subscribe Free</button>
+    </form>
+    <p class="newsletter-disclaimer">No spam. Unsubscribe any time. We never sell your data.</p>
+    <div class="newsletter-social-proof">
+      <div class="proof-avatars">
+        <span>👤</span><span>👤</span><span>👤</span><span>👤</span>
+      </div>
+      <span class="proof-text">Join 1.8M readers who trust HealthNation</span>
+    </div>
+  </div>
+</section>
+
+<!-- ╔═══════════ FOOTER ═══════════╗ -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-top">
+      <div class="footer-brand">
+        <div class="logo" style="color:white">🌿 HealthNation</div>
+        <p>Science-backed health guidance reviewed by doctors and researchers. Built for people who want real answers.</p>
+        <p class="footer-disclaimer">This site is for informational purposes only. Content does not constitute medical advice. Always consult a qualified healthcare provider.</p>
+      </div>
+      <div class="footer-col">
+        <h5>Categories</h5>
+        <ul>
+          <li><a href="#">Nutrition</a></li>
+          <li><a href="#">Fitness</a></li>
+          <li><a href="#">Mental Health</a></li>
+          <li><a href="#">Longevity</a></li>
+          <li><a href="#">Sleep</a></li>
+          <li><a href="#">Conditions</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Topics</h5>
+        <ul>
+          <li><a href="#">Gut Health</a></li>
+          <li><a href="#">Weight Loss</a></li>
+          <li><a href="#">Zone 2 Training</a></li>
+          <li><a href="#">Sleep Science</a></li>
+          <li><a href="#">Supplements</a></li>
+          <li><a href="#">Blood Sugar</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Tools</h5>
+        <ul>
+          <li><a href="#">BMR Calculator</a></li>
+          <li><a href="#">Protein Calculator</a></li>
+          <li><a href="#">Sleep Tracker</a></li>
+          <li><a href="#">VO2 Max Estimator</a></li>
+          <li><a href="#">Macros Calculator</a></li>
+        </ul>
+      </div>
+      <div class="footer-col">
+        <h5>Company</h5>
+        <ul>
+          <li><a href="#">About</a></li>
+          <li><a href="#">Editorial Standards</a></li>
+          <li><a href="#">Medical Review Panel</a></li>
+          <li><a href="#">Advertise</a></li>
+          <li><a href="#">Contact</a></li>
+          <li><a href="#">Privacy</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p class="footer-copy">© 2025 HealthNation. All rights reserved.</p>
+      <div class="footer-links">
+        <a href="#">Privacy Policy</a>
+        <a href="#">Terms of Use</a>
+        <a href="#">Editorial Standards</a>
+        <a href="#">Medical Disclaimer</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.art-filter').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.art-filter').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

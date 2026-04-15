@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Enhanced Article Page — Bangkok Street Foods</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1B6CA8;
+    --secondary: #0D9B76;
+    --accent: #C4703E;
+    --accent-hover: #A85C30;
+    --gold: #F4A124;
+    --cream: #FAF7F2;
+    --cream-dark: #F0EBE3;
+    --dark-green: #2C3E2D;
+    --text-dark: #1A1A1A;
+    --text-mid: #4A4A4A;
+    --text-light: #7A7A7A;
+    --white: #FFFFFF;
+    --border: #E5E0D8;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text-dark); background: var(--white); }
+  h1,h2,h3,h4 { font-family: 'Playfair Display', serif; }
+
+  /* NAV */
+  .nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 48px; border-bottom: 1px solid var(--border); background: var(--white); position: sticky; top: 0; z-index: 100; }
+  .nav-logo { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--text-dark); text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; align-items: center; }
+  .nav-links a { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; text-decoration: none; color: var(--text-mid); font-weight: 500; }
+  .nav-links a.nav-plan { color: var(--accent); font-weight: 700; }
+  .nav-cta { background: var(--accent); color: white; padding: 10px 20px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none; font-weight: 600; }
+
+  /* BREADCRUMBS */
+  .breadcrumb-bar { padding: 10px 48px; font-size: 12px; color: var(--text-light); background: var(--cream); }
+  .breadcrumb-bar a { color: var(--text-light); text-decoration: none; }
+  .breadcrumb-bar a:hover { color: var(--accent); }
+
+  /* ARTICLE HERO */
+  .article-hero {
+    height: 420px;
+    background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.55)),
+      url('https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=1920&q=80') center/cover;
+    display: flex; flex-direction: column; justify-content: flex-end; padding: 48px; color: white;
+  }
+  .article-hero .tag { display: inline-block; background: rgba(255,255,255,0.2); backdrop-filter: blur(4px); padding: 4px 14px; border-radius: 4px; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; margin-bottom: 16px; width: fit-content; }
+  .article-hero h1 { font-size: 42px; font-weight: 400; line-height: 1.2; max-width: 700px; }
+  .article-hero .meta { margin-top: 12px; font-size: 13px; opacity: 0.8; }
+
+  /* OPTIMIZATION: Quick action bar below hero */
+  .quick-actions {
+    background: var(--primary); padding: 0 48px; position: relative;
+  }
+  .quick-actions::before {
+    content: "NEW — QUICK ACTION BAR"; position: absolute; top: -14px; left: 60px;
+    background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .quick-actions-inner {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; gap: 0; padding: 0;
+  }
+  .qa-item {
+    flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 14px 16px; color: rgba(255,255,255,0.8); font-size: 13px; font-weight: 500;
+    text-decoration: none; border-right: 1px solid rgba(255,255,255,0.15); transition: all 0.15s;
+    cursor: pointer;
+  }
+  .qa-item:last-child { border-right: none; }
+  .qa-item:hover { background: rgba(255,255,255,0.1); color: white; }
+  .qa-item .icon { font-size: 16px; }
+  .qa-item.highlight { background: var(--gold); color: var(--text-dark); font-weight: 700; }
+
+  /* ARTICLE LAYOUT */
+  .article-layout {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 360px; gap: 48px;
+    padding: 40px 48px;
+  }
+
+  /* ARTICLE BODY */
+  .article-body p { font-size: 17px; line-height: 1.8; color: var(--text-mid); margin-bottom: 24px; }
+  .article-body h2 { font-size: 28px; margin: 40px 0 16px; }
+  .article-body h3 { font-size: 22px; margin: 32px 0 12px; }
+  .article-body strong { color: var(--text-dark); }
+  .article-body em { color: var(--accent); font-style: italic; }
+
+  /* OPTIMIZATION: Table of contents */
+  .toc {
+    background: var(--cream); border-radius: var(--radius-md); padding: 24px;
+    margin-bottom: 32px; border-left: 4px solid var(--accent); position: relative;
+  }
+  .toc::before {
+    content: "NEW — TABLE OF CONTENTS"; position: absolute; top: -14px; left: 12px;
+    background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .toc h4 { font-size: 14px; font-family: 'DM Sans', sans-serif; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); margin-bottom: 12px; }
+  .toc-list { list-style: none; }
+  .toc-list li { margin-bottom: 8px; }
+  .toc-list a { font-size: 14px; color: var(--text-mid); text-decoration: none; display: flex; align-items: center; gap: 8px; }
+  .toc-list a:hover { color: var(--accent); }
+  .toc-num { font-weight: 700; color: var(--accent); min-width: 20px; }
+
+  /* OPTIMIZATION: Tip/Pro-tip callout boxes */
+  .tip-box {
+    background: #F0F7FC; border: 1px solid #D0E3F0; border-radius: var(--radius-sm);
+    padding: 16px 20px; margin: 20px 0; display: flex; gap: 12px; align-items: flex-start;
+  }
+  .tip-box .icon { font-size: 20px; flex-shrink: 0; margin-top: 2px; }
+  .tip-box p { font-size: 14px !important; color: var(--text-mid) !important; margin-bottom: 0 !important; line-height: 1.6 !important; }
+  .tip-box strong { color: var(--primary); }
+
+  /* OPTIMIZATION: Inline booking callout (contextual) */
+  .inline-booking {
+    background: var(--cream); border: 1px solid var(--border); border-radius: var(--radius-md);
+    padding: 20px; margin: 28px 0; display: flex; align-items: center; gap: 16px;
+    position: relative;
+  }
+  .inline-booking::before {
+    content: "NEW — CONTEXTUAL BOOKING"; position: absolute; top: -14px; left: 12px;
+    background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .inline-booking-img { width: 100px; height: 75px; border-radius: 6px; background-size: cover; background-position: center; flex-shrink: 0; }
+  .inline-booking-info { flex: 1; }
+  .inline-booking-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); margin-bottom: 2px; }
+  .inline-booking-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+  .inline-booking-meta { font-size: 12px; color: var(--text-light); }
+  .inline-booking-right { text-align: right; flex-shrink: 0; }
+  .inline-booking-price { font-size: 20px; font-weight: 700; color: var(--accent); }
+  .inline-booking-price small { font-size: 11px; font-weight: 400; color: var(--text-light); display: block; }
+  .inline-booking-btn { display: inline-block; margin-top: 6px; padding: 8px 16px; background: var(--primary); color: white; border-radius: 4px; font-size: 11px; font-weight: 600; text-decoration: none; }
+
+  /* INLINE CTA BANNER */
+  .inline-cta {
+    background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 100%);
+    border-radius: var(--radius-md); padding: 28px; color: white; margin: 36px 0;
+    position: relative;
+  }
+  .inline-cta::before {
+    content: "NEW — INLINE CTA"; position: absolute; top: -14px; left: 16px;
+    background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .inline-cta h4 { font-size: 22px; font-weight: 400; color: white; margin-bottom: 8px; }
+  .inline-cta h4 ems { color: var(--gold); }
+  .inline-cta p { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 14px; }
+  .inline-cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .icta-btn { padding: 11px 20px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; display: inline-flex; align-items: center; gap: 6px; }
+  .icta-white { background: white; color: var(--primary); }
+  .icta-ghost { background: rgba(255,255,255,0.15); color: white; }
+  .icta-gold { background: var(--gold); color: var(--text-dark); }
+
+  /* OPTIMIZATION: Related articles with booking hooks */
+  .related-section {
+    margin-top: 48px; padding-top: 40px; border-top: 1px solid var(--border);
+    position: relative;
+  }
+  .related-section::before {
+    content: "NEW — RELATED + BOOKING HOOKS"; position: absolute; top: -14px; left: 0;
+    background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .related-section h3 { font-size: 24px; margin-bottom: 20px; }
+  .related-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .related-card { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; text-decoration: none; color: var(--text-dark); transition: all 0.2s; }
+  .related-card:hover { box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+  .related-card-img { height: 120px; background-size: cover; background-position: center; }
+  .related-card-body { padding: 14px; }
+  .related-card-title { font-size: 14px; font-weight: 600; margin-bottom: 4px; line-height: 1.3; }
+  .related-card-meta { font-size: 11px; color: var(--text-light); }
+  .related-card-booking { display: flex; align-items: center; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); font-size: 11px; color: var(--primary); font-weight: 600; }
+
+  /* ━━━━━━━━━━ SIDEBAR ━━━━━━━━━━ */
+  .sidebar { display: flex; flex-direction: column; gap: 20px; }
+  .sidebar-sticky { position: sticky; top: 80px; display: flex; flex-direction: column; gap: 20px; }
+
+  /* AI Trip Planner Widget */
+  .widget { border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); background: var(--white); border: 1px solid var(--border); position: relative; }
+  .widget-ann::before { content: "SIDEBAR — AI PLANNER"; position: absolute; top: -14px; left: 12px; background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; z-index: 10; letter-spacing: 0.5px; }
+  .widget-header { background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 100%); padding: 18px 20px; color: white; }
+  .widget-header-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; margin-bottom: 3px; font-weight: 600; }
+  .widget-header h4 { font-size: 18px; font-weight: 400; color: white; }
+  .widget-header h4 em { color: var(--gold); }
+  .widget-body { padding: 18px; }
+  .wf { margin-bottom: 12px; }
+  .wf label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); margin-bottom: 4px; }
+  .wf input, .wf select { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 6px; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text-dark); }
+  .wf-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .w-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-bottom: 12px; }
+  .w-tile { border: 1.5px solid var(--border); border-radius: 6px; padding: 7px 3px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--white); }
+  .w-tile:hover { border-color: var(--accent); }
+  .w-tile.selected { border-color: var(--accent); background: #FFF8F3; }
+  .w-tile-icon { font-size: 16px; }
+  .w-tile-label { font-size: 10px; font-weight: 600; color: var(--text-dark); }
+  .w-btn { width: 100%; padding: 12px; border: none; border-radius: 6px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .w-btn-plan { background: var(--accent); color: white; }
+  .w-btn-plan:hover { background: var(--accent-hover); }
+  .w-powered { text-align: center; font-size: 10px; color: var(--text-light); margin-top: 8px; }
+  .w-powered strong { color: var(--secondary); }
+
+  /* Expedia Booking Widget */
+  .exp-widget { border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--border); background: var(--white); position: relative; }
+  .exp-ann::before { content: "SIDEBAR — EXPEDIA BOOKING"; position: absolute; top: -14px; left: 12px; background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; z-index: 10; letter-spacing: 0.5px; }
+  .exp-header { background: linear-gradient(135deg, #003B95 0%, #00264D 100%); padding: 14px 20px; color: white; display: flex; align-items: center; gap: 10px; }
+  .exp-badge { background: rgba(255,255,255,0.15); padding: 4px 10px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; }
+  .exp-header span { font-size: 14px; font-weight: 600; }
+  .exp-body { padding: 16px; }
+
+  .mini-hotel { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .mini-hotel:last-of-type { border-bottom: none; }
+  .mini-hotel-img { width: 72px; height: 54px; border-radius: 6px; background-size: cover; background-position: center; flex-shrink: 0; position: relative; }
+  .mini-hotel-rating { position: absolute; top: -4px; right: -4px; background: var(--secondary); color: white; padding: 1px 5px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+  .mini-hotel-info { flex: 1; }
+  .mini-hotel-name { font-size: 13px; font-weight: 600; margin-bottom: 1px; }
+  .mini-hotel-meta { font-size: 10px; color: var(--text-light); margin-bottom: 3px; }
+  .mini-hotel-row { display: flex; align-items: center; justify-content: space-between; }
+  .mini-hotel-price { font-size: 14px; font-weight: 700; color: var(--accent); }
+  .mini-hotel-price small { font-size: 10px; font-weight: 400; color: var(--text-light); }
+  .mini-hotel-cta { font-size: 10px; font-weight: 600; color: var(--primary); text-decoration: none; }
+
+  .exp-links { display: flex; flex-direction: column; gap: 5px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); }
+  .exp-link { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; text-decoration: none; color: var(--text-dark); font-size: 12px; font-weight: 500; transition: all 0.15s; }
+  .exp-link:hover { border-color: var(--primary); background: #F0F7FC; }
+  .exp-link .icon { font-size: 14px; }
+  .exp-link .arrow { margin-left: auto; color: var(--text-light); }
+  .exp-disclosure { margin-top: 10px; font-size: 10px; color: var(--text-light); line-height: 1.4; }
+
+  /* OPTIMIZATION: "Stay nearby" widget */
+  .stay-widget { border-radius: var(--radius-md); overflow: hidden; border: 1px solid var(--border); background: var(--cream); position: relative; }
+  .stay-ann::before { content: "NEW — STAY NEARBY"; position: absolute; top: -14px; left: 12px; background: #E74C3C; color: white; padding: 4px 14px; border-radius: 4px; font-size: 11px; font-weight: 700; z-index: 10; letter-spacing: 0.5px; }
+  .stay-header { padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; }
+  .stay-header h4 { font-size: 16px; }
+  .stay-header .from { font-size: 13px; color: var(--accent); font-weight: 600; font-family: 'DM Sans', sans-serif; }
+  .stay-body { padding: 0 18px 18px; }
+  .stay-item { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--border); align-items: center; }
+  .stay-rank { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: white; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; flex-shrink: 0; }
+  .stay-info { flex: 1; }
+  .stay-name { font-size: 13px; font-weight: 600; }
+  .stay-stars { font-size: 10px; color: var(--gold); }
+  .stay-price { font-size: 14px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+  .stay-price small { font-size: 10px; font-weight: 400; color: var(--text-light); }
+  .stay-all { display: block; text-align: center; padding: 10px; font-size: 12px; font-weight: 600; color: var(--primary); text-decoration: none; border-top: 1px solid var(--border); }
+
+  /* FOOTER */
+  .footer { background: var(--text-dark); color: rgba(255,255,255,0.4); padding: 40px 48px; text-align: center; font-size: 12px; }
+  .footer-disclosure { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 12px; max-width: 600px; margin-left: auto; margin-right: auto; }
+
+  /* Mobile sticky */
+  .mobile-sticky { display: none; position: fixed; bottom: 0; left: 0; right: 0; z-index: 200; background: var(--white); border-top: 1px solid var(--border); padding: 10px 16px; box-shadow: 0 -4px 20px rgba(0,0,0,0.1); }
+  .mobile-sticky-inner { display: flex; gap: 8px; }
+  .mobile-sticky-btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .msb-plan { background: var(--accent); color: white; }
+  .msb-hotel { background: var(--primary); color: white; }
+
+  @media (max-width: 900px) {
+    .article-layout { grid-template-columns: 1fr; }
+    .sidebar-sticky { position: static; }
+    .mobile-sticky { display: block; }
+    .quick-actions-inner { flex-wrap: wrap; }
+    .qa-item { flex: none; width: 50%; }
+    .related-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="#" class="nav-logo">destination.com</a>
+  <div class="nav-links">
+    <a href="#">Destinations</a>
+    <a href="#">Experiences</a>
+    <a href="#">Guides</a>
+    <a href="#" class="nav-plan">Plan a Trip</a>
+    <a href="#">Points & Miles</a>
+  </div>
+  <a href="#" class="nav-cta">Get the Newsletter</a>
+</nav>
+
+<!-- BREADCRUMBS -->
+<div class="breadcrumb-bar">
+  <a href="#">Home</a> / <a href="#">Asia</a> / <a href="#">Thailand</a> / <a href="#">Bangkok</a> / Street Food Guide
+</div>
+
+<!-- ARTICLE HERO -->
+<div class="article-hero">
+  <span class="tag">Thailand</span>
+  <h1>10 Must-Try Bangkok Street Foods and Where to Find Them</h1>
+  <div class="meta">Updated March 13, 2025 &middot; 6 min read &middot; By Sarah Chen</div>
+</div>
+
+<!-- QUICK ACTION BAR -->
+<div class="quick-actions">
+  <div class="quick-actions-inner">
+    <a class="qa-item highlight"><span class="icon">&#9889;</span> Plan Bangkok Trip</a>
+    <a class="qa-item"><span class="icon">&#127976;</span> Hotels in Bangkok</a>
+    <a class="qa-item"><span class="icon">&#9992;</span> Flights to Bangkok</a>
+    <a class="qa-item"><span class="icon">&#127915;</span> Bangkok Activities</a>
+    <a class="qa-item"><span class="icon">&#128230;</span> Flight + Hotel Packages</a>
+  </div>
+</div>
+
+<!-- ARTICLE LAYOUT -->
+<div class="article-layout">
+  <article class="article-body">
+
+    <!-- TABLE OF CONTENTS -->
+    <div class="toc">
+      <h4>In This Guide</h4>
+      <ol class="toc-list">
+        <li><a href="#"><span class="toc-num">1.</span> Pad Thai (Stir-Fried Noodles)</a></li>
+        <li><a href="#"><span class="toc-num">2.</span> Som Tam (Green Papaya Salad)</a></li>
+        <li><a href="#"><span class="toc-num">3.</span> Mango Sticky Rice</a></li>
+        <li><a href="#"><span class="toc-num">4.</span> Guay Teow (Thai Noodle Soup)</a></li>
+        <li><a href="#"><span class="toc-num">5.</span> Khao Man Gai (Chicken Rice)</a></li>
+      </ol>
+    </div>
+
+    <p>Bangkok is a street food paradise. From sizzling woks to smoky grills, the city's streets are packed with delicious bites. If you want to experience Thai food at its best, you have to try it on the streets. But with so many options, where do you start?</p>
+
+    <p>Some dishes stand out as must-tries. And knowing where to find the best versions makes all the difference. Here are 10 Bangkok street foods you shouldn't miss — plus where to get them.</p>
+
+    <h2>1. Pad Thai (Stir-Fried Noodles)</h2>
+    <p>Pad Thai is Thailand's most famous noodle dish. It's a mix of stir-fried rice noodles, shrimp or tofu, eggs, bean sprouts, and a tamarind-based sauce. The sauce gives it a perfect balance of sweet, sour, salty, and umami flavors.</p>
+
+    <p><strong>Where to try:</strong> <em>Thipsamai Pad Thai (Old Town).</em> This legendary spot has been serving Pad Thai since 1966. Try their signature version wrapped in an egg omelet for extra flavor.</p>
+
+    <div class="tip-box">
+      <span class="icon">&#128161;</span>
+      <p><strong>Pro Tip:</strong> Ask for the "Superb Pad Thai" cooked with shrimp oil for a richer taste. Pair it with their fresh orange juice — it's the perfect combo!</p>
+    </div>
+
+    <!-- CONTEXTUAL BOOKING: Hotel near mentioned location -->
+    <div class="inline-booking">
+      <div class="inline-booking-img" style="background-image:url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200&q=80')"></div>
+      <div class="inline-booking-info">
+        <div class="inline-booking-label">Stay near Old Town</div>
+        <div class="inline-booking-name">Sala Rattanakosin Bangkok</div>
+        <div class="inline-booking-meta">&#9733;&#9733;&#9733;&#9733; &middot; 2 min walk to Thipsamai</div>
+      </div>
+      <div class="inline-booking-right">
+        <div class="inline-booking-price">$89<small>/night</small></div>
+        <a href="#" class="inline-booking-btn">View on Expedia</a>
+      </div>
+    </div>
+
+    <h2>2. Som Tam (Green Papaya Salad)</h2>
+    <p>Som Tam is a refreshing yet fiery salad that balances sweet, sour, salty, and spicy in every bite. Made with shredded green papaya, tomatoes, long beans, peanuts, dried shrimp, and a dressing of lime juice, fish sauce, palm sugar, and chilies.</p>
+
+    <p><strong>Where to try:</strong> <em>Som Tam Jay So (Silom Soi 20).</em> A no-frills stall that serves some of the most authentic Isaan-style som tam in Bangkok.</p>
+
+    <!-- INLINE CTA -->
+    <div class="inline-cta">
+      <h4>Planning a trip to Bangkok?</h4>
+      <p>Our AI builds a custom food-focused itinerary with the best street food spots, nearby hotels, and live Expedia pricing.</p>
+      <div class="inline-cta-row">
+        <button class="icta-btn icta-white">&#9889; Plan My Bangkok Trip</button>
+        <a href="#" class="icta-btn icta-ghost">&#127976; Hotels from $45/night</a>
+        <a href="#" class="icta-btn icta-gold">&#9992; Flights to Bangkok</a>
+      </div>
+    </div>
+
+    <h2>3. Mango Sticky Rice</h2>
+    <p>This iconic Thai dessert is pure comfort. Sweet glutinous rice is steamed with coconut milk, then served with slices of perfectly ripe mango and a drizzle of coconut cream. The contrast of warm rice, cool mango, and rich coconut is heavenly.</p>
+
+    <p><strong>Where to try:</strong> <em>Mae Varee (Thong Lor BTS).</em> Locals line up here daily for the freshest mango sticky rice in the city.</p>
+
+    <div class="tip-box">
+      <span class="icon">&#9200;</span>
+      <p><strong>Timing tip:</strong> Arrive before 4pm — Mae Varee sells out fast, especially during mango season (March to June).</p>
+    </div>
+
+    <h2>4. Guay Teow (Thai Noodle Soup)</h2>
+    <p>Guay Teow is Thailand's everyday comfort food — a steaming bowl of noodles in a fragrant broth with your choice of meat. You pick your noodle type (thin rice, wide rice, egg, or glass noodles), your protein, and your toppings.</p>
+
+    <p><strong>Where to try:</strong> <em>Kuay Teow Reua (Victory Monument area).</em> Known for boat noodles, these tiny bowls pack an intense dark broth flavour that keeps you ordering more.</p>
+
+    <!-- ANOTHER CONTEXTUAL BOOKING -->
+    <div class="inline-booking">
+      <div class="inline-booking-img" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=200&q=80')"></div>
+      <div class="inline-booking-info">
+        <div class="inline-booking-label">Stay near Victory Monument</div>
+        <div class="inline-booking-name">VIE Hotel Bangkok</div>
+        <div class="inline-booking-meta">&#9733;&#9733;&#9733;&#9733;&#9733; &middot; 5 min walk to boat noodles</div>
+      </div>
+      <div class="inline-booking-right">
+        <div class="inline-booking-price">$120<small>/night</small></div>
+        <a href="#" class="inline-booking-btn">View on Expedia</a>
+      </div>
+    </div>
+
+    <h2>5. Khao Man Gai (Chicken Rice)</h2>
+    <p>Khao Man Gai is deceptively simple — poached chicken served over rice cooked in chicken fat, with a punchy ginger-chili dipping sauce. When done well, it's one of the most satisfying meals in Bangkok. The rice should be fragrant and slightly oily, the chicken tender and juicy.</p>
+
+    <p><strong>Where to try:</strong> <em>Kuang Heng (Pratunam).</em> A legendary Pratunam institution that's been perfecting chicken rice for decades.</p>
+
+    <!-- RELATED ARTICLES WITH BOOKING HOOKS -->
+    <div class="related-section">
+      <h3>More Bangkok Guides</h3>
+      <div class="related-grid">
+        <a href="#" class="related-card">
+          <div class="related-card-img" style="background-image:url('https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=400&q=80')"></div>
+          <div class="related-card-body">
+            <div class="related-card-title">Bangkok 5-Day Itinerary: The Ultimate First-Timer's Guide</div>
+            <div class="related-card-meta">8 min read</div>
+            <div class="related-card-booking">&#127976; Hotels from $45/night &rarr;</div>
+          </div>
+        </a>
+        <a href="#" class="related-card">
+          <div class="related-card-img" style="background-image:url('https://images.unsplash.com/photo-1563492065599-3520f775eeed?w=400&q=80')"></div>
+          <div class="related-card-body">
+            <div class="related-card-title">Best Rooftop Bars in Bangkok: Sky-High Views & Cocktails</div>
+            <div class="related-card-meta">5 min read</div>
+            <div class="related-card-booking">&#9992; Flights from $289 &rarr;</div>
+          </div>
+        </a>
+      </div>
+    </div>
+
+  </article>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-sticky">
+
+      <!-- AI Trip Planner Widget -->
+      <div class="widget widget-ann">
+        <div class="widget-header">
+          <div class="widget-header-label">AI Trip Planner</div>
+          <h4>Plan your <em>Bangkok</em> trip</h4>
+        </div>
+        <div class="widget-body">
+          <div class="wf"><label>When?</label><input type="text" placeholder="Select dates..." /></div>
+          <div class="wf-row">
+            <div class="wf"><label>Travellers</label><select><option>2 Adults</option></select></div>
+            <div class="wf"><label>Budget</label><select><option>$2K — $4K</option></select></div>
+          </div>
+          <label style="font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-light);display:block;margin-bottom:5px;">Trip Style</label>
+          <div class="w-tiles">
+            <div class="w-tile selected"><div class="w-tile-icon">&#127860;</div><div class="w-tile-label">Food</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#127963;</div><div class="w-tile-label">Culture</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#127958;</div><div class="w-tile-label">Beach</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#127747;</div><div class="w-tile-label">Nightlife</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#128662;</div><div class="w-tile-label">Day Trips</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#129495;</div><div class="w-tile-label">Wellness</div></div>
+          </div>
+          <button class="w-btn w-btn-plan">&#9889; Build Bangkok Plan</button>
+          <div class="w-powered"><strong>&#10003; AI-powered</strong> &middot; custom itinerary in seconds</div>
+        </div>
+      </div>
+
+      <!-- Expedia Booking Widget (NATIVE — no iframe) -->
+      <div class="exp-widget exp-ann">
+        <div class="exp-header">
+          <span class="exp-badge">EXPEDIA</span>
+          <span>Book Bangkok</span>
+        </div>
+        <div class="exp-body">
+          <div class="mini-hotel">
+            <div class="mini-hotel-img" style="background-image:url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200&q=80')">
+              <span class="mini-hotel-rating">9.1</span>
+            </div>
+            <div class="mini-hotel-info">
+              <div class="mini-hotel-name">Mandarin Oriental</div>
+              <div class="mini-hotel-meta">&#9733;&#9733;&#9733;&#9733;&#9733; &middot; Riverside</div>
+              <div class="mini-hotel-row">
+                <div class="mini-hotel-price">$189 <small>/nt</small></div>
+                <a href="#" class="mini-hotel-cta">View Deal &rarr;</a>
+              </div>
+            </div>
+          </div>
+          <div class="mini-hotel">
+            <div class="mini-hotel-img" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=200&q=80')">
+              <span class="mini-hotel-rating">8.7</span>
+            </div>
+            <div class="mini-hotel-info">
+              <div class="mini-hotel-name">The Siam Hotel</div>
+              <div class="mini-hotel-meta">&#9733;&#9733;&#9733;&#9733;&#9733; &middot; Dusit</div>
+              <div class="mini-hotel-row">
+                <div class="mini-hotel-price">$245 <small>/nt</small></div>
+                <a href="#" class="mini-hotel-cta">View Deal &rarr;</a>
+              </div>
+            </div>
+          </div>
+          <div class="mini-hotel">
+            <div class="mini-hotel-img" style="background-image:url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=200&q=80')">
+              <span class="mini-hotel-rating">8.4</span>
+            </div>
+            <div class="mini-hotel-info">
+              <div class="mini-hotel-name">Chatrium Riverside</div>
+              <div class="mini-hotel-meta">&#9733;&#9733;&#9733;&#9733; &middot; Riverside</div>
+              <div class="mini-hotel-row">
+                <div class="mini-hotel-price">$92 <small>/nt</small></div>
+                <a href="#" class="mini-hotel-cta">View Deal &rarr;</a>
+              </div>
+            </div>
+          </div>
+
+          <div class="exp-links">
+            <a href="#" class="exp-link"><span class="icon">&#9992;</span> Flights to Bangkok <span class="arrow">&#8250;</span></a>
+            <a href="#" class="exp-link"><span class="icon">&#127976;</span> All Bangkok Hotels <span class="arrow">&#8250;</span></a>
+            <a href="#" class="exp-link"><span class="icon">&#127915;</span> Tours & Activities <span class="arrow">&#8250;</span></a>
+            <a href="#" class="exp-link"><span class="icon">&#128230;</span> Packages <span class="arrow">&#8250;</span></a>
+          </div>
+          <div class="exp-disclosure">destination.com earns a commission when you book through our links. This does not affect the price you pay.</div>
+        </div>
+      </div>
+
+      <!-- OPTIMIZATION: "Best Hotels Nearby" ranked widget -->
+      <div class="stay-widget stay-ann">
+        <div class="stay-header">
+          <h4>Best Hotels Nearby</h4>
+          <span class="from">from $45/nt</span>
+        </div>
+        <div class="stay-body">
+          <div class="stay-item">
+            <span class="stay-rank">1</span>
+            <div class="stay-info"><div class="stay-name">Sala Rattanakosin</div><div class="stay-stars">&#9733;&#9733;&#9733;&#9733;</div></div>
+            <div class="stay-price">$89<small>/nt</small></div>
+          </div>
+          <div class="stay-item">
+            <span class="stay-rank">2</span>
+            <div class="stay-info"><div class="stay-name">Riva Surya Bangkok</div><div class="stay-stars">&#9733;&#9733;&#9733;&#9733;</div></div>
+            <div class="stay-price">$72<small>/nt</small></div>
+          </div>
+          <div class="stay-item">
+            <span class="stay-rank">3</span>
+            <div class="stay-info"><div class="stay-name">Ibis Styles Khaosan</div><div class="stay-stars">&#9733;&#9733;&#9733;</div></div>
+            <div class="stay-price">$45<small>/nt</small></div>
+          </div>
+        </div>
+        <a href="#" class="stay-all">View All Bangkok Hotels &rarr;</a>
+      </div>
+
+    </div>
+  </aside>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  &copy; 2026 destination.com. All rights reserved.
+  <div class="footer-disclosure">Affiliate Disclosure: destination.com earns a commission when you book through our links. This does not affect the price you pay.</div>
+</footer>
+
+<!-- MOBILE STICKY -->
+<div class="mobile-sticky">
+  <div class="mobile-sticky-inner">
+    <button class="mobile-sticky-btn msb-plan">&#9889; Plan Trip</button>
+    <button class="mobile-sticky-btn msb-hotel">&#127976; Hotels $45+</button>
+  </div>
+</div>
+
+</body>
+</html>

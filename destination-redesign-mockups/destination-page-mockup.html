@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Destination Page — Bangkok Guide with Trip Planner + Expedia</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1B6CA8;
+    --primary-dark: #15557F;
+    --secondary: #0D9B76;
+    --accent: #C4703E;
+    --accent-hover: #A85C30;
+    --gold: #F4A124;
+    --cream: #FAF7F2;
+    --cream-dark: #F0EBE3;
+    --dark-green: #2C3E2D;
+    --text-dark: #1A1A1A;
+    --text-mid: #4A4A4A;
+    --text-light: #7A7A7A;
+    --white: #FFFFFF;
+    --border: #E5E0D8;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text-dark); background: var(--white); }
+  h1, h2, h3, h4 { font-family: 'Playfair Display', serif; }
+
+  /* NAV */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 48px; border-bottom: 1px solid var(--border); background: var(--white);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--text-dark); text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; text-decoration: none; color: var(--text-mid); font-weight: 500; }
+  .nav-cta { background: var(--accent); color: white; padding: 10px 20px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none; font-weight: 600; }
+
+  /* HERO */
+  .dest-hero {
+    height: 480px; position: relative;
+    background: linear-gradient(rgba(0,0,0,0.15), rgba(0,0,0,0.55)),
+      url('https://images.unsplash.com/photo-1508009603885-50cf7c579365?w=1920&q=80') center/cover;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding: 48px 48px 0;
+    color: white;
+  }
+  .dest-hero .breadcrumb { font-size: 12px; opacity: 0.7; margin-bottom: 12px; }
+  .dest-hero .breadcrumb a { color: white; text-decoration: none; }
+  .dest-hero h1 { font-size: 52px; font-weight: 400; margin-bottom: 8px; }
+  .dest-hero .tagline { font-size: 18px; opacity: 0.85; margin-bottom: 24px; }
+
+  /* Quick Stats Bar */
+  .stats-bar {
+    display: flex; gap: 0; background: rgba(0,0,0,0.3); backdrop-filter: blur(12px);
+    border-radius: var(--radius-md) var(--radius-md) 0 0;
+    overflow: hidden;
+  }
+  .stat-item {
+    flex: 1; padding: 16px 24px; border-right: 1px solid rgba(255,255,255,0.1);
+    text-align: center;
+  }
+  .stat-item:last-child { border-right: none; }
+  .stat-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.6; margin-bottom: 4px; }
+  .stat-value { font-size: 15px; font-weight: 600; }
+
+  /* ── FLOATING TRIP PLANNER BAR (below hero) ── */
+  .planner-bar-wrapper {
+    background: var(--primary); padding: 0 48px;
+    position: relative;
+  }
+  .planner-bar-wrapper::before {
+    content: "NEW — FLOATING TRIP PLANNER BAR";
+    position: absolute; top: -14px; left: 60px;
+    background: #E74C3C; color: white;
+    padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .planner-bar {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; align-items: center; gap: 0;
+    padding: 16px 0;
+  }
+  .planner-bar-label {
+    display: flex; align-items: center; gap: 8px;
+    padding-right: 20px; border-right: 1px solid rgba(255,255,255,0.2);
+    margin-right: 16px; white-space: nowrap;
+  }
+  .planner-bar-label .sparkle { font-size: 18px; }
+  .planner-bar-label span { font-size: 13px; font-weight: 600; color: white; }
+  .planner-bar-fields {
+    flex: 1; display: flex; gap: 10px; align-items: center;
+  }
+  .pb-field {
+    flex: 1; padding: 10px 14px; background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2); border-radius: 6px;
+    color: white; font-size: 13px; font-family: 'DM Sans', sans-serif;
+  }
+  .pb-field::placeholder { color: rgba(255,255,255,0.6); }
+  .pb-field option { color: var(--text-dark); }
+  .pb-btn {
+    padding: 12px 24px; background: var(--gold); color: var(--text-dark);
+    border: none; border-radius: 6px; font-size: 13px; font-weight: 700;
+    cursor: pointer; font-family: 'DM Sans', sans-serif; white-space: nowrap;
+  }
+
+  /* MAIN CONTENT LAYOUT */
+  .content-layout {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 380px; gap: 48px;
+    padding: 48px;
+  }
+
+  /* ARTICLE BODY */
+  .article-content h2 { font-size: 30px; margin: 0 0 16px; }
+  .article-content h3 { font-size: 22px; margin: 32px 0 12px; }
+  .article-content p { font-size: 16px; line-height: 1.8; color: var(--text-mid); margin-bottom: 20px; }
+  .article-content strong { color: var(--text-dark); }
+
+  /* Section nav tabs */
+  .section-tabs {
+    display: flex; gap: 0; border-bottom: 2px solid var(--border); margin-bottom: 32px;
+    overflow-x: auto;
+  }
+  .section-tab {
+    padding: 12px 20px; font-size: 13px; font-weight: 600; color: var(--text-light);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+    white-space: nowrap; background: none; border-top: none; border-left: none; border-right: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .section-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Itinerary Cards */
+  .itinerary-card {
+    background: var(--cream); border-radius: var(--radius-md); padding: 24px;
+    margin-bottom: 20px; border-left: 4px solid var(--accent);
+  }
+  .itinerary-day { font-size: 12px; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .itinerary-title { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 8px; }
+  .itinerary-items { display: flex; flex-direction: column; gap: 8px; }
+  .itinerary-item { display: flex; align-items: flex-start; gap: 10px; font-size: 14px; color: var(--text-mid); }
+  .itinerary-time { font-weight: 600; color: var(--text-dark); min-width: 80px; font-size: 13px; }
+
+  /* ── INLINE EXPEDIA HOTEL STRIP ── */
+  .inline-hotels {
+    margin: 32px 0; position: relative;
+  }
+  .inline-hotels::before {
+    content: "NEW — INLINE HOTEL RECOMMENDATIONS";
+    position: absolute; top: -14px; left: 0;
+    background: #E74C3C; color: white;
+    padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .inline-hotels-header {
+    display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;
+  }
+  .inline-hotels-header h3 { font-size: 20px; margin: 0; }
+  .inline-hotels-header .badge {
+    background: var(--gold); padding: 4px 12px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; color: var(--text-dark); letter-spacing: 0.5px;
+  }
+  .hotel-scroll { display: flex; gap: 16px; overflow-x: auto; padding-bottom: 8px; }
+  .hotel-card-inline {
+    min-width: 220px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+    overflow: hidden; flex-shrink: 0; transition: box-shadow 0.2s; cursor: pointer;
+  }
+  .hotel-card-inline:hover { box-shadow: var(--shadow-md); }
+  .hotel-card-img { height: 130px; background-size: cover; background-position: center; position: relative; }
+  .hotel-card-rating {
+    position: absolute; top: 8px; right: 8px; background: var(--secondary); color: white;
+    padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700;
+  }
+  .hotel-card-body { padding: 12px; }
+  .hotel-card-name { font-weight: 600; font-size: 14px; margin-bottom: 2px; }
+  .hotel-card-stars { font-size: 11px; color: var(--gold); margin-bottom: 6px; }
+  .hotel-card-price { font-size: 16px; font-weight: 700; color: var(--accent); }
+  .hotel-card-price small { font-size: 11px; font-weight: 400; color: var(--text-light); }
+  .hotel-card-cta {
+    display: block; text-align: center; padding: 8px;
+    background: var(--primary); color: white; font-size: 12px; font-weight: 600;
+    text-decoration: none; margin-top: 8px; border-radius: 4px;
+  }
+
+  /* ── INLINE CTA BANNER ── */
+  .inline-cta-banner {
+    background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 100%);
+    border-radius: var(--radius-md); padding: 32px;
+    color: white; margin: 32px 0; position: relative;
+  }
+  .inline-cta-banner::before {
+    content: "NEW — INLINE PLANNER CTA";
+    position: absolute; top: -14px; left: 16px;
+    background: #E74C3C; color: white;
+    padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.5px; z-index: 10;
+  }
+  .inline-cta-banner h4 { font-size: 24px; font-weight: 400; color: white; margin-bottom: 8px; }
+  .inline-cta-banner h4 em { color: var(--gold); }
+  .inline-cta-banner p { font-size: 14px; color: rgba(255,255,255,0.8); margin-bottom: 16px; }
+  .inline-cta-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .inline-cta-btn {
+    padding: 12px 22px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    text-decoration: none; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-white { background: white; color: var(--primary); }
+  .btn-ghost { background: rgba(255,255,255,0.15); color: white; }
+  .btn-gold { background: var(--gold); color: var(--text-dark); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━
+     SIDEBAR
+     ━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .sidebar { display: flex; flex-direction: column; gap: 24px; }
+
+  /* Sticky wrapper */
+  .sidebar-sticky {
+    position: sticky; top: 80px;
+    display: flex; flex-direction: column; gap: 24px;
+  }
+
+  /* ── AI TRIP PLANNER WIDGET ── */
+  .widget { border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); background: var(--white); border: 1px solid var(--border); position: relative; }
+  .widget-note::before {
+    content: "NEW — SIDEBAR TRIP PLANNER";
+    position: absolute; top: -14px; left: 12px;
+    background: #E74C3C; color: white;
+    padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; z-index: 10; letter-spacing: 0.5px;
+  }
+  .widget-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 100%);
+    padding: 20px; color: white;
+  }
+  .widget-header-label { font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7; margin-bottom: 4px; font-weight: 600; }
+  .widget-header h4 { font-size: 20px; font-weight: 400; color: white; }
+  .widget-header h4 em { color: var(--gold); }
+  .widget-body { padding: 20px; }
+  .w-field { margin-bottom: 12px; }
+  .w-field label { display: block; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); margin-bottom: 4px; }
+  .w-field input, .w-field select {
+    width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 6px;
+    font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--text-dark);
+  }
+  .w-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+  .w-tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 14px; }
+  .w-tile {
+    border: 1.5px solid var(--border); border-radius: 6px; padding: 8px 4px;
+    text-align: center; cursor: pointer; transition: all 0.15s; background: var(--white); font-size: 11px;
+  }
+  .w-tile:hover { border-color: var(--accent); }
+  .w-tile.selected { border-color: var(--accent); background: #FFF8F3; }
+  .w-tile-icon { font-size: 18px; margin-bottom: 1px; }
+  .w-tile-label { font-weight: 600; color: var(--text-dark); }
+  .w-btn {
+    width: 100%; padding: 13px; border: none; border-radius: 6px;
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .w-btn-plan { background: var(--accent); color: white; margin-bottom: 8px; }
+  .w-btn-plan:hover { background: var(--accent-hover); }
+  .w-powered { text-align: center; font-size: 11px; color: var(--text-light); padding-top: 8px; border-top: 1px solid var(--border); }
+  .w-powered strong { color: var(--secondary); }
+
+  /* ── EXPEDIA WIDGET ── */
+  .exp-widget { border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-md); border: 1px solid var(--border); background: var(--white); position: relative; }
+  .exp-note::before {
+    content: "NEW — SIDEBAR EXPEDIA BOOKING";
+    position: absolute; top: -14px; left: 12px;
+    background: #E74C3C; color: white;
+    padding: 4px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; z-index: 10; letter-spacing: 0.5px;
+  }
+  .exp-header { background: var(--gold); padding: 14px 20px; display: flex; align-items: center; gap: 10px; }
+  .exp-badge { background: rgba(0,0,0,0.1); padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: 700; color: var(--text-dark); letter-spacing: 0.5px; }
+  .exp-header span { font-size: 14px; font-weight: 600; color: var(--text-dark); }
+  .exp-body { padding: 16px; }
+
+  /* Mini hotel cards */
+  .mini-hotel { display: flex; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .mini-hotel:last-of-type { border-bottom: none; }
+  .mini-hotel-img { width: 80px; height: 60px; border-radius: 6px; background-size: cover; background-position: center; flex-shrink: 0; }
+  .mini-hotel-info { flex: 1; }
+  .mini-hotel-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+  .mini-hotel-meta { font-size: 11px; color: var(--text-light); margin-bottom: 4px; }
+  .mini-hotel-price { font-size: 15px; font-weight: 700; color: var(--accent); }
+  .mini-hotel-price small { font-size: 10px; font-weight: 400; color: var(--text-light); }
+
+  /* Quick links */
+  .exp-links { display: flex; flex-direction: column; gap: 6px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .exp-link {
+    display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+    border: 1px solid var(--border); border-radius: 6px; text-decoration: none;
+    color: var(--text-dark); font-size: 13px; font-weight: 500; transition: all 0.15s;
+  }
+  .exp-link:hover { border-color: var(--primary); background: #F0F7FC; }
+  .exp-link .icon { font-size: 16px; }
+  .exp-link .arrow { margin-left: auto; color: var(--text-light); }
+  .exp-disclosure { margin-top: 10px; font-size: 10px; color: var(--text-light); line-height: 1.4; }
+
+  /* ── WEATHER WIDGET ── */
+  .weather-widget {
+    background: var(--cream); border-radius: var(--radius-md); padding: 20px;
+    border: 1px solid var(--border);
+  }
+  .weather-widget h4 { font-size: 16px; margin-bottom: 12px; }
+  .weather-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .weather-item { text-align: center; }
+  .weather-month { font-size: 11px; font-weight: 600; color: var(--text-light); }
+  .weather-icon { font-size: 20px; margin: 4px 0; }
+  .weather-temp { font-size: 13px; font-weight: 600; color: var(--text-dark); }
+
+  /* FOOTER */
+  .footer { background: var(--text-dark); color: rgba(255,255,255,0.5); padding: 48px; text-align: center; font-size: 13px; }
+
+  @media (max-width: 900px) {
+    .content-layout { grid-template-columns: 1fr; }
+    .sidebar-sticky { position: static; }
+    .planner-bar { flex-direction: column; gap: 12px; }
+    .planner-bar-label { border-right: none; padding-right: 0; margin-right: 0; }
+    .planner-bar-fields { flex-direction: column; width: 100%; }
+    .pb-field { width: 100%; }
+    .stats-bar { flex-wrap: wrap; }
+    .stat-item { min-width: 33%; }
+    .hotel-scroll { flex-direction: column; }
+    .hotel-card-inline { min-width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <a href="#" class="nav-logo">destination.com</a>
+  <div class="nav-links">
+    <a href="#">Destinations</a>
+    <a href="#">Experiences</a>
+    <a href="#">Guides</a>
+    <a href="#">Points & Miles</a>
+  </div>
+  <a href="#" class="nav-cta">Get the Newsletter</a>
+</nav>
+
+<!-- DESTINATION HERO -->
+<div class="dest-hero">
+  <div class="breadcrumb"><a href="#">Home</a> / <a href="#">Asia</a> / <a href="#">Thailand</a> / Bangkok</div>
+  <h1>Bangkok</h1>
+  <div class="tagline">Temples, street food, and electric nightlife in Southeast Asia's most vibrant city.</div>
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-label">Best Time to Visit</div>
+      <div class="stat-value">Nov — Feb</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Avg. Hotel/Night</div>
+      <div class="stat-value">$85 — $250</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Daily Budget</div>
+      <div class="stat-value">$40 — $120</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Currency</div>
+      <div class="stat-value">Thai Baht (THB)</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-label">Visa</div>
+      <div class="stat-value">30-day free</div>
+    </div>
+  </div>
+</div>
+
+<!-- FLOATING TRIP PLANNER BAR -->
+<div class="planner-bar-wrapper">
+  <div class="planner-bar">
+    <div class="planner-bar-label">
+      <span class="sparkle">&#9889;</span>
+      <span>Plan Bangkok</span>
+    </div>
+    <div class="planner-bar-fields">
+      <input class="pb-field" type="text" placeholder="Travel dates..." />
+      <select class="pb-field"><option>2 Adults</option><option>Solo</option><option>2 Adults, 1 Child</option></select>
+      <select class="pb-field"><option>$2,000 — $4,000</option><option>Under $1,000</option><option>$4,000+</option></select>
+      <button class="pb-btn">Build My Bangkok Plan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN CONTENT -->
+<div class="content-layout">
+  <main class="article-content">
+    <!-- Section Tabs -->
+    <div class="section-tabs">
+      <button class="section-tab active">Overview</button>
+      <button class="section-tab">Where to Stay</button>
+      <button class="section-tab">Things to Do</button>
+      <button class="section-tab">Food Guide</button>
+      <button class="section-tab">Getting Around</button>
+      <button class="section-tab">Itineraries</button>
+    </div>
+
+    <h2>Why Visit Bangkok?</h2>
+    <p>Bangkok is a city of contrasts — gleaming temples sit beside neon-lit night markets, and Michelin-starred restaurants share streets with legendary $1 noodle stalls. Whether you're here for three days or three weeks, Bangkok rewards every type of traveller with an experience that's impossible to replicate anywhere else in the world.</p>
+
+    <p>The city is one of Southeast Asia's best-value destinations, with world-class hotels at a fraction of European prices and street food that rivals any fine dining experience. Getting here is easy with direct flights from most major cities, and the BTS Skytrain makes getting around a breeze.</p>
+
+    <!-- Inline Hotel Recommendations -->
+    <div class="inline-hotels">
+      <div class="inline-hotels-header">
+        <h3>Top Hotels in Bangkok</h3>
+        <span class="badge">EXPEDIA</span>
+      </div>
+      <div class="hotel-scroll">
+        <div class="hotel-card-inline">
+          <div class="hotel-card-img" style="background-image:url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80')">
+            <span class="hotel-card-rating">9.1</span>
+          </div>
+          <div class="hotel-card-body">
+            <div class="hotel-card-name">Mandarin Oriental</div>
+            <div class="hotel-card-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <div class="hotel-card-price">$189 <small>/night</small></div>
+            <a href="#" class="hotel-card-cta">View on Expedia</a>
+          </div>
+        </div>
+        <div class="hotel-card-inline">
+          <div class="hotel-card-img" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=400&q=80')">
+            <span class="hotel-card-rating">8.7</span>
+          </div>
+          <div class="hotel-card-body">
+            <div class="hotel-card-name">The Siam Hotel</div>
+            <div class="hotel-card-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
+            <div class="hotel-card-price">$245 <small>/night</small></div>
+            <a href="#" class="hotel-card-cta">View on Expedia</a>
+          </div>
+        </div>
+        <div class="hotel-card-inline">
+          <div class="hotel-card-img" style="background-image:url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=400&q=80')">
+            <span class="hotel-card-rating">8.4</span>
+          </div>
+          <div class="hotel-card-body">
+            <div class="hotel-card-name">Chatrium Riverside</div>
+            <div class="hotel-card-stars">&#9733;&#9733;&#9733;&#9733;</div>
+            <div class="hotel-card-price">$92 <small>/night</small></div>
+            <a href="#" class="hotel-card-cta">View on Expedia</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <h2>Sample 5-Day Bangkok Itinerary</h2>
+    <p>Here's a curated 5-day itinerary covering the best of Bangkok — from temples and street food to floating markets and rooftop bars.</p>
+
+    <div class="itinerary-card">
+      <div class="itinerary-day">Day 1 — Temples & Old Town</div>
+      <div class="itinerary-title">The Grand Palace & Rattanakosin</div>
+      <div class="itinerary-items">
+        <div class="itinerary-item"><span class="itinerary-time">09:00</span> Grand Palace & Wat Phra Kaew</div>
+        <div class="itinerary-item"><span class="itinerary-time">12:00</span> Lunch at Thipsamai (legendary Pad Thai)</div>
+        <div class="itinerary-item"><span class="itinerary-time">14:00</span> Wat Pho — the Reclining Buddha</div>
+        <div class="itinerary-item"><span class="itinerary-time">17:00</span> Sunset drinks at Sala Rattanakosin</div>
+        <div class="itinerary-item"><span class="itinerary-time">19:00</span> Dinner at Jay Fai (Michelin street food)</div>
+      </div>
+    </div>
+
+    <div class="itinerary-card">
+      <div class="itinerary-day">Day 2 — Markets & Modern Bangkok</div>
+      <div class="itinerary-title">Chatuchak, Siam & Chinatown</div>
+      <div class="itinerary-items">
+        <div class="itinerary-item"><span class="itinerary-time">08:00</span> Chatuchak Weekend Market</div>
+        <div class="itinerary-item"><span class="itinerary-time">12:00</span> Lunch at Or Tor Kor Market</div>
+        <div class="itinerary-item"><span class="itinerary-time">14:00</span> Siam district — shopping & Jim Thompson House</div>
+        <div class="itinerary-item"><span class="itinerary-time">18:00</span> Yaowarat (Chinatown) street food crawl</div>
+      </div>
+    </div>
+
+    <!-- Inline CTA -->
+    <div class="inline-cta-banner">
+      <h4>Want a <em>custom Bangkok itinerary?</em></h4>
+      <p>Our AI planner builds a personalised day-by-day plan based on your dates, budget, and interests — with live hotel and flight pricing from Expedia.</p>
+      <div class="inline-cta-row">
+        <button class="inline-cta-btn btn-white">&#9889; Build My Bangkok Plan</button>
+        <a href="#" class="inline-cta-btn btn-ghost">&#127976; Hotels from $62/night</a>
+        <a href="#" class="inline-cta-btn btn-gold">&#9992; Flights to Bangkok</a>
+      </div>
+    </div>
+
+    <div class="itinerary-card">
+      <div class="itinerary-day">Day 3 — Floating Markets & Culture</div>
+      <div class="itinerary-title">Damnoen Saduak & Thai Cooking</div>
+      <div class="itinerary-items">
+        <div class="itinerary-item"><span class="itinerary-time">06:00</span> Damnoen Saduak floating market (day trip)</div>
+        <div class="itinerary-item"><span class="itinerary-time">12:00</span> Return to Bangkok, lunch in Silom</div>
+        <div class="itinerary-item"><span class="itinerary-time">15:00</span> Thai cooking class at Baipai School</div>
+        <div class="itinerary-item"><span class="itinerary-time">20:00</span> Rooftop bar at Lebua Sky Bar</div>
+      </div>
+    </div>
+  </main>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-sticky">
+
+      <!-- AI Trip Planner Widget -->
+      <div class="widget widget-note">
+        <div class="widget-header">
+          <div class="widget-header-label">AI-Powered Trip Planner</div>
+          <h4>Plan your <em>Bangkok trip</em></h4>
+        </div>
+        <div class="widget-body">
+          <div class="w-field">
+            <label>When?</label>
+            <input type="text" placeholder="Select travel dates..." />
+          </div>
+          <div class="w-field-row">
+            <div class="w-field"><label>Travellers</label><select><option>2 Adults</option></select></div>
+            <div class="w-field"><label>Budget</label><select><option>$2K — $4K</option></select></div>
+          </div>
+          <label style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:1px;color:var(--text-light);display:block;margin-bottom:6px;">Trip Style</label>
+          <div class="w-tiles">
+            <div class="w-tile selected"><div class="w-tile-icon">&#127860;</div><div class="w-tile-label">Food</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#127963;</div><div class="w-tile-label">Culture</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#127958;</div><div class="w-tile-label">Beach</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#127747;</div><div class="w-tile-label">Nightlife</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#128662;</div><div class="w-tile-label">Day Trips</div></div>
+            <div class="w-tile"><div class="w-tile-icon">&#129495;</div><div class="w-tile-label">Wellness</div></div>
+          </div>
+          <button class="w-btn w-btn-plan">&#9889; Build My Bangkok Plan</button>
+          <div class="w-powered"><strong>&#10003; AI-powered</strong> &middot; custom itinerary in seconds</div>
+        </div>
+      </div>
+
+      <!-- Expedia Booking Widget -->
+      <div class="exp-widget exp-note">
+        <div class="exp-header">
+          <span class="exp-badge">EXPEDIA</span>
+          <span>Book Bangkok</span>
+        </div>
+        <div class="exp-body">
+          <div class="mini-hotel">
+            <div class="mini-hotel-img" style="background-image:url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=200&q=80')"></div>
+            <div class="mini-hotel-info">
+              <div class="mini-hotel-name">Mandarin Oriental</div>
+              <div class="mini-hotel-meta">&#9733;&#9733;&#9733;&#9733;&#9733; &middot; Riverside</div>
+              <div class="mini-hotel-price">$189 <small>/night</small></div>
+            </div>
+          </div>
+          <div class="mini-hotel">
+            <div class="mini-hotel-img" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=200&q=80')"></div>
+            <div class="mini-hotel-info">
+              <div class="mini-hotel-name">The Siam Hotel</div>
+              <div class="mini-hotel-meta">&#9733;&#9733;&#9733;&#9733;&#9733; &middot; Dusit</div>
+              <div class="mini-hotel-price">$245 <small>/night</small></div>
+            </div>
+          </div>
+          <div class="mini-hotel">
+            <div class="mini-hotel-img" style="background-image:url('https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?w=200&q=80')"></div>
+            <div class="mini-hotel-info">
+              <div class="mini-hotel-name">Chatrium Riverside</div>
+              <div class="mini-hotel-meta">&#9733;&#9733;&#9733;&#9733; &middot; Riverside</div>
+              <div class="mini-hotel-price">$92 <small>/night</small></div>
+            </div>
+          </div>
+
+          <div class="exp-links">
+            <a href="#" class="exp-link"><span class="icon">&#9992;</span> Flights to Bangkok <span class="arrow">&#8250;</span></a>
+            <a href="#" class="exp-link"><span class="icon">&#127976;</span> All Bangkok Hotels <span class="arrow">&#8250;</span></a>
+            <a href="#" class="exp-link"><span class="icon">&#127915;</span> Tours & Activities <span class="arrow">&#8250;</span></a>
+            <a href="#" class="exp-link"><span class="icon">&#128230;</span> Flight + Hotel Packages <span class="arrow">&#8250;</span></a>
+          </div>
+
+          <div class="exp-disclosure">destination.com earns a commission when you book through our links. This does not affect the price you pay.</div>
+        </div>
+      </div>
+
+      <!-- Weather Widget -->
+      <div class="weather-widget">
+        <h4>Bangkok Weather</h4>
+        <div class="weather-grid">
+          <div class="weather-item"><div class="weather-month">Nov</div><div class="weather-icon">&#9728;</div><div class="weather-temp">31&#176;C</div></div>
+          <div class="weather-item"><div class="weather-month">Dec</div><div class="weather-icon">&#9728;</div><div class="weather-temp">30&#176;C</div></div>
+          <div class="weather-item"><div class="weather-month">Jan</div><div class="weather-icon">&#9728;</div><div class="weather-temp">32&#176;C</div></div>
+          <div class="weather-item"><div class="weather-month">Feb</div><div class="weather-icon">&#9728;</div><div class="weather-temp">33&#176;C</div></div>
+          <div class="weather-item"><div class="weather-month">Mar</div><div class="weather-icon">&#127780;</div><div class="weather-temp">34&#176;C</div></div>
+          <div class="weather-item"><div class="weather-month">Apr</div><div class="weather-icon">&#127783;</div><div class="weather-temp">35&#176;C</div></div>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<footer class="footer">&copy; 2026 destination.com — Mockup for redesign review.</footer>
+
+</body>
+</html>

@@ -1,0 +1,37 @@
+2026-04-13 13:20:11,344 [INFO]   ✓ Loaded 13 WP categories: ['blog', 'body-fitness', 'conditions', 'fitness', 'health', 'health-diet', 'lifestyle', 'longevity', 'medical', 'mental-health', 'nutrition', 'sleep', 'weight-loss']
+2026-04-13 13:20:11,346 [INFO] Starting bulk populate: 3 articles
+2026-04-13 13:20:11,346 [INFO] Estimated time: ~1 minutes
+2026-04-13 13:20:11,346 [INFO] 
+[1/3] How to Improve Your Gut Health
+2026-04-13 13:20:12,668 [INFO] Generating article: How to Improve Your Gut Health
+2026-04-13 13:21:53,152 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:21:53,187 [INFO]   ✓ Generated: How to Improve Gut Health: What the Science Actually Says (11 min read)
+2026-04-13 13:21:57,155 [ERROR] Image upload failed: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+2026-04-13 13:21:58,058 [ERROR] WordPress publish failed: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+2026-04-13 13:21:58,060 [INFO]   Waiting 8s before next article…
+2026-04-13 13:22:06,066 [INFO] 
+[2/3] How Much Protein Do You Actually Need Per Day
+2026-04-13 13:22:08,357 [INFO] Generating article: How Much Protein Do You Actually Need Per Day
+2026-04-13 13:23:33,638 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:23:33,645 [INFO]   ✓ Generated: How Much Protein Per Day Do You Actually Need? The Evidence-Based Answer (9 min read)
+2026-04-13 13:23:38,864 [ERROR] Image upload failed: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+2026-04-13 13:23:39,699 [ERROR] WordPress publish failed: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+2026-04-13 13:23:39,700 [INFO]   Waiting 8s before next article…
+2026-04-13 13:23:47,705 [INFO] 
+[3/3] Zone 2 Training: What It Is, Why It Works, and How to Do It
+2026-04-13 13:23:49,077 [INFO] Generating article: Zone 2 Training: What It Is, Why It Works, and How to Do It
+2026-04-13 13:25:31,753 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:25:31,761 [INFO]   ✓ Generated: Zone 2 Training: What It Is, Why It Works, and How to Do It (11 min read)
+2026-04-13 13:25:34,996 [ERROR] Image upload failed: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+2026-04-13 13:25:35,836 [ERROR] WordPress publish failed: Unexpected UTF-8 BOM (decode using utf-8-sig): line 1 column 1 (char 0)
+2026-04-13 13:25:35,838 [INFO] 
+============================================================
+BULK POPULATE COMPLETE
+============================================================
+Total topics:  3
+Published:     0
+Failed:        3
+Skipped:       0
+Log file:      /Users/priyeshpatel/Desktop/pgam-intelligence/healthnation-automation/logs/bulk_20260413_132009.log
+============================================================
+2026-04-13 13:25:35,838 [WARNING] Failed topics: ['how to improve gut health', 'how much protein per day', 'zone 2 training']

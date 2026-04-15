@@ -1,0 +1,53 @@
+services:
+  - type: worker
+    name: pgam-intelligence-scheduler
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python scheduler.py
+    plan: starter          # upgrade to standard if you need more CPU/RAM
+    autoDeploy: true
+
+    envVars:
+      # ── Anthropic ────────────────────────────────────────────────────────────
+      - key: ANTHROPIC_API_KEY
+        sync: false        # set manually in Render dashboard
+
+      # ── LL (LiveRamp / pgamrtb) ───────────────────────────────────────────────
+      - key: LL_API_BASE_URL
+        sync: false
+      - key: LL_CLIENT_KEY
+        sync: false
+      - key: LL_SECRET_KEY
+        sync: false
+      - key: LL_UI_EMAIL
+        sync: false
+      - key: LL_UI_PASSWORD
+        sync: false
+      - key: LL_DRY_RUN
+        value: "false"     # safety: set to "true" here and override in dashboard if needed
+
+      # ── TB (TechBid) ─────────────────────────────────────────────────────────
+      - key: TB_API_BASE_URL
+        sync: false
+      - key: TB_CLIENT_KEY
+        sync: false
+      - key: TB_SECRET_KEY
+        sync: false
+      - key: TB_EMAIL
+        sync: false
+      - key: TB_PASSWORD
+        sync: false
+
+      # ── Notifications ────────────────────────────────────────────────────────
+      - key: SLACK_WEBHOOK
+        sync: false
+      - key: SENDGRID_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_TO
+        sync: false
+
+      # ── Timezone (keep scheduler in ET) ──────────────────────────────────────
+      - key: TZ
+        value: America/New_York

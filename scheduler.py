@@ -1,0 +1,209 @@
+"""
+scheduler.py
+
+PGAM Intelligence — main scheduler process.
+
+Runs as a single long-lived process. Uses the `schedule` library to trigger
+every agent at the correct time (US/Eastern). All agents are self-deduplicating
+so it is safe to call them more frequently than they post — they will simply
+skip when already sent.
+
+Start:
+    python scheduler.py
+
+Deployment:
+    Render  → set Start Command to: python scheduler.py
+    Railway → same
+    Local   → python scheduler.py  (runs indefinitely)
+
+Environment:
+    All credentials are read from .env (or host environment variables):
+        TB_CLIENT_KEY, TB_SECRET_KEY, TB_API_BASE_URL
+        SLACK_WEBHOOK
+        ANTHROPIC_API_KEY
+        SENDGRID_KEY, EMAIL_FROM
+"""
+
+import time
+import traceback
+from datetime import datetime
+
+import pytz
+import schedule
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
+
+ET = pytz.timezone("US/Eastern")
+
+
+def _run(agent_name: str, fn):
+    """Wrapper that catches all exceptions so one failing agent never kills the scheduler."""
+    def job():
+        now = datetime.now(ET).strftime("%Y-%m-%d %H:%M ET")
+        print(f"[scheduler] ▶ {agent_name}  ({now})")
+        try:
+            fn()
+        except Exception:
+            print(f"[scheduler] ✗ {agent_name} raised an exception:")
+            traceback.print_exc()
+        else:
+            print(f"[scheduler] ✓ {agent_name} completed.")
+    job.__name__ = agent_name
+    return job
+
+
+# ---------------------------------------------------------------------------
+# Lazy-import each agent's run() so import errors in one agent don't stop
+# the scheduler from starting.
+# ---------------------------------------------------------------------------
+
+def _import(module_path: str):
+    """Return the run() function from a dotted module path, or a no-op on failure."""
+    import importlib
+    try:
+        mod = importlib.import_module(module_path)
+        return mod.run
+    except Exception as exc:
+        print(f"[scheduler] WARNING: could not import {module_path}: {exc}")
+        return lambda: None
+
+
+# ---------------------------------------------------------------------------
+# Schedule
+# ---------------------------------------------------------------------------
+#
+# All times are US/Eastern.  The schedule library uses local system time, so
+# we wrap each call in a timezone check to ensure ET correctness regardless
+# of the server's system clock timezone.
+#
+# Pattern used: call each agent every N minutes; the agent itself checks the
+# clock and day-of-week internally and skips if it's not the right time.
+# This is simpler and more robust than trying to schedule exact times, because
+# it means a scheduler restart never misses an alert.
+#
+# Agent                  | Frequency  | When it actually fires
+# -----------------------|------------|------------------------------------------
+# tb_revenue             | every 60m  | any time (55-min cooldown inside agent)
+# ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
+# revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
+# opp_fill_rate          | every 4h   | daily summary + critical repeat
+# floor_gap              | daily 8am  | once per day
+# demand_saturation      | daily 8am  | once per day
+# app_revenue            | daily 8am  | once per day
+# publisher_monetization | daily 8am  | once per day
+# action_tracker         | daily 8am  | once per day
+# daily_email            | daily 7am  | once per day (hour gate inside)
+# win_rate_maximizer     | daily 8am  | once per day
+# floor_elasticity       | Mon 8am    | Monday only (weekday guard inside)
+# weekly_review          | Mon 7am    | Monday only (weekday + hour guard inside)
+# ctv_optimizer          | Mon 8am    | Monday only (weekday guard inside)
+# demand_expansion       | Wed 8am    | Wednesday only (weekday guard inside)
+# geo_expansion          | Thu 8am    | Thursday only (weekday guard inside)
+# weekend_recovery       | Fri 8am    | Friday + Sunday (weekday guard inside)
+# fill_funnel            | daily 8:15 | Mon-Fri (weekday guard inside)
+# dead_demand            | Mon 8:15   | Monday only (weekday guard inside)
+# geo_leak               | Thu 8:15   | Thursday only (weekday guard inside)
+# pilot_snapshot         | daily 9am  | PubNative + AppStock daily baseline (dedup inside)
+# pilot_watchdog         | daily 9:30 | auto-revert floors if revenue drops >15 % vs baseline
+# revenue_gap            | Sun 9am    | Sunday only (weekday guard inside)
+# monthly_forecast       | 1/10/20th  | day-of-month guard inside
+# ---------------------------------------------------------------------------
+
+def setup_schedule():
+    tb_revenue             = _import("agents.alerts.tb_revenue")
+    ll_revenue             = _import("agents.alerts.ll_revenue")
+    revenue_pace           = _import("agents.alerts.revenue_pace")
+    opp_fill_rate          = _import("agents.alerts.opp_fill_rate")
+    floor_gap              = _import("agents.alerts.floor_gap")
+    demand_saturation      = _import("agents.alerts.demand_saturation")
+    app_revenue            = _import("agents.alerts.app_revenue")
+    publisher_monetization = _import("agents.alerts.publisher_monetization")
+    action_tracker         = _import("agents.alerts.action_tracker")
+    daily_email            = _import("agents.reports.daily_email")
+    win_rate_maximizer     = _import("agents.reports.win_rate_maximizer")
+    floor_elasticity       = _import("agents.reports.floor_elasticity")
+    weekly_review          = _import("agents.alerts.weekly_review")
+    ctv_optimizer          = _import("agents.alerts.ctv_optimizer")
+    demand_expansion       = _import("agents.alerts.demand_expansion")
+    geo_expansion          = _import("agents.alerts.geo_expansion")
+    weekend_recovery       = _import("agents.alerts.weekend_recovery")
+    revenue_gap            = _import("agents.alerts.revenue_gap")
+    monthly_forecast       = _import("agents.alerts.monthly_forecast")
+    # New extended-API agents
+    fill_funnel            = _import("agents.optimization.fill_funnel")
+    dead_demand            = _import("agents.optimization.dead_demand")
+    geo_leak               = _import("agents.optimization.geo_leak")
+    # Pilot program
+    pilot_snapshot         = _import("scripts.pilot_snapshot")
+    pilot_watchdog         = _import("scripts.pilot_watchdog")
+
+    # ── Hourly ───────────────────────────────────────────────────────────────
+    schedule.every(60).minutes.do(_run("tb_revenue",         tb_revenue))
+    schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
+
+    # ── Every 4 hours ────────────────────────────────────────────────────────
+    schedule.every(4).hours.do(  _run("revenue_pace",        revenue_pace))
+    schedule.every(4).hours.do(  _run("opp_fill_rate",       opp_fill_rate))
+
+    # ── Daily at 7:00 AM ET ───────────────────────────────────────────────────
+    schedule.every().day.at("07:00").do(_run("daily_email",    daily_email))
+    schedule.every().day.at("07:00").do(_run("weekly_review",  weekly_review))   # Mon guard inside
+
+    # ── Daily at 8:00 AM ET ───────────────────────────────────────────────────
+    schedule.every().day.at("08:00").do(_run("floor_gap",              floor_gap))
+    schedule.every().day.at("08:00").do(_run("demand_saturation",      demand_saturation))
+    schedule.every().day.at("08:00").do(_run("app_revenue",            app_revenue))
+    schedule.every().day.at("08:00").do(_run("publisher_monetization", publisher_monetization))
+    schedule.every().day.at("08:00").do(_run("action_tracker",         action_tracker))
+    schedule.every().day.at("08:00").do(_run("win_rate_maximizer",     win_rate_maximizer))
+    schedule.every().day.at("08:00").do(_run("floor_elasticity",       floor_elasticity))    # Mon guard inside
+    schedule.every().day.at("08:00").do(_run("ctv_optimizer",          ctv_optimizer))       # Mon guard inside
+    schedule.every().day.at("08:00").do(_run("demand_expansion",       demand_expansion))    # Wed guard inside
+    schedule.every().day.at("08:00").do(_run("geo_expansion",          geo_expansion))       # Thu guard inside
+    schedule.every().day.at("08:00").do(_run("weekend_recovery",       weekend_recovery))    # Fri+Sun guard inside
+    schedule.every().day.at("08:15").do(_run("fill_funnel",            fill_funnel))         # Mon-Fri guard inside
+    schedule.every().day.at("08:15").do(_run("dead_demand",            dead_demand))         # Mon guard inside
+    schedule.every().day.at("08:15").do(_run("geo_leak",               geo_leak))            # Thu guard inside
+
+    # ── Daily 9:00 AM ET ─────────────────────────────────────────────────────
+    schedule.every().day.at("09:00").do(_run("pilot_snapshot",    pilot_snapshot))     # daily dedup inside
+    schedule.every().day.at("09:30").do(_run("pilot_watchdog",   pilot_watchdog))     # checks active floor watches
+    schedule.every().day.at("09:00").do(_run("revenue_gap",       revenue_gap))        # Sun guard inside
+
+    # ── Monthly forecast: runs daily at 7:30 AM, day-of-month guard inside ───
+    schedule.every().day.at("07:30").do(_run("monthly_forecast",  monthly_forecast))   # 1/10/20 guard inside
+
+    print("[scheduler] Schedule registered:")
+    for job in schedule.get_jobs():
+        print(f"  {job}")
+
+
+# ---------------------------------------------------------------------------
+# Main loop
+# ---------------------------------------------------------------------------
+
+def main():
+    print("=" * 60)
+    print("PGAM Intelligence Scheduler starting…")
+    print(f"System time: {datetime.now()}")
+    print(f"ET time:     {datetime.now(ET).strftime('%Y-%m-%d %H:%M %Z')}")
+    print("=" * 60)
+
+    setup_schedule()
+
+    # Run TB and LL revenue once immediately on startup so we don't
+    # wait up to 60 minutes for the first snapshot.
+    print("\n[scheduler] Running startup revenue checks (TB + LL)…")
+    for job in schedule.get_jobs():
+        if job.job_func.__name__ in ("tb_revenue", "ll_revenue"):
+            job.run()
+
+    print("\n[scheduler] Entering main loop. Press Ctrl+C to stop.\n")
+    while True:
+        schedule.run_pending()
+        time.sleep(30)   # check every 30 seconds
+
+
+if __name__ == "__main__":
+    main()

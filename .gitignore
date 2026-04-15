@@ -1,0 +1,12 @@
+.env
+__pycache__/
+*.pyc
+.DS_Store
+/tmp/
+*.html.tmp
+.venv/
+venv/
+
+# Google OAuth secrets — never commit these
+reports/credentials.json
+reports/token.pickle

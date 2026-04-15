@@ -1,0 +1,20 @@
+2026-04-13 13:11:43,563 [INFO] DRY RUN — Starting bulk populate: 1 articles
+2026-04-13 13:11:43,563 [INFO] Estimated time: ~0 minutes
+2026-04-13 13:11:43,563 [INFO] 
+[1/1] How to Improve Your Gut Health
+2026-04-13 13:11:43,563 [INFO] Generating article: How to Improve Your Gut Health
+2026-04-13 13:13:19,508 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:13:19,527 [INFO]   ✓ Generated: How to Improve Gut Health: What the Science Actually Recommends (10 min read)
+2026-04-13 13:13:19,527 [INFO]   DRY RUN — Would publish: 'How to Improve Gut Health: What the Science Actually Recommends'
+2026-04-13 13:13:19,527 [INFO]   Meta title: How to Improve Gut Health: Evidence-Based Guide
+2026-04-13 13:13:19,527 [INFO]   Excerpt: Understanding how to improve gut health starts with the science, not the supplement aisle. This evid...
+2026-04-13 13:13:19,527 [INFO] 
+============================================================
+BULK POPULATE COMPLETE
+============================================================
+Total topics:  1
+Published:     1
+Failed:        0
+Skipped:       0
+Log file:      /Users/priyeshpatel/Desktop/pgam-intelligence/healthnation-automation/logs/bulk_20260413_131143.log
+============================================================

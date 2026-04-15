@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Destination.com — Homepage Redesign Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1B6CA8;
+    --primary-dark: #15557F;
+    --secondary: #0D9B76;
+    --accent: #C4703E;
+    --accent-hover: #A85C30;
+    --gold: #F4A124;
+    --cream: #FAF7F2;
+    --cream-dark: #F0EBE3;
+    --text-dark: #1A1A1A;
+    --text-mid: #4A4A4A;
+    --text-light: #7A7A7A;
+    --white: #FFFFFF;
+    --border: #E5E0D8;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+    --radius-xl: 24px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text-dark); background: var(--white); }
+  h1, h2, h3 { font-family: 'Playfair Display', serif; }
+
+  /* ── NAV (matches existing site) ── */
+  .nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 48px; border-bottom: 1px solid var(--border); background: var(--white);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { font-family: 'Playfair Display', serif; font-size: 20px; color: var(--text-dark); text-decoration: none; }
+  .nav-links { display: flex; gap: 28px; }
+  .nav-links a { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; text-decoration: none; color: var(--text-mid); font-weight: 500; }
+  .nav-cta { background: var(--accent); color: white; padding: 10px 20px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none; font-weight: 600; }
+
+  /* ── HERO (keeps existing style) ── */
+  .hero {
+    height: 85vh; background: linear-gradient(rgba(0,0,0,0.25), rgba(0,0,0,0.4)), url('https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=1920&q=80') center/cover;
+    display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; padding: 0 24px;
+  }
+  .hero-label { font-size: 11px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 20px; opacity: 0.85; }
+  .hero h1 { font-size: 64px; font-weight: 400; line-height: 1.15; max-width: 700px; }
+  .hero h1 em { font-style: italic; color: var(--gold); }
+  .hero p { margin-top: 16px; font-size: 16px; opacity: 0.85; max-width: 500px; }
+  .hero-buttons { margin-top: 32px; display: flex; gap: 16px; }
+  .hero-buttons a { padding: 14px 32px; font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600; text-decoration: none; border-radius: 4px; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-secondary { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.4); backdrop-filter: blur(4px); }
+
+  /* ────────────────────────────────────────────────
+     NEW SECTION: AI TRIP PLANNER (replaces 4 image cards)
+     ──────────────────────────────────────────────── */
+  .trip-planner-section {
+    background: var(--cream);
+    padding: 80px 48px;
+  }
+  .section-header {
+    text-align: center; margin-bottom: 48px;
+  }
+  .section-label {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 12px;
+  }
+  .section-header h2 {
+    font-size: 44px; font-weight: 400; color: var(--text-dark); line-height: 1.2;
+  }
+  .section-header h2 em { font-style: italic; color: var(--accent); }
+  .section-header p {
+    margin-top: 12px; font-size: 17px; color: var(--text-light); max-width: 560px; margin-left: auto; margin-right: auto;
+  }
+
+  /* Planner Card */
+  .planner-card {
+    max-width: 1100px; margin: 0 auto;
+    background: var(--white); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+  }
+
+  /* Step Indicator */
+  .step-bar {
+    display: flex; background: var(--cream-dark); border-bottom: 1px solid var(--border);
+  }
+  .step-item {
+    flex: 1; display: flex; align-items: center; gap: 10px;
+    padding: 16px 24px; font-size: 13px; font-weight: 500; color: var(--text-light);
+    border-right: 1px solid var(--border); position: relative;
+  }
+  .step-item:last-child { border-right: none; }
+  .step-item.active { color: var(--accent); background: var(--white); }
+  .step-item.completed { color: var(--secondary); }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700;
+    background: var(--border); color: var(--text-light);
+  }
+  .step-item.active .step-num { background: var(--accent); color: white; }
+  .step-item.completed .step-num { background: var(--secondary); color: white; }
+
+  /* Form Body */
+  .planner-body { padding: 40px 48px; }
+  .planner-question {
+    font-family: 'Playfair Display', serif; font-size: 28px; margin-bottom: 8px; color: var(--text-dark);
+  }
+  .planner-subtitle { font-size: 15px; color: var(--text-light); margin-bottom: 32px; }
+
+  /* Destination Tiles */
+  .tile-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 32px;
+  }
+  .tile {
+    border: 2px solid var(--border); border-radius: var(--radius-md);
+    padding: 20px 16px; text-align: center; cursor: pointer; transition: all 0.2s;
+    background: var(--white);
+  }
+  .tile:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: var(--shadow-sm); }
+  .tile.selected { border-color: var(--accent); background: #FFF8F3; }
+  .tile-icon { font-size: 32px; margin-bottom: 8px; }
+  .tile-label { font-size: 14px; font-weight: 600; color: var(--text-dark); }
+  .tile-sub { font-size: 12px; color: var(--text-light); margin-top: 4px; }
+
+  /* Inline Inputs Row */
+  .input-row {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-bottom: 32px;
+  }
+  .input-group { display: flex; flex-direction: column; gap: 6px; }
+  .input-group label {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light);
+  }
+  .input-group input, .input-group select {
+    padding: 14px 16px; border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 15px; font-family: 'DM Sans', sans-serif; color: var(--text-dark);
+    background: var(--white); transition: border-color 0.2s;
+  }
+  .input-group input:focus, .input-group select:focus {
+    outline: none; border-color: var(--accent);
+  }
+
+  /* Budget Slider */
+  .budget-section { margin-bottom: 32px; }
+  .budget-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .budget-header label { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--text-light); }
+  .budget-value { font-size: 24px; font-weight: 700; color: var(--accent); font-family: 'DM Sans', sans-serif; }
+  .budget-slider {
+    width: 100%; height: 6px; -webkit-appearance: none; appearance: none;
+    background: linear-gradient(to right, var(--accent) 60%, var(--border) 60%);
+    border-radius: 3px; outline: none;
+  }
+  .budget-slider::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 24px; height: 24px; border-radius: 50%;
+    background: var(--accent); border: 3px solid var(--white); box-shadow: var(--shadow-md); cursor: pointer;
+  }
+  .budget-tiers { display: flex; justify-content: space-between; margin-top: 8px; font-size: 12px; color: var(--text-light); }
+
+  /* CTA */
+  .planner-cta {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-top: 24px; border-top: 1px solid var(--border);
+  }
+  .planner-cta-hint { font-size: 13px; color: var(--text-light); }
+  .planner-cta-hint strong { color: var(--secondary); }
+  .btn-plan {
+    background: var(--accent); color: white; border: none;
+    padding: 16px 40px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; letter-spacing: 0.5px; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; transition: background 0.2s;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .btn-plan:hover { background: var(--accent-hover); }
+  .btn-plan svg { width: 18px; height: 18px; }
+
+  /* ── Expedia Quick Book Strip ── */
+  .expedia-strip {
+    max-width: 1100px; margin: -1px auto 0;
+    background: var(--primary);
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+    padding: 20px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .expedia-strip-left {
+    display: flex; align-items: center; gap: 16px;
+  }
+  .expedia-badge {
+    background: rgba(255,255,255,0.15); border-radius: 6px; padding: 8px 14px;
+    font-size: 11px; font-weight: 700; color: white; letter-spacing: 0.5px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .expedia-badge svg { width: 14px; height: 14px; }
+  .expedia-strip-text { color: rgba(255,255,255,0.9); font-size: 14px; }
+  .expedia-strip-text strong { color: white; }
+  .expedia-strip-links { display: flex; gap: 12px; }
+  .expedia-link {
+    padding: 10px 20px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    text-decoration: none; letter-spacing: 0.5px; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .expedia-link-hotels { background: rgba(255,255,255,0.15); color: white; }
+  .expedia-link-hotels:hover { background: rgba(255,255,255,0.25); }
+  .expedia-link-flights { background: var(--gold); color: var(--text-dark); }
+  .expedia-link-flights:hover { background: #E69520; }
+
+  /* ── TRAVEL GUIDES (existing section, kept) ── */
+  .guides-section { padding: 80px 48px; background: var(--white); }
+  .guides-grid {
+    max-width: 1200px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 32px; margin-top: 48px;
+  }
+  .guide-card {
+    border-radius: var(--radius-md); overflow: hidden;
+    background: var(--cream); transition: transform 0.2s;
+  }
+  .guide-card:hover { transform: translateY(-4px); }
+  .guide-img {
+    height: 280px; background-size: cover; background-position: center; position: relative;
+  }
+  .guide-tag {
+    position: absolute; top: 16px; left: 16px;
+    background: rgba(0,0,0,0.5); color: white; padding: 4px 12px; border-radius: 4px;
+    font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;
+  }
+  .guide-body { padding: 24px; }
+  .guide-body h3 { font-size: 22px; line-height: 1.3; margin-bottom: 8px; }
+  .guide-body p { font-size: 14px; color: var(--text-light); line-height: 1.5; margin-bottom: 16px; }
+  .guide-meta { font-size: 12px; color: var(--text-light); margin-bottom: 12px; }
+  .guide-link { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); text-decoration: none; }
+
+  /* ── INLINE TRIP PLANNER CTA (within guides) ── */
+  .inline-planner-cta {
+    grid-column: 1 / -1;
+    background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 100%);
+    border-radius: var(--radius-md); padding: 40px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+    color: white;
+  }
+  .inline-planner-cta h3 { font-size: 28px; font-weight: 400; margin-bottom: 8px; color: white; }
+  .inline-planner-cta h3 em { color: var(--gold); }
+  .inline-planner-cta p { font-size: 15px; opacity: 0.85; max-width: 480px; }
+  .btn-plan-white {
+    background: white; color: var(--primary); border: none;
+    padding: 16px 32px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif;
+    white-space: nowrap;
+  }
+
+  /* ── FOOTER ── */
+  .footer {
+    background: var(--text-dark); color: rgba(255,255,255,0.5); padding: 48px;
+    text-align: center; font-size: 13px;
+  }
+
+  /* ── DESIGN ANNOTATION OVERLAYS ── */
+  .annotation {
+    position: relative;
+  }
+  .annotation::before {
+    content: attr(data-note);
+    position: absolute; top: -12px; left: 24px;
+    background: #E74C3C; color: white;
+    padding: 4px 12px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; font-family: 'DM Sans', sans-serif;
+    z-index: 50; letter-spacing: 0.5px;
+  }
+
+  @media (max-width: 768px) {
+    .tile-grid { grid-template-columns: repeat(2, 1fr); }
+    .input-row { grid-template-columns: 1fr; }
+    .expedia-strip { flex-direction: column; gap: 16px; text-align: center; }
+    .guides-grid { grid-template-columns: 1fr; }
+    .inline-planner-cta { flex-direction: column; gap: 24px; text-align: center; }
+    .hero h1 { font-size: 36px; }
+    .section-header h2 { font-size: 32px; }
+    .planner-body { padding: 24px; }
+    .step-item span:not(.step-num) { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ━━━ NAV ━━━ -->
+<nav class="nav">
+  <a href="#" class="nav-logo">destination.com</a>
+  <div class="nav-links">
+    <a href="#">Destinations</a>
+    <a href="#">Experiences</a>
+    <a href="#">Guides</a>
+    <a href="#">Points & Miles</a>
+    <a href="#">Advertise</a>
+  </div>
+  <a href="#" class="nav-cta">Get the Newsletter</a>
+</nav>
+
+<!-- ━━━ HERO (existing — unchanged) ━━━ -->
+<section class="hero">
+  <div class="hero-label">Destination Guide</div>
+  <h1>Discover places <em>worth</em> the journey.</h1>
+  <p>Every guide on this site is written by someone who's actually been there. No sponsored fluff — just honest, beautiful travel.</p>
+  <div class="hero-buttons">
+    <a href="#planner" class="btn-primary">Plan My Trip &rarr;</a>
+    <a href="#" class="btn-secondary">Browse Guides</a>
+  </div>
+</section>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     NEW: AI TRIP PLANNER
+     Replaces the 4 bulky category image cards
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<section class="trip-planner-section annotation" data-note="NEW — REPLACES 4 IMAGE CARDS" id="planner">
+  <div class="section-header">
+    <div class="section-label">AI-Powered Trip Planner</div>
+    <h2>Tell us about your <em>dream trip.</em></h2>
+    <p>Answer a few questions and our AI travel expert builds a personalised itinerary with live Expedia pricing — in seconds.</p>
+  </div>
+
+  <div class="planner-card">
+    <!-- Steps -->
+    <div class="step-bar">
+      <div class="step-item completed">
+        <span class="step-num">&#10003;</span>
+        <span>Destination</span>
+      </div>
+      <div class="step-item active">
+        <span class="step-num">2</span>
+        <span>Trip Details</span>
+      </div>
+      <div class="step-item">
+        <span class="step-num">3</span>
+        <span>Preferences</span>
+      </div>
+      <div class="step-item">
+        <span class="step-num">4</span>
+        <span>Your Plan</span>
+      </div>
+    </div>
+
+    <!-- Form -->
+    <div class="planner-body">
+      <div class="planner-question">What type of trip are you looking for?</div>
+      <div class="planner-subtitle">Select all that apply — we'll tailor your itinerary accordingly.</div>
+
+      <div class="tile-grid">
+        <div class="tile selected">
+          <div class="tile-icon">🏖️</div>
+          <div class="tile-label">Beach</div>
+          <div class="tile-sub">Sun, sand & sea</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🏙️</div>
+          <div class="tile-label">City Break</div>
+          <div class="tile-sub">Culture & nightlife</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🏔️</div>
+          <div class="tile-label">Adventure</div>
+          <div class="tile-sub">Hikes & outdoors</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🍷</div>
+          <div class="tile-label">Food & Wine</div>
+          <div class="tile-sub">Culinary journeys</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🎨</div>
+          <div class="tile-label">Culture</div>
+          <div class="tile-sub">Museums & history</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🧘</div>
+          <div class="tile-label">Wellness</div>
+          <div class="tile-sub">Spa & relaxation</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">🚗</div>
+          <div class="tile-label">Road Trip</div>
+          <div class="tile-sub">Open-road freedom</div>
+        </div>
+        <div class="tile">
+          <div class="tile-icon">⛷️</div>
+          <div class="tile-label">Ski</div>
+          <div class="tile-sub">Slopes & snow</div>
+        </div>
+      </div>
+
+      <!-- Trip Details Inputs -->
+      <div class="input-row">
+        <div class="input-group">
+          <label>Travel Dates</label>
+          <input type="text" placeholder="Jun 15 — Jun 25, 2026" />
+        </div>
+        <div class="input-group">
+          <label>Travellers</label>
+          <select>
+            <option>2 Adults</option>
+            <option>2 Adults, 1 Child</option>
+            <option>Solo</option>
+            <option>Group (4+)</option>
+          </select>
+        </div>
+        <div class="input-group">
+          <label>Accommodation</label>
+          <select>
+            <option>4-Star Hotel</option>
+            <option>Budget / Hostel</option>
+            <option>3-Star Hotel</option>
+            <option>5-Star Luxury</option>
+            <option>Villa / Apartment</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Budget Slider -->
+      <div class="budget-section">
+        <div class="budget-header">
+          <label>Total Trip Budget</label>
+          <div class="budget-value">$3,500</div>
+        </div>
+        <input type="range" class="budget-slider" min="500" max="15000" value="3500" />
+        <div class="budget-tiers">
+          <span>$500</span>
+          <span>Budget</span>
+          <span>Mid-range</span>
+          <span>Premium</span>
+          <span>$15,000</span>
+        </div>
+      </div>
+
+      <!-- CTA -->
+      <div class="planner-cta">
+        <div class="planner-cta-hint">
+          <strong>&#9889; Powered by AI</strong> — personalised itinerary with live hotel &amp; flight pricing
+        </div>
+        <button class="btn-plan">
+          Build My Trip Plan
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expedia Integration Strip -->
+  <div class="expedia-strip">
+    <div class="expedia-strip-left">
+      <div class="expedia-badge">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+        POWERED BY EXPEDIA
+      </div>
+      <span class="expedia-strip-text"><strong>Book with confidence</strong> — live pricing, free cancellation on most hotels</span>
+    </div>
+    <div class="expedia-strip-links">
+      <a href="#" class="expedia-link expedia-link-hotels">🏨 Search Hotels</a>
+      <a href="#" class="expedia-link expedia-link-flights">✈️ Search Flights</a>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━ TRAVEL GUIDES (existing section — kept) ━━━ -->
+<section class="guides-section">
+  <div class="section-header">
+    <div class="section-label">Travel Guides & Stories</div>
+    <h2>Places that stay with you.</h2>
+    <p>Curated journeys & insider tips from editors who live to travel.</p>
+  </div>
+
+  <div class="guides-grid">
+    <div class="guide-card">
+      <div class="guide-img" style="background-image: url('https://images.unsplash.com/photo-1514890547357-a9ee288728e0?w=800&q=80')">
+        <span class="guide-tag">United States</span>
+      </div>
+      <div class="guide-body">
+        <h3>Best Jazz Clubs in New Orleans: 10 Spots That'll Make You Sway</h3>
+        <p>New Orleans and jazz go together like beignets and powdered sugar...</p>
+        <div class="guide-meta">Updated April 2025 &middot; 6 min read</div>
+        <a href="#" class="guide-link">Read the Guide &rarr;</a>
+      </div>
+    </div>
+    <div class="guide-card">
+      <div class="guide-img" style="background-image: url('https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=800&q=80')">
+        <span class="guide-tag">Portugal</span>
+      </div>
+      <div class="guide-body">
+        <h3>Lisbon Hidden Attractions Guide: Secret Spots You Can't Miss</h3>
+        <p>Most visitors stick to Lisbon's famous sites — but what if you could explore a side of the city that...</p>
+        <div class="guide-meta">Updated March 2025 &middot; 6 min read</div>
+        <a href="#" class="guide-link">Read the Guide &rarr;</a>
+      </div>
+    </div>
+
+    <!-- Inline Trip Planner CTA — appears between guide rows -->
+    <div class="inline-planner-cta annotation" data-note="NEW — CTA BETWEEN ARTICLES">
+      <div>
+        <h3>Ready to plan your next <em>adventure?</em></h3>
+        <p>Our AI travel planner builds a custom itinerary with live Expedia pricing in seconds. No research needed.</p>
+      </div>
+      <button class="btn-plan-white">Plan My Trip &rarr;</button>
+    </div>
+
+    <div class="guide-card">
+      <div class="guide-img" style="background-image: url('https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=800&q=80')">
+        <span class="guide-tag">Thailand</span>
+      </div>
+      <div class="guide-body">
+        <h3>10 Must-Try Bangkok Street Foods and Where to Find Them</h3>
+        <p>Bangkok is a street food paradise. From sizzling woks to smoky grills...</p>
+        <div class="guide-meta">Updated March 2025 &middot; 6 min read</div>
+        <a href="#" class="guide-link">Read the Guide &rarr;</a>
+      </div>
+    </div>
+    <div class="guide-card">
+      <div class="guide-img" style="background-image: url('https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=800&q=80')">
+        <span class="guide-tag">Japan</span>
+      </div>
+      <div class="guide-body">
+        <h3>Vienna Coffee Houses: Historic Cafes You Must Visit</h3>
+        <p>Talking about Vienna coffee houses feels a bit like ranking classic symphonies...</p>
+        <div class="guide-meta">Updated Feb 2025 &middot; 6 min read</div>
+        <a href="#" class="guide-link">Read the Guide &rarr;</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ━━━ FOOTER ━━━ -->
+<footer class="footer">
+  &copy; 2026 destination.com — Mockup for redesign review. Not a production page.
+</footer>
+
+</body>
+</html>

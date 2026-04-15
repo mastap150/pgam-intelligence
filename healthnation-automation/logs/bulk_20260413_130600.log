@@ -1,0 +1,60 @@
+2026-04-13 13:06:00,523 [INFO] DRY RUN — Starting bulk populate: 3 articles
+2026-04-13 13:06:00,523 [INFO] Estimated time: ~1 minutes
+2026-04-13 13:06:00,523 [INFO] 
+[1/3] How to Improve Your Gut Health
+2026-04-13 13:06:00,523 [INFO] Generating article: How to Improve Your Gut Health
+2026-04-13 13:07:09,883 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:07:09,903 [ERROR] JSON parse failed: Unterminated string starting at: line 13 column 19 (char 1026)
+Raw output (first 500 chars):
+{
+  "meta_title": "How to Improve Gut Health: What the Science Says",
+  "meta_description": "Learn how to improve gut health with evidence-based strategies. Discover the best foods for gut health, gut bacteria diet tips, and what research really shows.",
+  "h1": "How to Improve Gut Health: An Evidence-Based Guide",
+  "focus_keyword": "how to improve gut health",
+  "reviewer_specialty": "Gastroenterology",
+  "key_takeaways": [
+    "Eating 30 or more different plant foods per week is one of the mo
+2026-04-13 13:07:09,903 [ERROR]   ✗ Failed: Claude returned invalid JSON. Check CLAUDE_MAX_TOKENS or prompt.
+2026-04-13 13:07:09,903 [INFO]   Waiting 8s before next article…
+2026-04-13 13:07:17,905 [INFO] 
+[2/3] How Much Protein Do You Actually Need Per Day
+2026-04-13 13:07:17,906 [INFO] Generating article: How Much Protein Do You Actually Need Per Day
+2026-04-13 13:08:23,551 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:08:23,558 [ERROR] JSON parse failed: Unterminated string starting at: line 13 column 19 (char 1119)
+Raw output (first 500 chars):
+{
+  "meta_title": "How Much Protein Per Day Do You Actually Need?",
+  "meta_description": "Discover your ideal daily protein intake based on the latest research. Learn how much protein per day supports muscle, weight, and long-term health.",
+  "h1": "How Much Protein Per Day Do You Actually Need? The Science-Backed Answer",
+  "focus_keyword": "how much protein per day",
+  "reviewer_specialty": "Sports Medicine and Clinical Nutrition",
+  "key_takeaways": [
+    "The standard RDA of 0.8g of protein
+2026-04-13 13:08:23,559 [ERROR]   ✗ Failed: Claude returned invalid JSON. Check CLAUDE_MAX_TOKENS or prompt.
+2026-04-13 13:08:23,559 [INFO]   Waiting 8s before next article…
+2026-04-13 13:08:31,564 [INFO] 
+[3/3] Zone 2 Training: What It Is, Why It Works, and How to Do It
+2026-04-13 13:08:31,564 [INFO] Generating article: Zone 2 Training: What It Is, Why It Works, and How to Do It
+2026-04-13 13:09:40,013 [INFO] HTTP Request: POST https://api.anthropic.com/v1/messages "HTTP/1.1 200 OK"
+2026-04-13 13:09:40,055 [ERROR] JSON parse failed: Unterminated string starting at: line 13 column 19 (char 1017)
+Raw output (first 500 chars):
+{
+  "meta_title": "Zone 2 Training: What It Is and Why It Works",
+  "meta_description": "Zone 2 training builds aerobic fitness, burns fat, and improves metabolic health. Here's what the science says and how to do it correctly.",
+  "h1": "Zone 2 Training: What It Is, Why It Works, and How to Do It",
+  "focus_keyword": "zone 2 training",
+  "reviewer_specialty": "Sports Medicine",
+  "key_takeaways": [
+    "Zone 2 training is sustained, low-intensity aerobic exercise performed at roughly 60–70% of 
+2026-04-13 13:09:40,056 [ERROR]   ✗ Failed: Claude returned invalid JSON. Check CLAUDE_MAX_TOKENS or prompt.
+2026-04-13 13:09:40,056 [INFO] 
+============================================================
+BULK POPULATE COMPLETE
+============================================================
+Total topics:  3
+Published:     0
+Failed:        3
+Skipped:       0
+Log file:      /Users/priyeshpatel/Desktop/pgam-intelligence/healthnation-automation/logs/bulk_20260413_130600.log
+============================================================
+2026-04-13 13:09:40,056 [WARNING] Failed topics: ['how to improve gut health', 'how much protein per day', 'zone 2 training']

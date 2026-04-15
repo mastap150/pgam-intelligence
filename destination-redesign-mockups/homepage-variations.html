@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Homepage Section Variations — destination.com</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1B6CA8;
+    --secondary: #0D9B76;
+    --accent: #C4703E;
+    --accent-hover: #A85C30;
+    --gold: #F4A124;
+    --cream: #FAF7F2;
+    --cream-dark: #F0EBE3;
+    --dark-green: #2C3E2D;
+    --text-dark: #1A1A1A;
+    --text-mid: #4A4A4A;
+    --text-light: #7A7A7A;
+    --white: #FFFFFF;
+    --border: #E5E0D8;
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text-dark); background: #F5F3EF; }
+  h1, h2, h3, h4 { font-family: 'Playfair Display', serif; }
+
+  /* Variation Picker */
+  .variation-nav {
+    position: sticky; top: 0; z-index: 200;
+    background: var(--text-dark); color: white;
+    padding: 16px 48px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .variation-nav h3 { font-size: 16px; font-weight: 400; color: white; }
+  .variation-tabs { display: flex; gap: 8px; }
+  .variation-tab {
+    padding: 8px 20px; border-radius: 6px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);
+    background: transparent; font-family: 'DM Sans', sans-serif; transition: all 0.2s;
+  }
+  .variation-tab:hover { border-color: rgba(255,255,255,0.5); color: white; }
+  .variation-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* Section wrapper */
+  .variation-section {
+    max-width: 1300px; margin: 40px auto;
+    background: var(--white); border-radius: var(--radius-lg);
+    overflow: hidden; box-shadow: var(--shadow-lg);
+  }
+  .variation-label {
+    background: var(--accent); color: white;
+    padding: 16px 32px;
+    font-size: 14px; font-weight: 700; letter-spacing: 0.5px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .variation-label .tag {
+    background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 4px;
+    font-size: 11px; font-weight: 600;
+  }
+
+  /* Context bars showing what's above/below */
+  .context-bar {
+    background: var(--cream-dark); padding: 20px 32px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: var(--text-light);
+  }
+  .context-bar .icon { font-size: 20px; }
+  .context-bar strong { color: var(--text-mid); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     VARIATION A: Minimal — Smart Search Bar
+     Replace 4 cards with a smart search + quick tiles
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .var-a {
+    background: var(--dark-green);
+    padding: 60px 48px;
+    text-align: center;
+  }
+  .var-a .section-label {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold); font-weight: 600; margin-bottom: 12px;
+  }
+  .var-a h2 {
+    font-size: 38px; font-weight: 400; color: var(--white); line-height: 1.2; margin-bottom: 8px;
+  }
+  .var-a h2 em { font-style: italic; color: var(--gold); }
+  .var-a .subtitle {
+    font-size: 15px; color: rgba(255,255,255,0.65); margin-bottom: 32px;
+  }
+
+  /* Smart Search */
+  .smart-search {
+    max-width: 800px; margin: 0 auto 32px;
+    background: var(--white); border-radius: var(--radius-md);
+    padding: 8px; display: flex; align-items: center; gap: 0;
+    box-shadow: var(--shadow-lg);
+  }
+  .smart-search-input {
+    flex: 1; display: flex; align-items: center; gap: 12px; padding: 12px 20px;
+  }
+  .smart-search-input .icon { font-size: 20px; color: var(--text-light); }
+  .smart-search-input input {
+    flex: 1; border: none; font-size: 16px; font-family: 'DM Sans', sans-serif;
+    color: var(--text-dark); outline: none; background: transparent;
+  }
+  .smart-search-input input::placeholder { color: var(--text-light); }
+  .smart-search-divider { width: 1px; height: 32px; background: var(--border); }
+  .smart-search-field {
+    display: flex; align-items: center; gap: 8px; padding: 12px 16px;
+    font-size: 14px; color: var(--text-mid); cursor: pointer; white-space: nowrap;
+  }
+  .smart-search-field .icon { font-size: 16px; }
+  .smart-search-btn {
+    background: var(--accent); color: white; border: none;
+    padding: 14px 28px; border-radius: var(--radius-sm);
+    font-size: 14px; font-weight: 700; cursor: pointer;
+    font-family: 'DM Sans', sans-serif; white-space: nowrap;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  /* Quick Trip Type Tiles */
+  .quick-tiles {
+    display: flex; justify-content: center; gap: 12px; flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .quick-tile {
+    background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 40px; padding: 10px 20px;
+    display: flex; align-items: center; gap: 8px;
+    color: rgba(255,255,255,0.85); font-size: 13px; font-weight: 500;
+    cursor: pointer; transition: all 0.2s;
+  }
+  .quick-tile:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); }
+  .quick-tile .icon { font-size: 16px; }
+
+  /* Expedia Bar */
+  .expedia-bar-a {
+    display: flex; align-items: center; justify-content: center; gap: 16px;
+    padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  .expedia-bar-a span { font-size: 12px; color: rgba(255,255,255,0.5); }
+  .expedia-bar-a .badge {
+    background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 4px;
+    font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.7); letter-spacing: 0.5px;
+  }
+  .expedia-bar-a a {
+    font-size: 12px; color: var(--gold); text-decoration: none; font-weight: 600;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     VARIATION B: Split — Planner + Quick Book
+     Left side: mini planner form, Right side: Expedia deals
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .var-b {
+    background: var(--cream);
+    padding: 60px 48px;
+  }
+  .var-b-header {
+    text-align: center; margin-bottom: 40px;
+  }
+  .var-b-header .section-label {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--accent); font-weight: 600; margin-bottom: 12px;
+  }
+  .var-b-header h2 { font-size: 38px; font-weight: 400; }
+  .var-b-header h2 em { font-style: italic; color: var(--accent); }
+
+  .var-b-grid {
+    max-width: 1100px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+  }
+
+  /* Left: Mini Planner */
+  .mini-planner {
+    background: var(--white); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md); overflow: hidden;
+  }
+  .mini-planner-header {
+    background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 100%);
+    padding: 24px; color: white;
+  }
+  .mini-planner-header .label {
+    font-size: 10px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.7;
+    margin-bottom: 4px; font-weight: 600;
+  }
+  .mini-planner-header h3 { font-size: 22px; font-weight: 400; color: white; }
+  .mini-planner-header h3 em { color: var(--gold); }
+  .mini-planner-body { padding: 24px; }
+  .mp-field { margin-bottom: 14px; }
+  .mp-field label {
+    display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-light); margin-bottom: 5px;
+  }
+  .mp-field input, .mp-field select {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 6px; font-size: 14px; font-family: 'DM Sans', sans-serif;
+    color: var(--text-dark);
+  }
+  .mp-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mp-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 16px; }
+  .mp-tile {
+    border: 1.5px solid var(--border); border-radius: 6px; padding: 10px 4px;
+    text-align: center; cursor: pointer; transition: all 0.15s; background: var(--white);
+  }
+  .mp-tile:hover { border-color: var(--accent); }
+  .mp-tile.selected { border-color: var(--accent); background: #FFF8F3; }
+  .mp-tile-icon { font-size: 20px; margin-bottom: 2px; }
+  .mp-tile-label { font-size: 11px; font-weight: 600; color: var(--text-dark); }
+  .mp-btn {
+    width: 100%; padding: 14px; background: var(--accent); color: white;
+    border: none; border-radius: 6px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .mp-btn:hover { background: var(--accent-hover); }
+  .mp-hint {
+    text-align: center; font-size: 11px; color: var(--text-light); margin-top: 10px;
+  }
+  .mp-hint strong { color: var(--secondary); }
+
+  /* Right: Expedia Quick Book */
+  .quick-book {
+    background: var(--white); border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md); overflow: hidden;
+  }
+  .quick-book-header {
+    background: var(--gold); padding: 24px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .quick-book-header .badge {
+    background: rgba(0,0,0,0.1); padding: 6px 14px; border-radius: 4px;
+    font-size: 11px; font-weight: 700; color: var(--text-dark); letter-spacing: 0.5px;
+  }
+  .quick-book-header span { font-size: 16px; font-weight: 600; color: var(--text-dark); }
+  .quick-book-body { padding: 24px; }
+
+  /* Tabbed search */
+  .qb-tabs { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid var(--border); }
+  .qb-tab {
+    padding: 10px 20px; font-size: 13px; font-weight: 600; color: var(--text-light);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -2px;
+    display: flex; align-items: center; gap: 6px; background: none; border-top: none; border-left: none; border-right: none;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .qb-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .qb-tab .icon { font-size: 16px; }
+
+  .qb-field { margin-bottom: 14px; }
+  .qb-field label {
+    display: block; font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 1px; color: var(--text-light); margin-bottom: 5px;
+  }
+  .qb-field input, .qb-field select {
+    width: 100%; padding: 12px 14px; border: 1.5px solid var(--border);
+    border-radius: 6px; font-size: 14px; font-family: 'DM Sans', sans-serif; color: var(--text-dark);
+  }
+  .qb-field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .qb-btn {
+    width: 100%; padding: 14px; background: var(--primary); color: white;
+    border: none; border-radius: 6px; font-size: 14px; font-weight: 700;
+    cursor: pointer; font-family: 'DM Sans', sans-serif;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+
+  /* Deal strip */
+  .deal-strip {
+    margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);
+  }
+  .deal-strip-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+    color: var(--text-light); margin-bottom: 10px;
+  }
+  .deal-row { display: flex; gap: 10px; }
+  .deal-card {
+    flex: 1; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+    transition: box-shadow 0.2s; cursor: pointer;
+  }
+  .deal-card:hover { box-shadow: var(--shadow-sm); }
+  .deal-img { height: 80px; background-size: cover; background-position: center; }
+  .deal-info { padding: 8px 10px; }
+  .deal-name { font-size: 12px; font-weight: 600; margin-bottom: 2px; }
+  .deal-price { font-size: 14px; font-weight: 700; color: var(--accent); }
+  .deal-price small { font-size: 10px; font-weight: 400; color: var(--text-light); }
+
+  .qb-disclosure {
+    margin-top: 14px; font-size: 10px; color: var(--text-light); line-height: 1.4;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     VARIATION C: Full-width Conversational
+     Chat-like AI planner with Expedia integrated
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .var-c {
+    background: linear-gradient(160deg, #0F2B3C 0%, #1B4D6A 50%, #0E4D6F 100%);
+    padding: 60px 48px;
+  }
+  .var-c-inner {
+    max-width: 900px; margin: 0 auto;
+  }
+  .var-c-header { text-align: center; margin-bottom: 40px; color: white; }
+  .var-c-header .label {
+    font-size: 10px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--gold); font-weight: 600; margin-bottom: 12px;
+  }
+  .var-c-header h2 { font-size: 38px; font-weight: 400; color: white; }
+  .var-c-header h2 em { font-style: italic; color: var(--gold); }
+  .var-c-header p { margin-top: 8px; font-size: 15px; color: rgba(255,255,255,0.6); }
+
+  /* Chat UI */
+  .chat-container {
+    background: var(--white); border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg); overflow: hidden;
+  }
+  .chat-messages { padding: 32px; }
+  .chat-msg { display: flex; gap: 12px; margin-bottom: 20px; }
+  .chat-avatar {
+    width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .chat-avatar-ai { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: white; font-size: 14px; font-weight: 700; }
+  .chat-avatar-user { background: var(--cream-dark); }
+  .chat-bubble {
+    padding: 14px 18px; border-radius: 12px; font-size: 15px; line-height: 1.5;
+    max-width: 80%;
+  }
+  .chat-bubble-ai {
+    background: var(--cream); color: var(--text-mid);
+  }
+  .chat-bubble-user {
+    background: var(--primary); color: white;
+    margin-left: auto;
+  }
+
+  /* Suggestion chips */
+  .chat-chips {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px;
+  }
+  .chat-chip {
+    padding: 8px 16px; border: 1.5px solid var(--border); border-radius: 24px;
+    font-size: 13px; font-weight: 500; color: var(--text-mid);
+    cursor: pointer; transition: all 0.15s; background: var(--white);
+  }
+  .chat-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .chat-chip.selected { border-color: var(--accent); background: #FFF8F3; color: var(--accent); }
+
+  /* Chat input */
+  .chat-input-area {
+    padding: 16px 32px 24px; border-top: 1px solid var(--border);
+    display: flex; gap: 12px; align-items: center;
+  }
+  .chat-input {
+    flex: 1; padding: 14px 18px; border: 1.5px solid var(--border);
+    border-radius: 24px; font-size: 15px; font-family: 'DM Sans', sans-serif;
+    outline: none; color: var(--text-dark);
+  }
+  .chat-input:focus { border-color: var(--primary); }
+  .chat-input::placeholder { color: var(--text-light); }
+  .chat-send {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--accent); color: white; border: none;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  /* Expedia upsell within chat */
+  .chat-expedia {
+    background: #F0F7FC; border: 1px solid #D0E3F0; border-radius: 10px;
+    padding: 14px 16px; margin-top: 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .chat-expedia .badge {
+    background: var(--gold); padding: 4px 10px; border-radius: 4px;
+    font-size: 9px; font-weight: 700; color: var(--text-dark); letter-spacing: 0.5px;
+    white-space: nowrap;
+  }
+  .chat-expedia .text { font-size: 13px; color: var(--text-mid); }
+  .chat-expedia .text strong { color: var(--primary); }
+  .chat-expedia a {
+    margin-left: auto; font-size: 12px; font-weight: 600; color: var(--primary);
+    text-decoration: none; white-space: nowrap;
+  }
+
+  /* ━━ Responsive ━━ */
+  @media (max-width: 900px) {
+    .var-b-grid { grid-template-columns: 1fr; }
+    .smart-search { flex-direction: column; padding: 16px; }
+    .smart-search-divider { display: none; }
+    .smart-search-input { width: 100%; }
+    .smart-search-btn { width: 100%; justify-content: center; }
+    .mp-tiles { grid-template-columns: repeat(2, 1fr); }
+    .variation-nav { flex-direction: column; gap: 12px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Variation Picker -->
+<nav class="variation-nav">
+  <h3>Homepage Section Redesign — 3 Variations</h3>
+  <div class="variation-tabs">
+    <div class="variation-tab active">A: Smart Search</div>
+    <div class="variation-tab">B: Split Planner + Book</div>
+    <div class="variation-tab">C: Conversational AI</div>
+  </div>
+</nav>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     VARIATION A — MINIMAL: Smart Search Bar
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="variation-section">
+  <div class="variation-label">
+    <span>VARIATION A — Smart Search + Trip Types</span>
+    <span class="tag">MINIMAL CHANGE</span>
+  </div>
+  <div class="context-bar">
+    <span class="icon">⬆️</span>
+    <span><strong>Above this:</strong> Hero slider (unchanged) &rarr; existing search bar stays</span>
+  </div>
+
+  <div class="var-a">
+    <div class="section-label">AI-Powered Trip Planner</div>
+    <h2>Plan your <em>perfect trip</em> in seconds.</h2>
+    <div class="subtitle">Tell us where you want to go and we'll build a personalised itinerary with live pricing.</div>
+
+    <div class="smart-search">
+      <div class="smart-search-input">
+        <span class="icon">🔍</span>
+        <input type="text" placeholder="Where do you want to go? Try &quot;Bali&quot;, &quot;Paris&quot;, or &quot;surprise me&quot;..." />
+      </div>
+      <div class="smart-search-divider"></div>
+      <div class="smart-search-field">
+        <span class="icon">📅</span>
+        Jun 2026
+      </div>
+      <div class="smart-search-divider"></div>
+      <div class="smart-search-field">
+        <span class="icon">👥</span>
+        2 Adults
+      </div>
+      <button class="smart-search-btn">
+        ⚡ Plan My Trip
+      </button>
+    </div>
+
+    <div class="quick-tiles">
+      <div class="quick-tile"><span class="icon">🏖️</span> Beach</div>
+      <div class="quick-tile"><span class="icon">🏙️</span> City Break</div>
+      <div class="quick-tile"><span class="icon">🏔️</span> Adventure</div>
+      <div class="quick-tile"><span class="icon">🍷</span> Food & Wine</div>
+      <div class="quick-tile"><span class="icon">🎨</span> Culture</div>
+      <div class="quick-tile"><span class="icon">🧘</span> Wellness</div>
+      <div class="quick-tile"><span class="icon">⛷️</span> Ski</div>
+      <div class="quick-tile"><span class="icon">🚗</span> Road Trip</div>
+    </div>
+
+    <div class="expedia-bar-a">
+      <div class="badge">EXPEDIA</div>
+      <span>Live hotel & flight pricing powered by Expedia</span>
+      <a href="#">Search Hotels &rarr;</a>
+      <a href="#">Search Flights &rarr;</a>
+    </div>
+  </div>
+
+  <div class="context-bar">
+    <span class="icon">⬇️</span>
+    <span><strong>Below this:</strong> "Travel Guides & Stories" section (unchanged)</span>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     VARIATION B — MODERATE: Split Layout
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="variation-section">
+  <div class="variation-label">
+    <span>VARIATION B — Split: AI Planner + Expedia Quick Book</span>
+    <span class="tag">RECOMMENDED</span>
+  </div>
+  <div class="context-bar">
+    <span class="icon">⬆️</span>
+    <span><strong>Above this:</strong> Hero slider (unchanged) &rarr; existing search bar stays</span>
+  </div>
+
+  <div class="var-b">
+    <div class="var-b-header">
+      <div class="section-label">Plan & Book — All in One Place</div>
+      <h2>Your next trip starts <em>here.</em></h2>
+    </div>
+
+    <div class="var-b-grid">
+      <!-- LEFT: AI Planner -->
+      <div class="mini-planner">
+        <div class="mini-planner-header">
+          <div class="label">AI Trip Planner</div>
+          <h3>Build your <em>dream itinerary</em></h3>
+        </div>
+        <div class="mini-planner-body">
+          <div class="mp-field">
+            <label>Where to?</label>
+            <input type="text" placeholder="Destination or &quot;surprise me&quot;" />
+          </div>
+          <div class="mp-field-row">
+            <div class="mp-field">
+              <label>Dates</label>
+              <input type="text" placeholder="Jun 15 — Jun 25" />
+            </div>
+            <div class="mp-field">
+              <label>Travellers</label>
+              <select><option>2 Adults</option></select>
+            </div>
+          </div>
+          <div class="mp-field">
+            <label>Trip Type</label>
+          </div>
+          <div class="mp-tiles">
+            <div class="mp-tile selected"><div class="mp-tile-icon">🏖️</div><div class="mp-tile-label">Beach</div></div>
+            <div class="mp-tile"><div class="mp-tile-icon">🏙️</div><div class="mp-tile-label">City</div></div>
+            <div class="mp-tile"><div class="mp-tile-icon">🏔️</div><div class="mp-tile-label">Adventure</div></div>
+            <div class="mp-tile"><div class="mp-tile-icon">🍷</div><div class="mp-tile-label">Food</div></div>
+          </div>
+          <div class="mp-field">
+            <label>Budget (per person)</label>
+            <select>
+              <option>$1,500 — $3,000</option>
+              <option>Under $1,000</option>
+              <option>$3,000 — $5,000</option>
+              <option>$5,000+</option>
+            </select>
+          </div>
+          <button class="mp-btn">⚡ Build My Trip Plan →</button>
+          <div class="mp-hint"><strong>AI-powered</strong> — custom itinerary in seconds</div>
+        </div>
+      </div>
+
+      <!-- RIGHT: Expedia Quick Book -->
+      <div class="quick-book">
+        <div class="quick-book-header">
+          <span class="badge">EXPEDIA</span>
+          <span>Search & Book Instantly</span>
+        </div>
+        <div class="quick-book-body">
+          <div class="qb-tabs">
+            <button class="qb-tab active"><span class="icon">🏨</span> Hotels</button>
+            <button class="qb-tab"><span class="icon">✈️</span> Flights</button>
+            <button class="qb-tab"><span class="icon">📦</span> Packages</button>
+          </div>
+          <div class="qb-field">
+            <label>Destination</label>
+            <input type="text" placeholder="City or hotel name" />
+          </div>
+          <div class="qb-field-row">
+            <div class="qb-field">
+              <label>Check-in</label>
+              <input type="text" placeholder="Jun 15, 2026" />
+            </div>
+            <div class="qb-field">
+              <label>Check-out</label>
+              <input type="text" placeholder="Jun 22, 2026" />
+            </div>
+          </div>
+          <div class="qb-field-row">
+            <div class="qb-field">
+              <label>Guests</label>
+              <select><option>2 Adults</option></select>
+            </div>
+            <div class="qb-field">
+              <label>Star Rating</label>
+              <select><option>4 Stars+</option></select>
+            </div>
+          </div>
+          <button class="qb-btn">🔍 Search Hotels on Expedia</button>
+
+          <div class="deal-strip">
+            <div class="deal-strip-title">🔥 Trending Deals</div>
+            <div class="deal-row">
+              <div class="deal-card">
+                <div class="deal-img" style="background-image:url('https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?w=300&q=80')"></div>
+                <div class="deal-info">
+                  <div class="deal-name">Bali Beach Resort</div>
+                  <div class="deal-price">$89 <small>/night</small></div>
+                </div>
+              </div>
+              <div class="deal-card">
+                <div class="deal-img" style="background-image:url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=300&q=80')"></div>
+                <div class="deal-info">
+                  <div class="deal-name">Paris Boutique Hotel</div>
+                  <div class="deal-price">$145 <small>/night</small></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="qb-disclosure">
+            destination.com earns a commission when you book through our links. This does not affect the price you pay.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="context-bar">
+    <span class="icon">⬇️</span>
+    <span><strong>Below this:</strong> "Travel Guides & Stories" section (unchanged)</span>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     VARIATION C — FULL: Conversational AI Chat
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="variation-section">
+  <div class="variation-label">
+    <span>VARIATION C — Conversational AI Trip Planner</span>
+    <span class="tag">MOST IMMERSIVE</span>
+  </div>
+  <div class="context-bar">
+    <span class="icon">⬆️</span>
+    <span><strong>Above this:</strong> Hero slider (unchanged) &rarr; existing search bar stays</span>
+  </div>
+
+  <div class="var-c">
+    <div class="var-c-inner">
+      <div class="var-c-header">
+        <div class="label">AI Travel Agent</div>
+        <h2>Chat with our <em>AI travel expert.</em></h2>
+        <p>Tell us about your dream trip in your own words — we'll handle the rest.</p>
+      </div>
+
+      <div class="chat-container">
+        <div class="chat-messages">
+          <!-- AI greeting -->
+          <div class="chat-msg">
+            <div class="chat-avatar chat-avatar-ai">D</div>
+            <div>
+              <div class="chat-bubble chat-bubble-ai">
+                Hi! I'm your destination.com travel planner. Tell me about your dream trip — where you'd like to go, when, your budget, and what kind of experience you're after. I'll build you a personalised itinerary with live hotel and flight pricing. ✨
+              </div>
+              <div class="chat-chips">
+                <div class="chat-chip">🏖️ Beach holiday</div>
+                <div class="chat-chip selected">🍷 Food & wine trip</div>
+                <div class="chat-chip">🏔️ Adventure</div>
+                <div class="chat-chip">🎲 Surprise me!</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- User message -->
+          <div class="chat-msg">
+            <div style="flex:1"></div>
+            <div class="chat-bubble chat-bubble-user">
+              We're a couple looking for a food and wine trip in Europe for about 10 days in September. Budget is around $5,000 total. We love authentic local food, markets, and cooking classes.
+            </div>
+            <div class="chat-avatar chat-avatar-user">👤</div>
+          </div>
+
+          <!-- AI response -->
+          <div class="chat-msg">
+            <div class="chat-avatar chat-avatar-ai">D</div>
+            <div>
+              <div class="chat-bubble chat-bubble-ai">
+                Love it! For a 10-day food & wine trip in September, I'd recommend a split between <strong>Barcelona</strong> (4 nights) and <strong>Bologna</strong> (5 nights) with a cooking class in each city. Here's what I'm building for you...
+              </div>
+              <div class="chat-expedia">
+                <span class="badge">EXPEDIA</span>
+                <span class="text">Found <strong>23 hotels in Barcelona from $112/night</strong> and flights from $340 return</span>
+                <a href="#">View deals &rarr;</a>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-input-area">
+          <input class="chat-input" type="text" placeholder="Tell me about your dream trip..." />
+          <button class="chat-send">→</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="context-bar">
+    <span class="icon">⬇️</span>
+    <span><strong>Below this:</strong> "Travel Guides & Stories" section (unchanged)</span>
+  </div>
+</div>
+
+<div style="padding:40px;text-align:center;font-size:13px;color:var(--text-light);">
+  &copy; 2026 destination.com — Design mockups for review. Not production pages.
+</div>
+
+</body>
+</html>

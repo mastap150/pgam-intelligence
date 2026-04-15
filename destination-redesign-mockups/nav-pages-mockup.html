@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Nav Pages — All Sections Mockup</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Playfair+Display:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --primary: #1B6CA8; --secondary: #0D9B76; --accent: #C4703E; --accent-hover: #A85C30;
+    --gold: #F4A124; --cream: #FAF7F2; --cream-dark: #F0EBE3; --dark-green: #2C3E2D;
+    --text-dark: #1A1A1A; --text-mid: #4A4A4A; --text-light: #7A7A7A; --white: #FFFFFF;
+    --border: #E5E0D8; --shadow-sm: 0 2px 8px rgba(0,0,0,0.06); --shadow-md: 0 4px 20px rgba(0,0,0,0.08);
+    --shadow-lg: 0 8px 40px rgba(0,0,0,0.12); --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'DM Sans', sans-serif; color: var(--text-dark); background: #F0EDE8; }
+  h1,h2,h3,h4 { font-family: 'Playfair Display', serif; }
+
+  /* Page selector */
+  .page-nav {
+    position: sticky; top: 0; z-index: 200; background: var(--text-dark); color: white;
+    padding: 14px 48px; display: flex; align-items: center; gap: 32px; overflow-x: auto;
+  }
+  .page-nav h3 { font-size: 14px; font-weight: 400; color: white; white-space: nowrap; }
+  .page-tabs { display: flex; gap: 6px; }
+  .page-tab {
+    padding: 8px 18px; border-radius: 6px; font-size: 12px; font-weight: 600;
+    cursor: pointer; border: 1px solid rgba(255,255,255,0.2); color: rgba(255,255,255,0.7);
+    background: transparent; font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap;
+  }
+  .page-tab:hover { border-color: rgba(255,255,255,0.5); color: white; }
+  .page-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
+
+  /* Section container */
+  .page-section { max-width: 1400px; margin: 32px auto; background: var(--white); border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
+  .page-label { background: var(--accent); color: white; padding: 14px 32px; font-size: 13px; font-weight: 700; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+  .page-label .tag { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 4px; font-size: 11px; }
+
+  /* Shared: site nav mock */
+  .site-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 32px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,0.95); }
+  .site-nav-logo { font-family: 'Playfair Display', serif; font-size: 18px; }
+  .site-nav-links { display: flex; gap: 24px; }
+  .site-nav-links a { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; text-decoration: none; color: var(--text-light); font-weight: 500; }
+  .site-nav-links a.current { color: var(--accent); font-weight: 700; border-bottom: 2px solid var(--accent); padding-bottom: 2px; }
+  .site-nav-cta { background: var(--accent); color: white; padding: 8px 16px; border-radius: 4px; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; text-decoration: none; font-weight: 600; }
+
+  /* Shared: page hero */
+  .page-hero { padding: 60px 48px; text-align: center; color: white; position: relative; overflow: hidden; }
+  .page-hero h1 { font-size: 44px; font-weight: 400; margin-bottom: 10px; position: relative; z-index: 1; }
+  .page-hero h1 em { font-style: italic; color: var(--gold); }
+  .page-hero p { font-size: 16px; opacity: 0.8; max-width: 520px; margin: 0 auto; position: relative; z-index: 1; }
+
+  /* Shared: breadcrumb */
+  .bc { padding: 10px 32px; font-size: 12px; color: var(--text-light); background: var(--cream); }
+  .bc a { color: var(--text-light); text-decoration: none; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     1. DESTINATIONS PAGE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .dest-hero { background: linear-gradient(135deg, #0E4D6F 0%, #1B6CA8 50%, var(--secondary) 100%); }
+
+  /* Interactive world map area */
+  .map-section { padding: 40px 48px; background: var(--cream); text-align: center; }
+  .map-placeholder {
+    max-width: 900px; margin: 0 auto; height: 300px; border-radius: var(--radius-md);
+    background: linear-gradient(135deg, #E8F0F6 0%, #F0F7FC 100%);
+    border: 2px dashed var(--border); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px; color: var(--text-light);
+  }
+  .map-placeholder .icon { font-size: 48px; }
+  .map-placeholder p { font-size: 14px; }
+  .map-placeholder strong { color: var(--primary); }
+
+  /* Region cards */
+  .regions { padding: 40px 48px; }
+  .regions-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+  .regions-header h2 { font-size: 28px; }
+  .region-filter { display: flex; gap: 6px; }
+  .rf-btn { padding: 8px 16px; border: 1px solid var(--border); border-radius: 20px; font-size: 12px; font-weight: 600; background: var(--white); color: var(--text-mid); cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .rf-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .region-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .region-card { border-radius: var(--radius-md); overflow: hidden; position: relative; height: 220px; cursor: pointer; transition: transform 0.3s; }
+  .region-card:hover { transform: translateY(-4px); }
+  .region-card-bg { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 0.4s; }
+  .region-card:hover .region-card-bg { transform: scale(1.06); }
+  .region-card-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 40%, rgba(0,0,0,0.7)); }
+  .region-card-content { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; color: white; }
+  .region-card-name { font-family: 'Playfair Display', serif; font-size: 22px; margin-bottom: 4px; }
+  .region-card-count { font-size: 12px; opacity: 0.7; }
+  .region-card-price { margin-top: 6px; font-size: 12px; color: var(--gold); font-weight: 600; background: rgba(0,0,0,0.3); backdrop-filter: blur(4px); padding: 4px 10px; border-radius: 12px; display: inline-block; }
+
+  /* Destination list cards */
+  .dest-list { padding: 0 48px 40px; }
+  .dest-list h2 { font-size: 28px; margin-bottom: 20px; }
+  .dest-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+  .dest-card { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; transition: all 0.3s; cursor: pointer; }
+  .dest-card:hover { box-shadow: var(--shadow-md); transform: translateY(-3px); }
+  .dest-card-img { height: 140px; background-size: cover; background-position: center; }
+  .dest-card-body { padding: 14px; }
+  .dest-card-name { font-weight: 600; font-size: 15px; margin-bottom: 2px; }
+  .dest-card-country { font-size: 12px; color: var(--text-light); margin-bottom: 6px; }
+  .dest-card-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+  .dest-tag { font-size: 10px; padding: 2px 8px; border-radius: 10px; background: var(--cream); color: var(--text-mid); }
+  .dest-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .dest-card-price { font-size: 13px; font-weight: 700; color: var(--accent); }
+  .dest-card-price small { font-size: 10px; font-weight: 400; color: var(--text-light); }
+  .dest-card-cta { font-size: 11px; font-weight: 600; color: var(--primary); text-decoration: none; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     2. EXPERIENCES PAGE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .exp-hero { background: linear-gradient(135deg, var(--dark-green) 0%, #1A4A2A 50%, var(--secondary) 100%); }
+  .exp-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; padding: 40px 48px; }
+  .exp-card { border-radius: var(--radius-md); overflow: hidden; position: relative; height: 260px; cursor: pointer; transition: transform 0.3s; }
+  .exp-card:hover { transform: translateY(-4px); }
+  .exp-card-bg { position: absolute; inset: 0; background-size: cover; background-position: center; transition: transform 0.4s; }
+  .exp-card:hover .exp-card-bg { transform: scale(1.06); }
+  .exp-card-overlay { position: absolute; inset: 0; background: linear-gradient(transparent 30%, rgba(0,0,0,0.75)); }
+  .exp-card-content { position: absolute; bottom: 0; left: 0; right: 0; padding: 20px; color: white; }
+  .exp-card-icon { font-size: 28px; margin-bottom: 6px; }
+  .exp-card-name { font-family: 'Playfair Display', serif; font-size: 20px; margin-bottom: 4px; }
+  .exp-card-count { font-size: 12px; opacity: 0.7; }
+  .exp-card-desc { font-size: 12px; opacity: 0.8; margin-top: 6px; line-height: 1.4; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     3. GUIDES PAGE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .guides-hero { background: linear-gradient(135deg, #3A2A1A 0%, var(--accent) 50%, #8B5E3C 100%); }
+  .guide-categories { padding: 32px 48px; display: flex; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+  .gc-btn { padding: 10px 20px; border: 1px solid var(--border); border-radius: 24px; font-size: 13px; font-weight: 500; background: var(--white); color: var(--text-mid); cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+  .gc-btn.active { background: var(--accent); color: white; border-color: var(--accent); }
+  .gc-btn:hover { border-color: var(--accent); }
+
+  .guides-layout { display: grid; grid-template-columns: 1fr 340px; gap: 32px; padding: 40px 48px; }
+  .guides-main {}
+  .guide-featured {
+    border-radius: var(--radius-md); overflow: hidden; margin-bottom: 24px;
+    display: grid; grid-template-columns: 1fr 1fr; height: 300px;
+  }
+  .guide-featured-img { background-size: cover; background-position: center; }
+  .guide-featured-body { padding: 32px; display: flex; flex-direction: column; justify-content: center; background: var(--cream); }
+  .guide-featured-tag { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+  .guide-featured-title { font-size: 26px; line-height: 1.3; margin-bottom: 10px; }
+  .guide-featured-excerpt { font-size: 14px; color: var(--text-light); line-height: 1.5; margin-bottom: 16px; }
+  .guide-featured-link { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); text-decoration: none; }
+
+  .guide-list { display: flex; flex-direction: column; gap: 16px; }
+  .guide-list-item { display: flex; gap: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .guide-list-img { width: 160px; height: 110px; border-radius: var(--radius-sm); background-size: cover; background-position: center; flex-shrink: 0; }
+  .guide-list-body { flex: 1; }
+  .guide-list-tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); font-weight: 600; margin-bottom: 4px; }
+  .guide-list-title { font-size: 17px; line-height: 1.3; margin-bottom: 4px; font-family: 'Playfair Display', serif; }
+  .guide-list-excerpt { font-size: 13px; color: var(--text-light); line-height: 1.4; }
+  .guide-list-meta { font-size: 11px; color: var(--text-light); margin-top: 6px; }
+
+  /* Guides sidebar */
+  .guides-sidebar { display: flex; flex-direction: column; gap: 20px; }
+  .sidebar-widget { border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+  .sw-header { padding: 14px 16px; font-size: 14px; font-weight: 700; border-bottom: 1px solid var(--border); font-family: 'DM Sans', sans-serif; display: flex; align-items: center; gap: 8px; }
+  .sw-body { padding: 16px; }
+  .popular-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .popular-item:last-child { border-bottom: none; }
+  .popular-rank { font-size: 14px; font-weight: 700; color: var(--accent); min-width: 24px; }
+  .popular-title { font-size: 13px; font-weight: 500; line-height: 1.3; }
+  .popular-meta { font-size: 11px; color: var(--text-light); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     4. PLAN A TRIP PAGE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .plan-hero { background: linear-gradient(135deg, var(--primary) 0%, #0E4D6F 50%, var(--dark-green) 100%); }
+  .plan-content { padding: 48px; }
+
+  /* Full-width AI Planner */
+  .full-planner { max-width: 800px; margin: 0 auto; }
+  .fp-steps { display: flex; gap: 0; margin-bottom: 32px; }
+  .fp-step { flex: 1; text-align: center; padding: 14px; position: relative; }
+  .fp-step::after { content: ''; position: absolute; top: 24px; right: -50%; width: 100%; height: 2px; background: var(--border); z-index: 0; }
+  .fp-step:last-child::after { display: none; }
+  .fp-step-num { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 8px; font-size: 14px; font-weight: 700; position: relative; z-index: 1; background: var(--border); color: var(--text-light); }
+  .fp-step.active .fp-step-num { background: var(--accent); color: white; }
+  .fp-step.done .fp-step-num { background: var(--secondary); color: white; }
+  .fp-step-label { font-size: 12px; font-weight: 600; color: var(--text-light); }
+  .fp-step.active .fp-step-label { color: var(--accent); }
+
+  .fp-card { background: var(--white); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); padding: 40px; }
+  .fp-question { font-size: 28px; margin-bottom: 8px; }
+  .fp-subtitle { font-size: 15px; color: var(--text-light); margin-bottom: 32px; }
+  .fp-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+  .fp-tile { border: 2px solid var(--border); border-radius: var(--radius-md); padding: 20px 12px; text-align: center; cursor: pointer; transition: all 0.2s; }
+  .fp-tile:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .fp-tile.selected { border-color: var(--accent); background: #FFF8F3; }
+  .fp-tile-icon { font-size: 32px; margin-bottom: 6px; }
+  .fp-tile-name { font-size: 14px; font-weight: 600; }
+  .fp-tile-desc { font-size: 11px; color: var(--text-light); margin-top: 2px; }
+  .fp-btn { width: 100%; padding: 16px; background: var(--accent); color: white; border: none; border-radius: var(--radius-sm); font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     5. POINTS & MILES PAGE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .pm-hero { background: linear-gradient(135deg, #1A1A2E 0%, #16213E 50%, #0F3460 100%); }
+  .pm-content { padding: 40px 48px; }
+  .pm-intro { max-width: 700px; margin: 0 auto 40px; text-align: center; }
+  .pm-intro p { font-size: 16px; color: var(--text-mid); line-height: 1.7; }
+
+  .pm-categories { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 40px; }
+  .pm-cat { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 24px; text-align: center; transition: all 0.2s; cursor: pointer; }
+  .pm-cat:hover { border-color: var(--primary); box-shadow: var(--shadow-sm); transform: translateY(-3px); }
+  .pm-cat-icon { font-size: 36px; margin-bottom: 10px; }
+  .pm-cat-name { font-size: 16px; font-weight: 600; margin-bottom: 4px; font-family: 'Playfair Display', serif; }
+  .pm-cat-desc { font-size: 12px; color: var(--text-light); }
+  .pm-cat-count { font-size: 11px; color: var(--primary); font-weight: 600; margin-top: 8px; }
+
+  .pm-articles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .pm-article { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; transition: all 0.2s; cursor: pointer; }
+  .pm-article:hover { box-shadow: var(--shadow-sm); transform: translateY(-2px); }
+  .pm-article-img { height: 140px; background-size: cover; background-position: center; }
+  .pm-article-body { padding: 14px; }
+  .pm-article-tag { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--primary); font-weight: 600; margin-bottom: 4px; }
+  .pm-article-title { font-size: 15px; font-weight: 600; line-height: 1.3; margin-bottom: 6px; }
+  .pm-article-meta { font-size: 11px; color: var(--text-light); }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     6. ADVERTISE PAGE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  .adv-hero { background: linear-gradient(135deg, var(--text-dark) 0%, #2A2A2A 50%, #3A3A3A 100%); }
+  .adv-content { padding: 48px; }
+  .adv-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 20px; max-width: 900px; margin: 0 auto 48px; }
+  .adv-stat { text-align: center; padding: 24px; border: 1px solid var(--border); border-radius: var(--radius-md); }
+  .adv-stat-num { font-size: 32px; font-weight: 700; color: var(--accent); font-family: 'DM Sans', sans-serif; }
+  .adv-stat-label { font-size: 12px; color: var(--text-light); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+  .adv-options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; max-width: 900px; margin: 0 auto 48px; }
+  .adv-option { border: 1px solid var(--border); border-radius: var(--radius-md); padding: 28px; text-align: center; transition: all 0.2s; }
+  .adv-option:hover { border-color: var(--accent); box-shadow: var(--shadow-sm); }
+  .adv-option-icon { font-size: 32px; margin-bottom: 12px; }
+  .adv-option h4 { font-size: 18px; margin-bottom: 8px; }
+  .adv-option p { font-size: 13px; color: var(--text-light); line-height: 1.5; margin-bottom: 16px; }
+  .adv-option-price { font-size: 12px; font-weight: 600; color: var(--accent); text-transform: uppercase; letter-spacing: 0.5px; }
+  .adv-cta { text-align: center; }
+  .adv-cta-btn { display: inline-block; padding: 16px 40px; background: var(--accent); color: white; border-radius: var(--radius-sm); font-size: 14px; font-weight: 700; text-decoration: none; font-family: 'DM Sans', sans-serif; }
+
+  @media (max-width: 900px) {
+    .region-grid, .dest-grid, .exp-grid, .fp-tiles, .pm-categories, .pm-articles, .adv-stats, .adv-options { grid-template-columns: 1fr 1fr; }
+    .guides-layout { grid-template-columns: 1fr; }
+    .guide-featured { grid-template-columns: 1fr; height: auto; }
+    .guide-featured-img { height: 200px; }
+    .page-nav { flex-direction: column; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- PAGE SELECTOR -->
+<nav class="page-nav">
+  <h3>Navigation Pages — Mockups</h3>
+  <div class="page-tabs">
+    <div class="page-tab active">1. Destinations</div>
+    <div class="page-tab">2. Experiences</div>
+    <div class="page-tab">3. Guides</div>
+    <div class="page-tab">4. Plan a Trip</div>
+    <div class="page-tab">5. Points & Miles</div>
+    <div class="page-tab">6. Advertise</div>
+  </div>
+</nav>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     1. DESTINATIONS
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="page-section">
+  <div class="page-label"><span>1. DESTINATIONS — /destinations/</span><span class="tag">EXPLORE BY REGION</span></div>
+  <div class="site-nav">
+    <span class="site-nav-logo">destination.com</span>
+    <div class="site-nav-links">
+      <a class="current">Destinations</a><a>Experiences</a><a>Guides</a><a>Plan a Trip</a><a>Points & Miles</a>
+    </div>
+    <a class="site-nav-cta">Newsletter</a>
+  </div>
+  <div class="bc"><a>Home</a> / Destinations</div>
+  <div class="page-hero dest-hero">
+    <h1>Explore the <em>world.</em></h1>
+    <p>From tropical beaches to ancient cities — find your next destination with Expedia pricing.</p>
+  </div>
+
+  <!-- Interactive Map -->
+  <div class="map-section">
+    <div class="map-placeholder">
+      <div class="icon">&#127758;</div>
+      <p><strong>Interactive World Map</strong> — click a region to explore destinations</p>
+      <p>Built with Mapbox GL / Leaflet.js — hover to see hotel pricing</p>
+    </div>
+  </div>
+
+  <!-- Regions -->
+  <div class="regions">
+    <div class="regions-header">
+      <h2>Browse by Region</h2>
+      <div class="region-filter">
+        <button class="rf-btn active">All</button>
+        <button class="rf-btn">Asia</button>
+        <button class="rf-btn">Europe</button>
+        <button class="rf-btn">Americas</button>
+        <button class="rf-btn">Africa</button>
+        <button class="rf-btn">Oceania</button>
+      </div>
+    </div>
+    <div class="region-grid">
+      <div class="region-card"><div class="region-card-bg" style="background-image:url('https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=600&q=80')"></div><div class="region-card-overlay"></div><div class="region-card-content"><div class="region-card-name">Southeast Asia</div><div class="region-card-count">42 destinations</div><div class="region-card-price">Hotels from $28/night</div></div></div>
+      <div class="region-card"><div class="region-card-bg" style="background-image:url('https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&q=80')"></div><div class="region-card-overlay"></div><div class="region-card-content"><div class="region-card-name">Western Europe</div><div class="region-card-count">38 destinations</div><div class="region-card-price">Hotels from $85/night</div></div></div>
+      <div class="region-card"><div class="region-card-bg" style="background-image:url('https://images.unsplash.com/photo-1518548419970-58e3b4079ab2?w=600&q=80')"></div><div class="region-card-overlay"></div><div class="region-card-content"><div class="region-card-name">Caribbean</div><div class="region-card-count">24 destinations</div><div class="region-card-price">Packages from $599</div></div></div>
+    </div>
+  </div>
+
+  <!-- Popular Destinations -->
+  <div class="dest-list">
+    <h2>Popular Destinations</h2>
+    <div class="dest-grid">
+      <div class="dest-card"><div class="dest-card-img" style="background-image:url('https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=400&q=80')"></div><div class="dest-card-body"><div class="dest-card-name">Bali</div><div class="dest-card-country">Indonesia</div><div class="dest-card-tags"><span class="dest-tag">Beach</span><span class="dest-tag">Culture</span><span class="dest-tag">Wellness</span></div><div class="dest-card-footer"><div class="dest-card-price">$62 <small>/night</small></div><a class="dest-card-cta">Explore &rarr;</a></div></div></div>
+      <div class="dest-card"><div class="dest-card-img" style="background-image:url('https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400&q=80')"></div><div class="dest-card-body"><div class="dest-card-name">Paris</div><div class="dest-card-country">France</div><div class="dest-card-tags"><span class="dest-tag">City</span><span class="dest-tag">Culture</span><span class="dest-tag">Food</span></div><div class="dest-card-footer"><div class="dest-card-price">$128 <small>/night</small></div><a class="dest-card-cta">Explore &rarr;</a></div></div></div>
+      <div class="dest-card"><div class="dest-card-img" style="background-image:url('https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=400&q=80')"></div><div class="dest-card-body"><div class="dest-card-name">Tokyo</div><div class="dest-card-country">Japan</div><div class="dest-card-tags"><span class="dest-tag">City</span><span class="dest-tag">Food</span><span class="dest-tag">Culture</span></div><div class="dest-card-footer"><div class="dest-card-price">$95 <small>/night</small></div><a class="dest-card-cta">Explore &rarr;</a></div></div></div>
+      <div class="dest-card"><div class="dest-card-img" style="background-image:url('https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=400&q=80')"></div><div class="dest-card-body"><div class="dest-card-name">Bangkok</div><div class="dest-card-country">Thailand</div><div class="dest-card-tags"><span class="dest-tag">Food</span><span class="dest-tag">Budget</span><span class="dest-tag">Nightlife</span></div><div class="dest-card-footer"><div class="dest-card-price">$45 <small>/night</small></div><a class="dest-card-cta">Explore &rarr;</a></div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     2. EXPERIENCES
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="page-section">
+  <div class="page-label"><span>2. EXPERIENCES — /experiences/</span><span class="tag">BROWSE BY INTEREST</span></div>
+  <div class="site-nav"><span class="site-nav-logo">destination.com</span><div class="site-nav-links"><a>Destinations</a><a class="current">Experiences</a><a>Guides</a><a>Plan a Trip</a><a>Points & Miles</a></div><a class="site-nav-cta">Newsletter</a></div>
+  <div class="bc"><a>Home</a> / Experiences</div>
+  <div class="page-hero exp-hero">
+    <h1>Find your kind of <em>adventure.</em></h1>
+    <p>Explore by what excites you — from beach escapes to food tours to adrenaline-fueled expeditions.</p>
+  </div>
+  <div class="exp-grid">
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#127958;</div><div class="exp-card-name">Beach Getaways</div><div class="exp-card-count">31 guides</div><div class="exp-card-desc">Crystal waters, white sand, and pure relaxation</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1551632811-561732d1e306?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#9968;</div><div class="exp-card-name">Expeditions</div><div class="exp-card-count">39 guides</div><div class="exp-card-desc">Trek, climb, and push your limits</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#127860;</div><div class="exp-card-name">Dining & Food</div><div class="exp-card-count">19 guides</div><div class="exp-card-desc">Street food, Michelin stars, and everything between</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1518998053901-5348d3961a04?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#127912;</div><div class="exp-card-name">Art & Culture</div><div class="exp-card-count">25 guides</div><div class="exp-card-desc">Museums, history, and living traditions</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#127795;</div><div class="exp-card-name">Nature</div><div class="exp-card-count">35 guides</div><div class="exp-card-desc">Rainforests, mountains, and wildlife encounters</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1544161515-4ab6ce6db874?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#129495;</div><div class="exp-card-name">Wellness</div><div class="exp-card-count">12 guides</div><div class="exp-card-desc">Yoga retreats, spas, and mindful travel</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#128176;</div><div class="exp-card-name">Budget Friendly</div><div class="exp-card-count">32 guides</div><div class="exp-card-desc">World-class travel without the price tag</div></div></div>
+    <div class="exp-card"><div class="exp-card-bg" style="background-image:url('https://images.unsplash.com/photo-1529180979161-06b8b6d2c8aa?w=400&q=80')"></div><div class="exp-card-overlay"></div><div class="exp-card-content"><div class="exp-card-icon">&#128150;</div><div class="exp-card-name">Romantic</div><div class="exp-card-count">7 guides</div><div class="exp-card-desc">Honeymoons, anniversaries, and couples escapes</div></div></div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     3. GUIDES
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="page-section">
+  <div class="page-label"><span>3. GUIDES — /guides/</span><span class="tag">EDITORIAL CONTENT HUB</span></div>
+  <div class="site-nav"><span class="site-nav-logo">destination.com</span><div class="site-nav-links"><a>Destinations</a><a>Experiences</a><a class="current">Guides</a><a>Plan a Trip</a><a>Points & Miles</a></div><a class="site-nav-cta">Newsletter</a></div>
+  <div class="bc"><a>Home</a> / Guides</div>
+  <div class="page-hero guides-hero">
+    <h1>Travel guides that <em>go deeper.</em></h1>
+    <p>Written by editors who've been there. No sponsored fluff — just honest, actionable travel advice.</p>
+  </div>
+  <div class="guide-categories">
+    <button class="gc-btn active">All Guides</button>
+    <button class="gc-btn">Destination Guides</button>
+    <button class="gc-btn">Itineraries</button>
+    <button class="gc-btn">Food & Dining</button>
+    <button class="gc-btn">Budget Tips</button>
+    <button class="gc-btn">Packing Lists</button>
+    <button class="gc-btn">Visa & Logistics</button>
+    <button class="gc-btn">Safety</button>
+  </div>
+  <div class="guides-layout">
+    <div class="guides-main">
+      <div class="guide-featured">
+        <div class="guide-featured-img" style="background-image:url('https://images.unsplash.com/photo-1514890547357-a9ee288728e0?w=600&q=80')"></div>
+        <div class="guide-featured-body">
+          <div class="guide-featured-tag">Featured Guide</div>
+          <h3 class="guide-featured-title">Best Jazz Clubs in New Orleans: 10 Spots That'll Make You Sway</h3>
+          <p class="guide-featured-excerpt">New Orleans and jazz go together like beignets and powdered sugar. Here's where to find the best live music in the city...</p>
+          <a class="guide-featured-link">Read the Guide &rarr;</a>
+        </div>
+      </div>
+      <div class="guide-list">
+        <div class="guide-list-item"><div class="guide-list-img" style="background-image:url('https://images.unsplash.com/photo-1555881400-74d7acaacd8b?w=300&q=80')"></div><div class="guide-list-body"><div class="guide-list-tag">Portugal</div><div class="guide-list-title">Lisbon Hidden Attractions: Secret Spots You Can't Miss</div><div class="guide-list-excerpt">Most visitors stick to the famous sites — but what if you could explore a different side...</div><div class="guide-list-meta">6 min read &middot; Updated March 2025</div></div></div>
+        <div class="guide-list-item"><div class="guide-list-img" style="background-image:url('https://images.unsplash.com/photo-1504214208698-ea1916a2195a?w=300&q=80')"></div><div class="guide-list-body"><div class="guide-list-tag">Thailand</div><div class="guide-list-title">10 Must-Try Bangkok Street Foods and Where to Find Them</div><div class="guide-list-excerpt">Bangkok is a street food paradise. From sizzling woks to smoky grills...</div><div class="guide-list-meta">6 min read &middot; Updated March 2025</div></div></div>
+        <div class="guide-list-item"><div class="guide-list-img" style="background-image:url('https://images.unsplash.com/photo-1493976040374-85c8e12f0c0e?w=300&q=80')"></div><div class="guide-list-body"><div class="guide-list-tag">Austria</div><div class="guide-list-title">Vienna Coffee Houses: Historic Cafes You Must Visit</div><div class="guide-list-excerpt">Talking about Vienna coffee houses feels a bit like ranking symphonies...</div><div class="guide-list-meta">6 min read &middot; Updated Feb 2025</div></div></div>
+      </div>
+    </div>
+    <div class="guides-sidebar">
+      <div class="sidebar-widget"><div class="sw-header">&#128293; Most Popular</div><div class="sw-body">
+        <div class="popular-item"><span class="popular-rank">1</span><div><div class="popular-title">Bangkok Street Food Guide</div><div class="popular-meta">6 min &middot; 12K views</div></div></div>
+        <div class="popular-item"><span class="popular-rank">2</span><div><div class="popular-title">Bali on a Budget: $50/Day</div><div class="popular-meta">8 min &middot; 9.2K views</div></div></div>
+        <div class="popular-item"><span class="popular-rank">3</span><div><div class="popular-title">7 Days in Japan Itinerary</div><div class="popular-meta">10 min &middot; 8.4K views</div></div></div>
+        <div class="popular-item"><span class="popular-rank">4</span><div><div class="popular-title">Hidden Gems of Lisbon</div><div class="popular-meta">6 min &middot; 7.1K views</div></div></div>
+        <div class="popular-item"><span class="popular-rank">5</span><div><div class="popular-title">Paris in 3 Days: Perfect Plan</div><div class="popular-meta">7 min &middot; 6.8K views</div></div></div>
+      </div></div>
+      <div class="sidebar-widget"><div class="sw-header">&#9889; AI Trip Planner</div><div class="sw-body" style="text-align:center;padding:24px 16px;">
+        <p style="font-size:14px;color:var(--text-mid);margin-bottom:16px;">Reading about a destination? Let our AI build a custom itinerary.</p>
+        <button style="width:100%;padding:12px;background:var(--accent);color:white;border:none;border-radius:6px;font-size:13px;font-weight:700;cursor:pointer;font-family:'DM Sans',sans-serif;">Plan My Trip &rarr;</button>
+      </div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     4. PLAN A TRIP
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="page-section">
+  <div class="page-label"><span>4. PLAN A TRIP — /plan/</span><span class="tag">AI TRIP PLANNER (FULL PAGE)</span></div>
+  <div class="site-nav"><span class="site-nav-logo">destination.com</span><div class="site-nav-links"><a>Destinations</a><a>Experiences</a><a>Guides</a><a class="current">Plan a Trip</a><a>Points & Miles</a></div><a class="site-nav-cta">Newsletter</a></div>
+  <div class="bc"><a>Home</a> / Plan a Trip</div>
+  <div class="page-hero plan-hero">
+    <h1>Plan your <em>dream trip.</em></h1>
+    <p>Answer a few questions and our AI builds a personalised itinerary with live Expedia pricing — in seconds.</p>
+  </div>
+  <div class="plan-content" style="background:var(--cream);">
+    <div class="full-planner">
+      <div class="fp-steps">
+        <div class="fp-step done"><div class="fp-step-num">&#10003;</div><div class="fp-step-label">Destination</div></div>
+        <div class="fp-step active"><div class="fp-step-num">2</div><div class="fp-step-label">Trip Style</div></div>
+        <div class="fp-step"><div class="fp-step-num">3</div><div class="fp-step-label">Details</div></div>
+        <div class="fp-step"><div class="fp-step-num">4</div><div class="fp-step-label">Your Plan</div></div>
+      </div>
+      <div class="fp-card">
+        <h2 class="fp-question">What kind of trip are you looking for?</h2>
+        <p class="fp-subtitle">Select all that apply — we'll tailor your itinerary accordingly.</p>
+        <div class="fp-tiles">
+          <div class="fp-tile selected"><div class="fp-tile-icon">&#127958;</div><div class="fp-tile-name">Beach</div><div class="fp-tile-desc">Sun, sand & sea</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#127963;</div><div class="fp-tile-name">City Break</div><div class="fp-tile-desc">Culture & nightlife</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#9968;</div><div class="fp-tile-name">Adventure</div><div class="fp-tile-desc">Hikes & outdoors</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#127863;</div><div class="fp-tile-name">Food & Wine</div><div class="fp-tile-desc">Culinary journeys</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#127912;</div><div class="fp-tile-name">Culture</div><div class="fp-tile-desc">Museums & history</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#129495;</div><div class="fp-tile-name">Wellness</div><div class="fp-tile-desc">Spa & relaxation</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#128663;</div><div class="fp-tile-name">Road Trip</div><div class="fp-tile-desc">Open-road freedom</div></div>
+          <div class="fp-tile"><div class="fp-tile-icon">&#9924;</div><div class="fp-tile-name">Ski</div><div class="fp-tile-desc">Slopes & snow</div></div>
+        </div>
+        <button class="fp-btn">Continue &rarr;</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     5. POINTS & MILES
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="page-section">
+  <div class="page-label"><span>5. POINTS & MILES — /points-and-miles/</span><span class="tag">NEW SECTION</span></div>
+  <div class="site-nav"><span class="site-nav-logo">destination.com</span><div class="site-nav-links"><a>Destinations</a><a>Experiences</a><a>Guides</a><a>Plan a Trip</a><a class="current">Points & Miles</a></div><a class="site-nav-cta">Newsletter</a></div>
+  <div class="bc"><a>Home</a> / Points & Miles</div>
+  <div class="page-hero pm-hero">
+    <h1>Master your <em>points & miles.</em></h1>
+    <p>Maximize rewards, find sweet spots, and fly business class for the price of economy.</p>
+  </div>
+  <div class="pm-content">
+    <div class="pm-intro"><p>Whether you're new to points or a seasoned collector, our guides help you get the most from every airline and hotel loyalty program. Real strategies, no fluff.</p></div>
+    <div class="pm-categories">
+      <div class="pm-cat"><div class="pm-cat-icon">&#9992;</div><div class="pm-cat-name">Airline Programs</div><div class="pm-cat-desc">Transfer partners, sweet spots, and redemption guides</div><div class="pm-cat-count">14 articles</div></div>
+      <div class="pm-cat"><div class="pm-cat-icon">&#127976;</div><div class="pm-cat-name">Hotel Loyalty</div><div class="pm-cat-desc">Marriott, Hilton, IHG, Hyatt — maximise free nights</div><div class="pm-cat-count">11 articles</div></div>
+      <div class="pm-cat"><div class="pm-cat-icon">&#128179;</div><div class="pm-cat-name">Credit Cards</div><div class="pm-cat-desc">Best travel cards, sign-up bonuses, and earning strategies</div><div class="pm-cat-count">8 articles</div></div>
+    </div>
+    <h2 style="text-align:center;font-size:28px;margin-bottom:24px;">Latest Articles</h2>
+    <div class="pm-articles">
+      <div class="pm-article"><div class="pm-article-img" style="background-image:url('https://images.unsplash.com/photo-1436491865332-7a61a109db05?w=400&q=80')"></div><div class="pm-article-body"><div class="pm-article-tag">Airline</div><div class="pm-article-title">How to Fly Business Class to Bali for 60K Points</div><div class="pm-article-meta">5 min &middot; April 2026</div></div></div>
+      <div class="pm-article"><div class="pm-article-img" style="background-image:url('https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&q=80')"></div><div class="pm-article-body"><div class="pm-article-tag">Hotel</div><div class="pm-article-title">Marriott Bonvoy: 5 Best Redemptions Under 25K Points</div><div class="pm-article-meta">7 min &middot; April 2026</div></div></div>
+      <div class="pm-article"><div class="pm-article-img" style="background-image:url('https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=400&q=80')"></div><div class="pm-article-body"><div class="pm-article-tag">Credit Card</div><div class="pm-article-title">Best Travel Credit Cards 2026: Our Top 5 Picks</div><div class="pm-article-meta">8 min &middot; March 2026</div></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     6. ADVERTISE
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ -->
+<div class="page-section">
+  <div class="page-label"><span>6. ADVERTISE — /advertise/</span><span class="tag">BRAND PARTNERSHIPS</span></div>
+  <div class="site-nav"><span class="site-nav-logo">destination.com</span><div class="site-nav-links"><a>Destinations</a><a>Experiences</a><a>Guides</a><a>Plan a Trip</a><a>Points & Miles</a><a class="current">Advertise</a></div><a class="site-nav-cta">Newsletter</a></div>
+  <div class="bc"><a>Home</a> / Advertise</div>
+  <div class="page-hero adv-hero">
+    <h1>Partner with <em>destination.com</em></h1>
+    <p>Reach engaged travellers at the moment they're planning and booking their next trip.</p>
+  </div>
+  <div class="adv-content">
+    <div class="adv-stats">
+      <div class="adv-stat"><div class="adv-stat-num">200K+</div><div class="adv-stat-label">Monthly Visitors</div></div>
+      <div class="adv-stat"><div class="adv-stat-num">8 min</div><div class="adv-stat-label">Avg. Session</div></div>
+      <div class="adv-stat"><div class="adv-stat-num">180+</div><div class="adv-stat-label">Destinations</div></div>
+      <div class="adv-stat"><div class="adv-stat-num">85%</div><div class="adv-stat-label">Planning Intent</div></div>
+    </div>
+    <div class="adv-options">
+      <div class="adv-option"><div class="adv-option-icon">&#128240;</div><h4>Sponsored Content</h4><p>Native editorial articles featuring your brand, destination, or product — written by our travel editors.</p><div class="adv-option-price">From $2,500/article</div></div>
+      <div class="adv-option"><div class="adv-option-icon">&#127919;</div><h4>Display Advertising</h4><p>Premium banner placements across high-intent destination and guide pages. Desktop + mobile.</p><div class="adv-option-price">CPM-based pricing</div></div>
+      <div class="adv-option"><div class="adv-option-icon">&#129309;</div><h4>Destination Partnerships</h4><p>Long-term partnerships with tourism boards and travel brands — custom campaigns + content series.</p><div class="adv-option-price">Custom pricing</div></div>
+    </div>
+    <div class="adv-cta"><a href="#" class="adv-cta-btn">Get in Touch &rarr;</a></div>
+  </div>
+</div>
+
+<div style="padding:32px;text-align:center;font-size:12px;color:var(--text-light);">
+  &copy; 2026 destination.com — Nav page mockups for review. Not production pages.
+</div>
+
+</body>
+</html>
