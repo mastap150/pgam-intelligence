@@ -106,6 +106,7 @@ def _import(module_path: str):
 # geo_leak               | Thu 8:15   | Thursday only (weekday guard inside)
 # pilot_snapshot         | daily 9am  | PubNative + AppStock daily baseline (dedup inside)
 # pilot_watchdog         | daily 9:30 | auto-revert floors if revenue drops >15 % vs baseline
+# floor_optimizer        | every 2h   | dynamic floor adjust based on win rate vs yesterday
 # revenue_gap            | Sun 9am    | Sunday only (weekday guard inside)
 # monthly_forecast       | 1/10/20th  | day-of-month guard inside
 # ---------------------------------------------------------------------------
@@ -137,6 +138,7 @@ def setup_schedule():
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
+    floor_optimizer        = _import("scripts.floor_optimizer")
 
     # ── Hourly ───────────────────────────────────────────────────────────────
     schedule.every(60).minutes.do(_run("tb_revenue",         tb_revenue))
@@ -165,6 +167,9 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("fill_funnel",            fill_funnel))         # Mon-Fri guard inside
     schedule.every().day.at("08:15").do(_run("dead_demand",            dead_demand))         # Mon guard inside
     schedule.every().day.at("08:15").do(_run("geo_leak",               geo_leak))            # Thu guard inside
+
+    # ── Every 2 hours — dynamic floor optimizer ──────────────────────────────
+    schedule.every(2).hours.do(_run("floor_optimizer", floor_optimizer))
 
     # ── Daily 9:00 AM ET ─────────────────────────────────────────────────────
     schedule.every().day.at("09:00").do(_run("pilot_snapshot",    pilot_snapshot))     # daily dedup inside
