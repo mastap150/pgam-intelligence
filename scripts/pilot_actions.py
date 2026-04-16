@@ -32,7 +32,7 @@ import core.slack    as slack
 # Safety constants
 # ---------------------------------------------------------------------------
 
-PILOT_SUPPLIER_IDS   = {28, 33, 7, 24}   # PubNative=28, AppStock=33, Start.IO=7, BidMachine=24
+PILOT_SUPPLIER_IDS   = {28, 33, 7, 24, 2, 22, 30}   # PubNative=28, AppStock=33, Start.IO=7, BidMachine=24, Illumin=2, Algorix=22, Smaato=30
 MAX_FLOOR_CHANGE_PCT = 25.0        # Never change a floor by more than 25 % in one step
 MIN_FLOOR            = 0.10        # Never set a floor below $0.10
 
@@ -146,6 +146,7 @@ def _floor_change_blocks(
     new_floor: float,
     reason: str,
     mode: str,
+    force: bool = False,
 ) -> list[dict]:
     """Build Slack Block Kit blocks for a floor-change confirmation."""
     direction = "−" if new_floor < old_floor else "+"
@@ -162,6 +163,7 @@ def _floor_change_blocks(
         f"Reason: {reason}\n"
         f"Time: {_now_et_str()}\n"
         f"Mode: {mode}"
+        + ("\n⚠️ Manual calibration (cap override)" if force else "")
     )
 
     return [{"type": "section", "text": {"type": "mrkdwn", "text": text}}]
@@ -203,6 +205,7 @@ def apply_floor_change(
     new_floor: float,
     reason: str,
     dry_run: bool = True,
+    force: bool = False,
 ) -> dict:
     """
     Change the floor for a specific demand partner on a pilot publisher.
@@ -277,11 +280,12 @@ def apply_floor_change(
         )
 
     change_pct = _floor_change_pct(old_floor, new_floor)
-    if old_floor > 0.0 and change_pct > MAX_FLOOR_CHANGE_PCT:
+    if old_floor > 0.0 and change_pct > MAX_FLOOR_CHANGE_PCT and not force:
         raise ValueError(
             f"Floor change of {change_pct:.1f}% exceeds MAX_FLOOR_CHANGE_PCT="
             f"{MAX_FLOOR_CHANGE_PCT}%.  "
-            f"Current floor: ${old_floor:.4f}, requested: ${new_floor:.4f}"
+            f"Current floor: ${old_floor:.4f}, requested: ${new_floor:.4f}.  "
+            f"Pass force=True to override for manual calibrations."
         )
 
     # ------------------------------------------------------------------
@@ -297,6 +301,7 @@ def apply_floor_change(
         "new_floor":      new_floor,
         "applied":        False,
         "dry_run":        dry_run,
+        "force":          force,
         "reason":         reason,
         "timestamp":      timestamp,
     }
@@ -309,6 +314,7 @@ def apply_floor_change(
             f"[pilot_actions] DRY_RUN apply_floor_change  "
             f"publisher={pub_display!r}  demand={demand_display!r}  "
             f"floor={old_floor}→{new_floor}  change={change_pct:.1f}%"
+            + ("  FORCE_CAP_OVERRIDE" if force else "")
         )
         return result
 
@@ -340,6 +346,7 @@ def apply_floor_change(
         new_floor=new_floor,
         reason=reason,
         mode="LIVE",
+        force=force,
     )
     slack.send_blocks(blocks, text=f"Pilot floor change: {pub_display} / {demand_display}")
 
