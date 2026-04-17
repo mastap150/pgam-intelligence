@@ -137,6 +137,7 @@ def setup_schedule():
     dead_demand            = _import("agents.optimization.dead_demand")
     geo_leak               = _import("agents.optimization.geo_leak")
     new_partner_optimizer  = _import("agents.optimization.new_partner_optimizer")
+    partner_optimizer      = _import("agents.optimization.partner_optimizer")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
     # Pilot program
@@ -175,6 +176,7 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("geo_leak",               geo_leak))            # Thu guard inside
     schedule.every().day.at("08:15").do(_run("margin_health",          margin_health))       # daily — alert if any pub <30% margin
     schedule.every().day.at("08:30").do(_run("new_partner_optimizer",  new_partner_optimizer))  # daily — auto-floor any new publisher/demand
+    schedule.every().day.at("08:45").do(_run("partner_optimizer",      partner_optimizer))       # daily — SSP supply partner dead-weight & expand recs
 
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
