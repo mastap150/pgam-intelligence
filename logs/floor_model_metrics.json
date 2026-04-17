@@ -1,0 +1,7 @@
+{
+  "n_rows": 2400,
+  "median_ape": 0.42158574538216403,
+  "baseline_median_ape": 2.350077515887931,
+  "lift_vs_baseline": 0.8206077278166392,
+  "p10_p90_coverage": 0.65375
+}

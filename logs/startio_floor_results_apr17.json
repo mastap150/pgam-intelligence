@@ -1,0 +1,499 @@
+[
+  {
+    "action": "startio_floor_optimizer_apr17",
+    "publisher_id": 290115375,
+    "publisher_label": "Start.IO - Video Magnite",
+    "timestamp": "2026-04-17T18:34:57.113720+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 135,
+        "demand_name": "Pubmatic Start.IO - VIdeo",
+        "old_floor": null,
+        "new_floor": 1.04,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$2.61 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 3072113.0,
+          "imps": 1170522.0,
+          "rev": 3057.4623,
+          "proxy_wr": 0.381015281664444,
+          "eff_ecpm": 2.612050264753674,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 136,
+        "demand_name": "Pubmatic Start.IO - Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.05,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$2.64 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 2872269.0,
+          "imps": 972672.0,
+          "rev": 2564.3882,
+          "proxy_wr": 0.3386423764626503,
+          "eff_ecpm": 2.6364367433214895,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 139,
+        "demand_name": "Magnite - Start.IO - Video",
+        "old_floor": null,
+        "new_floor": 0.5,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.26 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 177785.0,
+          "imps": 29673.0,
+          "rev": 37.3712,
+          "proxy_wr": 0.1669038445313159,
+          "eff_ecpm": 1.2594345027466047,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 140,
+        "demand_name": "Magnite - Start.IO - Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.49,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.22 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 131914.0,
+          "imps": 18789.0,
+          "rev": 22.8376,
+          "proxy_wr": 0.1424337068089816,
+          "eff_ecpm": 1.2154771408803022,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 174,
+        "demand_name": "Magnite - Start.IO - Video Prebid Server",
+        "old_floor": null,
+        "new_floor": 0.52,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.29 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 332797.0,
+          "imps": 9777.0,
+          "rev": 12.6594,
+          "proxy_wr": 0.029378269635844074,
+          "eff_ecpm": 1.2948143602332003,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 148,
+        "demand_name": "Sovrn - Start.IO - Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.66,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.66 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 7106.0,
+          "imps": 925.0,
+          "rev": 1.5372,
+          "proxy_wr": 0.13017168589924008,
+          "eff_ecpm": 1.6618378378378378,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 147,
+        "demand_name": "Sovrn - Start.IO - Video",
+        "old_floor": null,
+        "new_floor": 0.69,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.73 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 5557.0,
+          "imps": 631.0,
+          "rev": 1.0885,
+          "proxy_wr": 0.11355047687601223,
+          "eff_ecpm": 1.7250396196513471,
+          "current_floor": null,
+          "status": 1
+        }
+      }
+    ],
+    "skipped": [],
+    "watch_id": "d390071d"
+  },
+  {
+    "action": "startio_floor_optimizer_apr17",
+    "publisher_id": 290115285,
+    "publisher_label": "Start.IO - Video",
+    "timestamp": "2026-04-17T18:34:59.807810+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 139,
+        "demand_name": "Magnite - Start.IO - Video",
+        "old_floor": null,
+        "new_floor": 2.0,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$5.71 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 51448.0,
+          "imps": 63648.0,
+          "rev": 363.5858,
+          "proxy_wr": 1.237132638780905,
+          "eff_ecpm": 5.712446581196581,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 143,
+        "demand_name": "Unruly Start.IO",
+        "old_floor": null,
+        "new_floor": 0.28,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$0.70 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 398312.0,
+          "imps": 209567.0,
+          "rev": 146.459,
+          "proxy_wr": 0.5261378015224246,
+          "eff_ecpm": 0.6988648021873674,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 144,
+        "demand_name": "Unruly Start.IO oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.28,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$0.69 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 399323.0,
+          "imps": 196838.0,
+          "rev": 136.6332,
+          "proxy_wr": 0.4929292828111579,
+          "eff_ecpm": 0.6941403590770073,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 140,
+        "demand_name": "Magnite - Start.IO - Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 2.0,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$5.92 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 51549.0,
+          "imps": 21853.0,
+          "rev": 129.3217,
+          "proxy_wr": 0.4239267493064851,
+          "eff_ecpm": 5.917800759621104,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 174,
+        "demand_name": "Magnite - Start.IO - Video Prebid Server",
+        "old_floor": null,
+        "new_floor": 2.0,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$5.83 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 115532.0,
+          "imps": 9860.0,
+          "rev": 57.5081,
+          "proxy_wr": 0.08534432018834609,
+          "eff_ecpm": 5.832464503042596,
+          "current_floor": null,
+          "status": 1
+        }
+      }
+    ],
+    "skipped": [],
+    "watch_id": "7834e4ec"
+  },
+  {
+    "action": "startio_floor_optimizer_apr17",
+    "publisher_id": 290115284,
+    "publisher_label": "Start.IO Display",
+    "timestamp": "2026-04-17T18:35:06.707195+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 137,
+        "demand_name": "Magnite - Start.IO - Display",
+        "old_floor": null,
+        "new_floor": 0.7,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.75 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 587969.0,
+          "imps": 120108.0,
+          "rev": 210.5157,
+          "proxy_wr": 0.20427607577950538,
+          "eff_ecpm": 1.7527200519532422,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 173,
+        "demand_name": "Magnite - Start.IO - Display Prebid Server",
+        "old_floor": null,
+        "new_floor": 0.62,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.56 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 526010.0,
+          "imps": 103856.0,
+          "rev": 161.7747,
+          "proxy_wr": 0.19744111328681965,
+          "eff_ecpm": 1.5576827530426745,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 138,
+        "demand_name": "Magnite - Start.IO - Display oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.8,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$2.00 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 440588.0,
+          "imps": 47800.0,
+          "rev": 95.7133,
+          "proxy_wr": 0.1084913797016714,
+          "eff_ecpm": 2.0023702928870297,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 143,
+        "demand_name": "Unruly Start.IO",
+        "old_floor": null,
+        "new_floor": 0.7,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.74 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 43814.0,
+          "imps": 51963.0,
+          "rev": 90.5649,
+          "proxy_wr": 1.1859907792029944,
+          "eff_ecpm": 1.742872813347959,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 144,
+        "demand_name": "Unruly Start.IO oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.7,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.76 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 43852.0,
+          "imps": 50684.0,
+          "rev": 89.2149,
+          "proxy_wr": 1.1557967709568548,
+          "eff_ecpm": 1.7602182148212455,
+          "current_floor": null,
+          "status": 1
+        }
+      }
+    ],
+    "skipped": [],
+    "watch_id": "6ecd2731"
+  },
+  {
+    "action": "startio_floor_optimizer_apr17",
+    "publisher_id": 290115330,
+    "publisher_label": "Start.IO EU",
+    "timestamp": "2026-04-17T18:35:10.015270+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 655,
+        "demand_name": "Magnite - Start.IO - Display EU",
+        "old_floor": null,
+        "new_floor": 0.2,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$0.47 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 1352807.0,
+          "imps": 85006.0,
+          "rev": 40.3439,
+          "proxy_wr": 0.06283675350585856,
+          "eff_ecpm": 0.47460061642707574,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 656,
+        "demand_name": "Magnite - Start.IO - Display oRTB 2.6 EU",
+        "old_floor": null,
+        "new_floor": 0.22,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$0.55 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 1355370.0,
+          "imps": 56734.0,
+          "rev": 30.9726,
+          "proxy_wr": 0.04185868065546677,
+          "eff_ecpm": 0.5459266048577572,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 657,
+        "demand_name": "Magnite - Start.IO - Video EU",
+        "old_floor": null,
+        "new_floor": 0.34,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$0.86 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 588309.0,
+          "imps": 33280.0,
+          "rev": 28.5472,
+          "proxy_wr": 0.05656891191533701,
+          "eff_ecpm": 0.8577884615384616,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 658,
+        "demand_name": "Magnite - Start.IO - Video oRTB 2.6 EU",
+        "old_floor": null,
+        "new_floor": 0.34,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$0.85 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 588296.0,
+          "imps": 11583.0,
+          "rev": 9.8822,
+          "proxy_wr": 0.0196890680881733,
+          "eff_ecpm": 0.8531641198307864,
+          "current_floor": null,
+          "status": 1
+        }
+      }
+    ],
+    "skipped": [],
+    "watch_id": "618411e3"
+  },
+  {
+    "action": "startio_floor_optimizer_apr17",
+    "publisher_id": 290115374,
+    "publisher_label": "Start.IO Display Magnite",
+    "timestamp": "2026-04-17T18:35:13.199262+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 137,
+        "demand_name": "Magnite - Start.IO - Display",
+        "old_floor": null,
+        "new_floor": 0.5,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.24 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 194248.0,
+          "imps": 10599.0,
+          "rev": 13.1267,
+          "proxy_wr": 0.05456426835797537,
+          "eff_ecpm": 1.2384847627134636,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 173,
+        "demand_name": "Magnite - Start.IO - Display Prebid Server",
+        "old_floor": null,
+        "new_floor": 0.45,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.12 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 507556.0,
+          "imps": 9845.0,
+          "rev": 11.0347,
+          "proxy_wr": 0.01939687443356004,
+          "eff_ecpm": 1.1208430675469783,
+          "current_floor": null,
+          "status": 1
+        }
+      },
+      {
+        "demand_id": 138,
+        "demand_name": "Magnite - Start.IO - Display oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.51,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$1.27 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 192878.0,
+          "imps": 7904.0,
+          "rev": 10.0434,
+          "proxy_wr": 0.04097927187133836,
+          "eff_ecpm": 1.270673076923077,
+          "current_floor": null,
+          "status": 1
+        }
+      }
+    ],
+    "skipped": [],
+    "watch_id": "543bb643"
+  },
+  {
+    "action": "startio_floor_optimizer_apr17",
+    "publisher_id": 290115343,
+    "publisher_label": "Start.IO EU Interstitial",
+    "timestamp": "2026-04-17T18:35:16.668062+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 655,
+        "demand_name": "Magnite - Start.IO - Display EU",
+        "old_floor": null,
+        "new_floor": 2.0,
+        "action": "ACTIVATE",
+        "rationale": "null floor; eff_ecpm=$5.55 \u2192 activate at 40%",
+        "metrics": {
+          "bids": 19154.0,
+          "imps": 192.0,
+          "rev": 1.0659,
+          "proxy_wr": 0.010024015871358464,
+          "eff_ecpm": 5.5515625,
+          "current_floor": null,
+          "status": 1
+        }
+      }
+    ],
+    "skipped": [],
+    "watch_id": "ce97ca85"
+  }
+]

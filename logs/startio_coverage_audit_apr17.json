@@ -1,0 +1,254 @@
+{
+  "date": "2026-04-17",
+  "publishers_audited": 114,
+  "class_a_paused": [
+    {
+      "publisher_id": 290115330,
+      "publisher_name": "Start.IO EU",
+      "demand_id": 663,
+      "demand_name": "Unruly Start.IO EU",
+      "status": 2,
+      "minBidFloor": null,
+      "rev_alltime": 43.15,
+      "imps_alltime": 166653,
+      "bids_alltime": 1896878
+    },
+    {
+      "publisher_id": 290115330,
+      "publisher_name": "Start.IO EU",
+      "demand_id": 664,
+      "demand_name": "Unruly Start.IO oRTB 2.6 EU",
+      "status": 2,
+      "minBidFloor": null,
+      "rev_alltime": 38.19,
+      "imps_alltime": 139380,
+      "bids_alltime": 1883349
+    },
+    {
+      "publisher_id": 290115343,
+      "publisher_name": "Start.IO EU Interstitial",
+      "demand_id": 663,
+      "demand_name": "Unruly Start.IO EU",
+      "status": 2,
+      "minBidFloor": null,
+      "rev_alltime": 4.38,
+      "imps_alltime": 1632,
+      "bids_alltime": 58365
+    },
+    {
+      "publisher_id": 290115343,
+      "publisher_name": "Start.IO EU Interstitial",
+      "demand_id": 664,
+      "demand_name": "Unruly Start.IO oRTB 2.6 EU",
+      "status": 2,
+      "minBidFloor": null,
+      "rev_alltime": 4.27,
+      "imps_alltime": 1583,
+      "bids_alltime": 61357
+    }
+  ],
+  "class_b_null_no_signal": [],
+  "class_c_no_startio_count": 108,
+  "class_c_sample": [
+    {
+      "publisher_id": 290115266,
+      "publisher_name": "test openrtb supply"
+    },
+    {
+      "publisher_id": 290115267,
+      "publisher_name": "tag video inapp cpm july 2025"
+    },
+    {
+      "publisher_id": 290115268,
+      "publisher_name": "Illumin Display & Video"
+    },
+    {
+      "publisher_id": 290115269,
+      "publisher_name": "Illumin Video"
+    },
+    {
+      "publisher_id": 290115270,
+      "publisher_name": "Illumin In App"
+    },
+    {
+      "publisher_id": 290115271,
+      "publisher_name": "Illumin OT Display"
+    },
+    {
+      "publisher_id": 290115272,
+      "publisher_name": "Illumin OT Video"
+    },
+    {
+      "publisher_id": 290115273,
+      "publisher_name": "Rumble CTV"
+    },
+    {
+      "publisher_id": 290115274,
+      "publisher_name": "Future Today CTV - $10"
+    },
+    {
+      "publisher_id": 290115275,
+      "publisher_name": "Future Today CTV - Tag"
+    },
+    {
+      "publisher_id": 290115276,
+      "publisher_name": "Rumble Video"
+    },
+    {
+      "publisher_id": 290115277,
+      "publisher_name": "Rumble Display"
+    },
+    {
+      "publisher_id": 290115278,
+      "publisher_name": "Quickcast - RTB"
+    },
+    {
+      "publisher_id": 290115279,
+      "publisher_name": "Quickcast - Vast"
+    },
+    {
+      "publisher_id": 290115280,
+      "publisher_name": "Future Today Kids CTV - $10"
+    },
+    {
+      "publisher_id": 290115281,
+      "publisher_name": "Future Today CTV - $14"
+    },
+    {
+      "publisher_id": 290115282,
+      "publisher_name": "WURL - $12"
+    },
+    {
+      "publisher_id": 290115283,
+      "publisher_name": "WURL - $15"
+    },
+    {
+      "publisher_id": 290115286,
+      "publisher_name": "Ottera - CTV $8 Vast"
+    },
+    {
+      "publisher_id": 290115287,
+      "publisher_name": "Ottera - CTV $10 Vast"
+    },
+    {
+      "publisher_id": 290115288,
+      "publisher_name": "Blue Ant Media - CTV $8 RTB"
+    },
+    {
+      "publisher_id": 290115289,
+      "publisher_name": "Blue Ant Media - CTV $8 Vast"
+    },
+    {
+      "publisher_id": 290115290,
+      "publisher_name": "Blue Ant Media - CTV $10 Vast"
+    },
+    {
+      "publisher_id": 290115291,
+      "publisher_name": "Blue Ant Media - CTV $12 Vast"
+    },
+    {
+      "publisher_id": 290115292,
+      "publisher_name": "Fuse Media CTV - $13 Vast"
+    },
+    {
+      "publisher_id": 290115293,
+      "publisher_name": "Copy - Fuse Media CTV - $16 Vast"
+    },
+    {
+      "publisher_id": 290115294,
+      "publisher_name": "OmnifyTV - Display"
+    },
+    {
+      "publisher_id": 290115295,
+      "publisher_name": "OmnifyTV - Video"
+    },
+    {
+      "publisher_id": 290115296,
+      "publisher_name": "TCL - CTV"
+    },
+    {
+      "publisher_id": 290115297,
+      "publisher_name": "Landocs Display"
+    },
+    {
+      "publisher_id": 290115298,
+      "publisher_name": "Blue Ant Media - CTV $6 Vast"
+    },
+    {
+      "publisher_id": 290115299,
+      "publisher_name": "NDTV Display RTB"
+    },
+    {
+      "publisher_id": 290115300,
+      "publisher_name": "NDTV Video RTB"
+    },
+    {
+      "publisher_id": 290115301,
+      "publisher_name": "COX Media Group Vast Tag"
+    },
+    {
+      "publisher_id": 290115302,
+      "publisher_name": "OneFootball RTB"
+    },
+    {
+      "publisher_id": 290115303,
+      "publisher_name": "Bidfuse - Stirista - Sports"
+    },
+    {
+      "publisher_id": 290115304,
+      "publisher_name": "Bidfuse - Stirista - Business"
+    },
+    {
+      "publisher_id": 290115305,
+      "publisher_name": "Illumin In App - LL"
+    },
+    {
+      "publisher_id": 290115306,
+      "publisher_name": "Dexerto Display"
+    },
+    {
+      "publisher_id": 290115307,
+      "publisher_name": "LifeVista TV $9"
+    },
+    {
+      "publisher_id": 290115308,
+      "publisher_name": "LifeVista TV $4.50"
+    },
+    {
+      "publisher_id": 290115309,
+      "publisher_name": "Lihuhu Games Display"
+    },
+    {
+      "publisher_id": 290115310,
+      "publisher_name": "Lihuhu Games Video"
+    },
+    {
+      "publisher_id": 290115311,
+      "publisher_name": "Brainworks Games - Display"
+    },
+    {
+      "publisher_id": 290115312,
+      "publisher_name": "Brainworks Games - Video"
+    },
+    {
+      "publisher_id": 290115313,
+      "publisher_name": "Algorix Display and Video"
+    },
+    {
+      "publisher_id": 290115314,
+      "publisher_name": "Algorix Video"
+    },
+    {
+      "publisher_id": 290115315,
+      "publisher_name": "Aniview CTV Video $3 "
+    },
+    {
+      "publisher_id": 290115316,
+      "publisher_name": "Copy - Aniview CTV Display"
+    },
+    {
+      "publisher_id": 290115317,
+      "publisher_name": "WURL - $10"
+    }
+  ]
+}

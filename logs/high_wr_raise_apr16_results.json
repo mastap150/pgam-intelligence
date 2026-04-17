@@ -1,0 +1,246 @@
+[
+  {
+    "action": "high_wr_floor_raise_apr16",
+    "publisher_id": 290115275,
+    "publisher_label": "Future Today CTV Tag",
+    "timestamp": "2026-04-17T00:18:17.213612+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 39,
+        "demand_name": "Pubmatic Future Today Video",
+        "old_floor": 8.0,
+        "new_floor": 12.0
+      },
+      {
+        "demand_id": 38,
+        "demand_name": "Sharethrough Future Today",
+        "old_floor": 9.0,
+        "new_floor": 12.0
+      },
+      {
+        "demand_id": 588,
+        "demand_name": "Stirista RON Future Today",
+        "old_floor": 10.0,
+        "new_floor": 13.0
+      },
+      {
+        "demand_id": 888,
+        "demand_name": "Sabio Future Today $9",
+        "old_floor": null,
+        "new_floor": 12.0
+      }
+    ]
+  },
+  {
+    "action": "high_wr_floor_raise_apr16",
+    "publisher_id": 290115317,
+    "publisher_label": "WURL $10",
+    "timestamp": "2026-04-17T00:18:18.116574+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 589,
+        "demand_name": "Stirista RON WURL",
+        "old_floor": 10.0,
+        "new_floor": 14.0
+      },
+      {
+        "demand_id": 54,
+        "demand_name": "Pubmatic RON Video Prebid Server",
+        "old_floor": null,
+        "new_floor": 12.0
+      }
+    ]
+  },
+  {
+    "action": "high_wr_floor_raise_apr16",
+    "publisher_id": 290115340,
+    "publisher_label": "BidMachine Reseller",
+    "timestamp": "2026-04-17T00:18:18.711725+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 604,
+        "demand_name": "Magnite BidMachine In App",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 605,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 606,
+        "demand_name": "Magnite BidMachine In App Prebid Server",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 607,
+        "demand_name": "Magnite BidMAchine In App PS oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 671,
+        "demand_name": "Magnite BidMachine In App US West",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 672,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6 US West",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 673,
+        "demand_name": "Magnite BidMachine In App PS US West",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 674,
+        "demand_name": "Magnite BidMAchine In App PS oRTB 2.6 West",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 683,
+        "demand_name": "Stirista General OLV BidMachine",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 682,
+        "demand_name": "Stirista General BidMachine",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 684,
+        "demand_name": "Sovrn BidMachine 300x250",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 685,
+        "demand_name": "Sovrn BidMachine 300x250 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 686,
+        "demand_name": "Sovrn BidMachine 320x50 PS",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 687,
+        "demand_name": "Sovrn BidMachine 320x50 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 688,
+        "demand_name": "Sovrn BidMachine 728x90 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 689,
+        "demand_name": "Sovrn BidMachine 728x90",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 690,
+        "demand_name": "Sovrn BidMachine 320x100",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 691,
+        "demand_name": "Sovrn BidMachine 320x100 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 919,
+        "demand_name": "Pubmatic RON 728x90 PS New EP",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic RON 300x250 PS New EP",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 969,
+        "demand_name": "Rise Media BidMachine In App",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 788,
+        "demand_name": "Illumin US",
+        "old_floor": 0.5,
+        "new_floor": 1.5
+      }
+    ]
+  },
+  {
+    "action": "high_wr_floor_raise_apr16",
+    "publisher_id": 290115342,
+    "publisher_label": "MetaSpoon Video",
+    "timestamp": "2026-04-17T00:18:19.397469+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 726,
+        "demand_name": "Inmobi MetaSpoon Video",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 728,
+        "demand_name": "Inmobi MetaSpoon Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 747,
+        "demand_name": "Magnite MetaSpoon Video",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 748,
+        "demand_name": "Magnite MetaSpoon Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 54,
+        "demand_name": "Pubmatic RON Video PS",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic RON 300x250 PS New EP",
+        "old_floor": null,
+        "new_floor": 1.0
+      }
+    ]
+  }
+]

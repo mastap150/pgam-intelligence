@@ -1,0 +1,262 @@
+{
+  "timestamp": "2026-04-17T23:15:00.568807+00:00",
+  "mode": "LIVE",
+  "applied": [
+    {
+      "publisher_id": 290115268,
+      "publisher_name": "Illumin Display & Video",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "1ff59765",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115270,
+      "publisher_name": "Illumin In App",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "1bd32f64",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115271,
+      "publisher_name": "Illumin OT Display",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "0bd1bf97",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115272,
+      "publisher_name": "Illumin OT Video",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "bdf4af6b",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115313,
+      "publisher_name": "Algorix Display and Video",
+      "supplier": 22,
+      "prior_lurl": false,
+      "watch_id": "fe26d6eb",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115319,
+      "publisher_name": "BidMachine - In App Display & Video",
+      "supplier": 24,
+      "prior_lurl": false,
+      "watch_id": "a6f36218",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115322,
+      "publisher_name": "Illumin In App - TEST",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "ff854368",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115326,
+      "publisher_name": "BidMachine - In App Display & Video (Europe)",
+      "supplier": 24,
+      "prior_lurl": false,
+      "watch_id": "b26a4413",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115327,
+      "publisher_name": "Illumin Display EU",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "84bbce42",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115328,
+      "publisher_name": "Illumin Video EU",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "79e58bb2",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115329,
+      "publisher_name": "Illumin In App EU",
+      "supplier": 2,
+      "prior_lurl": false,
+      "watch_id": "0317626e",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115333,
+      "publisher_name": "BidMachine - In App Interstitial",
+      "supplier": 24,
+      "prior_lurl": false,
+      "watch_id": "c7a57874",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115334,
+      "publisher_name": "Copy - BidMachine - In App Interstitial (Europe)",
+      "supplier": 24,
+      "prior_lurl": false,
+      "watch_id": "66a02684",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115339,
+      "publisher_name": "BidMachine - In App Rewarded Video",
+      "supplier": 24,
+      "prior_lurl": false,
+      "watch_id": "0a47aad8",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115340,
+      "publisher_name": "BidMachine - In App Display & Video Reseller",
+      "supplier": 24,
+      "prior_lurl": false,
+      "watch_id": "9cc777e3",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115353,
+      "publisher_name": "Algorix Display and Video - EU",
+      "supplier": 22,
+      "prior_lurl": false,
+      "watch_id": "362a97dc",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115362,
+      "publisher_name": "Copy - Algorix Interstitial",
+      "supplier": 22,
+      "prior_lurl": false,
+      "watch_id": "c505b3c6",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115364,
+      "publisher_name": "Smaato - Interstitial ",
+      "supplier": 30,
+      "prior_lurl": false,
+      "watch_id": "9d7d77be",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115372,
+      "publisher_name": "Smaato - Magnite ",
+      "supplier": 30,
+      "prior_lurl": false,
+      "watch_id": "de8e9669",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115373,
+      "publisher_name": "PubNative - In-App Magnite",
+      "supplier": 28,
+      "prior_lurl": false,
+      "watch_id": "12406f15",
+      "dry_run": false
+    },
+    {
+      "publisher_id": 290115377,
+      "publisher_name": "AppStock",
+      "supplier": 33,
+      "prior_lurl": false,
+      "watch_id": "6dc7807a",
+      "dry_run": false
+    }
+  ],
+  "errors": [],
+  "skipped_paused": [
+    {
+      "id": 290115269,
+      "name": "Illumin Video",
+      "supplier": 2
+    },
+    {
+      "id": 290115305,
+      "name": "Illumin In App - LL",
+      "supplier": 2
+    },
+    {
+      "id": 290115314,
+      "name": "Algorix Video",
+      "supplier": 22
+    },
+    {
+      "id": 290115336,
+      "name": " BidMachine - In App Display & Video Xandr 9 Dots",
+      "supplier": 24
+    },
+    {
+      "id": 290115349,
+      "name": "PubNative - Display In-App EU",
+      "supplier": 28
+    },
+    {
+      "id": 290115350,
+      "name": "PubNative - Video In-App EU",
+      "supplier": 28
+    },
+    {
+      "id": 290115355,
+      "name": "BidMachine - In App Display & Video APAC",
+      "supplier": 24
+    },
+    {
+      "id": 290115357,
+      "name": "PubNative - Display In-App APAC",
+      "supplier": 28
+    },
+    {
+      "id": 290115358,
+      "name": "PubNative - Video In-App APAC",
+      "supplier": 28
+    },
+    {
+      "id": 290115359,
+      "name": "Illumin Display APAC",
+      "supplier": 2
+    },
+    {
+      "id": 290115360,
+      "name": "Illumin Video APAC",
+      "supplier": 2
+    },
+    {
+      "id": 290115361,
+      "name": "Illumin In App APAC",
+      "supplier": 2
+    },
+    {
+      "id": 290115363,
+      "name": "PubNative - Display In-App US Interstitial",
+      "supplier": 28
+    },
+    {
+      "id": 290115365,
+      "name": "BidMachine - In App Display & Video Sovrn",
+      "supplier": 24
+    },
+    {
+      "id": 290115366,
+      "name": "Smaato - Display and Video APAC",
+      "supplier": 30
+    },
+    {
+      "id": 290115371,
+      "name": "BidMachine - In App Display & Video LoopMe",
+      "supplier": 24
+    },
+    {
+      "id": 290115376,
+      "name": "BidMachine - In App Display & Video Rise",
+      "supplier": 24
+    }
+  ]
+}

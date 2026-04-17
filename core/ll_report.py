@@ -23,6 +23,30 @@ dimension/metric combinations and server-side filtering.
         if not llr.DATE_FILTER_WORKS:
             rows = llr.fetch_publisher_demand(start, end)   # date-accurate path
 
+.. warning:: **WINS event drop bug for Start.IO and certain other adapters**
+
+    LL's reporting pipeline does not emit ``WINS`` events for ~49 demand
+    adapter entries (~$10K/wk revenue, of which Start.IO is ~$7.6K/wk).
+    Affected rows return ``WINS=0`` despite having millions of bids,
+    hundreds of thousands of impressions, and real revenue. ``OPPORTUNITIES``
+    is broken in the same way for these rows.
+
+    Detection signature: ``WINS == 0`` AND ``IMPRESSIONS > 0``.
+
+    Workaround applied in :func:`_sanitize_rows`: backfill
+    ``WINS = IMPRESSIONS`` for matching rows. This is a *proxy*, not a
+    true count — IMPRESSIONS and WINS are not a strict superset/subset
+    in LL's data model (billing reconciliation, multi-imp creatives,
+    etc. can make either larger). But IMPRESSIONS is the most reliable
+    nonzero signal we have, and substituting it lets downstream win-rate
+    consumers (floor optimizer, demand saturation, win_rate_maximizer,
+    etc.) actually see Start.IO instead of treating it as dead inventory.
+
+    Patched rows are tagged with ``_WINS_BACKFILLED = True`` so callers
+    that care can detect the workaround. Filed upstream with LL; remove
+    once they ship a fix. See ``scripts/diagnose_startio_wins.py`` and
+    ``scripts/verify_wins_backfill.py`` to re-test current API behavior.
+
 Typical usage
 -------------
     from core.ll_report import report, report_pub_demand, FUNNEL_METRICS
@@ -140,10 +164,32 @@ def _sf(v) -> float:
         return 0.0
 
 
+def _patch_zero_wins(row: dict) -> dict:
+    """
+    Workaround for the LL ``WINS`` event-drop bug (see module docstring).
+
+    When ``WINS == 0`` AND ``IMPRESSIONS > 0`` (impossible for healthy data),
+    backfill ``WINS = IMPRESSIONS`` as a conservative lower-bound estimate
+    and tag the row with ``_WINS_BACKFILLED = True``.
+
+    Mutates and returns the row in place.
+    """
+    if "WINS" not in row or "IMPRESSIONS" not in row:
+        return row
+    wins = _sf(row.get("WINS"))
+    imps = _sf(row.get("IMPRESSIONS"))
+    if wins == 0.0 and imps > 0.0:
+        row["WINS"] = imps
+        row["_WINS_BACKFILLED"] = True
+    return row
+
+
 def _sanitize_rows(rows: list[dict]) -> list[dict]:
     """
     Walk every row and replace "NaN" string values in numeric-looking fields
     with 0.0 so callers never have to deal with them.
+
+    Also applies the WINS event-drop workaround via :func:`_patch_zero_wins`.
     """
     metric_set = set(METRICS)
     sanitized = []
@@ -154,6 +200,7 @@ def _sanitize_rows(rows: list[dict]) -> list[dict]:
                 clean[k] = _sf(v)
             else:
                 clean[k] = v
+        _patch_zero_wins(clean)
         sanitized.append(clean)
     return sanitized
 

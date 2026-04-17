@@ -1,0 +1,338 @@
+[
+  {
+    "action": "phase1_executor_apr17",
+    "strategy": "Activate + modest raise \u2014 22% WR @ $1.89 eCPM",
+    "publisher_id": 290115313,
+    "publisher_label": "Algorix Display and Video",
+    "timestamp": "2026-04-17T12:38:16.819238+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 919,
+        "demand_name": "Pubmatic 728x90 New EP",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic 300x250 New EP",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 918,
+        "demand_name": "Pubmatic 320x50 New EP",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 529,
+        "demand_name": "Magnite Algorix Display",
+        "old_floor": null,
+        "new_floor": 0.6
+      },
+      {
+        "demand_id": 530,
+        "demand_name": "Magnite Algorix Display oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.6
+      },
+      {
+        "demand_id": 531,
+        "demand_name": "Magnite Algorix Display Prebid Server",
+        "old_floor": null,
+        "new_floor": 0.6
+      },
+      {
+        "demand_id": 532,
+        "demand_name": "Magnite Algorix Display PS oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.6
+      },
+      {
+        "demand_id": 537,
+        "demand_name": "Unruly Algorix",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 538,
+        "demand_name": "Unruly Algorix oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 539,
+        "demand_name": "Unruly Algorix Prebid Server",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 540,
+        "demand_name": "Unruly Algorix Prebid Server oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.5
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1_executor_apr17",
+    "strategy": "Activate high-eCPM secondaries \u2014 $2.09 Unruly, $1.95 Stirista",
+    "publisher_id": 290115268,
+    "publisher_label": "Illumin Display & Video",
+    "timestamp": "2026-04-17T12:38:17.681198+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 8,
+        "demand_name": "Unruly Illumin",
+        "old_floor": 0.2,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 446,
+        "demand_name": "Copy Unruly Illumin 10%",
+        "old_floor": null,
+        "new_floor": 0.6
+      },
+      {
+        "demand_id": 449,
+        "demand_name": "Stirista General Illumin",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 437,
+        "demand_name": "Stirista Business Illumin",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 436,
+        "demand_name": "Stirista Sports Illumin",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 51,
+        "demand_name": "Pubmatic RON 300x250 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 52,
+        "demand_name": "Pubmatic RON 728x90 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 919,
+        "demand_name": "Pubmatic 728x90 New EP",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic 300x250 New EP",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 918,
+        "demand_name": "Pubmatic 320x50 New EP",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 41,
+        "demand_name": "Magnite Illumin Display PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 440,
+        "demand_name": "Magnite Illumin Display PS (copy)",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 442,
+        "demand_name": "Magnite Illumin Display 10%",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 678,
+        "demand_name": "Magnite Illumin Display 10% West",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 788,
+        "demand_name": "Illumin US",
+        "old_floor": 0.5,
+        "new_floor": 0.75
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1_executor_apr17",
+    "strategy": "High-value floor activation \u2014 $11+ eCPM publisher",
+    "publisher_id": 290115333,
+    "publisher_label": "BidMachine - In App Interstitial",
+    "timestamp": "2026-04-17T12:38:18.521898+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 604,
+        "demand_name": "Magnite BidMachine In App",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 605,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 606,
+        "demand_name": "Magnite BidMachine In App PS",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 607,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 671,
+        "demand_name": "Magnite BidMachine In App US West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 672,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6 US West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 673,
+        "demand_name": "Magnite BidMachine In App PS US West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 674,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6 West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 682,
+        "demand_name": "Stirista General BidMachine",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 683,
+        "demand_name": "Stirista General OLV BidMachine",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 45,
+        "demand_name": "Pubmatic RON 320x50 PS",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 46,
+        "demand_name": "Pubmatic RON 320x100 PS",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 788,
+        "demand_name": "Illumin US",
+        "old_floor": 0.5,
+        "new_floor": 1.5
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1_executor_apr17",
+    "strategy": "Pubmatic hedge: activate Magnite+Illumin only",
+    "publisher_id": 290115319,
+    "publisher_label": "BidMachine - In App Display & Video",
+    "timestamp": "2026-04-17T12:38:19.393496+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 604,
+        "demand_name": "Magnite BidMachine In App",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 605,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 606,
+        "demand_name": "Magnite BidMachine In App PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 607,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 671,
+        "demand_name": "Magnite BidMachine In App US West",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 672,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6 US West",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 673,
+        "demand_name": "Magnite BidMachine In App PS US West",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 674,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6 West",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 788,
+        "demand_name": "Illumin US",
+        "old_floor": 0.5,
+        "new_floor": 0.8
+      }
+    ],
+    "skipped": []
+  }
+]

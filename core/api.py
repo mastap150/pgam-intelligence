@@ -22,6 +22,33 @@ TB_CLIENT_KEY   = os.environ.get("TB_CLIENT_KEY",   "")
 TB_SECRET_KEY   = os.environ.get("TB_SECRET_KEY",   "")
 
 
+def _patch_zero_wins_rows(rows: list) -> list:
+    """
+    LL WINS event-drop workaround — see ``core/ll_report.py`` module docstring.
+
+    For each row where ``WINS == 0 AND IMPRESSIONS > 0`` (impossible for
+    healthy data), backfill ``WINS = IMPRESSIONS`` (a conservative
+    lower-bound estimate) and tag the row with ``_WINS_BACKFILLED = True``.
+    No-op for healthy rows.
+    """
+    if not isinstance(rows, list):
+        return rows
+    for r in rows:
+        if not isinstance(r, dict):
+            continue
+        if "WINS" not in r or "IMPRESSIONS" not in r:
+            continue
+        try:
+            wins = float(r.get("WINS") or 0)
+            imps = float(r.get("IMPRESSIONS") or 0)
+        except (TypeError, ValueError):
+            continue
+        if wins == 0.0 and imps > 0.0:
+            r["WINS"] = imps
+            r["_WINS_BACKFILLED"] = True
+    return rows
+
+
 def _fetch(base_url: str, client_key: str, secret_key: str,
            breakdown, metrics, start_date: str, end_date: str) -> list:
     """Core fetch — shared by fetch() and fetch_tb()."""
@@ -46,8 +73,10 @@ def _fetch(base_url: str, client_key: str, secret_key: str,
     data = response.json()
 
     if isinstance(data, dict):
-        return data.get("body", data.get("data", data.get("rows", [])))
-    return data
+        rows = data.get("body", data.get("data", data.get("rows", [])))
+    else:
+        rows = data
+    return _patch_zero_wins_rows(rows)
 
 
 def fetch(breakdown, metrics, start_date, end_date) -> list:

@@ -1,0 +1,836 @@
+[
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate 30 null-floor demands \u2014 $5.6k/7d at 5.1% WR",
+    "publisher_id": 290115372,
+    "publisher_label": "Smaato - Magnite",
+    "timestamp": "2026-04-17T13:59:54.898348+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 876,
+        "demand_name": "Magnite Smaato In App US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 877,
+        "demand_name": "Magnite Smaato oRTB 2.6 US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 878,
+        "demand_name": "Magnite Smaato PS US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 920,
+        "demand_name": "Magnite Smaato In App US West",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 921,
+        "demand_name": "Magnite Smaato oRTB 2.6 US West",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 922,
+        "demand_name": "Magnite Smaato PS US West",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 865,
+        "demand_name": "Sovrn Smaato 300x250 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 866,
+        "demand_name": "Sovrn Smaato 300x600",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 867,
+        "demand_name": "Sovrn Smaato 300x600 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 868,
+        "demand_name": "Sovrn Smaato 320x50",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 869,
+        "demand_name": "Sovrn Smaato 320x50 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 870,
+        "demand_name": "Sovrn Smaato 336x280",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 871,
+        "demand_name": "Sovrn Smaato 336x280 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 872,
+        "demand_name": "Sovrn Smaato 728x90 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 873,
+        "demand_name": "Sovrn Smaato 728x90",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 51,
+        "demand_name": "Pubmatic RON 300x250 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 52,
+        "demand_name": "Pubmatic RON 728x90 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 919,
+        "demand_name": "Pubmatic 728x90 New EP",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic 300x250 New EP",
+        "old_floor": null,
+        "new_floor": 0.5
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate at Interstitial-EU rates \u2014 $3.92 eCPM pool",
+    "publisher_id": 290115334,
+    "publisher_label": "Copy - BidMachine - In App Interstitial (Europe)",
+    "timestamp": "2026-04-17T13:59:55.625258+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 665,
+        "demand_name": "Magnite BidMachine In App EU",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 666,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6 EU",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 667,
+        "demand_name": "Magnite BidMachine In App PS EU",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 668,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6 EU",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 669,
+        "demand_name": "Unruly BidMachine EU",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 670,
+        "demand_name": "Unruly BidMachine oRTB 2.6 EU",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 44,
+        "demand_name": "Pubmatic RON 970x250 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 45,
+        "demand_name": "Pubmatic RON 320x50 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 46,
+        "demand_name": "Pubmatic RON 320x100 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 47,
+        "demand_name": "Pubmatic RON 300x50 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 48,
+        "demand_name": "Pubmatic RON 300x600 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 49,
+        "demand_name": "Pubmatic RON 300x100 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 50,
+        "demand_name": "Pubmatic RON 160x600 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 51,
+        "demand_name": "Pubmatic RON 300x250 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      },
+      {
+        "demand_id": 52,
+        "demand_name": "Pubmatic RON 728x90 PS",
+        "old_floor": null,
+        "new_floor": 0.8
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate Magnite/Unruly/Pubmatic \u2014 $1.01 eCPM US pool",
+    "publisher_id": 290115378,
+    "publisher_label": "BlueSeaX - US Endpoint",
+    "timestamp": "2026-04-17T13:59:56.327060+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 991,
+        "demand_name": "Magnite BlueSeaX In App US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 992,
+        "demand_name": "Magnite BlueSeaX In App oRTB 2.6 US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 993,
+        "demand_name": "Magnite BlueSeaX In App PS US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 994,
+        "demand_name": "Magnite BlueSeaX In App PS oRTB 2.6 US",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 999,
+        "demand_name": "Unruly BlueSeaX US",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 1000,
+        "demand_name": "Unruly BlueSeaX oRTB 2.6 US",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 1001,
+        "demand_name": "Unruly BlueSeaX PS US",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 1002,
+        "demand_name": "Unruly BlueSeaX PS oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 44,
+        "demand_name": "Pubmatic RON 970x250 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 45,
+        "demand_name": "Pubmatic RON 320x50 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 46,
+        "demand_name": "Pubmatic RON 320x100 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 47,
+        "demand_name": "Pubmatic RON 300x50 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 48,
+        "demand_name": "Pubmatic RON 300x600 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 49,
+        "demand_name": "Pubmatic RON 300x100 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 50,
+        "demand_name": "Pubmatic RON 160x600 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 51,
+        "demand_name": "Pubmatic RON 300x250 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 52,
+        "demand_name": "Pubmatic RON 728x90 PS",
+        "old_floor": null,
+        "new_floor": 0.4
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate Pubmatic/Sovrn/LoopMe \u2014 $1.21 eCPM, user-flagged trending up",
+    "publisher_id": 290115373,
+    "publisher_label": "PubNative - In-App Magnite",
+    "timestamp": "2026-04-17T13:59:56.933624+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 47,
+        "demand_name": "Pubmatic RON 300x50 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 49,
+        "demand_name": "Pubmatic RON 300x100 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 50,
+        "demand_name": "Pubmatic RON 160x600 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 51,
+        "demand_name": "Pubmatic RON 300x250 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 53,
+        "demand_name": "Pubmatic RON 336x280 PS",
+        "old_floor": null,
+        "new_floor": 0.5
+      },
+      {
+        "demand_id": 768,
+        "demand_name": "Sovrn PubNative 300x250",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 769,
+        "demand_name": "Sovrn PubNative 300x250 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 770,
+        "demand_name": "Sovrn PubNative 300x600",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 771,
+        "demand_name": "Sovrn PubNative 300x600 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 772,
+        "demand_name": "Sovrn PubNative 320x50",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 773,
+        "demand_name": "Sovrn PubNative 320x50 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 774,
+        "demand_name": "Sovrn PubNative 336x280",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 775,
+        "demand_name": "Sovrn PubNative 336x280 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 777,
+        "demand_name": "Sovrn PubNative 728x90",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 1010,
+        "demand_name": "LoopMe PubNative Prebid",
+        "old_floor": null,
+        "new_floor": 0.5
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate premium floors \u2014 $21.25 eCPM, massive latent value",
+    "publisher_id": 290115332,
+    "publisher_label": "BidMachine - In App Interstitial (WL)",
+    "timestamp": "2026-04-17T13:59:57.610903+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 604,
+        "demand_name": "Magnite BidMachine In App",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 605,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 606,
+        "demand_name": "Magnite BidMachine In App PS",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 607,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 671,
+        "demand_name": "Magnite BidMachine In App US West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 672,
+        "demand_name": "Magnite BidMachine In App oRTB 2.6 US West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 673,
+        "demand_name": "Magnite BidMachine In App PS US West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 674,
+        "demand_name": "Magnite BidMachine In App PS oRTB 2.6 West",
+        "old_floor": null,
+        "new_floor": 3.0
+      },
+      {
+        "demand_id": 682,
+        "demand_name": "Stirista General BidMachine",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 683,
+        "demand_name": "Stirista General OLV BidMachine",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 684,
+        "demand_name": "Sovrn BidMachine 300x250",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 685,
+        "demand_name": "Sovrn BidMachine 300x250 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 689,
+        "demand_name": "Sovrn BidMachine 728x90",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 690,
+        "demand_name": "Sovrn BidMachine 320x100",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 691,
+        "demand_name": "Sovrn BidMachine 320x100 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 45,
+        "demand_name": "Pubmatic RON 320x50 PS",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 46,
+        "demand_name": "Pubmatic RON 320x100 PS",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 51,
+        "demand_name": "Pubmatic RON 300x250 PS",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 52,
+        "demand_name": "Pubmatic RON 728x90 PS",
+        "old_floor": null,
+        "new_floor": 2.0
+      },
+      {
+        "demand_id": 788,
+        "demand_name": "Illumin US",
+        "old_floor": 0.5,
+        "new_floor": 1.5
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate EU demands \u2014 lower floors for EU clearing rates",
+    "publisher_id": 290115327,
+    "publisher_label": "Illumin Display EU",
+    "timestamp": "2026-04-17T13:59:58.364420+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 650,
+        "demand_name": "Unruly Illumin 10% EU",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 651,
+        "demand_name": "AdaptMX Illumin EU",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 652,
+        "demand_name": "Magnite Illumin Display EU",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 918,
+        "demand_name": "Pubmatic 320x50 New EP",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 919,
+        "demand_name": "Pubmatic 728x90 New EP",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic 300x250 New EP",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 930,
+        "demand_name": "OneTag Illumin EU",
+        "old_floor": null,
+        "new_floor": 0.3
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "25.3% WR \u2014 activate secondaries to scale volume",
+    "publisher_id": 290115329,
+    "publisher_label": "Illumin In App EU",
+    "timestamp": "2026-04-17T13:59:58.956076+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 650,
+        "demand_name": "Unruly Illumin 10% EU",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 651,
+        "demand_name": "AdaptMX Illumin EU",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 918,
+        "demand_name": "Pubmatic 320x50 New EP",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 919,
+        "demand_name": "Pubmatic 728x90 New EP",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 929,
+        "demand_name": "Pubmatic 300x250 New EP",
+        "old_floor": null,
+        "new_floor": 0.3
+      },
+      {
+        "demand_id": 930,
+        "demand_name": "OneTag Illumin EU",
+        "old_floor": null,
+        "new_floor": 0.3
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Activate video floors despite reporting bug \u2014 invite quality demand",
+    "publisher_id": 290115375,
+    "publisher_label": "Start.IO - Video Magnite",
+    "timestamp": "2026-04-17T13:59:59.641714+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 139,
+        "demand_name": "Magnite Start.IO Video",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 140,
+        "demand_name": "Magnite Start.IO Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 174,
+        "demand_name": "Magnite Start.IO Video PS",
+        "old_floor": null,
+        "new_floor": 1.5
+      },
+      {
+        "demand_id": 147,
+        "demand_name": "Sovrn Start.IO Video",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 148,
+        "demand_name": "Sovrn Start.IO Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 135,
+        "demand_name": "Pubmatic Start.IO Video",
+        "old_floor": null,
+        "new_floor": 1.0
+      },
+      {
+        "demand_id": 136,
+        "demand_name": "Pubmatic Start.IO Video oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 1.0
+      }
+    ],
+    "skipped": []
+  },
+  {
+    "action": "phase1b_executor_apr17",
+    "strategy": "Quality filter \u2014 $0.40 on Pubmatic display demands",
+    "publisher_id": 290115374,
+    "publisher_label": "Start.IO Display Magnite",
+    "timestamp": "2026-04-17T14:00:00.204783+00:00",
+    "applied": true,
+    "dry_run": false,
+    "changes": [
+      {
+        "demand_id": 114,
+        "demand_name": "Pubmatic Start.IO 970x90 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 115,
+        "demand_name": "Pubmatic Start.IO 300x250",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 116,
+        "demand_name": "Pubmatic Start.IO 300x250 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 117,
+        "demand_name": "Pubmatic Start.IO 250x250",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 118,
+        "demand_name": "Pubmatic Start.IO 250x250 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 119,
+        "demand_name": "Pubmatic Start.IO 336x280",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 120,
+        "demand_name": "Pubmatic Start.IO 336x280 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 121,
+        "demand_name": "Pubmatic Start.IO 336x320",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 122,
+        "demand_name": "Pubmatic Start.IO 336x320 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 123,
+        "demand_name": "Pubmatic Start.IO 200x200",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 124,
+        "demand_name": "Pubmatic Start.IO 200x200 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 125,
+        "demand_name": "Pubmatic Start.IO 320x480",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 126,
+        "demand_name": "Pubmatic Start.IO 320x480 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 127,
+        "demand_name": "Pubmatic Start.IO 300x600",
+        "old_floor": null,
+        "new_floor": 0.4
+      },
+      {
+        "demand_id": 128,
+        "demand_name": "Pubmatic Start.IO 300x600 oRTB 2.6",
+        "old_floor": null,
+        "new_floor": 0.4
+      }
+    ],
+    "skipped": []
+  }
+]

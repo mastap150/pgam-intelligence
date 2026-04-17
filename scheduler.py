@@ -136,10 +136,14 @@ def setup_schedule():
     fill_funnel            = _import("agents.optimization.fill_funnel")
     dead_demand            = _import("agents.optimization.dead_demand")
     geo_leak               = _import("agents.optimization.geo_leak")
+    new_partner_optimizer  = _import("agents.optimization.new_partner_optimizer")
+    train_floor_model      = _import("scripts.train_floor_model")
+    margin_health          = _import("agents.alerts.margin_health")
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
     floor_optimizer        = _import("scripts.floor_optimizer")
+    # tb_floor_optimizer — deferred until TB admin (write) credentials are in place
 
     # ── Hourly ───────────────────────────────────────────────────────────────
     schedule.every(60).minutes.do(_run("tb_revenue",         tb_revenue))
@@ -169,6 +173,11 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("fill_funnel",            fill_funnel))         # Mon-Fri guard inside
     schedule.every().day.at("08:15").do(_run("dead_demand",            dead_demand))         # Mon guard inside
     schedule.every().day.at("08:15").do(_run("geo_leak",               geo_leak))            # Thu guard inside
+    schedule.every().day.at("08:15").do(_run("margin_health",          margin_health))       # daily — alert if any pub <30% margin
+    schedule.every().day.at("08:30").do(_run("new_partner_optimizer",  new_partner_optimizer))  # daily — auto-floor any new publisher/demand
+
+    # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
+    schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
 
     # ── Every 2 hours — dynamic floor optimizer ──────────────────────────────
     schedule.every(2).hours.do(_run("floor_optimizer", floor_optimizer))
