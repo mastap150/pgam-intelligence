@@ -1,14 +1,14 @@
 """
-agents/optimization/partner_optimizer.py
+agents/optimization/publisher_optimizer.py
 
-Continuous optimizer for TB /ad-exchange/ SSP (supply) partners.
+Continuous optimizer for TB Publisher accounts (the Publisher section —
+NOT /ad-exchange/). Each row is one publisher account (TB user_id), e.g.
+RevIQ #32, Aditude #60, Adapex #65, Rough Maps #36, Digital1 #56.
 
-Goal
-----
-Raise SSP revenue and fill rate while pruning dead-weight supply partners
-that drive request volume without returning value. Mirrors the
-/ad-exchange/ report (Illumin, Smaato, Start.IO, Dexerto, PubNative,
-Daily Motion, Pijper Publishing, Mission Media, RevIQ, WeBlog RTB, …).
+This is DIFFERENT from the /ad-exchange/ SSP Company view (Illumin,
+Smaato, Dexerto, Start.IO, ...) which is optimized by
+ssp_company_optimizer.py via DSP-endpoint name parsing. TB does not
+expose SSP Company as a report attribute in the public Management API.
 
 Data source
 -----------
@@ -56,8 +56,8 @@ Safety
 ------
 - Grace period: newly-seen partners are KEEP for GRACE_DAYS.
 - Bootstrap: first run records baseline and posts summary only.
-- All action logs to logs/partner_optimizer_actions.json.
-- Recs JSON at logs/partner_optimizer_recs.json for dashboard.
+- All action logs to logs/publisher_optimizer_actions.json.
+- Recs JSON at logs/publisher_optimizer_recs.json for dashboard.
 """
 
 from __future__ import annotations
@@ -102,9 +102,9 @@ MIN_IMP_EXPAND        = 100_000
 TB_BASE = "https://ssp.pgammedia.com/api"
 
 LOG_DIR       = os.path.join(_REPO_ROOT, "logs")
-SNAPSHOT_FILE = os.path.join(LOG_DIR, "partner_optimizer_snapshot.json")
-ACTIONS_LOG   = os.path.join(LOG_DIR, "partner_optimizer_actions.json")
-RECS_FILE     = os.path.join(LOG_DIR, "partner_optimizer_recs.json")
+SNAPSHOT_FILE = os.path.join(LOG_DIR, "publisher_optimizer_snapshot.json")
+ACTIONS_LOG   = os.path.join(LOG_DIR, "publisher_optimizer_actions.json")
+RECS_FILE     = os.path.join(LOG_DIR, "publisher_optimizer_recs.json")
 os.makedirs(LOG_DIR, exist_ok=True)
 
 

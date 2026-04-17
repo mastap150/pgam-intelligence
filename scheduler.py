@@ -136,9 +136,10 @@ def setup_schedule():
     fill_funnel            = _import("agents.optimization.fill_funnel")
     dead_demand            = _import("agents.optimization.dead_demand")
     geo_leak               = _import("agents.optimization.geo_leak")
-    new_partner_optimizer  = _import("agents.optimization.new_partner_optimizer")
-    partner_optimizer      = _import("agents.optimization.partner_optimizer")
+    new_publisher_optimizer  = _import("agents.optimization.new_publisher_optimizer")
+    publisher_optimizer      = _import("agents.optimization.publisher_optimizer")
     dsp_optimizer          = _import("agents.optimization.dsp_optimizer")
+    ssp_company_optimizer  = _import("agents.optimization.ssp_company_optimizer")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
     # Pilot program
@@ -176,9 +177,10 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("dead_demand",            dead_demand))         # Mon guard inside
     schedule.every().day.at("08:15").do(_run("geo_leak",               geo_leak))            # Thu guard inside
     schedule.every().day.at("08:15").do(_run("margin_health",          margin_health))       # daily — alert if any pub <30% margin
-    schedule.every().day.at("08:30").do(_run("new_partner_optimizer",  new_partner_optimizer))  # daily — auto-floor any new publisher/demand
-    schedule.every().day.at("08:45").do(_run("partner_optimizer",      partner_optimizer))       # daily — SSP supply partner dead-weight & expand recs
+    schedule.every().day.at("08:30").do(_run("new_publisher_optimizer",  new_publisher_optimizer))  # daily — auto-floor any new publisher/demand
+    schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
+    schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
 
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
