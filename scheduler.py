@@ -138,6 +138,7 @@ def setup_schedule():
     geo_leak               = _import("agents.optimization.geo_leak")
     new_partner_optimizer  = _import("agents.optimization.new_partner_optimizer")
     partner_optimizer      = _import("agents.optimization.partner_optimizer")
+    dsp_optimizer          = _import("agents.optimization.dsp_optimizer")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
     # Pilot program
@@ -177,6 +178,7 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("margin_health",          margin_health))       # daily — alert if any pub <30% margin
     schedule.every().day.at("08:30").do(_run("new_partner_optimizer",  new_partner_optimizer))  # daily — auto-floor any new publisher/demand
     schedule.every().day.at("08:45").do(_run("partner_optimizer",      partner_optimizer))       # daily — SSP supply partner dead-weight & expand recs
+    schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
 
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
