@@ -97,9 +97,9 @@ def assign_tuple(publisher_id: int, demand_id: int) -> str:
 
 def is_tuple_held_out(publisher_id: int, demand_id: int) -> bool:
     """Gate for optimizers — MUST be called before any floor write.
-    Returns True for 'control' (measurement holdout) AND 'dead' (no recent
-    OPPORTUNITIES — partner is not live in the waterfall)."""
-    return assign_tuple(publisher_id, demand_id) in ("control", "dead")
+    Returns True for 'control' (measurement holdout) AND 'inactive' (no
+    recent BIDS — partner is paused or unplugged; floor tuning is a no-op)."""
+    return assign_tuple(publisher_id, demand_id) in ("control", "inactive")
 
 
 def build_tuple_assignment() -> dict:
@@ -147,9 +147,10 @@ def build_tuple_assignment() -> dict:
     assignment: dict[str, str] = {}
     tuples_out: list[dict] = []
     for (pid, did), m in agg.items():
-        # Liveness gate: zero BIDS in last 7d → 'dead' (never in control, never touched)
+        # Liveness gate: zero BIDS in last 7d → 'inactive' (paused or unplugged;
+        # never in control, never touched by optimizer)
         if recent_bids.get((pid, did), 0) <= 0:
-            group = "dead"
+            group = "inactive"
         elif m["bids"] < TUPLE_HOLDOUT_MIN_BIDS_30D:
             group = "excluded"
         elif (pid, did) in top_keys:

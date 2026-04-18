@@ -33,7 +33,7 @@ from pathlib import Path
 from typing import Any
 
 from core import floor_ledger, ll_mgmt, slack
-from intelligence import holdout
+from intelligence import holdout, quarantine
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 PROPOSALS_PATH = DATA_DIR / "proposals.json"
@@ -126,9 +126,11 @@ def apply_one(proposal: dict, *, dry_run: bool = False) -> dict:
     pub_id = int(proposal["publisher_id"])
     did = int(proposal["demand_id"])
 
-    # paranoid holdout re-check
+    # paranoid re-check: holdout + quarantine
     if holdout.is_tuple_held_out(pub_id, did):
-        return {"id": proposal["id"], "applied": False, "reason": "holdout_control_reblocked"}
+        return {"id": proposal["id"], "applied": False, "reason": "holdout_or_inactive_reblocked"}
+    if quarantine.is_in_quarantine(pub_id, did):
+        return {"id": proposal["id"], "applied": False, "reason": "quarantine_reblocked"}
 
     pub = ll_mgmt.get_publisher(pub_id)
     target = None

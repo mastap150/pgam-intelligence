@@ -35,7 +35,7 @@ from pathlib import Path
 from typing import Any
 
 from core import floor_ledger, ll_mgmt, margin
-from intelligence import holdout, price_response
+from intelligence import holdout, price_response, quarantine
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 PROPOSALS_PATH = DATA_DIR / "proposals.json"
@@ -147,7 +147,10 @@ def generate(*, lookback_days: int = 14, min_total_revenue: float = 20.0,
     for m in models:
         tuple_key = (m.publisher_id, m.demand_id)
         if holdout.is_tuple_held_out(*tuple_key):
-            rejected.append({"tuple": tuple_key, "reason": "holdout_control"})
+            rejected.append({"tuple": tuple_key, "reason": "holdout_or_inactive"})
+            continue
+        if quarantine.is_in_quarantine(*tuple_key):
+            rejected.append({"tuple": tuple_key, "reason": "quarantine"})
             continue
         if _in_cooldown(*tuple_key):
             rejected.append({"tuple": tuple_key, "reason": "cooldown"})

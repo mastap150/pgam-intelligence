@@ -156,6 +156,11 @@ def setup_schedule():
     ml_verifier            = _import("intelligence.verifier")
     ml_optimizer           = _import("intelligence.optimizer")
     ml_proposer            = _import("intelligence.proposer")
+    # ML tranche 3 — discovery + quarantine
+    ml_paused_watchlist    = _import("intelligence.paused_watchlist")
+    ml_demand_gap          = _import("intelligence.demand_gap")
+    ml_scorecard           = _import("intelligence.scorecard")
+    ml_quarantine          = _import("intelligence.quarantine")
     # tb_floor_optimizer — deferred until TB admin (write) credentials are in place
 
     # ── Hourly ───────────────────────────────────────────────────────────────
@@ -172,8 +177,15 @@ def setup_schedule():
     #   07:45 ET — regenerate proposals (reads freshest bid landscape)
     #   08:00 ET — post to Slack; auto-apply anything clearing the autonomy bar
     schedule.every().day.at("07:30").do(_run("ml_verifier",   ml_verifier))
+    # Quarantine runs before optimizer so newly-live tuples enter trial
+    # before the proposer can consider them.
+    schedule.every().day.at("07:40").do(_run("ml_quarantine", ml_quarantine))
     schedule.every().day.at("07:45").do(_run("ml_optimizer",  ml_optimizer))
     schedule.every().day.at("08:00").do(_run("ml_proposer",   ml_proposer))
+    # Weekly — discovery + rep-conversation feeds (Monday mornings)
+    schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
+    schedule.every().monday.at("09:05").do(_run("ml_demand_gap",       ml_demand_gap))
+    schedule.every().monday.at("09:10").do(_run("ml_scorecard",        ml_scorecard))
 
     # ── Every 4 hours ────────────────────────────────────────────────────────
     schedule.every(4).hours.do(  _run("revenue_pace",        revenue_pace))
