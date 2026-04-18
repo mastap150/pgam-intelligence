@@ -1,0 +1,50 @@
+[
+  {
+    "placement_id": 2421,
+    "title": "boxingnews.com 300x250",
+    "current_floor": 0.1,
+    "action": "skip",
+    "new_floor": null,
+    "reason": "imps 0 < 1000",
+    "imps_3d": 0,
+    "ecpm_3d": 0.0,
+    "timestamp": "2026-04-18T00:15:25.738844+00:00",
+    "dry_run": true
+  },
+  {
+    "placement_id": 2422,
+    "title": "boxingnews.com 320x50",
+    "current_floor": 0.1,
+    "action": "skip",
+    "new_floor": null,
+    "reason": "imps 0 < 1000",
+    "imps_3d": 0,
+    "ecpm_3d": 0.0,
+    "timestamp": "2026-04-18T00:15:25.738856+00:00",
+    "dry_run": true
+  },
+  {
+    "placement_id": 2535,
+    "title": "boxingnews.com 728x90",
+    "current_floor": 0.1,
+    "action": "skip",
+    "new_floor": null,
+    "reason": "imps 0 < 1000",
+    "imps_3d": 0,
+    "ecpm_3d": 0.0,
+    "timestamp": "2026-04-18T00:15:25.738859+00:00",
+    "dry_run": true
+  },
+  {
+    "placement_id": 2536,
+    "title": "boxingnews.com 160x600",
+    "current_floor": 0.1,
+    "action": "skip",
+    "new_floor": null,
+    "reason": "imps 0 < 1000",
+    "imps_3d": 0,
+    "ecpm_3d": 0.0,
+    "timestamp": "2026-04-18T00:15:25.738861+00:00",
+    "dry_run": true
+  }
+]

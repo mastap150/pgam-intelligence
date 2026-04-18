@@ -1,0 +1,32 @@
+{
+  "placements": {
+    "2421": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.0,
+      "baseline_fill": 0.0,
+      "baseline_revenue": 0.0,
+      "nudge_count": 0
+    },
+    "2422": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.0,
+      "baseline_fill": 0.0,
+      "baseline_revenue": 0.0,
+      "nudge_count": 0
+    },
+    "2535": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.0,
+      "baseline_fill": 0.0,
+      "baseline_revenue": 0.0,
+      "nudge_count": 0
+    },
+    "2536": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.0,
+      "baseline_fill": 0.0,
+      "baseline_revenue": 0.0,
+      "nudge_count": 0
+    }
+  }
+}

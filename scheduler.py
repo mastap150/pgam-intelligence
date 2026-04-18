@@ -140,6 +140,8 @@ def setup_schedule():
     publisher_optimizer      = _import("agents.optimization.publisher_optimizer")
     dsp_optimizer          = _import("agents.optimization.dsp_optimizer")
     ssp_company_optimizer  = _import("agents.optimization.ssp_company_optimizer")
+    geo_floor_optimizer    = _import("agents.optimization.geo_floor_optimizer")
+    tb_floor_nudge         = _import("agents.optimization.tb_floor_nudge")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
     # Pilot program
@@ -181,6 +183,8 @@ def setup_schedule():
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
+    schedule.every().day.at("09:30").do(_run("geo_floor_optimizer",    geo_floor_optimizer))     # daily — per-placement × country floor optimization
+    schedule.every().day.at("10:00").do(_run("tb_floor_nudge",         tb_floor_nudge))          # daily — +10% floor elasticity nudge with auto-rollback
 
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
