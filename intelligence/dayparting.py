@@ -404,8 +404,25 @@ def run() -> dict:
 
     Build is cheap (~seconds) and idempotent — run it every tick so the
     schedule reflects the latest percentile data. Rotate only writes if
-    PGAM_DAYPARTING_ENABLED=1."""
-    build_stats = build_candidates()
+    PGAM_DAYPARTING_ENABLED=1.
+
+    Self-bootstrap: on a fresh Render deploy the data/ dir is wiped, so
+    hourly_percentiles.json.gz may not exist yet. If the percentiles
+    file is missing but the hourly collector file is present, rebuild
+    percentiles on the fly. If both are missing the collector hasn't
+    run yet — skip this tick and try again next hour."""
+    if not PERCENTILES_PATH.exists():
+        if not HOURLY_PATH.exists():
+            return {"skipped": True, "reason": "hourly_pub_demand.json.gz missing — "
+                    "ml_collector has not run yet; will retry next tick"}
+        print("[dayparting] hourly_percentiles.json.gz missing — rebuilding from bid_landscape")
+        from intelligence import bid_landscape
+        bid_landscape.build_percentiles()
+
+    try:
+        build_stats = build_candidates()
+    except RuntimeError as e:
+        return {"skipped": True, "reason": str(e)}
     rotate_stats = rotate()
     return {"build": build_stats, "rotate": rotate_stats}
 
