@@ -152,6 +152,10 @@ def setup_schedule():
     ml_collector           = _import("intelligence.collector")
     ml_bid_landscape       = _import("intelligence.bid_landscape")
     ml_holdout             = _import("intelligence.holdout")
+    # ML tranche 2 — optimizer proposal engine + Slack proposer + verifier
+    ml_verifier            = _import("intelligence.verifier")
+    ml_optimizer           = _import("intelligence.optimizer")
+    ml_proposer            = _import("intelligence.proposer")
     # tb_floor_optimizer — deferred until TB admin (write) credentials are in place
 
     # ── Hourly ───────────────────────────────────────────────────────────────
@@ -163,6 +167,13 @@ def setup_schedule():
     schedule.every().day.at("01:15").do(_run("ml_bid_landscape", ml_bid_landscape))
     schedule.every().day.at("13:15").do(_run("ml_bid_landscape", ml_bid_landscape))
     schedule.every().monday.at("02:00").do(_run("ml_holdout",    ml_holdout))
+    # ML tranche 2 cadence:
+    #   07:30 ET — verify last 48h of writes (catches silent LL reverts)
+    #   07:45 ET — regenerate proposals (reads freshest bid landscape)
+    #   08:00 ET — post to Slack; auto-apply anything clearing the autonomy bar
+    schedule.every().day.at("07:30").do(_run("ml_verifier",   ml_verifier))
+    schedule.every().day.at("07:45").do(_run("ml_optimizer",  ml_optimizer))
+    schedule.every().day.at("08:00").do(_run("ml_proposer",   ml_proposer))
 
     # ── Every 4 hours ────────────────────────────────────────────────────────
     schedule.every(4).hours.do(  _run("revenue_pace",        revenue_pace))
