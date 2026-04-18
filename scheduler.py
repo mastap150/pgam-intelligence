@@ -161,6 +161,8 @@ def setup_schedule():
     ml_demand_gap          = _import("intelligence.demand_gap")
     ml_scorecard           = _import("intelligence.scorecard")
     ml_quarantine          = _import("intelligence.quarantine")
+    # ML tranche 5 — dayparting rotator (gated by PGAM_DAYPARTING_ENABLED=1)
+    ml_dayparting          = _import("intelligence.dayparting")
     # tb_floor_optimizer — deferred until TB admin (write) credentials are in place
 
     # ── Hourly ───────────────────────────────────────────────────────────────
@@ -182,6 +184,10 @@ def setup_schedule():
     schedule.every().day.at("07:40").do(_run("ml_quarantine", ml_quarantine))
     schedule.every().day.at("07:45").do(_run("ml_optimizer",  ml_optimizer))
     schedule.every().day.at("08:00").do(_run("ml_proposer",   ml_proposer))
+    # Dayparting — rebuild schedule + rotate per-hour floor at :05 each hour.
+    # Internally no-ops unless PGAM_DAYPARTING_ENABLED=1.
+    schedule.every().hour.at(":05").do(_run("ml_dayparting", ml_dayparting))
+
     # Weekly — discovery + rep-conversation feeds (Monday mornings)
     schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
     schedule.every().monday.at("09:05").do(_run("ml_demand_gap",       ml_demand_gap))
