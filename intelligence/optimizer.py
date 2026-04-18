@@ -272,12 +272,27 @@ def generate(*, lookback_days: int = 14, min_total_revenue: float = 20.0,
         )
         proposals.append(p)
 
+    # Merge in portfolio proposals for multi-pub demand_ids. The per-tuple
+    # loop above can't apply those (proposer guards on multi-pub), so we
+    # hand them off to the portfolio engine which reasons across pubs.
+    try:
+        from intelligence import portfolio_optimizer
+        port_props = portfolio_optimizer.generate(
+            lookback_days=lookback_days, dry_margin_fetch=dry_margin_fetch,
+        )
+    except Exception as e:
+        print(f"[optimizer] portfolio engine failed: {e}")
+        port_props = []
+    proposals.extend(port_props)
+
     proposals.sort(key=lambda x: -x.expected_weekly_net_lift)
 
     out = {
         "generated_utc": _now_iso(),
         "lookback_days": lookback_days,
         "n_models_fit": len(models),
+        "n_portfolio_proposals": len(port_props),
+        "n_single_proposals": len(proposals) - len(port_props),
         "n_proposals": len(proposals),
         "n_rejected": len(rejected),
         "proposals": [asdict(p) for p in proposals],
