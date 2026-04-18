@@ -6,24 +6,39 @@ Two asks on the Management API:
 
 Hey Vadym — two API questions as we're building automation:
 
-**1) `edit_placement_*` endpoints return HTTP 404**
+**1) Placement create/edit routes aren't deployed on our tenant**
 
-All three placement-edit routes 404 with an HTML "Page not Found" page,
-not a JSON error. Tested on dozens of placements across multiple
-accounts (BoxingNews, OP.gg, rough_ros, whitepages, metatft, wowhead,
-GeeksForGeeks, etc.) — same 404 every time.
+We isolated this cleanly using Laravel's own behavior. On our API
+router:
 
-- `POST /api/{token}/edit_placement_video`   → 404 HTML
-- `POST /api/{token}/edit_placement_native`  → 404 HTML
-- `POST /api/{token}/edit_placement_banner`  → 404 HTML  *(not in Postman collection — is there an equivalent for banner type?)*
+- **Registered routes** return JSON errors (validation, auth, not-found by ID)
+- **Unregistered routes** return the HTML "Page not Found" page
 
-The token is valid (same-request reads work), payload matches Postman
-(`Content-Type: application/x-www-form-urlencoded`, `placement_id` +
-fields). `edit_inventory` works fine with the same token, so write
-access exists at inventory level. Can you check whether
-`edit_placement_*` is gated for our credential, or if there's a
-different endpoint for banner placements? This blocks automated
-`is_optimal_price`, `price`, and `price_country` updates.
+Same token, same request format:
+
+```
+POST /api/{token}/edit_inventory         → 404 JSON  "Inventory not found"       ✓ route exists
+POST /api/{token}/create_inventory       → 400 JSON  "The title field required"  ✓ route exists
+POST /api/{token}/token_lifetime         → 200 JSON  {...}                       ✓ route exists
+
+POST /api/{token}/edit_placement_video   → 404 HTML page                         ✗ NOT REGISTERED
+POST /api/{token}/edit_placement_native  → 404 HTML page                         ✗ NOT REGISTERED
+POST /api/{token}/create_placement_video → 404 HTML page                         ✗ NOT REGISTERED
+POST /api/{token}/create_placement_native→ 404 HTML page                         ✗ NOT REGISTERED
+```
+
+These four routes are in the public Postman collection you sent, but
+they aren't registered on our tenant's API. We also tried 12
+variations (`edit_placement`, `edit_placement/172`, `placement/edit`,
+`update_placement`, `save_placement`, PUT, PATCH, JSON body, token in
+body) — all HTML 404.
+
+Need these routes enabled so we can update `is_optimal_price`,
+`price`, and `price_country` programmatically. Can you flip the switch
+or route this to whoever owns the tenant's API surface? Also, for
+banner placements specifically — is the endpoint `edit_placement_video`
+(since video is the default per your code) or is there a separate
+`edit_placement_banner`?
 
 **2) SSP Company report attribute**
 
