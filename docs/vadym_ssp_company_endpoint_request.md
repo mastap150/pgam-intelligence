@@ -47,6 +47,37 @@ Thanks!
 
 ---
 
+## Second ask: placement-edit endpoints return 404
+
+We can successfully call:
+- `GET  /api/{token}/list_placement?userId=45`  ✓
+- `GET  /api/{token}/placement?placement_id=…`   ✓
+- `POST /api/{token}/edit_inventory`              ✓ (whitelist writes work)
+
+But all three placement-modification endpoints return HTTP 404 with an
+HTML "Page not Found" response, not a JSON error:
+
+- `POST /api/{token}/edit_placement_video`   → 404 HTML
+- `POST /api/{token}/edit_placement_native`  → 404 HTML
+- `POST /api/{token}/edit_placement_banner`  → 404 HTML (this one isn't in the Postman collection, but our BoxingNews placements are all banner type — is there an equivalent?)
+
+Tested on BoxingNews placement IDs (2421, 2422, 2535, 2536) and foreign
+placement IDs from report data (8699, 14553, 23156) — all return the
+same HTML 404. Token is valid (reads on the same token work
+immediately before/after), payload uses the form-encoded structure in
+the Postman example, Content-Type is
+`application/x-www-form-urlencoded`.
+
+Need either:
+1. These endpoints enabled on our credential, or
+2. The correct endpoint name for banner placements, or
+3. Confirmation that placement-level edits require a different
+   credential/scope.
+
+This blocks automated floor optimization (`is_optimal_price` toggle,
+geo-specific floors via `price_country`, and per-placement `price`
+updates) — all of which are in the public Postman spec we were given.
+
 ## Supporting context for the ask
 
 **Our Postman collection** (`managemnt-api.postman_collection`) shows

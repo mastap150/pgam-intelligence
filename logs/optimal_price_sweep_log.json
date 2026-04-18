@@ -1,0 +1,30 @@
+[
+  {
+    "placement_id": 2421,
+    "mode": "APPLY",
+    "timestamp": "2026-04-18T00:20:59.759695+00:00",
+    "applied": false,
+    "error": "TB mgmt POST edit_placement_banner failed: HTTP 404 \u2014 <!DOCTYPE html>\n<html lang=\"eng\">\n  <head>\n    <title>Page not Found | PGAM</title>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>\n          <link rel=\"shortcut icon\" href=\"https://ssp.pgammedia.com/platform-imgs"
+  },
+  {
+    "placement_id": 2422,
+    "mode": "APPLY",
+    "timestamp": "2026-04-18T00:21:00.166452+00:00",
+    "applied": false,
+    "error": "TB mgmt POST edit_placement_banner failed: HTTP 404 \u2014 <!DOCTYPE html>\n<html lang=\"eng\">\n  <head>\n    <title>Page not Found | PGAM</title>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>\n          <link rel=\"shortcut icon\" href=\"https://ssp.pgammedia.com/platform-imgs"
+  },
+  {
+    "placement_id": 2535,
+    "mode": "APPLY",
+    "timestamp": "2026-04-18T00:21:00.588209+00:00",
+    "applied": false,
+    "error": "TB mgmt POST edit_placement_banner failed: HTTP 404 \u2014 <!DOCTYPE html>\n<html lang=\"eng\">\n  <head>\n    <title>Page not Found | PGAM</title>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>\n          <link rel=\"shortcut icon\" href=\"https://ssp.pgammedia.com/platform-imgs"
+  },
+  {
+    "placement_id": 2536,
+    "mode": "APPLY",
+    "timestamp": "2026-04-18T00:21:01.009636+00:00",
+    "applied": false,
+    "error": "TB mgmt POST edit_placement_banner failed: HTTP 404 \u2014 <!DOCTYPE html>\n<html lang=\"eng\">\n  <head>\n    <title>Page not Found | PGAM</title>\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\"/>\n    <meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\"/>\n          <link rel=\"shortcut icon\" href=\"https://ssp.pgammedia.com/platform-imgs"
+  }
+]
