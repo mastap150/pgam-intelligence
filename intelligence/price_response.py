@@ -65,12 +65,28 @@ class PriceResponseModel:
     total_bids: float = 0.0
     total_wins: float = 0.0
     total_revenue: float = 0.0
+    recent_bids: float = 0.0   # last 7d only — per-demand liveness gate
     hours_observed: int = 0
     lookback_days: int = 14
 
     @property
+    def is_live(self) -> bool:
+        """Partner has received bid requests in the last 7d.
+
+        Per-demand liveness signal. The LL UI's `OPPORTUNITIES` metric is
+        publisher-level (ad slots available), not per-demand — it comes back
+        as 0 on every (pub, demand) row in the POST reporting API. BIDS is
+        the correct per-demand equivalent: if BIDS>0 the demand is wired
+        into the waterfall and receiving requests. If BIDS=0 for 7d the
+        partner is archived / misconfigured / unplugged — floor tuning is
+        a no-op."""
+        return self.recent_bids > 0
+
+    @property
     def is_fittable(self) -> bool:
-        return self.hours_observed >= 20 and self.total_wins >= 100
+        return (self.is_live
+                and self.hours_observed >= 20
+                and self.total_wins >= 100)
 
     def _predict_point(self, floor: float, samples: list[tuple[float, float]]) -> float:
         """Expected weekly revenue at given floor, given a sample of hourly obs."""
@@ -136,7 +152,9 @@ def fit(publisher_id: int, demand_id: int, *,
         lookback_days: int = 14,
         _hourly_cache: list[dict] | None = None) -> PriceResponseModel:
     rows = _hourly_cache if _hourly_cache is not None else _load_hourly()
-    cutoff = (datetime.now(timezone.utc).date() - timedelta(days=lookback_days)).isoformat()
+    today = datetime.now(timezone.utc).date()
+    cutoff = (today - timedelta(days=lookback_days)).isoformat()
+    liveness_cutoff = (today - timedelta(days=7)).isoformat()
     m = PriceResponseModel(
         publisher_id=publisher_id, demand_id=demand_id,
         lookback_days=lookback_days,
@@ -146,7 +164,8 @@ def fit(publisher_id: int, demand_id: int, *,
             continue
         if int(r.get("DEMAND_ID", 0)) != demand_id:
             continue
-        if str(r.get("DATE", "")) < cutoff:
+        date_str = str(r.get("DATE", ""))
+        if date_str < cutoff:
             continue
         bids = float(r.get("BIDS", 0) or 0)
         wins = float(r.get("WINS", 0) or 0)
@@ -154,6 +173,8 @@ def fit(publisher_id: int, demand_id: int, *,
         m.total_bids += bids
         m.total_wins += wins
         m.total_revenue += rev
+        if date_str >= liveness_cutoff:
+            m.recent_bids += bids
         m.hours_observed += 1
         m.publisher_name = r.get("PUBLISHER_NAME", "") or m.publisher_name
         m.demand_name = r.get("DEMAND_NAME", "") or m.demand_name
@@ -164,7 +185,9 @@ def fit(publisher_id: int, demand_id: int, *,
 
 
 def fit_all(*, lookback_days: int = 14, min_total_revenue: float = 20.0) -> list[PriceResponseModel]:
-    """Fit one model per (pub, demand) tuple with enough signal."""
+    """Fit one model per (pub, demand) tuple with enough signal.
+    Dead partners (recent BIDS == 0, i.e. unplugged from the auction)
+    are skipped here — floor tuning on them is a no-op."""
     rows = _load_hourly()
     tuples = {}
     for r in rows:
@@ -179,6 +202,28 @@ def fit_all(*, lookback_days: int = 14, min_total_revenue: float = 20.0) -> list
         if m.total_revenue >= min_total_revenue and m.is_fittable:
             models.append(m)
     return models
+
+
+def active_tuples(*, lookback_days: int = 7,
+                  _hourly_cache: list[dict] | None = None) -> set[tuple[int, int]]:
+    """Return the set of (publisher_id, demand_id) tuples with BIDS > 0 in
+    the last `lookback_days`. Per-demand liveness gate — see `is_live`
+    docstring for why BIDS (not OPPORTUNITIES) is the correct signal here."""
+    rows = _hourly_cache if _hourly_cache is not None else _load_hourly()
+    cutoff = (datetime.now(timezone.utc).date() - timedelta(days=lookback_days)).isoformat()
+    live: set[tuple[int, int]] = set()
+    for r in rows:
+        if str(r.get("DATE", "")) < cutoff:
+            continue
+        bids = float(r.get("BIDS", 0) or 0)
+        if bids <= 0:
+            continue
+        pid = int(r.get("PUBLISHER_ID", 0))
+        did = int(r.get("DEMAND_ID", 0))
+        if pid == 0 or did == 0:
+            continue
+        live.add((pid, did))
+    return live
 
 
 if __name__ == "__main__":

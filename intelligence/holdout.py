@@ -96,8 +96,10 @@ def assign_tuple(publisher_id: int, demand_id: int) -> str:
 
 
 def is_tuple_held_out(publisher_id: int, demand_id: int) -> bool:
-    """Gate for optimizers — MUST be called before any floor write."""
-    return assign_tuple(publisher_id, demand_id) == "control"
+    """Gate for optimizers — MUST be called before any floor write.
+    Returns True for 'control' (measurement holdout) AND 'dead' (no recent
+    OPPORTUNITIES — partner is not live in the waterfall)."""
+    return assign_tuple(publisher_id, demand_id) in ("control", "dead")
 
 
 def build_tuple_assignment() -> dict:
@@ -118,24 +120,37 @@ def build_tuple_assignment() -> dict:
         "bids": 0.0, "wins": 0.0, "revenue": 0.0,
         "publisher_name": "", "demand_name": "",
     })
+    from datetime import date as _date, timedelta as _td
+    liveness_cutoff = (_date.today() - _td(days=7)).isoformat()
+    # Per-demand liveness: BIDS > 0 in last 7d. OPPORTUNITIES is publisher-
+    # level in the LL reporting API (always 0 when broken down by DEMAND_ID),
+    # so BIDS is the correct per-demand equivalent.
+    recent_bids: dict[tuple[int, int], float] = defaultdict(float)
+
     for r in rows:
         pid = int(r.get("PUBLISHER_ID", 0))
         did = int(r.get("DEMAND_ID", 0))
         if pid == 0 or did == 0:
             continue
         a = agg[(pid, did)]
-        a["bids"] += float(r.get("BIDS", 0) or 0)
+        bids_hr = float(r.get("BIDS", 0) or 0)
+        a["bids"] += bids_hr
         a["wins"] += float(r.get("WINS", 0) or 0)
         a["revenue"] += float(r.get("GROSS_REVENUE", 0) or 0)
         a["publisher_name"] = r.get("PUBLISHER_NAME", "") or a["publisher_name"]
         a["demand_name"] = r.get("DEMAND_NAME", "") or a["demand_name"]
+        if str(r.get("DATE", "")) >= liveness_cutoff:
+            recent_bids[(pid, did)] += bids_hr
 
     top_keys = {k for k, _ in sorted(agg.items(), key=lambda kv: -kv[1]["revenue"])[:TUPLE_HOLDOUT_TOP_EXCLUDE]}
 
     assignment: dict[str, str] = {}
     tuples_out: list[dict] = []
     for (pid, did), m in agg.items():
-        if m["bids"] < TUPLE_HOLDOUT_MIN_BIDS_30D:
+        # Liveness gate: zero BIDS in last 7d → 'dead' (never in control, never touched)
+        if recent_bids.get((pid, did), 0) <= 0:
+            group = "dead"
+        elif m["bids"] < TUPLE_HOLDOUT_MIN_BIDS_30D:
             group = "excluded"
         elif (pid, did) in top_keys:
             group = "treatment"  # forced
@@ -148,6 +163,7 @@ def build_tuple_assignment() -> dict:
             "group": group,
             "revenue_30d": round(m["revenue"], 2),
             "bids_30d": int(m["bids"]),
+            "bids_7d": int(recent_bids.get((pid, did), 0)),
         })
 
     snapshot = {
