@@ -18,7 +18,7 @@ Deployment:
 
 Environment:
     All credentials are read from .env (or host environment variables):
-        TB_CLIENT_KEY, TB_SECRET_KEY, TB_API_BASE_URL
+        LL_API_BASE_URL, LL_CLIENT_KEY, LL_SECRET_KEY, LL_UI_EMAIL, LL_UI_PASSWORD
         SLACK_WEBHOOK
         ANTHROPIC_API_KEY
         SENDGRID_KEY, EMAIL_FROM
@@ -84,7 +84,6 @@ def _import(module_path: str):
 #
 # Agent                  | Frequency  | When it actually fires
 # -----------------------|------------|------------------------------------------
-# tb_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
 # opp_fill_rate          | every 4h   | daily summary + critical repeat
@@ -112,7 +111,6 @@ def _import(module_path: str):
 # ---------------------------------------------------------------------------
 
 def setup_schedule():
-    tb_revenue             = _import("agents.alerts.tb_revenue")
     ll_revenue             = _import("agents.alerts.ll_revenue")
     revenue_pace           = _import("agents.alerts.revenue_pace")
     opp_fill_rate          = _import("agents.alerts.opp_fill_rate")
@@ -141,13 +139,14 @@ def setup_schedule():
     dsp_optimizer          = _import("agents.optimization.dsp_optimizer")
     ssp_company_optimizer  = _import("agents.optimization.ssp_company_optimizer")
     geo_floor_optimizer    = _import("agents.optimization.geo_floor_optimizer")
-    tb_floor_nudge         = _import("agents.optimization.tb_floor_nudge")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
     floor_optimizer        = _import("scripts.floor_optimizer")
+    # TB (TechBid) agents removed 2026-04-18 — account is LL-only; agents
+    # were erroring daily with 401 against inactive TB endpoints.
     # ML tranche 1 — instrumentation only (no auto-actions)
     ml_collector           = _import("intelligence.collector")
     ml_bid_landscape       = _import("intelligence.bid_landscape")
@@ -163,10 +162,8 @@ def setup_schedule():
     ml_quarantine          = _import("intelligence.quarantine")
     # ML tranche 5 — dayparting rotator (gated by PGAM_DAYPARTING_ENABLED=1)
     ml_dayparting          = _import("intelligence.dayparting")
-    # tb_floor_optimizer — deferred until TB admin (write) credentials are in place
 
     # ── Hourly ───────────────────────────────────────────────────────────────
-    schedule.every(60).minutes.do(_run("tb_revenue",         tb_revenue))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
@@ -223,8 +220,6 @@ def setup_schedule():
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
     schedule.every().day.at("09:30").do(_run("geo_floor_optimizer",    geo_floor_optimizer))     # daily — per-placement × country floor optimization
-    schedule.every().day.at("10:00").do(_run("tb_floor_nudge",         tb_floor_nudge))          # daily — +10% floor elasticity nudge with auto-rollback
-
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
 
@@ -257,11 +252,11 @@ def main():
 
     setup_schedule()
 
-    # Run TB and LL revenue once immediately on startup so we don't
-    # wait up to 60 minutes for the first snapshot.
-    print("\n[scheduler] Running startup revenue checks (TB + LL)…")
+    # Run LL revenue once immediately on startup so we don't wait up to
+    # 60 minutes for the first snapshot.
+    print("\n[scheduler] Running startup revenue check (LL)…")
     for job in schedule.get_jobs():
-        if job.job_func.__name__ in ("tb_revenue", "ll_revenue"):
+        if job.job_func.__name__ == "ll_revenue":
             job.run()
 
     print("\n[scheduler] Entering main loop. Press Ctrl+C to stop.\n")

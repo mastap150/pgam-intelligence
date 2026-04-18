@@ -26,18 +26,6 @@ services:
       - key: LL_DRY_RUN
         value: "false"     # safety: set to "true" here and override in dashboard if needed
 
-      # ── TB (TechBid) ─────────────────────────────────────────────────────────
-      - key: TB_API_BASE_URL
-        sync: false
-      - key: TB_CLIENT_KEY
-        sync: false
-      - key: TB_SECRET_KEY
-        sync: false
-      - key: TB_EMAIL
-        sync: false
-      - key: TB_PASSWORD
-        sync: false
-
       # ── Notifications ────────────────────────────────────────────────────────
       - key: SLACK_WEBHOOK
         sync: false
@@ -51,3 +39,15 @@ services:
       # ── Timezone (keep scheduler in ET) ──────────────────────────────────────
       - key: TZ
         value: America/New_York
+
+      # ── Runtime behavior ─────────────────────────────────────────────────────
+      # Force Python stdout to flush line-by-line. Without this, Render's log
+      # stream shows nothing from print() calls until the buffer fills.
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+      # ── ML tranche 5 — dayparting rotator ────────────────────────────────────
+      # Default off; override to "1" in the Render dashboard to enable per-hour
+      # floor writes. See intelligence/dayparting.py for the rotator logic.
+      - key: PGAM_DAYPARTING_ENABLED
+        value: "0"
