@@ -147,6 +147,8 @@ def _in_cooldown(demand_id: int) -> bool:
     for r in floor_ledger.read_all():
         if r["demand_id"] != demand_id or not r["applied"] or r["dry_run"]:
             continue
+        if r.get("actor") == "dayparting":
+            continue   # dayparting runs hourly; owns its own cooldown
         last = datetime.fromisoformat(r["ts_utc"].replace("Z", "+00:00"))
         if (datetime.now(timezone.utc) - last) < timedelta(hours=COOLDOWN_HOURS):
             return True

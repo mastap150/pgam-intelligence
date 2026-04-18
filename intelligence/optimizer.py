@@ -58,13 +58,18 @@ def _new_proposal_id() -> str:
 
 
 def _recent_ledger_ts(publisher_id: int, demand_id: int) -> str | None:
-    """Return most-recent applied ledger timestamp for this tuple, else None."""
+    """Return most-recent applied ledger timestamp for this tuple, else None.
+
+    Dayparting rotator writes are excluded — they run hourly and would
+    otherwise keep every high-variance demand permanently in cooldown.
+    Dayparting owns its own 45 min cooldown in intelligence.dayparting."""
     matches = [
         r for r in floor_ledger.read_all()
         if r["publisher_id"] == publisher_id
         and r["demand_id"] == demand_id
         and r["applied"]
         and not r["dry_run"]
+        and r.get("actor") != "dayparting"
     ]
     if not matches:
         return None
