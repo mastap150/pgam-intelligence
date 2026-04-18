@@ -213,8 +213,8 @@ def run(dry_run: bool = True) -> dict:
     print(f"  TB Floor Nudge  {'[DRY RUN]' if dry_run else '[LIVE]'}")
     print(f"{'='*72}")
 
-    placements = tbm.list_placements()
-    print(f"  {len(placements)} placements")
+    placements = tbm.list_all_placements_via_report(days=BASELINE_WINDOW_DAYS, min_impressions=MIN_IMP_THRESHOLD)
+    print(f"  {len(placements)} placements account-wide (≥{MIN_IMP_THRESHOLD} imps)")
 
     # Recent window for decisions, baseline window for initial snapshot
     recent_stats   = placement_report(MEASURE_WINDOW_DAYS)

@@ -57,8 +57,9 @@ def run(apply: bool = False, rollback: bool = False) -> None:
     mode = "ROLLBACK" if rollback else ("APPLY" if apply else "DRY_RUN")
     print(f"\n{'='*72}\n  Optimal-Price Sweep  [{mode}]\n{'='*72}")
 
-    placements = tbm.list_placements()
-    print(f"  {len(placements)} total placements")
+    # Account-wide scope via report endpoint (list_placement is user-scoped)
+    placements = tbm.list_all_placements_via_report(days=14, min_impressions=100)
+    print(f"  {len(placements)} placements account-wide (≥100 imps / 14d)")
 
     if rollback:
         targets = [p for p in placements if p.get("is_optimal_price")]
@@ -71,16 +72,36 @@ def run(apply: bool = False, rollback: bool = False) -> None:
         print("  nothing to do.")
         return
 
-    # Preview
-    print(f"\n  Preview (top 10):")
-    for p in targets[:10]:
+    # Preview — show top candidates by impression volume
+    preview = sorted(targets, key=lambda x: -(x.get("_imps_window", 0)))
+    print(f"\n  Preview (top 15 by volume):")
+    for p in preview[:15]:
         print(f"    [{p['placement_id']}] {p.get('title','')[:42]:<42} "
               f"type={p.get('type','?'):<7} floor=${p.get('price',0):.2f} "
-              f"inv={p.get('inventory_id')}")
-    if len(targets) > 10:
-        print(f"    ... +{len(targets) - 10} more")
+              f"imps={p.get('_imps_window',0):>10,} eCPM=${p.get('_ecpm_window',0):.2f}")
+    if len(targets) > 15:
+        print(f"    ... +{len(targets) - 15} more")
 
     if not (apply or rollback):
+        # Slack brief — richer summary for "blocked" visibility
+        try:
+            from core.slack import post_message
+            total_imps = sum(p.get("_imps_window", 0) for p in targets)
+            lines = [
+                f"🔍 *Optimal-Price Sweep* — DRY-RUN (awaiting edit_placement_* endpoint)",
+                f"Would flip `is_optimal_price=True` on *{len(targets)}* placements",
+                f"Total impressions in 14d window: {total_imps:,}",
+                "\n*Top 10 by volume:*",
+            ]
+            for p in preview[:10]:
+                lines.append(
+                    f"  • [{p['placement_id']}] {p.get('title','')[:36]}  "
+                    f"imps={p.get('_imps_window',0):,}  "
+                    f"eCPM=${p.get('_ecpm_window',0):.2f}"
+                )
+            post_message("\n".join(lines))
+        except Exception:
+            pass
         print("\n  (dry-run — pass --apply to execute, --rollback to revert)")
         return
 

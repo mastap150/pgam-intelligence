@@ -283,8 +283,8 @@ def run(dry_run: bool = True) -> dict:
     start, end = _window()
     print(f"\n→ placement × country report  {start} → {end}")
     rows = placement_country_report(start, end)
-    placements = tbm.list_placements()
-    print(f"  {len(rows)} rows | {len(placements)} placements")
+    placements = tbm.list_all_placements_via_report(days=SCORING_WINDOW_DAYS, min_impressions=100)
+    print(f"  {len(rows)} country rows | {len(placements)} placements account-wide")
 
     proposals = build_proposals(rows, placements)
     print(f"\n  {len(proposals)} placements have actionable country bumps")

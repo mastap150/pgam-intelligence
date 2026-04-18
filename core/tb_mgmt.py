@@ -195,6 +195,84 @@ def get_placement(placement_id: int | str) -> dict:
     return _get("placement", {"placement_id": placement_id})
 
 
+def list_all_placements_via_report(
+    days: int = 14,
+    min_impressions: int = 0,
+    hydrate: bool = True,
+) -> list[dict]:
+    """
+    Return placements across the ENTIRE TB account (not just user_id scope).
+
+    Works around the list_placement userId scoping: pulls placement_ids
+    from the /report endpoint (which returns account-wide data), then
+    hydrates each via GET /placement?placement_id=X for full settings.
+
+    Parameters
+    ----------
+    days             : lookback window for the report pull
+    min_impressions  : filter out placements with < this many imps
+    hydrate          : if True, fetch full placement detail per id
+                       (slower but gives floor, type, is_optimal_price)
+
+    Returns
+    -------
+    list[dict] — each with full placement fields (title, type, price,
+    is_optimal_price, price_country, inventory_id) plus impressions
+    and dsp_spend from the window for ranking.
+    """
+    import datetime as _dt
+    end   = _dt.datetime.now(_dt.timezone.utc).date()
+    start = end - _dt.timedelta(days=days)
+
+    params = [
+        ("from",        start.isoformat()),
+        ("to",          end.isoformat()),
+        ("day_group",   "total"),
+        ("limit",       1000),
+        ("attribute[]", "placement"),
+    ]
+    url  = f"{TB_BASE}/{_get_token()}/report?" + urllib.parse.urlencode(params)
+    resp = requests.get(url, timeout=120)
+    if not resp.ok:
+        raise RuntimeError(f"report placement pull: {resp.status_code} {resp.text[:200]}")
+    rows = resp.json().get("data", resp.json())
+    if not isinstance(rows, list):
+        return []
+
+    # Dedupe by placement_id; keep the highest-impression row as stats source
+    stats: dict[int, dict] = {}
+    for r in rows:
+        pid = r.get("placement_id")
+        if pid is None: continue
+        pid = int(pid)
+        imps = r.get("impressions", 0) or 0
+        if imps < min_impressions: continue
+        cur = stats.get(pid)
+        if cur is None or imps > cur.get("impressions", 0):
+            stats[pid] = r
+
+    if not hydrate:
+        return list(stats.values())
+
+    out = []
+    for pid, s in stats.items():
+        try:
+            det = get_placement(pid)
+            if isinstance(det, dict):
+                det["_imps_window"]  = s.get("impressions", 0)
+                det["_spend_window"] = s.get("dsp_spend", 0.0)
+                det["_ecpm_window"]  = (
+                    (det["_spend_window"] * 1000.0 / det["_imps_window"])
+                    if det["_imps_window"] else 0.0
+                )
+                out.append(det)
+        except Exception as e:
+            print(f"[tb_mgmt] hydrate fail pid={pid}: {e}")
+    # Sort by window impressions desc
+    out.sort(key=lambda x: -(x.get("_imps_window", 0)))
+    return out
+
+
 # ---------------------------------------------------------------------------
 # Floor management
 # ---------------------------------------------------------------------------
