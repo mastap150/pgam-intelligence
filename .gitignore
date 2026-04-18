@@ -7,6 +7,13 @@ __pycache__/
 .venv/
 venv/
 
+# ML tranche 1 data — regenerated hourly by intelligence.collector
+data/*.json.gz
+data/collector_state.json
+data/holdout_assignment.json
+data/holdout_tuples.json
+data/holdout_tuples_detail.json
+
 # Google OAuth secrets — never commit these
 reports/credentials.json
 reports/token.pickle

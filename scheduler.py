@@ -148,11 +148,21 @@ def setup_schedule():
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
     floor_optimizer        = _import("scripts.floor_optimizer")
+    # ML tranche 1 — instrumentation only (no auto-actions)
+    ml_collector           = _import("intelligence.collector")
+    ml_bid_landscape       = _import("intelligence.bid_landscape")
+    ml_holdout             = _import("intelligence.holdout")
     # tb_floor_optimizer — deferred until TB admin (write) credentials are in place
 
     # ── Hourly ───────────────────────────────────────────────────────────────
     schedule.every(60).minutes.do(_run("tb_revenue",         tb_revenue))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
+    # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
+    # refresh holdout assignments weekly (countries/tuples don't churn fast).
+    schedule.every(60).minutes.do(_run("ml_collector",       ml_collector))
+    schedule.every().day.at("01:15").do(_run("ml_bid_landscape", ml_bid_landscape))
+    schedule.every().day.at("13:15").do(_run("ml_bid_landscape", ml_bid_landscape))
+    schedule.every().monday.at("02:00").do(_run("ml_holdout",    ml_holdout))
 
     # ── Every 4 hours ────────────────────────────────────────────────────────
     schedule.every(4).hours.do(  _run("revenue_pace",        revenue_pace))
