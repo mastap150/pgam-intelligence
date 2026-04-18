@@ -303,6 +303,88 @@ def update_floor(adunit_id: int, new_floor: float, dry_run: bool = False) -> dic
 # Demands
 # ---------------------------------------------------------------------------
 
+def set_demand_floor(
+    demand_id: int,
+    new_floor: float | None,
+    *,
+    verify: bool = True,
+    dry_run: bool = False,
+    allow_multi_pub: bool = False,
+    _publishers_running_it: int | None = None,
+) -> dict:
+    """Canonical floor-write path for a demand partner.
+
+    BACKGROUND (2026-04-18 verifier investigation)
+    ----------------------------------------------
+    PUT /v1/publishers/{id} with modified biddingpreferences[].value[].minBidFloor
+    returns 200 OK but SILENTLY DISCARDS the nested change. Every phase1*/
+    startio_*/high_wr_* script that wrote via that path for months was a no-op.
+    The 221/221 "reverted" verdict in the April-18 verifier report was not a
+    revert — the PUT never landed in the first place.
+
+    The working endpoint is PUT /v1/demands/{demand_id}. That sticks, and a
+    re-GET confirms the new minBidFloor. Note this is a **demand-global**
+    floor: it applies to every publisher that has this demand wired in.
+
+    MULTI-PUB SAFETY
+    ----------------
+    73% of demand_ids run on only one publisher, so demand-level = per-pub
+    in practice. The remaining 27% (67 demands) span multiple pubs — setting
+    a floor there changes it on all of them simultaneously. By default this
+    function refuses to write those unless the caller passes
+    ``allow_multi_pub=True`` AND has aggregated their per-pub recommendations
+    into a single demand-level decision.
+
+    VERIFICATION
+    ------------
+    If ``verify=True`` (default), re-GETs the demand after the write and
+    raises RuntimeError if the live value doesn't match. No more silent
+    failures.
+    """
+    if dry_run or _GLOBAL_DRY_RUN:
+        print(f"[ll_mgmt] DRY_RUN set_demand_floor demand_id={demand_id} floor={new_floor}")
+        return {"dry_run": True, "demand_id": demand_id, "new_floor": new_floor}
+
+    if _publishers_running_it is not None and _publishers_running_it > 1 and not allow_multi_pub:
+        raise ValueError(
+            f"demand_id={demand_id} runs on {_publishers_running_it} publishers — "
+            "demand-level floor write would change all of them. Pass "
+            "allow_multi_pub=True after aggregating per-pub recommendations."
+        )
+
+    demand = _get(f"/v1/demands/{demand_id}")
+    old_floor = demand.get("minBidFloor")
+    if old_floor == new_floor:
+        return {"no_change": True, "demand_id": demand_id, "floor": new_floor}
+
+    demand["minBidFloor"] = new_floor
+    resp = _put(f"/v1/demands/{demand_id}", demand)
+
+    result = {
+        "demand_id": demand_id,
+        "old_floor": old_floor,
+        "new_floor": new_floor,
+        "put_response_floor": resp.get("minBidFloor") if isinstance(resp, dict) else None,
+    }
+
+    if verify:
+        import time as _time
+        _time.sleep(1)
+        live = _get(f"/v1/demands/{demand_id}").get("minBidFloor")
+        result["live_floor_after"] = live
+        if (live is None and new_floor is not None) or (
+            live is not None and new_floor is not None
+            and abs(float(live) - float(new_floor)) > 0.001
+        ):
+            raise RuntimeError(
+                f"set_demand_floor verification FAILED: demand_id={demand_id} "
+                f"expected={new_floor} live={live}"
+            )
+        result["verified"] = True
+
+    return result
+
+
 def get_demands(include_archived: bool = False) -> list[dict]:
     """
     GET /v1/demands — returns a list of demand objects.

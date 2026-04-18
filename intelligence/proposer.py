@@ -123,6 +123,9 @@ def post_to_slack(top_n: int = SLACK_TOP_N) -> dict:
 # ────────────────────────────────────────────────────────────────────────────
 
 def apply_one(proposal: dict, *, dry_run: bool = False) -> dict:
+    """Apply a single proposal via ll_mgmt.set_demand_floor — the only write
+    path that actually persists (see its docstring for the Apr-18 revert-bug
+    postmortem)."""
     pub_id = int(proposal["publisher_id"])
     did = int(proposal["demand_id"])
 
@@ -132,32 +135,35 @@ def apply_one(proposal: dict, *, dry_run: bool = False) -> dict:
     if quarantine.is_in_quarantine(pub_id, did):
         return {"id": proposal["id"], "applied": False, "reason": "quarantine_reblocked"}
 
-    pub = ll_mgmt.get_publisher(pub_id)
-    target = None
-    for pref in pub.get("biddingpreferences", []):
-        for v in pref.get("value", []):
-            if v.get("id") == did:
-                target = v
-                break
-        if target:
-            break
-    if target is None:
-        return {"id": proposal["id"], "applied": False, "reason": "demand_not_found_on_pub"}
+    # Multi-pub guard — refuse unless the proposal explicitly acknowledges
+    # that it's been aggregated across all pubs running this demand.
+    n_pubs = proposal.get("demand_runs_on_n_pubs", 1)
+    allow_multi = bool(proposal.get("multi_pub_acknowledged", False))
+    if n_pubs > 1 and not allow_multi:
+        return {"id": proposal["id"], "applied": False,
+                "reason": f"multi_pub_unacknowledged:{n_pubs}_pubs"}
 
-    old_floor = target.get("minBidFloor")
     new_floor = float(proposal["proposed_floor"])
-    target["minBidFloor"] = new_floor
-
-    if dry_run:
-        print(f"DRY_RUN  pub={pub_id} demand={did} {_fmt_floor(old_floor)} → ${new_floor:.2f}")
-        return {"id": proposal["id"], "applied": False, "reason": "dry_run",
-                "old_floor": old_floor, "new_floor": new_floor}
-
     try:
-        ll_mgmt._put(f"/v1/publishers/{pub_id}", pub)
+        r = ll_mgmt.set_demand_floor(
+            demand_id=did,
+            new_floor=new_floor,
+            verify=True,
+            dry_run=dry_run,
+            allow_multi_pub=allow_multi,
+            _publishers_running_it=n_pubs,
+        )
     except Exception as e:
-        return {"id": proposal["id"], "applied": False, "reason": f"put_failed:{e}"}
+        return {"id": proposal["id"], "applied": False, "reason": f"write_failed:{e}"}
 
+    if dry_run or r.get("dry_run"):
+        return {"id": proposal["id"], "applied": False, "reason": "dry_run",
+                "new_floor": new_floor}
+    if r.get("no_change"):
+        return {"id": proposal["id"], "applied": False, "reason": "no_change",
+                "floor": r.get("floor")}
+
+    old_floor = r.get("old_floor")
     floor_ledger.record(
         publisher_id=pub_id, demand_id=did,
         old_floor=old_floor, new_floor=new_floor,
@@ -168,8 +174,11 @@ def apply_one(proposal: dict, *, dry_run: bool = False) -> dict:
         dry_run=False, applied=True,
         source_log="data/proposals.json",
     )
-    print(f"✓ applied  pub={pub_id} demand={did}  {_fmt_floor(old_floor)} → ${new_floor:.2f}")
-    return {"id": proposal["id"], "applied": True, "old_floor": old_floor, "new_floor": new_floor}
+    print(f"✓ applied+verified demand_id={did}  "
+          f"{_fmt_floor(old_floor)} → ${new_floor:.2f}  (live={r.get('live_floor_after')})")
+    return {"id": proposal["id"], "applied": True,
+            "old_floor": old_floor, "new_floor": new_floor,
+            "verified": r.get("verified", False)}
 
 
 def apply_ids(ids: list[str], *, dry_run: bool = False) -> list[dict]:

@@ -72,7 +72,8 @@ def _floor_equal(a, b) -> bool:
 
 def verify(window_hours: int = 48) -> dict:
     """Re-read every applied ledger entry within the last `window_hours` and
-    compare to live state. Group by publisher so we only fetch each pub once."""
+    compare to live state at the demand endpoint (the canonical floor path —
+    see ll_mgmt.set_demand_floor docstring). Groups by demand_id for caching."""
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat()
     entries = [
         r for r in floor_ledger.read_all()
@@ -81,84 +82,66 @@ def verify(window_hours: int = 48) -> dict:
     if not entries:
         return {"verified": 0, "window_hours": window_hours, "note": "no recent applied entries"}
 
-    # For each (pub, demand), keep only the LATEST ledger entry within window
-    # — we only care if the most-recent intended state is live.
-    latest: dict[tuple[int, int], dict] = {}
+    # For each demand_id, keep only the LATEST ledger entry within window.
+    # The optimizer + proposer now route through set_demand_floor which is
+    # demand-level, so demand_id is the correct key.
+    latest: dict[int, dict] = {}
     for e in entries:
-        k = (e["publisher_id"], e["demand_id"])
+        k = e["demand_id"]
         if k not in latest or e["ts_utc"] > latest[k]["ts_utc"]:
             latest[k] = e
 
-    # Fetch each publisher once
-    by_pub: dict[int, list[dict]] = defaultdict(list)
-    for k, e in latest.items():
-        by_pub[k[0]].append(e)
-
     outcomes = Counter()
     details = []
-    for pub_id, pub_entries in by_pub.items():
+    for did, e in latest.items():
         try:
-            pub = ll_mgmt.get_publisher(pub_id)
+            live = ll_mgmt._get(f"/v1/demands/{did}").get("minBidFloor")
         except Exception as exc:
-            for e in pub_entries:
-                d = {
-                    "ts_utc": _now_iso(),
-                    "ledger_id": e["id"],
-                    "publisher_id": pub_id,
-                    "demand_id": e["demand_id"],
-                    "expected": e["new_floor"],
-                    "actual": None,
-                    "outcome": "error",
-                    "error": str(exc),
-                }
-                _append(d)
-                details.append(d)
-                outcomes["error"] += 1
-            continue
-
-        live_map = {}
-        for pref in pub.get("biddingpreferences", []):
-            for v in pref.get("value", []):
-                did = v.get("id")
-                if did is not None:
-                    live_map[int(did)] = v
-
-        for e in pub_entries:
-            live = live_map.get(e["demand_id"])
-            if live is None:
-                outcome = "missing"
-                actual = None
-            else:
-                actual = live.get("minBidFloor")
-                if _floor_equal(actual, e["new_floor"]):
-                    outcome = "ok"
-                elif _floor_equal(actual, e["old_floor"]):
-                    outcome = "reverted"
-                else:
-                    outcome = "drifted"
-
             d = {
                 "ts_utc": _now_iso(),
                 "ledger_id": e["id"],
-                "publisher_id": pub_id,
-                "publisher_name": e.get("publisher_name", ""),
-                "demand_id": e["demand_id"],
+                "publisher_id": e["publisher_id"],
+                "demand_id": did,
                 "demand_name": e.get("demand_name", ""),
-                "actor": e.get("actor", ""),
                 "expected": e["new_floor"],
-                "actual": actual,
-                "prior": e["old_floor"],
-                "outcome": outcome,
+                "actual": None,
+                "outcome": "error",
+                "error": str(exc),
             }
             _append(d)
             details.append(d)
-            outcomes[outcome] += 1
+            outcomes["error"] += 1
+            continue
+
+        if _floor_equal(live, e["new_floor"]):
+            outcome = "ok"
+        elif _floor_equal(live, e["old_floor"]):
+            outcome = "reverted"
+        else:
+            outcome = "drifted"
+
+        d = {
+            "ts_utc": _now_iso(),
+            "ledger_id": e["id"],
+            "publisher_id": e["publisher_id"],
+            "publisher_name": e.get("publisher_name", ""),
+            "demand_id": did,
+            "demand_name": e.get("demand_name", ""),
+            "actor": e.get("actor", ""),
+            "expected": e["new_floor"],
+            "actual": live,
+            "prior": e["old_floor"],
+            "outcome": outcome,
+        }
+        _append(d)
+        details.append(d)
+        outcomes[outcome] += 1
 
     return {
         "verified": sum(outcomes.values()),
         "window_hours": window_hours,
         "outcomes": dict(outcomes),
-        "issues": [d for d in details if d["outcome"] in ("reverted", "drifted", "missing", "error")],
+        "issues": [d for d in details if d["outcome"] in ("reverted", "drifted", "error")],
     }
 
 

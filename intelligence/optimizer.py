@@ -121,6 +121,13 @@ class Proposal:
     proposed_weekly_rev: float
     confidence: str             # high | medium | low
     reason: str
+    # The LL floor-write endpoint is demand-level, not (pub, demand) level.
+    # If demand_runs_on_n_pubs > 1, applying this proposal would change the
+    # floor on every pub running this demand. Proposer refuses unless
+    # multi_pub_acknowledged is set (a human or a higher-level aggregator
+    # has reconciled the per-pub recommendations).
+    demand_runs_on_n_pubs: int = 1
+    multi_pub_acknowledged: bool = False
 
 
 def _confidence(samples: int, ci_low_net: float) -> str:
@@ -131,6 +138,32 @@ def _confidence(samples: int, ci_low_net: float) -> str:
     return "low"
 
 
+def _count_pubs_per_demand() -> dict[int, int]:
+    """From the hourly store, how many distinct publishers is each demand_id
+    wired into (based on BIDS > 0 in last 7d)? Used to flag multi-pub
+    demand_ids so the proposer doesn't silently change floors on pubs the
+    optimizer wasn't reasoning about."""
+    import gzip
+    path = DATA_DIR / "hourly_pub_demand.json.gz"
+    if not path.exists():
+        return {}
+    cutoff = (datetime.now(timezone.utc).date() - timedelta(days=7)).isoformat()
+    live_by_demand: dict[int, set[int]] = {}
+    with gzip.open(path, "rt") as f:
+        rows = json.load(f)
+    for r in rows:
+        if str(r.get("DATE", "")) < cutoff:
+            continue
+        if float(r.get("BIDS", 0) or 0) <= 0:
+            continue
+        did = int(r.get("DEMAND_ID", 0))
+        pid = int(r.get("PUBLISHER_ID", 0))
+        if did == 0 or pid == 0:
+            continue
+        live_by_demand.setdefault(did, set()).add(pid)
+    return {did: len(pids) for did, pids in live_by_demand.items()}
+
+
 def generate(*, lookback_days: int = 14, min_total_revenue: float = 20.0,
              dry_margin_fetch: bool = False) -> dict:
     """Produce and persist a fresh set of proposals."""
@@ -139,6 +172,8 @@ def generate(*, lookback_days: int = 14, min_total_revenue: float = 20.0,
                                     min_total_revenue=min_total_revenue)
     # 2. Margin lookup (publisher-level)
     margins = {} if dry_margin_fetch else _safe_margin_fetch()
+    # 2b. Multi-pub demand-id map (liveness-based)
+    pubs_per_demand = _count_pubs_per_demand()
     # 3. Iterate
     proposals: list[Proposal] = []
     rejected: list[dict] = []
@@ -213,6 +248,7 @@ def generate(*, lookback_days: int = 14, min_total_revenue: float = 20.0,
             reason_parts.append("raise floor — cheap wins dominate revenue")
         reason_parts.append(f"{len(m.samples)} hourly samples, 14d")
 
+        n_pubs = pubs_per_demand.get(m.demand_id, 1)
         p = Proposal(
             id=_new_proposal_id(),
             ts_utc=_now_iso(),
@@ -231,6 +267,8 @@ def generate(*, lookback_days: int = 14, min_total_revenue: float = 20.0,
             proposed_weekly_rev=round(clipped_pred["expected_weekly_revenue"] or 0, 2),
             confidence=_confidence(len(m.samples), ci_low_net),
             reason="; ".join(reason_parts),
+            demand_runs_on_n_pubs=n_pubs,
+            multi_pub_acknowledged=False,
         )
         proposals.append(p)
 
