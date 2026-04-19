@@ -34,8 +34,13 @@ GEO_DIMS = ["DATE", "PUBLISHER_ID", "DEMAND_ID", "COUNTRY"]
 METRICS = ["OPPORTUNITIES", "BIDS", "WINS", "IMPRESSIONS",
            "GROSS_REVENUE", "PUB_PAYOUT", "GROSS_ECPM"]
 
-RETAIN_DAYS_HOURLY = 30
-RETAIN_DAYS_GEO = 30
+RETAIN_DAYS_HOURLY = 14
+RETAIN_DAYS_GEO = 14
+# Trimmed from 30d → 14d on 2026-04-18. The Render worker was being killed
+# mid-run every hour. Chunking doesn't help because the LL POST /report
+# endpoint ignores startDate/endDate and returns all-time data regardless
+# (see core.ll_report module docstring). Smaller retention → smaller final
+# filtered-and-written payload, which is the part we actually control.
 
 
 def _today() -> date:
@@ -64,13 +69,21 @@ def _filter_recent(rows: list[dict], days: int) -> list[dict]:
 
 
 def collect_hourly() -> dict:
-    """Pull rolling 30d of hourly pub×demand funnel metrics."""
+    """Pull rolling {RETAIN_DAYS_HOURLY}d of hourly pub×demand funnel metrics.
+
+    Progress is printed with flush=True so we can see where the process hangs
+    or dies mid-run on Render — without this the whole thing is silent until
+    completion."""
     end = _today().isoformat()
     start = (_today() - timedelta(days=RETAIN_DAYS_HOURLY)).isoformat()
+    print(f"[collector] hourly: calling report() for {start}..{end}", flush=True)
     rows = report(HOURLY_DIMS, METRICS, start, end)
+    print(f"[collector] hourly: got {len(rows):,} rows, filtering…", flush=True)
     rows = _filter_recent(rows, RETAIN_DAYS_HOURLY)
-    rows = [r for r in rows if float(r.get("BIDS", 0)) > 0]  # drop zero rows
+    rows = [r for r in rows if float(r.get("BIDS", 0)) > 0]
+    print(f"[collector] hourly: writing {len(rows):,} rows to {HOURLY_PATH.name}", flush=True)
     _write_atomic_gz(HOURLY_PATH, rows)
+    print(f"[collector] hourly: done", flush=True)
     return {
         "rows": len(rows),
         "distinct_publishers": len({r.get("PUBLISHER_ID") for r in rows}),
@@ -83,13 +96,17 @@ def collect_hourly() -> dict:
 
 
 def collect_geo() -> dict:
-    """Pull rolling 30d of daily pub×demand×country funnel metrics."""
+    """Pull rolling {RETAIN_DAYS_GEO}d of daily pub×demand×country funnel metrics."""
     end = _today().isoformat()
     start = (_today() - timedelta(days=RETAIN_DAYS_GEO)).isoformat()
+    print(f"[collector] geo: calling report() for {start}..{end}", flush=True)
     rows = report(GEO_DIMS, METRICS, start, end)
+    print(f"[collector] geo: got {len(rows):,} rows, filtering…", flush=True)
     rows = _filter_recent(rows, RETAIN_DAYS_GEO)
     rows = [r for r in rows if float(r.get("BIDS", 0)) > 0]
+    print(f"[collector] geo: writing {len(rows):,} rows to {DAILY_GEO_PATH.name}", flush=True)
     _write_atomic_gz(DAILY_GEO_PATH, rows)
+    print(f"[collector] geo: done", flush=True)
     return {
         "rows": len(rows),
         "distinct_countries": len({r.get("COUNTRY") for r in rows}),
@@ -102,6 +119,7 @@ def collect_geo() -> dict:
 
 def run() -> dict:
     started = datetime.now(timezone.utc).isoformat()
+    print(f"[collector] run() started at {started}", flush=True)
     hourly = collect_hourly()
     geo = collect_geo()
     state = {
@@ -111,6 +129,8 @@ def run() -> dict:
     }
     COLLECTOR_STATE.parent.mkdir(parents=True, exist_ok=True)
     COLLECTOR_STATE.write_text(json.dumps(state, indent=2))
+    print(f"[collector] run() complete: hourly_rows={hourly['rows']:,} "
+          f"geo_rows={geo['rows']:,}", flush=True)
     return state
 
 
