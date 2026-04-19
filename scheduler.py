@@ -58,14 +58,17 @@ def _run(agent_name: str, fn):
 # the scheduler from starting.
 # ---------------------------------------------------------------------------
 
-def _import(module_path: str):
-    """Return the run() function from a dotted module path, or a no-op on failure."""
+def _import(module_path: str, func_name: str = "run"):
+    """Return a named function from a dotted module path, or a no-op on failure.
+
+    Defaults to `run` for the usual pattern. Pass `func_name=` to grab a
+    different top-level callable (used for intelligence.collector.run_geo)."""
     import importlib
     try:
         mod = importlib.import_module(module_path)
-        return mod.run
+        return getattr(mod, func_name)
     except Exception as exc:
-        print(f"[scheduler] WARNING: could not import {module_path}: {exc}")
+        print(f"[scheduler] WARNING: could not import {module_path}.{func_name}: {exc}")
         return lambda: None
 
 
@@ -147,7 +150,8 @@ def setup_schedule():
     # TB (TechBid) agents removed 2026-04-18 — account is LL-only; agents
     # were erroring daily with 401 against inactive TB endpoints.
     # ML tranche 1 — instrumentation only (no auto-actions)
-    ml_collector           = _import("intelligence.collector")
+    ml_collector           = _import("intelligence.collector")                      # hourly — pub × demand
+    ml_geo_collector       = _import("intelligence.collector", "run_geo")           # daily — pub × demand × country (split out to avoid OOM on hourly tick)
     ml_bid_landscape       = _import("intelligence.bid_landscape")
     ml_holdout             = _import("intelligence.holdout")
     # ML tranche 2 — optimizer proposal engine + Slack proposer + verifier
@@ -167,6 +171,9 @@ def setup_schedule():
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
     schedule.every(60).minutes.do(_run("ml_collector",       ml_collector))
+    # Geo (pub × demand × country) is much heavier than hourly (it fans rows
+    # out ~50×). Run it once daily in a quiet window to avoid OOMing the worker.
+    schedule.every().day.at("03:00").do(_run("ml_geo_collector", ml_geo_collector))
     schedule.every().day.at("01:15").do(_run("ml_bid_landscape", ml_bid_landscape))
     schedule.every().day.at("13:15").do(_run("ml_bid_landscape", ml_bid_landscape))
     schedule.every().monday.at("02:00").do(_run("ml_holdout",    ml_holdout))

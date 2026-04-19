@@ -117,20 +117,51 @@ def collect_geo() -> dict:
     }
 
 
+def _write_state(partial: dict) -> None:
+    """Merge partial state into COLLECTOR_STATE without clobbering the other
+    run's timestamp. run() writes last_hourly_run_utc + hourly; run_geo()
+    writes last_geo_run_utc + geo. Both get preserved."""
+    COLLECTOR_STATE.parent.mkdir(parents=True, exist_ok=True)
+    merged = {}
+    if COLLECTOR_STATE.exists():
+        try:
+            merged = json.loads(COLLECTOR_STATE.read_text())
+        except (json.JSONDecodeError, OSError):
+            pass
+    merged.update(partial)
+    COLLECTOR_STATE.write_text(json.dumps(merged, indent=2))
+
+
 def run() -> dict:
+    """Hourly collector — pub × demand funnel only.
+
+    Geo (pub × demand × country) was split into run_geo() on 2026-04-19 because
+    its response.json() spiked memory fast enough to OOM-kill the Render worker
+    every hour. Geo data is consumed by weekly agents (holdout, demand_gap) and
+    by dayparting (which only needs stable per-demand country mix), so daily
+    refresh is sufficient."""
     started = datetime.now(timezone.utc).isoformat()
     print(f"[collector] run() started at {started}", flush=True)
     hourly = collect_hourly()
+    state = {"last_hourly_run_utc": started, "hourly": hourly}
+    _write_state(state)
+    print(f"[collector] run() complete: hourly_rows={hourly['rows']:,}", flush=True)
+    return state
+
+
+def run_geo() -> dict:
+    """Daily geo collector — pub × demand × country funnel.
+
+    Pulled separately from the hourly run() because the COUNTRY dimension
+    fans row count out by ~50× and response.json() on that payload reliably
+    OOMs the Render worker at hourly cadence. Run this once per day in a
+    quiet window (scheduler registers at 03:00 ET)."""
+    started = datetime.now(timezone.utc).isoformat()
+    print(f"[collector] run_geo() started at {started}", flush=True)
     geo = collect_geo()
-    state = {
-        "last_run_utc": started,
-        "hourly": hourly,
-        "geo": geo,
-    }
-    COLLECTOR_STATE.parent.mkdir(parents=True, exist_ok=True)
-    COLLECTOR_STATE.write_text(json.dumps(state, indent=2))
-    print(f"[collector] run() complete: hourly_rows={hourly['rows']:,} "
-          f"geo_rows={geo['rows']:,}", flush=True)
+    state = {"last_geo_run_utc": started, "geo": geo}
+    _write_state(state)
+    print(f"[collector] run_geo() complete: geo_rows={geo['rows']:,}", flush=True)
     return state
 
 
@@ -151,11 +182,13 @@ def summary() -> None:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--summary", action="store_true")
+    ap.add_argument("--geo", action="store_true",
+                    help="run the geo collector (daily-cadence job) instead of hourly")
     args = ap.parse_args()
     if args.summary:
         summary()
         return
-    state = run()
+    state = run_geo() if args.geo else run()
     print(json.dumps(state, indent=2))
 
 
