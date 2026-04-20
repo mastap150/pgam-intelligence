@@ -55,8 +55,10 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 from core.api import fetch as ll_fetch
+import core.ll_mgmt as ll_mgmt
+import core.floor_ledger as floor_ledger
 import core.slack as slack
-from scripts.pilot_actions import apply_floor_change, remove_floor_change, MIN_FLOOR
+from scripts.pilot_actions import PILOT_SUPPLIER_IDS
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -66,8 +68,14 @@ MAX_DAILY_DRIFT_PCT = 25.0   # max cumulative drift from base per calendar day
 STEP_PCT            = 8.0    # each move is this % of the current floor
 WIN_RATE_LOOSEN     = 0.75   # today win_rate < 75 % of yesterday → loosen
 WIN_RATE_TIGHTEN    = 1.25   # today win_rate > 125 % of yesterday → tighten
+MIN_FLOOR           = 0.10   # absolute minimum — never write below this
 MAX_FLOOR           = 10.0   # absolute ceiling
 RESET_HOUR_ET       = 8      # restore base floors at this ET hour
+
+# Demand IDs already written during this run — prevents duplicate writes to
+# the same demand when multiple publisher groups share seats (demand-level
+# writes are global, so repeating is wasted work).
+_SEEN_DEMAND_IDS_THIS_RUN: set[int] = set()
 
 ET_TZ = None
 try:
@@ -296,6 +304,107 @@ def _fetch_publisher_stats(publisher_name: str, date_str: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Demand-level write path (the only one that actually sticks)
+# ---------------------------------------------------------------------------
+# PUT /v1/publishers/{id} with nested minBidFloor returns 200 OK but silently
+# drops the change — see core.ll_mgmt.set_demand_floor docstring. We write at
+# the demand level and verify the live value before reporting success.
+
+def _apply_floor_via_demand(
+    *,
+    publisher_name: str,
+    demand_name: str,
+    new_floor: float,
+    reason: str,
+) -> dict | None:
+    """Write new_floor via set_demand_floor(verify=True). On a confirmed live
+    change, post the Slack alert and append to floor_ledger. Returns the
+    ll_mgmt result dict on success, or None if the write was skipped/failed.
+    """
+    if demand_name is None:
+        return None
+
+    publisher = ll_mgmt.get_publisher_by_name(publisher_name)
+    if publisher is None:
+        print(f"[floor_optimizer] publisher not found: {publisher_name!r}")
+        return None
+    pub_id      = publisher["id"]
+    pub_display = publisher.get("name", publisher_name)
+    sup_id      = (publisher.get("supplier")
+                   or publisher.get("supplier_id")
+                   or publisher.get("supplierId"))
+    if sup_id not in PILOT_SUPPLIER_IDS:
+        print(f"[floor_optimizer] {pub_display} supplier_id={sup_id} not in pilot — skip")
+        return None
+
+    demand = ll_mgmt.get_demand_by_name(demand_name)
+    if demand is None:
+        print(f"[floor_optimizer] demand not found: {demand_name!r}")
+        return None
+    demand_id      = demand["id"]
+    demand_display = demand.get("name", demand_name)
+
+    if demand_id in _SEEN_DEMAND_IDS_THIS_RUN:
+        return None
+    _SEEN_DEMAND_IDS_THIS_RUN.add(demand_id)
+
+    if new_floor < MIN_FLOOR:
+        print(f"[floor_optimizer] new_floor=${new_floor:.4f} < MIN_FLOOR=${MIN_FLOOR:.2f} — skip")
+        return None
+
+    try:
+        result = ll_mgmt.set_demand_floor(
+            demand_id,
+            new_floor,
+            verify=True,
+            allow_multi_pub=True,
+        )
+    except Exception as exc:
+        print(f"[floor_optimizer] set_demand_floor FAILED "
+              f"{pub_display}/{demand_display}: {exc}")
+        return None
+
+    if result.get("dry_run"):
+        return result
+    if result.get("no_change"):
+        return result
+
+    # Verified live. Record ledger + post Slack.
+    old_floor = result.get("old_floor") or 0.0
+    # set_demand_floor may have clamped up (e.g. 9 Dots contract); use the
+    # final landed value from the ledger/Slack perspective.
+    landed_floor = result.get("new_floor", new_floor)
+
+    floor_ledger.record(
+        publisher_id=pub_id,
+        publisher_name=pub_display,
+        demand_id=demand_id,
+        demand_name=demand_display,
+        old_floor=old_floor,
+        new_floor=landed_floor,
+        actor="floor_optimizer",
+        reason=reason,
+    )
+
+    change_pct = (abs((landed_floor - old_floor) / old_floor) * 100.0) if old_floor else 0.0
+    direction  = "−" if landed_floor < old_floor else "+"
+    text = (
+        f":white_check_mark: *Pilot Action Applied*\n"
+        f"Publisher: {pub_display} (supplier {sup_id})\n"
+        f"Demand: {demand_display}\n"
+        f"Change: Floor ${old_floor:.2f} → ${landed_floor:.2f}  "
+        f"({direction}{change_pct:.0f}%)\n"
+        f"Reason: {reason}\n"
+        f"Time: {_now_et_str()}\n"
+        f"Mode: LIVE"
+    )
+    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": text}}]
+    slack.send_blocks(blocks, text=f"Pilot floor change: {pub_display} / {demand_display}")
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Daily reset
 # ---------------------------------------------------------------------------
 
@@ -314,18 +423,14 @@ def _reset_to_base_floors(state: dict) -> list[dict]:
         if abs(cur_floor - base) < 0.001:
             continue  # already at base
 
-        # Restore to base for each seat
+        # Restore to base for each seat (demand-level write)
         for seat in g["seats"]:
-            try:
-                apply_floor_change(
-                    publisher_name=g["publisher"],
-                    demand_name=seat,
-                    new_floor=base,
-                    reason=f"Daily reset to base floor at {RESET_HOUR_ET}:00 ET",
-                    dry_run=False,
-                )
-            except Exception as exc:
-                print(f"[floor_optimizer] RESET ERROR {g['publisher']}/{seat}: {exc}")
+            _apply_floor_via_demand(
+                publisher_name=g["publisher"],
+                demand_name=seat,
+                new_floor=base,
+                reason=f"Daily reset to base floor at {RESET_HOUR_ET}:00 ET",
+            )
 
         state["positions"][key] = {
             "base_floor":           base,
@@ -412,26 +517,26 @@ def _optimise_group(g: dict, state: dict, today_stats: dict, yest_stats: dict) -
     if abs(new_floor - cur_floor) < 0.001:
         return None  # no meaningful change
 
-    # Apply to all seats
-    errors = []
+    # Apply to all seats via the demand-level write path. Every successful
+    # write is verified live, ledger-logged, and Slack-announced inside the
+    # helper — we only update local state if at least one seat landed.
+    reason_text = (
+        f"Auto-optimizer: win_rate {wr_ratio:.2f}x yesterday, "
+        f"eCPM {ecpm_ratio:.2f}x → {direction}"
+    )
+    landed_any = False
     for seat in g["seats"]:
-        try:
-            apply_floor_change(
-                publisher_name=g["publisher"],
-                demand_name=seat,
-                new_floor=new_floor,
-                reason=(
-                    f"Auto-optimizer: win_rate {wr_ratio:.2f}x yesterday, "
-                    f"eCPM {ecpm_ratio:.2f}x → {direction}"
-                ),
-                dry_run=False,
-            )
-        except Exception as exc:
-            errors.append(f"{seat}: {exc}")
-            print(f"[floor_optimizer] ERROR {g['publisher']}/{seat}: {exc}")
+        result = _apply_floor_via_demand(
+            publisher_name=g["publisher"],
+            demand_name=seat,
+            new_floor=new_floor,
+            reason=reason_text,
+        )
+        if result and (result.get("verified") or result.get("dry_run") or result.get("no_change")):
+            landed_any = True
 
-    if errors:
-        return None  # partial failure — don't update state
+    if not landed_any:
+        return None  # nothing landed — don't update state or summary
 
     pos["current_floor"]        = new_floor
     pos["cumulative_change_pct"] = new_cum_pct
@@ -493,6 +598,7 @@ def _slack_summary(moves: list[dict], resets: list[dict]):
 def run():
     """Called by the scheduler every 2 hours."""
     print(f"[floor_optimizer] Starting run  {_now_et_str()}")
+    _SEEN_DEMAND_IDS_THIS_RUN.clear()
     state  = _load_state()
     today  = _today_str()
     et_hr  = _et_hour()
