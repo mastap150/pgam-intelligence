@@ -49,11 +49,26 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from core import floor_ledger, ll_mgmt, margin
+from core.ll_mgmt import PROTECTED_FLOOR_MINIMUMS
 from intelligence import holdout, price_response, quarantine
 from intelligence.optimizer import (
     Proposal, DEFAULT_MARGIN_PCT, MIN_ABSOLUTE_WEEKLY_LIFT,
     MIN_RELATIVE_LIFT, COOLDOWN_HOURS, _new_proposal_id, _now_iso,
 )
+
+
+def _protected_minimum(demand_name: str) -> float | None:
+    """Return the contractual floor minimum for a demand, or None.
+
+    Mirrors the write-path clamp in core.ll_mgmt.set_demand_floor(). Applied
+    here at proposal-generation time so the optimizer doesn't waste cycles
+    evaluating candidates it can't actually ship, and so the proposal UI
+    doesn't show misleading sub-contract figures."""
+    name_lower = (demand_name or "").lower()
+    for tokens, min_floor in PROTECTED_FLOOR_MINIMUMS:
+        if any(tok in name_lower for tok in tokens):
+            return min_floor
+    return None
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 HOURLY_PATH = DATA_DIR / "hourly_pub_demand.json.gz"
@@ -212,6 +227,22 @@ def generate(*, lookback_days: int = 14, dry_margin_fetch: bool = False) -> list
         grid = _candidate_grid(samples_by_pub)
         if not grid:
             continue
+
+        # Clamp grid to contract minimums (e.g. 9 Dots must be >= $1.70).
+        # Without this the optimizer happily proposes sub-contract floors that
+        # the write-path clamp in ll_mgmt will catch and rewrite — wasteful
+        # and misleading in the proposal UI.
+        demand_name_for_filter = _demand_name(rows, did)
+        min_floor = _protected_minimum(demand_name_for_filter)
+        if min_floor is not None:
+            grid = [F for F in grid if F >= min_floor]
+            if not grid:
+                # Degenerate case: the grid lives entirely below the contract
+                # floor. Inject the minimum so the optimizer at least has one
+                # valid candidate.
+                grid = [min_floor]
+            debug_rows.append({"demand_id": did, "verdict": "contract_floor_clamp",
+                               "min_floor": min_floor, "remaining_grid": grid})
 
         # Evaluate each candidate floor
         current_point = _portfolio_revenue(samples_by_pub, float(current_floor or 0), lookback_days)
