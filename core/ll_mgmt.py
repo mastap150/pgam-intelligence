@@ -51,6 +51,22 @@ LL_UI_EMAIL    = os.environ.get("LL_UI_EMAIL", "")
 LL_UI_PASSWORD = os.environ.get("LL_UI_PASSWORD", "")
 TOKEN_CACHE    = "/tmp/pgam_ll_mgmt_token.json"
 
+# ---------------------------------------------------------------------------
+# Contractual floor minimums
+# ---------------------------------------------------------------------------
+# Clamp applied at the bottom of set_demand_floor() so ANY caller (portfolio
+# optimizer, per-tuple optimizer, dayparting, manual scripts) that tries to
+# drop a protected floor below its contract minimum is silently clamped back
+# up. Higher floors are allowed — this is a minimum, not a target.
+#
+# History: 2026-04-18 the portfolio optimizer autonomously dropped 9 Dots
+# demands 692/693/955 from ~$1.80 to $0.00, contributing to a 16 % WoW
+# Saturday revenue drop. Restored manually 2026-04-19.
+PROTECTED_FLOOR_MINIMUMS: list[tuple[tuple[str, ...], float]] = [
+    # Name tokens (any match, case-insensitive), min floor
+    (("9 dots", "9dots"), 1.70),
+]
+
 # Global dry-run override: if LL_DRY_RUN=true, all writes become no-ops
 _GLOBAL_DRY_RUN = os.environ.get("LL_DRY_RUN", "").lower() in ("1", "true", "yes")
 
@@ -341,10 +357,6 @@ def set_demand_floor(
     raises RuntimeError if the live value doesn't match. No more silent
     failures.
     """
-    if dry_run or _GLOBAL_DRY_RUN:
-        print(f"[ll_mgmt] DRY_RUN set_demand_floor demand_id={demand_id} floor={new_floor}")
-        return {"dry_run": True, "demand_id": demand_id, "new_floor": new_floor}
-
     if _publishers_running_it is not None and _publishers_running_it > 1 and not allow_multi_pub:
         raise ValueError(
             f"demand_id={demand_id} runs on {_publishers_running_it} publishers — "
@@ -352,8 +364,34 @@ def set_demand_floor(
             "allow_multi_pub=True after aggregating per-pub recommendations."
         )
 
+    # Fetch demand (needed for the name-based contract clamp below, even in
+    # dry-run — we want dry-run to reflect the final clamped value not the raw
+    # requested one).
     demand = _get(f"/v1/demands/{demand_id}")
     old_floor = demand.get("minBidFloor")
+
+    # Enforce contractual floor minimums (e.g. 9 Dots @ $1.70). Raises a
+    # too-low request up to the minimum — never lowers. This is the last line
+    # of defense: catches any caller (portfolio optimizer, dayparting, manual
+    # scripts) that tries to drop a protected floor below its contract.
+    name_lower = (demand.get("name") or "").lower()
+    for tokens, min_floor in PROTECTED_FLOOR_MINIMUMS:
+        if any(tok in name_lower for tok in tokens):
+            if new_floor is None or float(new_floor) < min_floor:
+                print(
+                    f"[ll_mgmt] protected floor clamp: demand_id={demand_id} "
+                    f"name={demand.get('name')!r} requested={new_floor} "
+                    f"→ clamped to {min_floor} (contract minimum)"
+                )
+                new_floor = min_floor
+            break
+
+    if dry_run or _GLOBAL_DRY_RUN:
+        print(f"[ll_mgmt] DRY_RUN set_demand_floor demand_id={demand_id} "
+              f"floor={old_floor}→{new_floor}")
+        return {"dry_run": True, "demand_id": demand_id, "new_floor": new_floor,
+                "old_floor": old_floor}
+
     if old_floor == new_floor:
         return {"no_change": True, "demand_id": demand_id, "floor": new_floor}
 
