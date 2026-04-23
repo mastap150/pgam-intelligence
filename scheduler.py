@@ -143,6 +143,12 @@ def setup_schedule():
     geo_floor_optimizer    = _import("agents.optimization.geo_floor_optimizer")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
+    # Real-time pacing deviation alert — fires every 2h if revenue is >20%
+    # below the 4-week same-DOW same-hour baseline
+    pacing_deviation       = _import("agents.alerts.pacing_deviation")
+    # Daily defense-in-depth scan for contract-floor violations (catches
+    # UI-based drops that bypass the write-path clamp in ll_mgmt)
+    contract_floor_sentry  = _import("agents.optimization.contract_floor_sentry")
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
@@ -221,6 +227,10 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("dead_demand",            dead_demand))         # Mon guard inside
     schedule.every().day.at("08:15").do(_run("geo_leak",               geo_leak))            # Thu guard inside
     schedule.every().day.at("08:15").do(_run("margin_health",          margin_health))       # daily — alert if any pub <30% margin
+    # Pacing deviation — every 2h, fires Slack alert if revenue pace dips >20% below baseline
+    schedule.every(2).hours.do(_run("pacing_deviation",                pacing_deviation))
+    # Contract floor sentry — daily safety net for 9 Dots + future contract minimums
+    schedule.every().day.at("06:00").do(_run("contract_floor_sentry",  contract_floor_sentry))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
