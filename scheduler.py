@@ -153,6 +153,8 @@ def setup_schedule():
     auto_wire_gaps         = _import("agents.optimization.auto_wire_gaps")
     # Daily re-activator for silently-paused inventory (catches accidental UI pauses)
     auto_unpause           = _import("agents.optimization.auto_unpause")
+    # Every-4h revert agent for harmful recent floor changes
+    auto_revert_harmful    = _import("agents.optimization.auto_revert_harmful")
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
@@ -241,6 +243,8 @@ def setup_schedule():
     schedule.every().day.at("09:30").do(_run("auto_wire_gaps",         auto_wire_gaps))
     # Auto-unpause silently-paused inventory (catches accidental UI pauses)
     schedule.every().day.at("09:45").do(_run("auto_unpause",           auto_unpause))
+    # Auto-revert harmful floor changes — every 4 hours
+    schedule.every(4).hours.do(_run("auto_revert_harmful",             auto_revert_harmful))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
