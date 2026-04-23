@@ -149,6 +149,8 @@ def setup_schedule():
     # Daily defense-in-depth scan for contract-floor violations (catches
     # UI-based drops that bypass the write-path clamp in ll_mgmt)
     contract_floor_sentry  = _import("agents.optimization.contract_floor_sentry")
+    # Daily auto-activator for high-confidence demand-gap wirings
+    auto_wire_gaps         = _import("agents.optimization.auto_wire_gaps")
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
@@ -231,6 +233,10 @@ def setup_schedule():
     schedule.every(2).hours.do(_run("pacing_deviation",                pacing_deviation))
     # Contract floor sentry — daily safety net for 9 Dots + future contract minimums
     schedule.every().day.at("06:00").do(_run("contract_floor_sentry",  contract_floor_sentry))
+    # Auto-wire qualifying demand-gaps — runs daily after demand_gap Monday refresh
+    # (demand_gap runs weekly Monday; re-running this agent daily is idempotent:
+    # it skips anything already wired and caps new wirings per run.)
+    schedule.every().day.at("09:30").do(_run("auto_wire_gaps",         auto_wire_gaps))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
