@@ -88,9 +88,14 @@ def post_to_slack(top_n: int = SLACK_TOP_N) -> dict:
     total_lift = sum(p["expected_weekly_net_lift"] for p in shown)
 
     mode = "AUTO" if AUTO_APPLY_ENABLED else "SUPERVISED"
+    mode_note = (
+        "⚠️ auto-apply ON — high-confidence proposals will write without review"
+        if AUTO_APPLY_ENABLED else
+        "🔒 SUPERVISED — nothing applies without human approval"
+    )
     header = (f"🤖 *Floor optimizer* — {len(props)} proposals "
-              f"(posting top {len(shown)}, total E[net] = +${total_lift:,.0f}/wk) "
-              f"| mode: `{mode}`")
+              f"(posting top {len(shown)}, total E[net] = +${total_lift:,.0f}/wk)\n"
+              f"{mode_note}")
 
     lines = []
     for p in shown:

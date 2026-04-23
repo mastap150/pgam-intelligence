@@ -51,3 +51,13 @@ services:
       # floor writes. See intelligence/dayparting.py for the rotator logic.
       - key: PGAM_DAYPARTING_ENABLED
         value: "0"
+
+      # ── ML optimizer proposer auto-apply ────────────────────────────────────
+      # HARD DEFAULT OFF after the 2026-04-18 incident where the portfolio
+      # optimizer autonomously dropped 9 Dots floors to $0, violating the
+      # $1.70 contract minimum and costing ~$900 on the following Saturday.
+      # Proposals are now posted to Slack for supervised weekly review.
+      # Set to "1" in the Render dashboard ONLY if you deliberately want the
+      # proposer to auto-apply high-confidence proposals again.
+      - key: PGAM_OPTIMIZER_AUTO_APPLY
+        value: "0"
