@@ -52,17 +52,16 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 import core.tb_mgmt as tbm
 
-WINDOW_DAYS          = 14
+WINDOW_DAYS          = 3              # short window to keep API pull fast
 
-# PRUNE thresholds (auto-block candidates)
-MIN_REQUESTS_JUNK    = 500_000
-MIN_IMPS_JUNK        = 50             # essentially zero monetization
-MIN_REV_JUNK         = 0.50           # < 50 cents in 14d
-MAX_FILL_JUNK        = 0.0001         # <0.01%
+# PRUNE thresholds scaled for 3-day window
+MIN_REQUESTS_JUNK    = 100_000
+MIN_IMPS_JUNK        = 20
+MIN_REV_JUNK         = 0.10
+MAX_FILL_JUNK        = 0.0001
 
-# REVIEW thresholds (flag for human review, no auto-action)
-REVIEW_MIN_REQUESTS  = 1_000_000
-REVIEW_MAX_RPM       = 0.02           # < $0.02 per 1000 requests
+REVIEW_MIN_REQUESTS  = 250_000
+REVIEW_MAX_RPM       = 0.02
 
 MAX_BLOCKS_PER_INV   = 30
 MAX_INVENTORIES_RUN  = 50
@@ -75,22 +74,18 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def _pull_domain_report() -> list[dict]:
+    """Single-shot pull (no pagination) — use short window to keep API fast."""
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=WINDOW_DAYS)
-    all_rows, offset, PAGE = [], 0, 5000
-    while True:
-        params = [("from", start.isoformat()), ("to", end.isoformat()),
-                  ("day_group", "total"), ("limit", PAGE), ("offset", offset),
-                  ("attribute[]", "domain"), ("attribute[]", "inventory")]
-        url = f"{TB_BASE}/{tbm._get_token()}/report?" + urllib.parse.urlencode(params)
-        r = requests.get(url, timeout=300); r.raise_for_status()
-        rows = r.json().get("data", r.json())
-        if not rows: break
-        all_rows.extend(rows)
-        if len(rows) < PAGE: break
-        offset += PAGE
-        if offset > 50_000: break
-    return all_rows
+    params = [("from", start.isoformat()), ("to", end.isoformat()),
+              ("day_group", "total"), ("limit", 5000),
+              ("attribute[]", "domain"), ("attribute[]", "inventory")]
+    url = f"{TB_BASE}/{tbm._get_token()}/report?" + urllib.parse.urlencode(params)
+    print(f"  → domain × inventory {start} → {end}", flush=True)
+    r = requests.get(url, timeout=300)
+    print(f"  → response {r.status_code}", flush=True)
+    r.raise_for_status()
+    return r.json().get("data", r.json()) or []
 
 
 def _classify(rows: list[dict]) -> dict:
