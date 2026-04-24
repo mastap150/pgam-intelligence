@@ -141,6 +141,16 @@ def setup_schedule():
     dsp_optimizer          = _import("agents.optimization.dsp_optimizer")
     ssp_company_optimizer  = _import("agents.optimization.ssp_company_optimizer")
     geo_floor_optimizer    = _import("agents.optimization.geo_floor_optimizer")
+    # Revenue-growth agents (added 2026-04-24)
+    partner_churn_radar    = _import("agents.alerts.partner_churn_radar")
+    demand_concentration   = _import("agents.alerts.demand_concentration")
+    yield_compression      = _import("agents.alerts.yield_compression")
+    dayparting_floor       = _import("agents.optimization.dayparting_floor_agent")
+    size_gap_agent         = _import("agents.optimization.size_gap_agent")
+    placement_status_agent = _import("agents.optimization.placement_status_agent")
+    placement_autocreate   = _import("agents.optimization.placement_autocreate_agent")
+    tb_floor_nudge_agent   = _import("agents.optimization.tb_floor_nudge")
+    optimal_price_sweep_weekly = _import("scripts.optimal_price_sweep")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
     # Real-time pacing deviation alert — fires every 2h if revenue is >20%
@@ -257,6 +267,16 @@ def setup_schedule():
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
     schedule.every().day.at("09:30").do(_run("geo_floor_optimizer",    geo_floor_optimizer))     # daily — per-placement × country floor optimization
+    # Revenue-growth suite
+    schedule.every().day.at("07:30").do(_run("partner_churn_radar",    partner_churn_radar))     # daily — WoW revenue drop alerts per publisher
+    schedule.every().day.at("07:45").do(_run("demand_concentration",   demand_concentration))    # daily — single-DSP inventory risk
+    schedule.every().day.at("08:00").do(_run("yield_compression",      yield_compression))       # daily — stable imps + rev drop detector
+    schedule.every().day.at("09:45").do(_run("dayparting_floor",       dayparting_floor))        # daily — hourly floor schedule builder
+    schedule.every().day.at("10:15").do(_run("size_gap_agent",         size_gap_agent))          # daily — missing-size opportunity finder
+    schedule.every().day.at("10:30").do(_run("placement_status_agent", placement_status_agent))  # daily — auto-pause 0-imp placements
+    schedule.every().day.at("10:45").do(_run("placement_autocreate",   placement_autocreate))    # daily — auto-create for allowlisted inventories
+    schedule.every(4).hours.do(        _run("tb_floor_nudge",          tb_floor_nudge_agent))     # every 4h — +10% nudge w/ auto-rollback
+    schedule.every().monday.at("06:00").do(_run("optimal_price_weekly", optimal_price_sweep_weekly))  # Mon — catch any new placements
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
 
