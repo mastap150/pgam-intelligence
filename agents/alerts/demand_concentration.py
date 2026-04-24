@@ -85,6 +85,13 @@ def run() -> dict:
                 "top2_pct":  round(top2*100, 1),
                 "hhi": round(hhi, 0), "severity": sev, "dsp_count": len(dsps),
             })
+    # Hydrate missing inventory titles via GET /inventory (one-by-one)
+    for a in alerts:
+        if a["title"] == "?":
+            try:
+                a["title"] = tbm.get_inventory(a["inventory_id"]).get("title", "?")
+            except Exception:
+                pass
     alerts.sort(key=lambda a: (a["severity"], -a["total_revenue"]))
 
     print(f"\n  {len(alerts)} inventories flagged")

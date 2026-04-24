@@ -1,0 +1,410 @@
+{
+  "timestamp": "2026-04-24T16:41:04.798654+00:00",
+  "alerts": [
+    {
+      "inventory_id": 544,
+      "title": "?",
+      "total_revenue": 3020.23,
+      "top1_dsp": "Pubmatic #2",
+      "top1_pct": 76.0,
+      "top2_dsps": [
+        "Pubmatic #2",
+        "9 Dots #56"
+      ],
+      "top2_pct": 94.8,
+      "hhi": 6142.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 10
+    },
+    {
+      "inventory_id": 107,
+      "title": "?",
+      "total_revenue": 2955.31,
+      "top1_dsp": "AdaptMX #17",
+      "top1_pct": 80.6,
+      "top2_dsps": [
+        "AdaptMX #17",
+        "Verve #46"
+      ],
+      "top2_pct": 98.6,
+      "hhi": 6822.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 8
+    },
+    {
+      "inventory_id": 21,
+      "title": "?",
+      "total_revenue": 1914.49,
+      "top1_dsp": "Pubmatic #2",
+      "top1_pct": 92.7,
+      "top2_dsps": [
+        "Pubmatic #2",
+        "Magnite #3"
+      ],
+      "top2_pct": 97.9,
+      "hhi": 8626.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 10
+    },
+    {
+      "inventory_id": 64,
+      "title": "?",
+      "total_revenue": 828.42,
+      "top1_dsp": "Pubmatic #2",
+      "top1_pct": 73.7,
+      "top2_dsps": [
+        "Pubmatic #2",
+        "Unruly #4"
+      ],
+      "top2_pct": 92.5,
+      "hhi": 5809.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 10
+    },
+    {
+      "inventory_id": 550,
+      "title": "?",
+      "total_revenue": 530.93,
+      "top1_dsp": "Pubmatic #2",
+      "top1_pct": 70.7,
+      "top2_dsps": [
+        "Pubmatic #2",
+        "Unruly #4"
+      ],
+      "top2_pct": 95.7,
+      "hhi": 5639.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 9
+    },
+    {
+      "inventory_id": 855,
+      "title": "?",
+      "total_revenue": 521.19,
+      "top1_dsp": "OTTA Unruly #58",
+      "top1_pct": 78.4,
+      "top2_dsps": [
+        "OTTA Unruly #58",
+        "Unruly #4"
+      ],
+      "top2_pct": 91.2,
+      "hhi": 6343.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 12
+    },
+    {
+      "inventory_id": 1232,
+      "title": "?",
+      "total_revenue": 331.65,
+      "top1_dsp": "Pubmatic #2",
+      "top1_pct": 75.8,
+      "top2_dsps": [
+        "Pubmatic #2",
+        "Magnite #3"
+      ],
+      "top2_pct": 98.3,
+      "hhi": 6260.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 10
+    },
+    {
+      "inventory_id": 833,
+      "title": "?",
+      "total_revenue": 286.23,
+      "top1_dsp": "Illumin Demand #29",
+      "top1_pct": 80.1,
+      "top2_dsps": [
+        "Illumin Demand #29",
+        "Pubmatic #2"
+      ],
+      "top2_pct": 86.5,
+      "hhi": 6495.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 10
+    },
+    {
+      "inventory_id": 820,
+      "title": "?",
+      "total_revenue": 178.83,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 97.6,
+      "top2_dsps": [
+        "Magnite #3",
+        "OneTag #14"
+      ],
+      "top2_pct": 100.0,
+      "hhi": 9525.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 9
+    },
+    {
+      "inventory_id": 954,
+      "title": "?",
+      "total_revenue": 176.83,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 75.6,
+      "top2_dsps": [
+        "Magnite #3",
+        "OneTag #14"
+      ],
+      "top2_pct": 84.6,
+      "hhi": 5884.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 7
+    },
+    {
+      "inventory_id": 832,
+      "title": "?",
+      "total_revenue": 118.54,
+      "top1_dsp": "Illumin Demand #29",
+      "top1_pct": 73.7,
+      "top2_dsps": [
+        "Illumin Demand #29",
+        "Verve #46"
+      ],
+      "top2_pct": 100.0,
+      "hhi": 6127.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 7
+    },
+    {
+      "inventory_id": 1348,
+      "title": "?",
+      "total_revenue": 107.37,
+      "top1_dsp": "Verve #46",
+      "top1_pct": 95.9,
+      "top2_dsps": [
+        "Verve #46",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 100.0,
+      "hhi": 9217.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 6
+    },
+    {
+      "inventory_id": 732,
+      "title": "?",
+      "total_revenue": 105.48,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 89.8,
+      "top2_dsps": [
+        "Magnite #3",
+        "OTTA Unruly #58"
+      ],
+      "top2_pct": 96.8,
+      "hhi": 8122.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 11
+    },
+    {
+      "inventory_id": 819,
+      "title": "?",
+      "total_revenue": 87.39,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 95.9,
+      "top2_dsps": [
+        "Magnite #3",
+        "Stirista #49"
+      ],
+      "top2_pct": 98.1,
+      "hhi": 9204.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 8
+    },
+    {
+      "inventory_id": 499,
+      "title": "?",
+      "total_revenue": 84.2,
+      "top1_dsp": "Verve #46",
+      "top1_pct": 100.0,
+      "top2_dsps": [
+        "Verve #46",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 100.0,
+      "hhi": 9990.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 8
+    },
+    {
+      "inventory_id": 508,
+      "title": "?",
+      "total_revenue": 81.45,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 89.6,
+      "top2_dsps": [
+        "Magnite #3",
+        "OneTag #14"
+      ],
+      "top2_pct": 97.8,
+      "hhi": 8094.0,
+      "severity": "\ud83d\udd34 CRITICAL",
+      "dsp_count": 9
+    },
+    {
+      "inventory_id": 1039,
+      "title": "?",
+      "total_revenue": 611.11,
+      "top1_dsp": "Illumin Demand #29",
+      "top1_pct": 47.9,
+      "top2_dsps": [
+        "Illumin Demand #29",
+        "Magnite #3"
+      ],
+      "top2_pct": 93.8,
+      "hhi": 4431.0,
+      "severity": "\ud83d\udfe0 WARNING",
+      "dsp_count": 7
+    },
+    {
+      "inventory_id": 577,
+      "title": "?",
+      "total_revenue": 157.6,
+      "top1_dsp": "Verve #46",
+      "top1_pct": 54.2,
+      "top2_dsps": [
+        "Verve #46",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 91.0,
+      "hhi": 4332.0,
+      "severity": "\ud83d\udfe0 WARNING",
+      "dsp_count": 7
+    },
+    {
+      "inventory_id": 1307,
+      "title": "?",
+      "total_revenue": 56.63,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 67.1,
+      "top2_dsps": [
+        "Magnite #3",
+        "OneTag #14"
+      ],
+      "top2_pct": 87.4,
+      "hhi": 5019.0,
+      "severity": "\ud83d\udfe0 WARNING",
+      "dsp_count": 7
+    },
+    {
+      "inventory_id": 1231,
+      "title": "?",
+      "total_revenue": 51.6,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 66.7,
+      "top2_dsps": [
+        "Magnite #3",
+        "Pubmatic #2"
+      ],
+      "top2_pct": 86.5,
+      "hhi": 4904.0,
+      "severity": "\ud83d\udfe0 WARNING",
+      "dsp_count": 9
+    },
+    {
+      "inventory_id": 955,
+      "title": "?",
+      "total_revenue": 1307.45,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 54.3,
+      "top2_dsps": [
+        "Magnite #3",
+        "Verve #46"
+      ],
+      "top2_pct": 69.5,
+      "hhi": 3437.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 10
+    },
+    {
+      "inventory_id": 1802,
+      "title": "?",
+      "total_revenue": 927.45,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 54.2,
+      "top2_dsps": [
+        "Magnite #3",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 67.1,
+      "hhi": 3464.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 9
+    },
+    {
+      "inventory_id": 1563,
+      "title": "?",
+      "total_revenue": 210.23,
+      "top1_dsp": "Magnite #3",
+      "top1_pct": 67.2,
+      "top2_dsps": [
+        "Magnite #3",
+        "AdaptMX #17"
+      ],
+      "top2_pct": 81.8,
+      "hhi": 4912.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 9
+    },
+    {
+      "inventory_id": 1191,
+      "title": "?",
+      "total_revenue": 179.85,
+      "top1_dsp": "Verve #46",
+      "top1_pct": 33.6,
+      "top2_dsps": [
+        "Verve #46",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 66.3,
+      "hhi": 3217.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 8
+    },
+    {
+      "inventory_id": 1567,
+      "title": "?",
+      "total_revenue": 138.2,
+      "top1_dsp": "Unruly #4",
+      "top1_pct": 46.7,
+      "top2_dsps": [
+        "Unruly #4",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 67.4,
+      "hhi": 3064.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 8
+    },
+    {
+      "inventory_id": 768,
+      "title": "?",
+      "total_revenue": 68.02,
+      "top1_dsp": "Verve #46",
+      "top1_pct": 58.7,
+      "top2_dsps": [
+        "Verve #46",
+        "Illumin Demand #29"
+      ],
+      "top2_pct": 80.0,
+      "hhi": 4287.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 7
+    },
+    {
+      "inventory_id": 1636,
+      "title": "?",
+      "total_revenue": 51.03,
+      "top1_dsp": "OneTag #14",
+      "top1_pct": 51.5,
+      "top2_dsps": [
+        "OneTag #14",
+        "Magnite #3"
+      ],
+      "top2_pct": 76.7,
+      "hhi": 3677.0,
+      "severity": "\ud83d\udfe1 WATCH",
+      "dsp_count": 7
+    }
+  ]
+}
