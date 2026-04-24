@@ -63,15 +63,27 @@ os.makedirs(LOG_DIR, exist_ok=True)
 
 
 def _hour_report() -> list[dict]:
+    """Paginate through all hourly rows using offset (TB caps limit=5000)."""
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=WINDOW_DAYS)
-    params = [("from", start.isoformat()), ("to", end.isoformat()),
-              ("day_group", "hour"), ("limit", 10000),
-              ("attribute[]", "placement")]
-    url = f"{TB_BASE}/{tbm._get_token()}/report?" + urllib.parse.urlencode(params)
-    r = requests.get(url, timeout=180)
-    r.raise_for_status()
-    return r.json().get("data", r.json())
+    all_rows: list[dict] = []
+    offset = 0
+    PAGE = 5000
+    while True:
+        params = [("from", start.isoformat()), ("to", end.isoformat()),
+                  ("day_group", "hour"), ("limit", PAGE), ("offset", offset),
+                  ("attribute[]", "placement")]
+        url = f"{TB_BASE}/{tbm._get_token()}/report?" + urllib.parse.urlencode(params)
+        r = requests.get(url, timeout=180)
+        r.raise_for_status()
+        rows = r.json().get("data", r.json())
+        if not rows: break
+        all_rows.extend(rows)
+        print(f"  … pulled {len(all_rows)} rows")
+        if len(rows) < PAGE: break
+        offset += PAGE
+        if offset > 100_000: break   # safety
+    return all_rows
 
 
 def run() -> dict:

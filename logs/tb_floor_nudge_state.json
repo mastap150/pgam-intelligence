@@ -27,6 +27,684 @@
       "baseline_fill": 0.0,
       "baseline_revenue": 0.0,
       "nudge_count": 0
+    },
+    "2589": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.11001301707469777,
+      "baseline_fill": 0.17169630705563302,
+      "baseline_revenue": 176.16557026999996,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:06.663330+00:00",
+      "last_nudge_floor": 0.05
+    },
+    "2698": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 0.1798509371299294,
+      "baseline_fill": 0.08174789243462713,
+      "baseline_revenue": 109.58060881000004,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:07.270573+00:00",
+      "last_nudge_floor": 0.05
+    },
+    "3388": {
+      "baseline_floor": 0.05,
+      "baseline_ecpm": 0.18286929656363965,
+      "baseline_fill": 0.17145871882194808,
+      "baseline_revenue": 61.48407091,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:08.040434+00:00",
+      "last_nudge_floor": 0.06
+    },
+    "1077": {
+      "baseline_floor": 0.12,
+      "baseline_ecpm": 0.9461728989416361,
+      "baseline_fill": 0.11992747911892572,
+      "baseline_revenue": 171.18800224000006,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:08.604027+00:00",
+      "last_nudge_floor": 0.13
+    },
+    "1067": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 1.166097794058113,
+      "baseline_fill": 0.010136440156023427,
+      "baseline_revenue": 170.87549829000005,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:09.122543+00:00",
+      "last_nudge_floor": 0.05
+    },
+    "6599": {
+      "baseline_floor": 0.06,
+      "baseline_ecpm": 0.20542979860610136,
+      "baseline_fill": 0.12022745094666099,
+      "baseline_revenue": 24.85256799000001,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:10.710951+00:00",
+      "last_nudge_floor": 0.07
+    },
+    "7857": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 1.430200067291921,
+      "baseline_fill": 0.11651589887333685,
+      "baseline_revenue": 184.53964059999984,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:11.363461+00:00",
+      "last_nudge_floor": 0.11
+    },
+    "12591": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.14002475023485433,
+      "baseline_fill": 0.3233163938202373,
+      "baseline_revenue": 17.742886150000007,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:11.985245+00:00",
+      "last_nudge_floor": 0.05
+    },
+    "23589": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.9495939563951685,
+      "baseline_fill": 0.06807716404568606,
+      "baseline_revenue": 182.51864247000003,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:12.562676+00:00",
+      "last_nudge_floor": 0.05
+    },
+    "16479": {
+      "baseline_floor": 0.07,
+      "baseline_ecpm": 0.49994950387819065,
+      "baseline_fill": 0.039525619541281976,
+      "baseline_revenue": 47.062232540000004,
+      "nudge_count": 1,
+      "nudged_at": "2026-04-24T16:22:13.125758+00:00",
+      "last_nudge_floor": 0.08
+    },
+    "172": {
+      "baseline_floor": 0.15,
+      "baseline_ecpm": 4.7542529395333935,
+      "baseline_fill": 0.0808593502259234,
+      "baseline_revenue": 435.61842146000004,
+      "nudge_count": 0
+    },
+    "8511": {
+      "baseline_floor": 0.08,
+      "baseline_ecpm": 0.8276141641364689,
+      "baseline_fill": 0.06225087793857785,
+      "baseline_revenue": 66.23264159999994,
+      "nudge_count": 0
+    },
+    "8507": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.7907394256690207,
+      "baseline_fill": 0.06696258647394822,
+      "baseline_revenue": 60.74469991999997,
+      "nudge_count": 0
+    },
+    "2958": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.3305199658492942,
+      "baseline_fill": 0.6711972312977,
+      "baseline_revenue": 24.482786790000002,
+      "nudge_count": 0
+    },
+    "6785": {
+      "baseline_floor": 0.05,
+      "baseline_ecpm": 0.8046260005976463,
+      "baseline_fill": 0.08702618847339094,
+      "baseline_revenue": 57.46788437,
+      "nudge_count": 0
+    },
+    "6545": {
+      "baseline_floor": 0.07,
+      "baseline_ecpm": 0.47471688397121653,
+      "baseline_fill": 0.03174332038547546,
+      "baseline_revenue": 29.21184085000001,
+      "nudge_count": 0
+    },
+    "16644": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.775816604824893,
+      "baseline_fill": 0.08956860142808756,
+      "baseline_revenue": 81.35131647000003,
+      "nudge_count": 0
+    },
+    "6613": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.8821874951050559,
+      "baseline_fill": 0.06964169082513091,
+      "baseline_revenue": 37.51739661000001,
+      "nudge_count": 0
+    },
+    "5698": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 0.29829810851944333,
+      "baseline_fill": 0.31395561091365926,
+      "baseline_revenue": 12.912007670000003,
+      "nudge_count": 0
+    },
+    "3621": {
+      "baseline_floor": 0.09,
+      "baseline_ecpm": 0.7802474294193549,
+      "baseline_fill": 0.008923420928703595,
+      "baseline_revenue": 22.009894230000008,
+      "nudge_count": 0
+    },
+    "8512": {
+      "baseline_floor": 0.12,
+      "baseline_ecpm": 0.7013562301543852,
+      "baseline_fill": 0.07410773331602287,
+      "baseline_revenue": 18.59260908000001,
+      "nudge_count": 0
+    },
+    "3280": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 0.8271008231824947,
+      "baseline_fill": 0.010916832187175264,
+      "baseline_revenue": 21.945802280000002,
+      "nudge_count": 0
+    },
+    "17166": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.050660267335004,
+      "baseline_fill": 0.04505616776402463,
+      "baseline_revenue": 22.458196639999997,
+      "nudge_count": 0
+    },
+    "2588": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.2081977734949891,
+      "baseline_fill": 0.025185706859835337,
+      "baseline_revenue": 4.568786760000002,
+      "nudge_count": 0
+    },
+    "16639": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.6390636490182324,
+      "baseline_fill": 0.11159325588583995,
+      "baseline_revenue": 32.90911975,
+      "nudge_count": 0
+    },
+    "3289": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 0.5386535600220264,
+      "baseline_fill": 0.06010938940986331,
+      "baseline_revenue": 10.40948528,
+      "nudge_count": 0
+    },
+    "16641": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.3154870566426369,
+      "baseline_fill": 0.11488024533025408,
+      "baseline_revenue": 22.070771629999996,
+      "nudge_count": 0
+    },
+    "6789": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.8792960280054644,
+      "baseline_fill": 0.061717093852380035,
+      "baseline_revenue": 14.95869278,
+      "nudge_count": 0
+    },
+    "6606": {
+      "baseline_floor": 0.06,
+      "baseline_ecpm": 0.6112136447712962,
+      "baseline_fill": 0.0017952035689235049,
+      "baseline_revenue": 7.932105170000001,
+      "nudge_count": 0
+    },
+    "7843": {
+      "baseline_floor": 0.17,
+      "baseline_ecpm": 1.6310436176291796,
+      "baseline_fill": 0.21819001764089505,
+      "baseline_revenue": 21.435932929999996,
+      "nudge_count": 0
+    },
+    "8974": {
+      "baseline_floor": 0.08,
+      "baseline_ecpm": 0.6210442719539656,
+      "baseline_fill": 0.10730273357539312,
+      "baseline_revenue": 6.889226560000002,
+      "nudge_count": 0
+    },
+    "16617": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.8189742119415334,
+      "baseline_fill": 0.036859239079332244,
+      "baseline_revenue": 8.621617619999997,
+      "nudge_count": 0
+    },
+    "16677": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.84595145930441,
+      "baseline_fill": 0.01256403649291747,
+      "baseline_revenue": 8.95013783,
+      "nudge_count": 0
+    },
+    "6602": {
+      "baseline_floor": 0.06,
+      "baseline_ecpm": 0.3047249150288164,
+      "baseline_fill": 0.1212995742773919,
+      "baseline_revenue": 3.0554723300000006,
+      "nudge_count": 0
+    },
+    "7836": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 1.2557076023983804,
+      "baseline_fill": 0.11898783436952755,
+      "baseline_revenue": 12.765950530000003,
+      "nudge_count": 0
+    },
+    "6612": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 1.073140891815171,
+      "baseline_fill": 0.06985595857776308,
+      "baseline_revenue": 9.896986140000003,
+      "nudge_count": 0
+    },
+    "3617": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.8516930988876239,
+      "baseline_fill": 0.032947593212512984,
+      "baseline_revenue": 7.094089339999997,
+      "nudge_count": 0
+    },
+    "6556": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 0.6812159351005483,
+      "baseline_fill": 0.024279547699102278,
+      "baseline_revenue": 5.818182710000002,
+      "nudge_count": 0
+    },
+    "6609": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 1.0546996653561302,
+      "baseline_fill": 0.07218617790127449,
+      "baseline_revenue": 8.25224283,
+      "nudge_count": 0
+    },
+    "7882": {
+      "baseline_floor": 0.07,
+      "baseline_ecpm": 1.0617465527430316,
+      "baseline_fill": 0.22931159092962328,
+      "baseline_revenue": 8.67415966,
+      "nudge_count": 0
+    },
+    "7847": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 1.5308368362307394,
+      "baseline_fill": 0.20942451698316164,
+      "baseline_revenue": 12.499940799999996,
+      "nudge_count": 0
+    },
+    "12290": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 2.508731837737497,
+      "baseline_fill": 0.010070752590266185,
+      "baseline_revenue": 17.30532849,
+      "nudge_count": 0
+    },
+    "12291": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 3.1874430457270475,
+      "baseline_fill": 0.010600398496231232,
+      "baseline_revenue": 20.56885711000001,
+      "nudge_count": 0
+    },
+    "6510": {
+      "baseline_floor": 0.08,
+      "baseline_ecpm": 0.43919115461713226,
+      "baseline_fill": 0.08406353913903118,
+      "baseline_revenue": 2.56498966,
+      "nudge_count": 0
+    },
+    "16837": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.2931942461943795,
+      "baseline_fill": 0.015412206593951972,
+      "baseline_revenue": 1.45886333,
+      "nudge_count": 0
+    },
+    "12287": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.7950787004969129,
+      "baseline_fill": 0.01422381573508277,
+      "baseline_revenue": 8.891255870000002,
+      "nudge_count": 0
+    },
+    "12469": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.24533929075630245,
+      "baseline_fill": 0.05270757483146864,
+      "baseline_revenue": 1.0515208899999997,
+      "nudge_count": 0
+    },
+    "14325": {
+      "baseline_floor": 0.07,
+      "baseline_ecpm": 0.5552514003123372,
+      "baseline_fill": 0.08310261290880776,
+      "baseline_revenue": 2.19619977,
+      "nudge_count": 0
+    },
+    "6792": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.2088789822635133,
+      "baseline_fill": 0.04990831875566421,
+      "baseline_revenue": 4.855150379999999,
+      "nudge_count": 0
+    },
+    "3060": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.4982656211180124,
+      "baseline_fill": 0.11340309921513383,
+      "baseline_revenue": 1.6224270899999997,
+      "nudge_count": 0
+    },
+    "17084": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.6285603987943424,
+      "baseline_fill": 0.033953946073607556,
+      "baseline_revenue": 2.00055703,
+      "nudge_count": 0
+    },
+    "16475": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.3998032596041909,
+      "baseline_fill": 0.026138659655785195,
+      "baseline_revenue": 1.2072322700000002,
+      "nudge_count": 0
+    },
+    "17144": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.776500402814851,
+      "baseline_fill": 0.20062314395599046,
+      "baseline_revenue": 2.4121686599999994,
+      "nudge_count": 0
+    },
+    "17123": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.82371100708502,
+      "baseline_fill": 0.20599426635392235,
+      "baseline_revenue": 2.4515565299999995,
+      "nudge_count": 0
+    },
+    "14300": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.9683325942525703,
+      "baseline_fill": 0.22054890103500407,
+      "baseline_revenue": 2.6738791199999996,
+      "nudge_count": 0
+    },
+    "17091": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.8798321411451397,
+      "baseline_fill": 0.021050920241959446,
+      "baseline_revenue": 2.40648303,
+      "nudge_count": 0
+    },
+    "3614": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.45934421703682876,
+      "baseline_fill": 0.08775565588532801,
+      "baseline_revenue": 1.2266014099999998,
+      "nudge_count": 0
+    },
+    "14342": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.6883879567099566,
+      "baseline_fill": 0.24705882352941178,
+      "baseline_revenue": 1.7273621300000004,
+      "nudge_count": 0
+    },
+    "6962": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.3570512812224509,
+      "baseline_fill": 0.17019254813703427,
+      "baseline_revenue": 0.8819373300000003,
+      "nudge_count": 0
+    },
+    "5840": {
+      "baseline_floor": 0.06,
+      "baseline_ecpm": 0.5377193637454982,
+      "baseline_fill": 0.06581468386434117,
+      "baseline_revenue": 1.3672938599999997,
+      "nudge_count": 0
+    },
+    "14777": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.6120443346379648,
+      "baseline_fill": 0.0815946348733234,
+      "baseline_revenue": 1.28517776,
+      "nudge_count": 0
+    },
+    "6466": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.26214196091644204,
+      "baseline_fill": 0.13318973254352898,
+      "baseline_revenue": 0.5595801199999999,
+      "nudge_count": 0
+    },
+    "12419": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.6808945133053225,
+      "baseline_fill": 0.07940612227875553,
+      "baseline_revenue": 1.4651805699999998,
+      "nudge_count": 0
+    },
+    "12274": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 2.571985794594595,
+      "baseline_fill": 0.004936238035181591,
+      "baseline_revenue": 5.471720090000001,
+      "nudge_count": 0
+    },
+    "4887": {
+      "baseline_floor": 0.05,
+      "baseline_ecpm": 1.0912105769924272,
+      "baseline_fill": 0.06654827329669538,
+      "baseline_revenue": 2.170662819999999,
+      "nudge_count": 0
+    },
+    "9144": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.5039069987898345,
+      "baseline_fill": 0.02857966336177081,
+      "baseline_revenue": 0.95764594,
+      "nudge_count": 0
+    },
+    "6320": {
+      "baseline_floor": 0.03,
+      "baseline_ecpm": 0.7515027161120129,
+      "baseline_fill": 0.1761509865599085,
+      "baseline_revenue": 1.3934007399999997,
+      "nudge_count": 0
+    },
+    "3193": {
+      "baseline_floor": 0.12,
+      "baseline_ecpm": 0.8194718100511073,
+      "baseline_fill": 0.04490342321667623,
+      "baseline_revenue": 1.4116949699999999,
+      "nudge_count": 0
+    },
+    "6467": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.6805952839931154,
+      "baseline_fill": 0.02746103581514611,
+      "baseline_revenue": 1.2357112299999997,
+      "nudge_count": 0
+    },
+    "9145": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.42406073707865166,
+      "baseline_fill": 0.038180383005010636,
+      "baseline_revenue": 0.7143111000000001,
+      "nudge_count": 0
+    },
+    "3055": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.8551285675675675,
+      "baseline_fill": 0.20353901164389843,
+      "baseline_revenue": 1.5062889000000002,
+      "nudge_count": 0
+    },
+    "17094": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.260423296146045,
+      "baseline_fill": 0.026298593051943722,
+      "baseline_revenue": 1.8238594099999994,
+      "nudge_count": 0
+    },
+    "8279": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.3001795316520844,
+      "baseline_fill": 0.28249491131142773,
+      "baseline_revenue": 0.43217099,
+      "nudge_count": 0
+    },
+    "3667": {
+      "baseline_floor": 0.15,
+      "baseline_ecpm": 0.8136508949818935,
+      "baseline_fill": 0.08418256249455622,
+      "baseline_revenue": 1.1106977399999995,
+      "nudge_count": 0
+    },
+    "17095": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.2990124557752338,
+      "baseline_fill": 0.025679738125459282,
+      "baseline_revenue": 1.83005087,
+      "nudge_count": 0
+    },
+    "5839": {
+      "baseline_floor": 0.06,
+      "baseline_ecpm": 0.9994182399161865,
+      "baseline_fill": 0.023681925319439277,
+      "baseline_revenue": 1.48054903,
+      "nudge_count": 0
+    },
+    "3124": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.9666875669994746,
+      "baseline_fill": 0.003778027484504727,
+      "baseline_revenue": 1.28021601,
+      "nudge_count": 0
+    },
+    "3666": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.9312261055408969,
+      "baseline_fill": 0.03945368616102101,
+      "baseline_revenue": 1.2902663999999997,
+      "nudge_count": 0
+    },
+    "5693": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.4260642296918766,
+      "baseline_fill": 0.5435444579780755,
+      "baseline_revenue": 0.54376421,
+      "nudge_count": 0
+    },
+    "3056": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.45068809281267713,
+      "baseline_fill": 0.11146858440575322,
+      "baseline_revenue": 0.5896639099999998,
+      "nudge_count": 0
+    },
+    "5702": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.4284169372481289,
+      "baseline_fill": 0.5592401802962009,
+      "baseline_revenue": 0.53273114,
+      "nudge_count": 0
+    },
+    "12430": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.993929931421447,
+      "baseline_fill": 0.004551594193028456,
+      "baseline_revenue": 2.414672079999999,
+      "nudge_count": 0
+    },
+    "14318": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.7625444057780698,
+      "baseline_fill": 0.29373191899710704,
+      "baseline_revenue": 0.8523856400000002,
+      "nudge_count": 0
+    },
+    "14307": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.4643152021563344,
+      "baseline_fill": 0.08176759050085404,
+      "baseline_revenue": 0.49659131,
+      "nudge_count": 0
+    },
+    "14424": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.2543436357481381,
+      "baseline_fill": 0.013851636500046892,
+      "baseline_revenue": 0.29559118,
+      "nudge_count": 0
+    },
+    "6471": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.19125429160935356,
+      "baseline_fill": 0.25734513274336285,
+      "baseline_revenue": 0.21657508999999997,
+      "nudge_count": 0
+    },
+    "8197": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.5385377149321268,
+      "baseline_fill": 0.04140903129098745,
+      "baseline_revenue": 0.5605442099999999,
+      "nudge_count": 0
+    },
+    "5885": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.6468532989690722,
+      "baseline_fill": 0.06681148670128219,
+      "baseline_revenue": 0.6025718199999998,
+      "nudge_count": 0
+    },
+    "9237": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.6594524476650565,
+      "baseline_fill": 0.07153553738048612,
+      "baseline_revenue": 1.6110711800000004,
+      "nudge_count": 0
+    },
+    "9148": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.5225763365539452,
+      "baseline_fill": 0.023609923011120616,
+      "baseline_revenue": 0.50922267,
+      "nudge_count": 0
+    },
+    "6817": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 1.1868563313609464,
+      "baseline_fill": 0.2622478386167147,
+      "baseline_revenue": 0.9805857399999999,
+      "nudge_count": 0
+    },
+    "16680": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.9852056239316234,
+      "baseline_fill": 0.02213017079952335,
+      "baseline_revenue": 0.8664361399999996,
+      "nudge_count": 0
+    },
+    "5838": {
+      "baseline_floor": 0.06,
+      "baseline_ecpm": 0.8335560772532191,
+      "baseline_fill": 0.05260306136271278,
+      "baseline_revenue": 0.7475042199999998,
+      "nudge_count": 0
+    },
+    "3381": {
+      "baseline_floor": 0.07,
+      "baseline_ecpm": 1.0591140599455042,
+      "baseline_fill": 0.016437006404610124,
+      "baseline_revenue": 0.8748029300000001,
+      "nudge_count": 0
     }
   }
 }

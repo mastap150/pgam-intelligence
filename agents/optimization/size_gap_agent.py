@@ -56,7 +56,7 @@ def _size_inv_report() -> list[dict]:
     end = datetime.now(timezone.utc).date()
     start = end - timedelta(days=WINDOW_DAYS)
     params = [("from", start.isoformat()), ("to", end.isoformat()),
-              ("day_group", "total"), ("limit", 10000),
+              ("day_group", "total"), ("limit", 5000),
               ("attribute[]", "size"), ("attribute[]", "inventory")]
     url = f"{TB_BASE}/{tbm._get_token()}/report?" + urllib.parse.urlencode(params)
     r = requests.get(url, timeout=180)
