@@ -9,10 +9,20 @@ venv/
 
 # ML tranche 1 data — regenerated hourly by intelligence.collector
 data/*.json.gz
+data/*.jsonl.gz
 data/collector_state.json
 data/holdout_assignment.json
 data/holdout_tuples.json
 data/holdout_tuples_detail.json
+# Agent runtime outputs (regenerated each run)
+data/dayparting_*.json
+data/demand_gaps*.json
+data/partner_scorecard*.json
+
+# QA artifacts — session cookies + nested git checkouts, not for repo
+qa/evidence/
+qa/evidence-round2/
+qa/repos/
 
 # Google OAuth secrets — never commit these
 reports/credentials.json
@@ -30,8 +40,7 @@ logs/margin_history.json
 logs/optimal_price_sweep_log.json
 logs/daily_recommendations_dedup.json
 logs/geo_floor_actions.json
-logs/geo_floor_recs.json
-logs/publisher_optimizer_recs.json
+logs/*_recs.json
 logs/publisher_optimizer_snapshot.json
 
 # Automation runtime logs (auto-appended by cron)
@@ -41,3 +50,4 @@ healthnation-automation/logs/*.log
 * 2.md
 * 2.lock
 * 2.json
+.vercel
