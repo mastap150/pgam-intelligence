@@ -149,6 +149,7 @@ def setup_schedule():
     size_gap_agent         = _import("agents.optimization.size_gap_agent")
     placement_status_agent = _import("agents.optimization.placement_status_agent")
     placement_autocreate   = _import("agents.optimization.placement_autocreate_agent")
+    blocked_domains_agent  = _import("agents.optimization.blocked_domains_agent")
     tb_floor_nudge_agent   = _import("agents.optimization.tb_floor_nudge")
     optimal_price_sweep_weekly = _import("scripts.optimal_price_sweep")
     train_floor_model      = _import("scripts.train_floor_model")
@@ -275,6 +276,7 @@ def setup_schedule():
     schedule.every().day.at("10:15").do(_run("size_gap_agent",         size_gap_agent))          # daily — missing-size opportunity finder
     schedule.every().day.at("10:30").do(_run("placement_status_agent", placement_status_agent))  # daily — auto-pause 0-imp placements
     schedule.every().day.at("10:45").do(_run("placement_autocreate",   placement_autocreate))    # daily — auto-create for allowlisted inventories
+    schedule.every().day.at("11:00").do(_run("blocked_domains_agent",  blocked_domains_agent))   # daily — junk domain hygiene (dry-run by default)
     schedule.every(4).hours.do(        _run("tb_floor_nudge",          tb_floor_nudge_agent))     # every 4h — +10% nudge w/ auto-rollback
     schedule.every().monday.at("06:00").do(_run("optimal_price_weekly", optimal_price_sweep_weekly))  # Mon — catch any new placements
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
