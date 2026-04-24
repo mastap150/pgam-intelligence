@@ -1,0 +1,13 @@
+HTTP/2 201 
+cache-control: public, max-age=0, must-revalidate
+content-type: application/json
+date: Fri, 24 Apr 2026 00:44:46 GMT
+server: Vercel
+strict-transport-security: max-age=63072000
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch
+x-matched-path: /api/publishers
+x-vercel-cache: MISS
+x-vercel-enable-rewrite-caching: 1
+x-vercel-id: iad1::iad1::m5hwt-1776991486677-85d57aa84503
+
+{"publisher":{"id":2,"tenant_id":1,"name":"QA Test Publisher (pre-launch)","status":"active","integration_mode":"prebid_s2s","auth_secret_ref":null,"auth_ip_allowlist":[],"created_at":"2026-04-24T00:44:46.766Z","org_id":"qa-test-publisher-pre-launch","placement_ids":[41,42],"payload":{"basics":{"name":"QA Test Publisher (pre-launch)","legal_entity":"QA Publisher LLC","contact_email":"qa-pub@pgammedia.com","contact_phone":"+1-555-0100","timezone":"America/New_York","currency":"USD"},"financial":{"rev_share_default_pct":80,"payment_terms":"net_60","payment_frequency":"monthly","payment_threshold_usd":50,"fee_transparent":false,"notes":"QA publisher created by automated pre-launch QA cycle 2026-04-23"},"inventory":[{"kind":"site","name":"QA Demo Site","domain_or_bundle":"qa-demo.pgammedia.com","content_categories":["IAB1"],"content_genre_tax":[],"allowed_media_types":["banner","video"],"allowed_environments":["web"],"placements":[{"placement_ref":"qa_leaderboard_top","name":"QA Leaderboard Top","media_types":["banner"],"sizes":["728x90","970x250"],"floor_usd":0.25,"notes":"QA placement — 728x90 + 970x250 leaderboard"},{"placement_ref":"qa_video_preroll","name":"QA Video Preroll","media_types":["video"],"sizes":["640x480"],"floor_usd":2.5,"notes":"QA placement — video preroll 640x480"}]}],"identity":{"id_modules":["ID5","UID2"],"consent_frameworks":["TCFv2.2","USPrivacy"],"coppa_flag":false,"ivt_vendor":"internal","mfa_flag":false},"integration":{"mode":"prebid_s2s","source_kind":"direct","pbs_stored_req_id":"qa-test-publisher-01","enable_hmac_signing":true}}}}

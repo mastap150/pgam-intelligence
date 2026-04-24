@@ -232,7 +232,7 @@ def list_all_placements_via_report(
         ("attribute[]", "placement"),
     ]
     url  = f"{TB_BASE}/{_get_token()}/report?" + urllib.parse.urlencode(params)
-    resp = requests.get(url, timeout=120)
+    resp = requests.get(url, timeout=300)
     if not resp.ok:
         raise RuntimeError(f"report placement pull: {resp.status_code} {resp.text[:200]}")
     rows = resp.json().get("data", resp.json())

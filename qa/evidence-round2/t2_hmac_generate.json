@@ -1,0 +1,1 @@
+{"hmac_key_hex":"17e8f16be3449e0fe024a5f60374d42b5db0a2ab6c675dadde27f1ccd3ec3858","auth_secret_ref":"neon://publisher_configs/4/hmac_key","warning":"Copy this key now. Rotate this endpoint to see a new one — we don't echo the existing key back."}

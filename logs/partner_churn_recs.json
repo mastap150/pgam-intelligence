@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-04-24T15:44:25.696452+00:00",
+  "alerts": [
+    {
+      "publisher": "Rough Maps #36",
+      "severity": "\ud83d\udd34 CRITICAL",
+      "prior_rev": 2608.313075039994,
+      "cur_rev": 502.8897566799996,
+      "rev_delta_pct": -80.7,
+      "req_delta_pct": -3.4,
+      "imp_delta_pct": -69.0
+    },
+    {
+      "publisher": "WeBlog WeBlog #96",
+      "severity": "\ud83d\udfe0 WARNING",
+      "prior_rev": 52.028701110000036,
+      "cur_rev": 38.19803943000001,
+      "rev_delta_pct": -26.6,
+      "req_delta_pct": -8.3,
+      "imp_delta_pct": -33.7
+    },
+    {
+      "publisher": "Aditude Aditude #60",
+      "severity": "\ud83d\udfe1 WATCH",
+      "prior_rev": 1874.3127890000092,
+      "cur_rev": 1676.168266650019,
+      "rev_delta_pct": -10.6,
+      "req_delta_pct": -3.3,
+      "imp_delta_pct": 15.4
+    },
+    {
+      "publisher": "RevIQ RevIQ #32",
+      "severity": "\ud83d\udfe0 WARNING",
+      "prior_rev": 816.53326522,
+      "cur_rev": 794.5771763999985,
+      "rev_delta_pct": -2.7,
+      "req_delta_pct": -65.2,
+      "imp_delta_pct": 5.0
+    }
+  ]
+}

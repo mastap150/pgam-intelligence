@@ -1,0 +1,13 @@
+HTTP/2 200 
+cache-control: public, max-age=0, must-revalidate
+content-type: application/json
+date: Fri, 24 Apr 2026 00:47:00 GMT
+server: Vercel
+strict-transport-security: max-age=63072000
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch
+x-matched-path: /api/rtb/test-bid
+x-vercel-cache: MISS
+x-vercel-enable-rewrite-caching: 1
+x-vercel-id: iad1::iad1::gtsqd-1776991620300-2accd38ae292
+
+{"ok":true,"http_status":204,"duration_ms":289,"response_headers":{"access-control-allow-headers":"Content-Type, X-OpenRTB-Version, Accept","access-control-allow-methods":"POST, OPTIONS","access-control-allow-origin":"*","access-control-max-age":"600","date":"Fri, 24 Apr 2026 00:47:00 GMT","fly-request-id":"01KPYF8KD8RAHF2SE0N18RZQFA-ord","server":"Fly/0e7dad54f (2026-04-23)","via":"1.1 fly.io"},"response_body":"","response_bytes":0,"request_headers_sent":{"Content-Type":"application/json","x-openrtb-version":"2.6","User-Agent":"pgam-direct-rtb-tester/1.0","Accept":"application/json","x-vercel-id":"iad1::gtsqd-1776991620300-2accd38ae292","x-invocation-id":"iad1::gtsqd-1776991620300-2accd38ae292"},"request_body_sent":"{\"id\":\"qa-test-bid-request-001\",\"imp\":[{\"id\":\"imp-qa-1\",\"tagid\":\"qa_leaderboard_top\",\"banner\":{\"w\":728,\"h\":90,\"format\":[{\"w\":728,\"h\":90},{\"w\":970,\"h\":250}]},\"bidfloor\":0.25,\"bidfloorcur\":\"USD\",\"ext\":{\"pgam\":{\"orgId\":\"qa-test-publisher-pre-launch\",\"placementId\":\"qa_leaderboard_top\"}}}],\"site\":{\"id\":\"qa-demo-site\",\"domain\":\"qa-demo.pgammedia.com\",\"page\":\"https://qa-demo.pgammedia.com/home\",\"publisher\":{\"id\":\"qa-test-publisher-pre-launch\",\"name\":\"QA Test Publisher\",\"domain\":\"pgammedia.com\"}},\"device\":{\"ua\":\"Mozilla/5.0 PGAM-QA/1.0\",\"ip\":\"203.0.113.42\",\"devicetype\":2,\"os\":\"Mac OS X\",\"geo\":{\"country\":\"USA\"}},\"user\":{\"id\":\"qa-user-001\"},\"at\":1,\"tmax\":800,\"cur\":[\"USD\"],\"regs\":{\"ext\":{\"gdpr\":0}},\"source\":{\"schain\":{\"complete\":1,\"ver\":\"1.0\",\"nodes\":[{\"asi\":\"pgammedia.com\",\"sid\":\"1353\",\"hp\":1}]}}}"}

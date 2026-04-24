@@ -1,0 +1,155 @@
+{
+  "generated_utc": "2026-04-20T13:10:14.314045+00:00",
+  "this_week_start": "2026-04-13",
+  "prev_week_range": [
+    "2026-04-06",
+    "2026-04-13"
+  ],
+  "partner_count": 13,
+  "total_weekly_gross": 44206.05,
+  "partners": [
+    {
+      "ssp": "Pubmatic",
+      "weekly_gross_rev": 26826.02,
+      "weekly_bids": 317113292,
+      "weekly_wins": 18351694,
+      "win_rate": 0.05787,
+      "rev_per_1000_bids": 0.0846,
+      "wow_delta_pct": 15.57,
+      "publishers_live": 17,
+      "grade": "B"
+    },
+    {
+      "ssp": "Magnite",
+      "weekly_gross_rev": 10029.74,
+      "weekly_bids": 142752759,
+      "weekly_wins": 7178371,
+      "win_rate": 0.05029,
+      "rev_per_1000_bids": 0.0703,
+      "wow_delta_pct": 13.76,
+      "publishers_live": 21,
+      "grade": "C"
+    },
+    {
+      "ssp": "Verve",
+      "weekly_gross_rev": 2035.66,
+      "weekly_bids": 64130894,
+      "weekly_wins": 4172229,
+      "win_rate": 0.06506,
+      "rev_per_1000_bids": 0.0317,
+      "wow_delta_pct": -25.96,
+      "publishers_live": 3,
+      "grade": "D"
+    },
+    {
+      "ssp": "Unruly",
+      "weekly_gross_rev": 1906.13,
+      "weekly_bids": 32755120,
+      "weekly_wins": 3732364,
+      "win_rate": 0.11395,
+      "rev_per_1000_bids": 0.0582,
+      "wow_delta_pct": -25.36,
+      "publishers_live": 15,
+      "grade": "C"
+    },
+    {
+      "ssp": "Xandr",
+      "weekly_gross_rev": 1553.5,
+      "weekly_bids": 7483493,
+      "weekly_wins": 4077827,
+      "win_rate": 0.54491,
+      "rev_per_1000_bids": 0.2076,
+      "wow_delta_pct": -66.34,
+      "publishers_live": 17,
+      "grade": "A"
+    },
+    {
+      "ssp": "Illumin",
+      "weekly_gross_rev": 476.38,
+      "weekly_bids": 2656640,
+      "weekly_wins": 266721,
+      "win_rate": 0.1004,
+      "rev_per_1000_bids": 0.1793,
+      "wow_delta_pct": 154.94,
+      "publishers_live": 10,
+      "grade": "B"
+    },
+    {
+      "ssp": "Stirista",
+      "weekly_gross_rev": 399.54,
+      "weekly_bids": 410571,
+      "weekly_wins": 206355,
+      "win_rate": 0.5026,
+      "rev_per_1000_bids": 0.9731,
+      "wow_delta_pct": 40.09,
+      "publishers_live": 1,
+      "grade": "A"
+    },
+    {
+      "ssp": "Sovrn",
+      "weekly_gross_rev": 359.69,
+      "weekly_bids": 20774625,
+      "weekly_wins": 1317322,
+      "win_rate": 0.06341,
+      "rev_per_1000_bids": 0.0173,
+      "wow_delta_pct": 34.73,
+      "publishers_live": 10,
+      "grade": "D"
+    },
+    {
+      "ssp": "Synatix",
+      "weekly_gross_rev": 347.8,
+      "weekly_bids": 25791905,
+      "weekly_wins": 1243845,
+      "win_rate": 0.04823,
+      "rev_per_1000_bids": 0.0135,
+      "wow_delta_pct": null,
+      "publishers_live": 1,
+      "grade": "D"
+    },
+    {
+      "ssp": "OneTag",
+      "weekly_gross_rev": 256.87,
+      "weekly_bids": 1349771,
+      "weekly_wins": 279917,
+      "win_rate": 0.20738,
+      "rev_per_1000_bids": 0.1903,
+      "wow_delta_pct": -3.16,
+      "publishers_live": 5,
+      "grade": "B"
+    },
+    {
+      "ssp": "LoopMe",
+      "weekly_gross_rev": 14.61,
+      "weekly_bids": 40779,
+      "weekly_wins": 4193,
+      "win_rate": 0.10282,
+      "rev_per_1000_bids": 0.3582,
+      "wow_delta_pct": -34.93,
+      "publishers_live": 3,
+      "grade": "A"
+    },
+    {
+      "ssp": "Kueez RON Display",
+      "weekly_gross_rev": 0.11,
+      "weekly_bids": 669,
+      "weekly_wins": 152,
+      "win_rate": 0.2272,
+      "rev_per_1000_bids": 0.1617,
+      "wow_delta_pct": null,
+      "publishers_live": 1,
+      "grade": "N/A"
+    },
+    {
+      "ssp": "AdaptMX",
+      "weekly_gross_rev": 0.0,
+      "weekly_bids": 3,
+      "weekly_wins": 0,
+      "win_rate": 0.0,
+      "rev_per_1000_bids": 0.0,
+      "wow_delta_pct": null,
+      "publishers_live": 1,
+      "grade": "N/A"
+    }
+  ]
+}

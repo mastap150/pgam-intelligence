@@ -1,0 +1,13 @@
+HTTP/2 201 
+cache-control: public, max-age=0, must-revalidate
+content-type: application/json
+date: Fri, 24 Apr 2026 00:45:59 GMT
+server: Vercel
+strict-transport-security: max-age=63072000
+vary: RSC, Next-Router-State-Tree, Next-Router-Prefetch
+x-matched-path: /api/dsps
+x-vercel-cache: MISS
+x-vercel-enable-rewrite-caching: 1
+x-vercel-id: iad1::iad1::df7bl-1776991559676-8716101471c2
+
+{"dspId":1,"endpointIds":[2],"contractIds":[3],"authSecretRef":null}

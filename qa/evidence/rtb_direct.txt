@@ -1,0 +1,10 @@
+HTTP/2 204 
+access-control-allow-headers: Content-Type, X-OpenRTB-Version, Accept
+access-control-allow-methods: POST, OPTIONS
+access-control-allow-origin: *
+access-control-max-age: 600
+date: Fri, 24 Apr 2026 00:47:01 GMT
+server: Fly/0e7dad54f (2026-04-23)
+via: 2 fly.io
+fly-request-id: 01KPYF8MA2P0JRT42P0M6NC44Q-iad
+
