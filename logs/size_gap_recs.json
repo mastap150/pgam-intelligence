@@ -1,0 +1,568 @@
+{
+  "timestamp": "2026-04-24T16:26:00.251156+00:00",
+  "window_days": 14,
+  "top_sizes_rpm": [
+    {
+      "size": "300x600",
+      "rpm": 5.48637876220238,
+      "revenue": 601.3430152000007
+    },
+    {
+      "size": "320x480",
+      "rpm": 2.7757012554150426,
+      "revenue": 105.63855435999999
+    },
+    {
+      "size": "728x90",
+      "rpm": 1.9607583517667635,
+      "revenue": 1322.4962499100006
+    },
+    {
+      "size": "300x50",
+      "rpm": 1.9147679322725268,
+      "revenue": 191.80759045000002
+    },
+    {
+      "size": "970x90",
+      "rpm": 1.7870958587194183,
+      "revenue": 209.16170824
+    },
+    {
+      "size": "320x100",
+      "rpm": 1.6069787360144392,
+      "revenue": 181.33184856999986
+    },
+    {
+      "size": "160x600",
+      "rpm": 1.2457385212993686,
+      "revenue": 517.3171019999997
+    },
+    {
+      "size": "970x250",
+      "rpm": 1.0023944247436358,
+      "revenue": 90.28981174000002
+    },
+    {
+      "size": "336x280",
+      "rpm": 0.861714498235347,
+      "revenue": 417.99814476000034
+    },
+    {
+      "size": "320x50",
+      "rpm": 0.8340551973845834,
+      "revenue": 374.69780113
+    },
+    {
+      "size": "300x250",
+      "rpm": 0.6365598510990825,
+      "revenue": 3118.399844230043
+    },
+    {
+      "size": "640x480",
+      "rpm": 0.41477155611238103,
+      "revenue": 710.2966755799997
+    }
+  ],
+  "gaps": [
+    {
+      "inventory_id": 544,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 39990.01,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 39580.31,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 20231.98,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 20024.7,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "728x90",
+      "account_size_rpm": 1.96,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 14291.89,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "300x50",
+      "account_size_rpm": 1.91,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 13956.67,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "970x90",
+      "account_size_rpm": 1.79,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 13026.07,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "970x90",
+      "account_size_rpm": 1.79,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 12892.62,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "320x100",
+      "account_size_rpm": 1.61,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 11713.21,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "320x100",
+      "account_size_rpm": 1.61,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 11593.2,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "160x600",
+      "account_size_rpm": 1.25,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 9080.14,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "160x600",
+      "account_size_rpm": 1.25,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 8987.11,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "970x250",
+      "account_size_rpm": 1.0,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 7306.41,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "970x250",
+      "account_size_rpm": 1.0,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 7231.56,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "336x280",
+      "account_size_rpm": 0.86,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 6281.0,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "336x280",
+      "account_size_rpm": 0.86,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 6216.66,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 544,
+      "missing_size": "320x50",
+      "account_size_rpm": 0.83,
+      "inv_total_requests": 3401515628,
+      "inv_total_revenue": 3018.73,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 6079.4,
+      "inventory_title": "Modrinth"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "320x50",
+      "account_size_rpm": 0.83,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 6017.11,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 4732.02,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 64,
+      "missing_size": "640x480",
+      "account_size_rpm": 0.41,
+      "inv_total_requests": 3366667029,
+      "inv_total_revenue": 729.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 2992.28,
+      "inventory_title": "OP.GG"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 2394.05,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 107,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 181170830,
+      "inv_total_revenue": 911.2,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 2129.94,
+      "inventory_title": "RoughMaps"
+    },
+    {
+      "inventory_id": 1191,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 177306210,
+      "inv_total_revenue": 134.73,
+      "inv_size_count": 6,
+      "estimated_monthly_uplift": 2084.51,
+      "inventory_title": "AdVerge"
+    },
+    {
+      "inventory_id": 577,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 161741922,
+      "inv_total_revenue": 74.84,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 1901.52,
+      "inventory_title": "chatib.us"
+    },
+    {
+      "inventory_id": 1119,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 158023120,
+      "inv_total_revenue": 1.71,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 1857.8,
+      "inventory_title": "Aditude - In App Google"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "728x90",
+      "account_size_rpm": 1.96,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 1691.16,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "300x50",
+      "account_size_rpm": 1.91,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 1651.49,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "970x90",
+      "account_size_rpm": 1.79,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 1541.38,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 540,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 242499002,
+      "inv_total_revenue": 59.02,
+      "inv_size_count": 8,
+      "estimated_monthly_uplift": 1442.37,
+      "inventory_title": "Aditude.io RON"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "320x100",
+      "account_size_rpm": 1.61,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 1386.02,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 107,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 181170830,
+      "inv_total_revenue": 911.2,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 1077.59,
+      "inventory_title": "RoughMaps"
+    },
+    {
+      "inventory_id": 1191,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 177306210,
+      "inv_total_revenue": 134.73,
+      "inv_size_count": 6,
+      "estimated_monthly_uplift": 1054.61,
+      "inventory_title": "AdVerge"
+    },
+    {
+      "inventory_id": 833,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 89061330,
+      "inv_total_revenue": 245.77,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 1047.05,
+      "inventory_title": "websudoku.com"
+    },
+    {
+      "inventory_id": 1567,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 82046048,
+      "inv_total_revenue": 133.33,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 964.58,
+      "inventory_title": "humanornot.so"
+    },
+    {
+      "inventory_id": 577,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 161741922,
+      "inv_total_revenue": 74.84,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 962.03,
+      "inventory_title": "chatib.us"
+    },
+    {
+      "inventory_id": 1119,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 158023120,
+      "inv_total_revenue": 1.71,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 939.91,
+      "inventory_title": "Aditude - In App Google"
+    },
+    {
+      "inventory_id": 1272,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 79430286,
+      "inv_total_revenue": 25.43,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 933.82,
+      "inventory_title": "Wowhead.com"
+    },
+    {
+      "inventory_id": 540,
+      "missing_size": "970x90",
+      "account_size_rpm": 1.79,
+      "inv_total_requests": 242499002,
+      "inv_total_revenue": 59.02,
+      "inv_size_count": 8,
+      "estimated_monthly_uplift": 928.65,
+      "inventory_title": "Aditude.io RON"
+    },
+    {
+      "inventory_id": 1039,
+      "missing_size": "320x480",
+      "account_size_rpm": 2.78,
+      "inv_total_requests": 147105673,
+      "inv_total_revenue": 265.97,
+      "inv_size_count": 4,
+      "estimated_monthly_uplift": 874.97,
+      "inventory_title": "burgerpixel.net"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "970x250",
+      "account_size_rpm": 1.0,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 864.57,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 540,
+      "missing_size": "320x100",
+      "account_size_rpm": 1.61,
+      "inv_total_requests": 242499002,
+      "inv_total_revenue": 59.02,
+      "inv_size_count": 8,
+      "estimated_monthly_uplift": 835.05,
+      "inventory_title": "Aditude.io RON"
+    },
+    {
+      "inventory_id": 1664,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 70078897,
+      "inv_total_revenue": 0.3,
+      "inv_size_count": 5,
+      "estimated_monthly_uplift": 823.88,
+      "inventory_title": "omenspectate.com"
+    },
+    {
+      "inventory_id": 955,
+      "missing_size": "300x600",
+      "account_size_rpm": 5.49,
+      "inv_total_requests": 69053114,
+      "inv_total_revenue": 96.08,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 811.82,
+      "inventory_title": "outdoorrevival.com"
+    },
+    {
+      "inventory_id": 1191,
+      "missing_size": "728x90",
+      "account_size_rpm": 1.96,
+      "inv_total_requests": 177306210,
+      "inv_total_revenue": 134.73,
+      "inv_size_count": 6,
+      "estimated_monthly_uplift": 744.97,
+      "inventory_title": "AdVerge"
+    },
+    {
+      "inventory_id": 107,
+      "missing_size": "300x50",
+      "account_size_rpm": 1.91,
+      "inv_total_requests": 181170830,
+      "inv_total_revenue": 911.2,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 743.36,
+      "inventory_title": "RoughMaps"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "336x280",
+      "account_size_rpm": 0.86,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 743.23,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 1191,
+      "missing_size": "300x50",
+      "account_size_rpm": 1.91,
+      "inv_total_requests": 177306210,
+      "inv_total_revenue": 134.73,
+      "inv_size_count": 6,
+      "estimated_monthly_uplift": 727.5,
+      "inventory_title": "AdVerge"
+    },
+    {
+      "inventory_id": 1354,
+      "missing_size": "320x50",
+      "account_size_rpm": 0.83,
+      "inv_total_requests": 402501291,
+      "inv_total_revenue": 513.31,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 719.37,
+      "inventory_title": "VerticalScope"
+    },
+    {
+      "inventory_id": 107,
+      "missing_size": "970x90",
+      "account_size_rpm": 1.79,
+      "inv_total_requests": 181170830,
+      "inv_total_revenue": 911.2,
+      "inv_size_count": 2,
+      "estimated_monthly_uplift": 693.79,
+      "inventory_title": "RoughMaps"
+    },
+    {
+      "inventory_id": 577,
+      "missing_size": "728x90",
+      "account_size_rpm": 1.96,
+      "inv_total_requests": 161741922,
+      "inv_total_revenue": 74.84,
+      "inv_size_count": 1,
+      "estimated_monthly_uplift": 679.58,
+      "inventory_title": "chatib.us"
+    }
+  ]
+}
