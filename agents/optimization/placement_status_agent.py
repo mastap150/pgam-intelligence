@@ -57,7 +57,7 @@ def _placement_stats(days: int) -> dict[int, dict]:
               ("day_group", "total"), ("limit", 1000),
               ("attribute[]", "placement")]
     url = f"{TB_BASE}/{tbm._get_token()}/report?" + urllib.parse.urlencode(params)
-    r = requests.get(url, timeout=90)
+    r = requests.get(url, timeout=300)
     r.raise_for_status()
     rows = r.json().get("data", r.json())
     out = {}

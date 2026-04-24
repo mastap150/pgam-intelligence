@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-04-24T16:46:39.496162+00:00",
+  "alerts": [
+    {
+      "placement_id": 3328,
+      "title": "?",
+      "inventory_id": null,
+      "prior_revenue": 410.22,
+      "cur_revenue": 278.44,
+      "revenue_delta_pct": -32.1,
+      "imp_delta_pct": 5.6,
+      "ecpm_delta_pct": -32.9,
+      "prior_ecpm": 0.48,
+      "cur_ecpm": 0.32
+    }
+  ]
+}

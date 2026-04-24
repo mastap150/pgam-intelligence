@@ -1,0 +1,866 @@
+[
+  {
+    "placement_id": 8507,
+    "title": "burgerpixel.net_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:40.090147+00:00"
+  },
+  {
+    "placement_id": 5698,
+    "title": "latin.it_320x50",
+    "before_floor": 0.03,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:41.326501+00:00"
+  },
+  {
+    "placement_id": 6613,
+    "title": "websudoku.com_970x90",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:41.974897+00:00"
+  },
+  {
+    "placement_id": 16644,
+    "title": "veganavenue.com_sticky-mobile",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:42.813424+00:00"
+  },
+  {
+    "placement_id": 3280,
+    "title": "Aditude.io RON_Mobile_300x250",
+    "before_floor": 0.03,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:43.485111+00:00"
+  },
+  {
+    "placement_id": 2588,
+    "title": "OP.gg 970x90",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:44.079916+00:00"
+  },
+  {
+    "placement_id": 3289,
+    "title": "Aditude.io RON_Desktop_728x90",
+    "before_floor": 0.03,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:44.852392+00:00"
+  },
+  {
+    "placement_id": 17166,
+    "title": "newsbuds.com_Mobile In content",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:45.488356+00:00"
+  },
+  {
+    "placement_id": 6789,
+    "title": "365scores.com_300x250",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:46.205419+00:00"
+  },
+  {
+    "placement_id": 16617,
+    "title": "burgerpixel.net_200x200",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:46.954339+00:00"
+  },
+  {
+    "placement_id": 16639,
+    "title": "veganavenue.com_below-heading-mobile",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:47.603927+00:00"
+  },
+  {
+    "placement_id": 16641,
+    "title": "veganavenue.com_below-first-imgblock-mobile",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:48.210732+00:00"
+  },
+  {
+    "placement_id": 16677,
+    "title": "humanornot.so_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:48.753340+00:00"
+  },
+  {
+    "placement_id": 6609,
+    "title": "websudoku.com_728x250",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:49.442399+00:00"
+  },
+  {
+    "placement_id": 6556,
+    "title": "Pijper_Publishing_RightRail_Top_300x250",
+    "before_floor": 0.03,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:50.267218+00:00"
+  },
+  {
+    "placement_id": 12291,
+    "title": "macworld.com_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:51.752773+00:00"
+  },
+  {
+    "placement_id": 12290,
+    "title": "macworld.com_320x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:52.307277+00:00"
+  },
+  {
+    "placement_id": 12469,
+    "title": "chatblink.com_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:55.382589+00:00"
+  },
+  {
+    "placement_id": 16475,
+    "title": "amvgg.com_right-rail-1",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:55.951754+00:00"
+  },
+  {
+    "placement_id": 17123,
+    "title": "confessionsofus.com_Mobile Sticky Footer",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:56.502306+00:00"
+  },
+  {
+    "placement_id": 12287,
+    "title": "macworld.com_320x100",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:57.130953+00:00"
+  },
+  {
+    "placement_id": 6962,
+    "title": "base64encode.org_120x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:57.778580+00:00"
+  },
+  {
+    "placement_id": 17084,
+    "title": "esladvice.com_320x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:59.107954+00:00"
+  },
+  {
+    "placement_id": 6792,
+    "title": "365scores.com_300x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:40:59.745894+00:00"
+  },
+  {
+    "placement_id": 17091,
+    "title": "esladvice.com_300x100",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:01.687810+00:00"
+  },
+  {
+    "placement_id": 17144,
+    "title": "humanitales.com_Mobile Sticky Footer",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:02.433976+00:00"
+  },
+  {
+    "placement_id": 16837,
+    "title": "sportstats.one_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:03.298324+00:00"
+  },
+  {
+    "placement_id": 14307,
+    "title": "bigmoneysmallmoney.com_Mobile In content",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:04.044288+00:00"
+  },
+  {
+    "placement_id": 14300,
+    "title": "dineondrama.com_Mobile Sticky Footer",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:04.869332+00:00"
+  },
+  {
+    "placement_id": 3060,
+    "title": "perezhilton.com_Desktop_728x90",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:07.478308+00:00"
+  },
+  {
+    "placement_id": 14342,
+    "title": "thinkstackgrow.com_Mobile Sticky Footer",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:08.413947+00:00"
+  },
+  {
+    "placement_id": 6467,
+    "title": "WeBlog_Article_Inpost_Below_Content_728x90, 320x50, 300x250, 336x280, 468x60",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:09.101434+00:00"
+  },
+  {
+    "placement_id": 12295,
+    "title": "macworld.com_250x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:09.789788+00:00"
+  },
+  {
+    "placement_id": 12274,
+    "title": "pcworld.com_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:10.898081+00:00"
+  },
+  {
+    "placement_id": 12419,
+    "title": "macwelt.de_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:14.155281+00:00"
+  },
+  {
+    "placement_id": 3056,
+    "title": "perezhilton.com_Desktop_300x250",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:16.761552+00:00"
+  },
+  {
+    "placement_id": 3055,
+    "title": "perezhilton.com_Mobile_320x50_2",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:17.572834+00:00"
+  },
+  {
+    "placement_id": 14383,
+    "title": "systemrequirementslab.com_left-rail-1",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:20.278832+00:00"
+  },
+  {
+    "placement_id": 8279,
+    "title": "jspuzzles.com_120x240",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:20.900447+00:00"
+  },
+  {
+    "placement_id": 17095,
+    "title": "esladvice.com_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:21.701400+00:00"
+  },
+  {
+    "placement_id": 5693,
+    "title": "latin.it_970x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:22.392788+00:00"
+  },
+  {
+    "placement_id": 6320,
+    "title": "Aditude.io RON Outstream",
+    "before_floor": 0.03,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:23.134811+00:00"
+  },
+  {
+    "placement_id": 5702,
+    "title": "latin.it_728x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:23.779701+00:00"
+  },
+  {
+    "placement_id": 14318,
+    "title": "wealthallout.com_Mobile Sticky Footer",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:24.335551+00:00"
+  },
+  {
+    "placement_id": 14384,
+    "title": "systemrequirementslab.com_left-rail-2",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:26.843575+00:00"
+  },
+  {
+    "placement_id": 12430,
+    "title": "macwelt.de_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:27.413106+00:00"
+  },
+  {
+    "placement_id": 9144,
+    "title": "tamilwin.com_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:28.111945+00:00"
+  },
+  {
+    "placement_id": 3124,
+    "title": "c-span.org_Desktop_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:28.711958+00:00"
+  },
+  {
+    "placement_id": 9145,
+    "title": "tamilwin.com_320x100",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:29.257586+00:00"
+  },
+  {
+    "placement_id": 14424,
+    "title": "rivalskins.com_anchor",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:29.920024+00:00"
+  },
+  {
+    "placement_id": 3161,
+    "title": "westernjournal.com_Desktop_728x90",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:30.541741+00:00"
+  },
+  {
+    "placement_id": 14769,
+    "title": "iknowwatches.com_below-first-imgblock-mobile",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:31.134392+00:00"
+  },
+  {
+    "placement_id": 8197,
+    "title": "theaugustapress.com_300x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:33.175194+00:00"
+  },
+  {
+    "placement_id": 12312,
+    "title": "pcwelt.de_250x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:33.738188+00:00"
+  },
+  {
+    "placement_id": 6817,
+    "title": "wweek.com_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:34.379342+00:00"
+  },
+  {
+    "placement_id": 15020,
+    "title": "sslazio.it 728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:35.084703+00:00"
+  },
+  {
+    "placement_id": 9148,
+    "title": "tamilwin.com_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:35.916108+00:00"
+  },
+  {
+    "placement_id": 5885,
+    "title": "jvpnews.com_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:36.564722+00:00"
+  },
+  {
+    "placement_id": 8410,
+    "title": "musicity.gr_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:38.731827+00:00"
+  },
+  {
+    "placement_id": 12302,
+    "title": "pcwelt.de_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:39.807826+00:00"
+  },
+  {
+    "placement_id": 23049,
+    "title": "dz2_inline-article-display_desktop",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:40.506706+00:00"
+  },
+  {
+    "placement_id": 6916,
+    "title": "Messletters.com_300x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:41.154596+00:00"
+  },
+  {
+    "placement_id": 6657,
+    "title": "emathhelp.net_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:41.759943+00:00"
+  },
+  {
+    "placement_id": 16680,
+    "title": "humanornot.so_300x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:42.433677+00:00"
+  },
+  {
+    "placement_id": 9237,
+    "title": "Aditude - In App Google 320x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:43.063319+00:00"
+  },
+  {
+    "placement_id": 6664,
+    "title": "emathhelp.net_320x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:44.391601+00:00"
+  },
+  {
+    "placement_id": 8548,
+    "title": "langangen.com_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:45.071903+00:00"
+  },
+  {
+    "placement_id": 12279,
+    "title": "pcworld.com_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:45.816653+00:00"
+  },
+  {
+    "placement_id": 3051,
+    "title": "perezhilton.com_Mobile_300x250",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:47.075438+00:00"
+  },
+  {
+    "placement_id": 12327,
+    "title": "techadvisor.com_300x50",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:47.857117+00:00"
+  },
+  {
+    "placement_id": 17098,
+    "title": "esladvice.com_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:49.123913+00:00"
+  },
+  {
+    "placement_id": 12278,
+    "title": "pcworld.com_250x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:49.986328+00:00"
+  },
+  {
+    "placement_id": 8321,
+    "title": "eltbase.com_970x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:50.936185+00:00"
+  },
+  {
+    "placement_id": 23023,
+    "title": "theneuron.ai_right-rail_desktop",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:51.641862+00:00"
+  },
+  {
+    "placement_id": 8553,
+    "title": "langangen.com_650x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:53.535059+00:00"
+  },
+  {
+    "placement_id": 23315,
+    "title": "healthfully.com_slot-1",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:54.800744+00:00"
+  },
+  {
+    "placement_id": 12405,
+    "title": "m3.se_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:55.484044+00:00"
+  },
+  {
+    "placement_id": 14388,
+    "title": "systemrequirementslab.com_billboard",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:56.145296+00:00"
+  },
+  {
+    "placement_id": 22795,
+    "title": "eweek.com_right-rail_desktop",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:56.855793+00:00"
+  },
+  {
+    "placement_id": 22800,
+    "title": "eweek.com_sticky-footer_mob",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:57.401733+00:00"
+  },
+  {
+    "placement_id": 12398,
+    "title": "m3.se_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:57.979601+00:00"
+  },
+  {
+    "placement_id": 14411,
+    "title": "rivalskins.com_rsk_footer_desktop",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:58.747104+00:00"
+  },
+  {
+    "placement_id": 12423,
+    "title": "macwelt.de_320x320",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:41:59.302097+00:00"
+  },
+  {
+    "placement_id": 14553,
+    "title": "chartgo.com_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:01.033292+00:00"
+  },
+  {
+    "placement_id": 6661,
+    "title": "emathhelp.net_120x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:01.666585+00:00"
+  },
+  {
+    "placement_id": 8166,
+    "title": "sqlservertutorial.net_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:03.387344+00:00"
+  },
+  {
+    "placement_id": 8134,
+    "title": "sqlitetutorial.net_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:04.140717+00:00"
+  },
+  {
+    "placement_id": 23386,
+    "title": "gadgethacks.com_sticky-footer_mobile",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:04.892739+00:00"
+  },
+  {
+    "placement_id": 12344,
+    "title": "pcforalla.se_300x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:05.646057+00:00"
+  },
+  {
+    "placement_id": 8153,
+    "title": "oracletutorial.com_120x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:06.583548+00:00"
+  },
+  {
+    "placement_id": 12408,
+    "title": "m3.se_640x320",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:07.120233+00:00"
+  },
+  {
+    "placement_id": 16931,
+    "title": "Findkeep.love_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:07.661912+00:00"
+  },
+  {
+    "placement_id": 6989,
+    "title": "oswegocountytoday.com_336x280",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:08.182842+00:00"
+  },
+  {
+    "placement_id": 8148,
+    "title": "mysqltutorial.org_250x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:08.802532+00:00"
+  },
+  {
+    "placement_id": 12323,
+    "title": "techadvisor.com_320x320",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:09.372579+00:00"
+  },
+  {
+    "placement_id": 6814,
+    "title": "wweek.com_300x300",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:09.876041+00:00"
+  },
+  {
+    "placement_id": 16709,
+    "title": "prosettings.gg_anchor_1000x100",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:10.417570+00:00"
+  },
+  {
+    "placement_id": 5661,
+    "title": "TravelReveal.com_320x50",
+    "before_floor": 0.03,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:11.017226+00:00"
+  },
+  {
+    "placement_id": 8967,
+    "title": "everydaysaga.com_Mobile Sticky Footer",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:12.409821+00:00"
+  },
+  {
+    "placement_id": 12426,
+    "title": "macwelt.de_300x100",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:12.890714+00:00"
+  },
+  {
+    "placement_id": 23019,
+    "title": "theneuron.ai_inline-top_desktop",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:13.441231+00:00"
+  },
+  {
+    "placement_id": 12330,
+    "title": "techadvisor.com_160x600",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:14.046092+00:00"
+  },
+  {
+    "placement_id": 16833,
+    "title": "sportstats.one_728x250",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:14.656977+00:00"
+  },
+  {
+    "placement_id": 16830,
+    "title": "sportstats.one_728x90",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:15.206220+00:00"
+  },
+  {
+    "placement_id": 23400,
+    "title": "gadgethacks.com_sticky-footer_desktop",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:15.755607+00:00"
+  },
+  {
+    "placement_id": 6616,
+    "title": "websudoku.com_320x50",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:16.224728+00:00"
+  },
+  {
+    "placement_id": 3156,
+    "title": "westernjournal.com_Mobile_320x50_2",
+    "before_floor": 0.01,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:16.814118+00:00"
+  },
+  {
+    "placement_id": 17141,
+    "title": "humanitales.com_Desktop In Content",
+    "before_floor": 0.02,
+    "new_floor": 0.05,
+    "applied": true,
+    "timestamp": "2026-04-24T16:42:17.942424+00:00"
+  }
+]
