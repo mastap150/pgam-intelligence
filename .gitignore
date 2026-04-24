@@ -17,3 +17,27 @@ data/holdout_tuples_detail.json
 # Google OAuth secrets — never commit these
 reports/credentials.json
 reports/token.pickle
+
+# Claude Code local workspace
+.claude/launch.json
+.claude/worktrees/
+.claude/scheduled_tasks*.lock
+
+# Runtime optimizer/pilot state — regenerated continuously by agents/cron
+logs/*_state.json
+logs/pilot_*.json
+logs/margin_history.json
+logs/optimal_price_sweep_log.json
+logs/daily_recommendations_dedup.json
+logs/geo_floor_actions.json
+logs/geo_floor_recs.json
+logs/publisher_optimizer_recs.json
+logs/publisher_optimizer_snapshot.json
+
+# Automation runtime logs (auto-appended by cron)
+healthnation-automation/logs/*.log
+
+# macOS Finder duplicates (" 2" suffix)
+* 2.md
+* 2.lock
+* 2.json
