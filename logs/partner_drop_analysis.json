@@ -1,0 +1,633 @@
+{
+  "timestamp": "2026-04-24T16:16:28.513230+00:00",
+  "cur_window": [
+    "2026-04-17",
+    "2026-04-24"
+  ],
+  "prior_window": [
+    "2026-04-10",
+    "2026-04-17"
+  ],
+  "results": {
+    "placement": {
+      "Rough Maps #36": [],
+      "RevIQ RevIQ #32": [],
+      "WeBlog WeBlog #96": [],
+      "Aditude Aditude #60": []
+    },
+    "country": {
+      "Rough Maps #36": [
+        {
+          "key": "USA",
+          "prior_rev": 2439.49,
+          "cur_rev": 469.19,
+          "delta": -1970.3,
+          "delta_pct": -80.8,
+          "prior_imps": 2014106,
+          "cur_imps": 657466,
+          "prior_reqs": 315013282,
+          "cur_reqs": 322388291
+        },
+        {
+          "key": "CAN",
+          "prior_rev": 156.72,
+          "cur_rev": 32.36,
+          "delta": -124.37,
+          "delta_pct": -79.4,
+          "prior_imps": 248289,
+          "cur_imps": 45740,
+          "prior_reqs": 47270884,
+          "cur_reqs": 39038871
+        },
+        {
+          "key": "AUS",
+          "prior_rev": 10.71,
+          "cur_rev": 2.09,
+          "delta": -8.62,
+          "delta_pct": -80.5,
+          "prior_imps": 22472,
+          "cur_imps": 7691,
+          "prior_reqs": 32782042,
+          "cur_reqs": 22529669
+        }
+      ],
+      "RevIQ RevIQ #32": [
+        {
+          "key": "JPN",
+          "prior_rev": 83.1,
+          "cur_rev": 48.79,
+          "delta": -34.31,
+          "delta_pct": -41.3,
+          "prior_imps": 458337,
+          "cur_imps": 317791,
+          "prior_reqs": 73015467,
+          "cur_reqs": 89364026
+        },
+        {
+          "key": "USA",
+          "prior_rev": 268.16,
+          "cur_rev": 248.47,
+          "delta": -19.69,
+          "delta_pct": -7.3,
+          "prior_imps": 987447,
+          "cur_imps": 838018,
+          "prior_reqs": 98614347,
+          "cur_reqs": 93989551
+        },
+        {
+          "key": "MEX",
+          "prior_rev": 14.23,
+          "cur_rev": 14.97,
+          "delta": 0.74,
+          "delta_pct": 5.2,
+          "prior_imps": 103069,
+          "cur_imps": 110841,
+          "prior_reqs": 6434383,
+          "cur_reqs": 7144094
+        },
+        {
+          "key": "AUS",
+          "prior_rev": 14.47,
+          "cur_rev": 15.48,
+          "delta": 1.01,
+          "delta_pct": 7.0,
+          "prior_imps": 101228,
+          "cur_imps": 122788,
+          "prior_reqs": 15843606,
+          "cur_reqs": 15503479
+        },
+        {
+          "key": "KOR",
+          "prior_rev": 239.19,
+          "cur_rev": 240.32,
+          "delta": 1.13,
+          "delta_pct": 0.5,
+          "prior_imps": 2680067,
+          "cur_imps": 3023943,
+          "prior_reqs": 2469239474,
+          "cur_reqs": 305371191
+        },
+        {
+          "key": "ARG",
+          "prior_rev": 16.3,
+          "cur_rev": 18.86,
+          "delta": 2.55,
+          "delta_pct": 15.7,
+          "prior_imps": 161469,
+          "cur_imps": 176330,
+          "prior_reqs": 6609633,
+          "cur_reqs": 7931336
+        },
+        {
+          "key": "SGP",
+          "prior_rev": 10.48,
+          "cur_rev": 13.24,
+          "delta": 2.76,
+          "delta_pct": 26.3,
+          "prior_imps": 87140,
+          "cur_imps": 104908,
+          "prior_reqs": 6760291,
+          "cur_reqs": 12241039
+        },
+        {
+          "key": "TUR",
+          "prior_rev": 10.04,
+          "cur_rev": 13.91,
+          "delta": 3.87,
+          "delta_pct": 38.5,
+          "prior_imps": 116935,
+          "cur_imps": 152056,
+          "prior_reqs": 9361994,
+          "cur_reqs": 11582591
+        },
+        {
+          "key": "CAN",
+          "prior_rev": 35.71,
+          "cur_rev": 41.89,
+          "delta": 6.18,
+          "delta_pct": 17.3,
+          "prior_imps": 218656,
+          "cur_imps": 266273,
+          "prior_reqs": 26453154,
+          "cur_reqs": 24843173
+        },
+        {
+          "key": "THA",
+          "prior_rev": 10.98,
+          "cur_rev": 18.3,
+          "delta": 7.32,
+          "delta_pct": 66.6,
+          "prior_imps": 55212,
+          "cur_imps": 91586,
+          "prior_reqs": 7864736,
+          "cur_reqs": 11829485
+        },
+        {
+          "key": "HKG",
+          "prior_rev": 74.88,
+          "cur_rev": 86.23,
+          "delta": 11.35,
+          "delta_pct": 15.2,
+          "prior_imps": 670469,
+          "cur_imps": 760880,
+          "prior_reqs": 15582886,
+          "cur_reqs": 17950720
+        }
+      ],
+      "WeBlog WeBlog #96": [
+        {
+          "key": "USA",
+          "prior_rev": 24.54,
+          "cur_rev": 18.33,
+          "delta": -6.21,
+          "delta_pct": -25.3,
+          "prior_imps": 50254,
+          "cur_imps": 31909,
+          "prior_reqs": 10889959,
+          "cur_reqs": 10088697
+        }
+      ],
+      "Aditude Aditude #60": [
+        {
+          "key": "AUS",
+          "prior_rev": 297.62,
+          "cur_rev": 30.31,
+          "delta": -267.32,
+          "delta_pct": -89.8,
+          "prior_imps": 557535,
+          "cur_imps": 220963,
+          "prior_reqs": 139607726,
+          "cur_reqs": 131697385
+        },
+        {
+          "key": "USA",
+          "prior_rev": 874.83,
+          "cur_rev": 814.51,
+          "delta": -60.33,
+          "delta_pct": -6.9,
+          "prior_imps": 3275917,
+          "cur_imps": 4155989,
+          "prior_reqs": 1732569427,
+          "cur_reqs": 1665675642
+        },
+        {
+          "key": "ARE",
+          "prior_rev": 20.48,
+          "cur_rev": 3.54,
+          "delta": -16.94,
+          "delta_pct": -82.7,
+          "prior_imps": 101144,
+          "cur_imps": 25221,
+          "prior_reqs": 6296231,
+          "cur_reqs": 4805417
+        },
+        {
+          "key": "IND",
+          "prior_rev": 17.49,
+          "cur_rev": 1.13,
+          "delta": -16.36,
+          "delta_pct": -93.6,
+          "prior_imps": 29644,
+          "cur_imps": 15079,
+          "prior_reqs": 18606206,
+          "cur_reqs": 17048337
+        },
+        {
+          "key": "SGP",
+          "prior_rev": 14.71,
+          "cur_rev": 4.42,
+          "delta": -10.28,
+          "delta_pct": -69.9,
+          "prior_imps": 81105,
+          "cur_imps": 36831,
+          "prior_reqs": 9743725,
+          "cur_reqs": 8876099
+        },
+        {
+          "key": "HKG",
+          "prior_rev": 21.01,
+          "cur_rev": 14.26,
+          "delta": -6.75,
+          "delta_pct": -32.1,
+          "prior_imps": 209617,
+          "cur_imps": 134686,
+          "prior_reqs": 4634183,
+          "cur_reqs": 5669377
+        },
+        {
+          "key": "NZL",
+          "prior_rev": 18.31,
+          "cur_rev": 12.08,
+          "delta": -6.23,
+          "delta_pct": -34.0,
+          "prior_imps": 158514,
+          "cur_imps": 98260,
+          "prior_reqs": 14094725,
+          "cur_reqs": 12180548
+        },
+        {
+          "key": "GBR",
+          "prior_rev": 16.99,
+          "cur_rev": 11.07,
+          "delta": -5.92,
+          "delta_pct": -34.8,
+          "prior_imps": 48760,
+          "cur_imps": 35150,
+          "prior_reqs": 19885200,
+          "cur_reqs": 20028474
+        },
+        {
+          "key": "MEX",
+          "prior_rev": 98.77,
+          "cur_rev": 102.12,
+          "delta": 3.34,
+          "delta_pct": 3.4,
+          "prior_imps": 889893,
+          "cur_imps": 924971,
+          "prior_reqs": 57013310,
+          "cur_reqs": 49456189
+        },
+        {
+          "key": "KOR",
+          "prior_rev": 10.61,
+          "cur_rev": 15.01,
+          "delta": 4.41,
+          "delta_pct": 41.6,
+          "prior_imps": 65423,
+          "cur_imps": 70779,
+          "prior_reqs": 27433206,
+          "cur_reqs": 19231587
+        },
+        {
+          "key": "ZAF",
+          "prior_rev": 3.93,
+          "cur_rev": 10.67,
+          "delta": 6.74,
+          "delta_pct": 171.8,
+          "prior_imps": 34599,
+          "cur_imps": 121224,
+          "prior_reqs": 4780761,
+          "cur_reqs": 6259024
+        },
+        {
+          "key": "ECU",
+          "prior_rev": 7.72,
+          "cur_rev": 16.11,
+          "delta": 8.38,
+          "delta_pct": 108.5,
+          "prior_imps": 36078,
+          "cur_imps": 57766,
+          "prior_reqs": 1767653,
+          "cur_reqs": 1760475
+        },
+        {
+          "key": "CHL",
+          "prior_rev": 21.4,
+          "cur_rev": 29.82,
+          "delta": 8.42,
+          "delta_pct": 39.3,
+          "prior_imps": 195986,
+          "cur_imps": 222819,
+          "prior_reqs": 8506782,
+          "cur_reqs": 8693165
+        },
+        {
+          "key": "PAN",
+          "prior_rev": 1.56,
+          "cur_rev": 10.28,
+          "delta": 8.72,
+          "delta_pct": 557.1,
+          "prior_imps": 8705,
+          "cur_imps": 18722,
+          "prior_reqs": 677639,
+          "cur_reqs": 680488
+        },
+        {
+          "key": "COL",
+          "prior_rev": 8.31,
+          "cur_rev": 17.55,
+          "delta": 9.23,
+          "delta_pct": 111.0,
+          "prior_imps": 93195,
+          "cur_imps": 158112,
+          "prior_reqs": 4102006,
+          "cur_reqs": 4299111
+        },
+        {
+          "key": "DOM",
+          "prior_rev": 10.08,
+          "cur_rev": 19.4,
+          "delta": 9.32,
+          "delta_pct": 92.4,
+          "prior_imps": 39769,
+          "cur_imps": 62716,
+          "prior_reqs": 1090982,
+          "cur_reqs": 1140888
+        },
+        {
+          "key": "MDA",
+          "prior_rev": 0.0,
+          "cur_rev": 12.17,
+          "delta": 12.17,
+          "delta_pct": 9999.0,
+          "prior_imps": 0,
+          "cur_imps": 145536,
+          "prior_reqs": 0,
+          "cur_reqs": 1326955
+        },
+        {
+          "key": "ARG",
+          "prior_rev": 50.5,
+          "cur_rev": 69.82,
+          "delta": 19.32,
+          "delta_pct": 38.3,
+          "prior_imps": 476325,
+          "cur_imps": 633526,
+          "prior_reqs": 13603939,
+          "cur_reqs": 15062915
+        },
+        {
+          "key": "CRI",
+          "prior_rev": 1.03,
+          "cur_rev": 20.65,
+          "delta": 19.63,
+          "delta_pct": 1911.1,
+          "prior_imps": 11054,
+          "cur_imps": 75248,
+          "prior_reqs": 3125186,
+          "cur_reqs": 3287623
+        },
+        {
+          "key": "CAN",
+          "prior_rev": 107.07,
+          "cur_rev": 128.02,
+          "delta": 20.95,
+          "delta_pct": 19.6,
+          "prior_imps": 537441,
+          "cur_imps": 863711,
+          "prior_reqs": 188237255,
+          "cur_reqs": 182839102
+        },
+        {
+          "key": "TUR",
+          "prior_rev": 13.28,
+          "cur_rev": 37.92,
+          "delta": 24.64,
+          "delta_pct": 185.6,
+          "prior_imps": 173385,
+          "cur_imps": 477221,
+          "prior_reqs": 36459738,
+          "cur_reqs": 36668572
+        },
+        {
+          "key": "BRA",
+          "prior_rev": 137.74,
+          "cur_rev": 168.07,
+          "delta": 30.33,
+          "delta_pct": 22.0,
+          "prior_imps": 1859309,
+          "cur_imps": 1860847,
+          "prior_reqs": 85905972,
+          "cur_reqs": 91461265
+        }
+      ]
+    },
+    "company_dsp": {
+      "Rough Maps #36": [
+        {
+          "key": "AdaptMX #17",
+          "prior_rev": 2372.35,
+          "cur_rev": 80.34,
+          "delta": -2292.01,
+          "delta_pct": -96.6,
+          "prior_imps": 1907639,
+          "cur_imps": 77906,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Stirista #49",
+          "prior_rev": 26.05,
+          "cur_rev": 6.2,
+          "delta": -19.85,
+          "delta_pct": -76.2,
+          "prior_imps": 15926,
+          "cur_imps": 3683,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Verve #46",
+          "prior_rev": 205.84,
+          "cur_rev": 411.0,
+          "delta": 205.17,
+          "delta_pct": 99.7,
+          "prior_imps": 354320,
+          "cur_imps": 612817,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        }
+      ],
+      "RevIQ RevIQ #32": [
+        {
+          "key": "Unruly #4",
+          "prior_rev": 181.78,
+          "cur_rev": 134.55,
+          "delta": -47.24,
+          "delta_pct": -26.0,
+          "prior_imps": 1481501,
+          "cur_imps": 1184590,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Stirista #49",
+          "prior_rev": 23.02,
+          "cur_rev": 16.73,
+          "delta": -6.29,
+          "delta_pct": -27.3,
+          "prior_imps": 13359,
+          "cur_imps": 9464,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "OneTag #14",
+          "prior_rev": 13.48,
+          "cur_rev": 15.66,
+          "delta": 2.18,
+          "delta_pct": 16.1,
+          "prior_imps": 127445,
+          "cur_imps": 143810,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Pubmatic #2",
+          "prior_rev": 521.92,
+          "cur_rev": 533.24,
+          "delta": 11.32,
+          "delta_pct": 2.2,
+          "prior_imps": 4034437,
+          "cur_imps": 4562967,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Verve #46",
+          "prior_rev": 59.3,
+          "cur_rev": 80.85,
+          "delta": 21.54,
+          "delta_pct": 36.3,
+          "prior_imps": 225823,
+          "cur_imps": 295974,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        }
+      ],
+      "WeBlog WeBlog #96": [
+        {
+          "key": "Magnite #3",
+          "prior_rev": 50.17,
+          "cur_rev": 36.39,
+          "delta": -13.78,
+          "delta_pct": -27.5,
+          "prior_imps": 120749,
+          "cur_imps": 77722,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        }
+      ],
+      "Aditude Aditude #60": [
+        {
+          "key": "9 Dots #56",
+          "prior_rev": 354.25,
+          "cur_rev": 262.39,
+          "delta": -91.86,
+          "delta_pct": -25.9,
+          "prior_imps": 1120848,
+          "cur_imps": 1262188,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Pubmatic #2",
+          "prior_rev": 1277.47,
+          "cur_rev": 1201.18,
+          "delta": -76.29,
+          "delta_pct": -6.0,
+          "prior_imps": 8024296,
+          "cur_imps": 9533118,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Unruly #4",
+          "prior_rev": 104.26,
+          "cur_rev": 50.37,
+          "delta": -53.89,
+          "delta_pct": -51.7,
+          "prior_imps": 431734,
+          "cur_imps": 250447,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Illumin Demand #29",
+          "prior_rev": 28.73,
+          "cur_rev": 16.09,
+          "delta": -12.63,
+          "delta_pct": -44.0,
+          "prior_imps": 82080,
+          "cur_imps": 60011,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Stirista #49",
+          "prior_rev": 15.98,
+          "cur_rev": 13.31,
+          "delta": -2.66,
+          "delta_pct": -16.7,
+          "prior_imps": 11365,
+          "cur_imps": 9281,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Magnite #3",
+          "prior_rev": 41.96,
+          "cur_rev": 42.62,
+          "delta": 0.66,
+          "delta_pct": 1.6,
+          "prior_imps": 79202,
+          "cur_imps": 72504,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "OneTag #14",
+          "prior_rev": 8.44,
+          "cur_rev": 13.43,
+          "delta": 4.98,
+          "delta_pct": 59.0,
+          "prior_imps": 21056,
+          "cur_imps": 21748,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        },
+        {
+          "key": "Verve #46",
+          "prior_rev": 39.18,
+          "cur_rev": 76.91,
+          "delta": 37.73,
+          "delta_pct": 96.3,
+          "prior_imps": 226785,
+          "cur_imps": 354715,
+          "prior_reqs": 0,
+          "cur_reqs": 0
+        }
+      ]
+    }
+  }
+}
