@@ -155,6 +155,8 @@ def setup_schedule():
     auto_unpause           = _import("agents.optimization.auto_unpause")
     # Every-4h revert agent for harmful recent floor changes
     auto_revert_harmful    = _import("agents.optimization.auto_revert_harmful")
+    # Every-6h adjuster for new-wiring performance (removes dead wirings)
+    auto_adjust_wirings    = _import("agents.optimization.auto_adjust_wirings")
     # Weekly Monday digest of proposals needing human review
     weekly_review_digest   = _import("agents.reports.weekly_review_digest")
     # Pilot program
@@ -247,6 +249,8 @@ def setup_schedule():
     schedule.every().day.at("09:45").do(_run("auto_unpause",           auto_unpause))
     # Auto-revert harmful floor changes — every 4 hours
     schedule.every(4).hours.do(_run("auto_revert_harmful",             auto_revert_harmful))
+    # Auto-adjust new wirings that aren't performing — every 6 hours
+    schedule.every(6).hours.do(_run("auto_adjust_wirings",             auto_adjust_wirings))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
     schedule.every().day.at("09:00").do(_run("weekly_review_digest",   weekly_review_digest))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
