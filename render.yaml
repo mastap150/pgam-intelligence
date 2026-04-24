@@ -61,3 +61,12 @@ services:
       # proposer to auto-apply high-confidence proposals again.
       - key: PGAM_OPTIMIZER_AUTO_APPLY
         value: "0"
+
+      # ── Legacy floor_optimizer (every 2h tuner) ─────────────────────────────
+      # DISABLED after 2026-04-24 revenue drop. Its writes were silent no-ops
+      # for months (broken endpoint). When PR #8 routed them through the
+      # working endpoint on 2026-04-20, the every-2h tuning started thrashing
+      # floors (±39% in a single run), tanking revenue. Re-enable only after
+      # the tuning logic is reviewed and slowed to weekly cadence.
+      - key: PGAM_FLOOR_OPTIMIZER_ENABLED
+        value: "0"

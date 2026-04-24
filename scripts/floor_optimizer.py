@@ -596,7 +596,21 @@ def _slack_summary(moves: list[dict], resets: list[dict]):
 # ---------------------------------------------------------------------------
 
 def run():
-    """Called by the scheduler every 2 hours."""
+    """Called by the scheduler every 2 hours.
+
+    DISABLED by default after 2026-04-24. For months, this agent wrote via
+    the broken PUT /v1/publishers/{id} endpoint so its aggressive floor
+    tweaks (up to ±39% per run, every 2h) were no-ops. When PR #8 routed
+    writes through set_demand_floor, the writes started landing — and
+    immediately thrashed revenue on Pubmatic/BidMachine demands, correlating
+    with the 2026-04-24 revenue drop.
+
+    Re-enable only after the tuning logic is reviewed and slowed down
+    (weekly, not every 2h) and gated against 39% raises on a single run.
+    Set PGAM_FLOOR_OPTIMIZER_ENABLED=1 in Render dashboard to override."""
+    if os.environ.get("PGAM_FLOOR_OPTIMIZER_ENABLED", "0") != "1":
+        print(f"[floor_optimizer] DISABLED (PGAM_FLOOR_OPTIMIZER_ENABLED != 1) — skipping")
+        return
     print(f"[floor_optimizer] Starting run  {_now_et_str()}")
     _SEEN_DEMAND_IDS_THIS_RUN.clear()
     state  = _load_state()
