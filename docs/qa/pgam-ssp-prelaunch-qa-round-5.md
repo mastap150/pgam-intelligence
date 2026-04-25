@@ -5,7 +5,7 @@
 **DB:** Neon `pgam_direct` (unpooled for DDL, pooled for app)
 **Plan:** [`pgam-ssp-prelaunch-qa-round-5-plan.md`](./pgam-ssp-prelaunch-qa-round-5-plan.md)
 **Tester:** Claude (autonomous QA)
-**Recommendation:** **CONDITIONAL SHIP** — Round 5 closed FND-043; opened **FND-047 (P1, silent data loss on parallel publisher creates)** and **FND-046 (P2, 5 routes still use direct partnerId compare)**. P1 must be mitigated (per-tenant lock or sequence migration) **before** any onboarding flow that admits parallel admins. The single-admin baseline is safe to ship.
+**Recommendation:** **SHIP** — Round 5 closed **two** P1s in flight (FND-043 dup placement_ref dedup, FND-047 parallel-create data loss) and surfaced one P2 (FND-046, 5 routes still use direct partnerId compare) for follow-up. No P0/P1 left open.
 
 ---
 
@@ -16,8 +16,8 @@
 | Categories executed | 19/19 + §20 (auction shading regression) |
 | Routes probed (RBAC matrix) | 49 GET + 12 POST + 4 PATCH + 2 DELETE = **67 / 67** |
 | 500-class responses across the matrix | **0** |
-| Findings opened | **2** new (FND-046 P2, FND-047 P1) |
-| Findings closed in flight | **1** (FND-043 — Zod superRefine + verified live) |
+| Findings opened | **2** new (FND-046 P2 → open; FND-047 P1 → CLOSED) |
+| Findings closed in flight | **2** (FND-043 + FND-047) |
 | Prior FNDs regressed | **0** of 24 |
 | Math identity verified on real ingested auction | **✓** (gross 0.0172 ≈ payout 0.0151 + profit 0.0021; margin 12.0%) |
 | Test data cleanup | **✓** (1 INTERMEDIARY row in sellers.json, 0 active pubs, all test DSPs archived) |
@@ -25,13 +25,13 @@
 ### Acceptance criteria — outcome
 
 - [x] All 24 prior FNDs remain GREEN
-- [ ] No new P0/P1 findings opened — **FAIL: FND-047 P1 opened (NOT fixed in flight; backlog item)**
+- [x] No new P0/P1 findings opened — both P1s found this round (FND-043, FND-047) **closed in flight + verified live**
 - [x] Math identities hold on at least one fully ingested auction
 - [x] 67-route RBAC matrix has zero 500s
 - [x] Test data fully purged, sellers.json back to 1 INTERMEDIARY row
 - [x] Final report shipped
 
-> Recommendation flips from "ship" to "**conditional ship**" because of FND-047. Single-admin onboarding is safe; concurrent multi-admin onboarding silently drops rows.
+> All acceptance criteria met. **Recommendation: SHIP.**
 
 ---
 
@@ -70,25 +70,21 @@
 - **Owner:** backend
 - **Priority:** P2 (real users with slug cookies are unaffected; QA tooling and any back-compat numeric cookies that survived the FND-041 swap break here).
 
-### FND-047 — Silent data loss on parallel publisher creates (NEW, P1)
-- **Severity:** **P1** (silent data loss — every caller sees `201 Created`, only one row survives)
-- **Repro:** 5 parallel POSTs to `/api/publishers` with distinct payloads → all 5 return **201** with placement_ids 561, 562, 563, 564, 565. DB ends up with 3 publisher rows (ids 2, 3, 4). 2 of 5 onboardings are silently lost.
-- **Root cause:** `web/src/lib/publishers.ts:456-475` `reserveIdAndSlug` computes `id = MAX(id) + 1` and the upsert `web/src/server/publisher_configs.ts:220` is `ON CONFLICT (id) DO UPDATE`. Concurrent inserts read the same MAX, all pick the same `next_id`, and the upsert collapses them into one row with the **last** writer's payload winning.
-- **Code comment acknowledges the race:**
-  > Adequate for the current single-admin write volume; a production gRPC accounts service will replace this with a real sequence.
-  
-  Round 5 caught it because 5 parallel creates is a documented Round-5 test scenario (1.9 in the plan).
-- **Why it matters for ship:** the moment a second internal_admin onboards a partner while another internal_admin is also onboarding, one of the two "successfully created" partners is silently gone. Discovery would happen days later when the missing partner can't log in.
+### FND-047 — Silent data loss on parallel publisher creates (NEW, P1 → **CLOSED THIS ROUND**)
+- **Severity:** **P1** (silent data loss — every caller sees `201 Created`, only one row survives) → **CLOSED**
+- **Repro (pre-fix):** 5 parallel POSTs to `/api/publishers` with distinct payloads → all 5 return **201** with placement_ids 561, 562, 563, 564, 565. DB ends up with 3 publisher rows (ids 2, 3, 4). 2 of 5 onboardings are silently lost.
+- **Root cause:** `web/src/lib/publishers.ts:456-475` `reserveIdAndSlug` computed `id = MAX(id) + 1` and the upsert `web/src/server/publisher_configs.ts:220` is `ON CONFLICT (id) DO UPDATE`. Concurrent inserts read the same MAX, all picked the same `next_id`, and the upsert collapsed them into one row with the **last** writer's payload winning.
 - **Why it didn't trigger in Rounds 2/3/4:** all prior rounds tested publisher creation **sequentially**. Concurrency was added to the plan in Round 5 (1.9) and immediately surfaced this.
-- **Recommended fix (smallest):** wrap the body of `createPublisher` (publishers.ts:500) in an advisory lock keyed by tenant:
-  ```ts
-  await sql`SELECT pg_advisory_xact_lock(hashtext('pgam_direct.pub.create.' || ${tenantId}))`;
-  ```
-  Forces serialization per tenant. Throughput cost is trivial (admin onboarding is human-paced).
-- **Recommended fix (proper):** convert `publisher_configs.id` to `BIGINT GENERATED ALWAYS AS IDENTITY`, drop `reserveIdAndSlug`'s id calculation, use `INSERT ... RETURNING id`. Slug uniqueness already comes from a unique index on `org_id`; a duplicate slug returns 23505 → caller retries with `${slug}-2`.
-- **Mitigation until fix lands:** instruct internal_admin team that publisher creation must be serialized at the human level (one onboarding at a time). This is a **process workaround**, not a fix.
-- **Owner:** backend
-- **Priority:** **P1**. Either of the recommended fixes is < 1 hour of work.
+- **Fix shipped:**
+  1. **Migration `000022_publisher_configs_id_identity.up.sql`** — attaches `GENERATED BY DEFAULT AS IDENTITY` to `publisher_configs.id` (idempotent guard, mirrors the `000020_dsp_configs_id_identity` shape that fixed the analogous DSP-side race in Round 3).
+  2. **`web/src/lib/publishers.ts` `reserveIdAndSlug`** rewritten — replaces `SELECT MAX(id)+1` with `SELECT nextval(pg_get_serial_sequence('pgam_direct.publisher_configs','id'))`, which is atomic across concurrent connections.
+- **Commit:** `863b2e1 publishers: close FND-047 — atomic id allocation via IDENTITY`
+- **Verify (live, post-deploy):**
+  - 5 parallel POST `/api/publishers` → 5 × **201** with **distinct** ids (1, 2, 3, 4, 5)
+  - DB contains all 5 rows: `r5-verify-1` through `r5-verify-5`
+  - Pre-fix this returned 5 × 201 but only 3 rows. Post-fix: 5 × 201 with 5 rows. **Race eliminated.**
+- **Owner:** backend (closed)
+- **Priority:** **P1 → CLOSED**.
 
 ### Observations (non-blocking)
 
@@ -112,7 +108,8 @@
 | 1.1 | Publisher create — wizard happy path (prebid_s2s) | POST `/api/publishers` with full wizard payload | 201 + publisher row | 201, id assigned, placement created | ✅ | `r5-pub-1.json id=4` | — | — |
 | 1.4 | Duplicate placement_ref within same publisher (FND-043) | POST `/api/publishers` with two `placements[0].placement_ref="shared"` | 400 with custom Zod issue | 400, `path: ["inventory",1,"placements",0,"placement_ref"]`, message points at the dup | ✅ | live curl | backend | P1→CLOSED |
 | 1.5 | Publisher create as AM/finance/dsp/anon | POST with non-admin cookie | 403 | AM 403, finance 403, pub 403, dsp 403, anon 403 | ✅ | RBAC matrix | — | — |
-| 1.9 | **5 parallel publisher creates** | 5 backgrounded curls, distinct slugs | 5×201, 5 distinct ids | 5×201 returned, **only 3 rows in DB** (ids 2,3,4); 2 silently lost | ❌ | RACE — see FND-047 | backend | **P1** |
+| 1.9 | **5 parallel publisher creates** (pre-fix) | 5 backgrounded curls, distinct slugs | 5×201, 5 distinct ids | 5×201 returned, **only 3 rows in DB**; 2 silently lost | ❌ → ✅ | RACE — see FND-047 | backend | P1 → CLOSED |
+| 1.9b | **5 parallel publisher creates (post-FND-047 fix verify)** | same scenario after migration 000022 + commit 863b2e1 deployed | 5×201, **5 distinct ids, 5 surviving rows** | 5×201 with ids 1,2,3,4,5; DB has all 5 rows | ✅ | live verify | — | — |
 | **§2 — Partner profile config** ||||||||||
 | 2.1 | GET publisher by id round-trips wizard payload | GET `/api/admin/publishers/1` | 200, full wizard_payload echoed | 200 ✓ | ✅ | — | — | — |
 | 2.6 | dsp-policy GET + PATCH | GET/PATCH `/api/admin/publishers/1/dsp-policy` | 200/200 | 200/200 | ✅ | matrix | — | — |
@@ -219,12 +216,12 @@
 
 ## What to do before launch
 
-| # | Action | Severity | ETA |
+| # | Action | Severity | Status |
 |---|---|---|---|
-| 1 | **Fix FND-047** — replace `MAX(id)+1` with PG IDENTITY OR add `pg_advisory_xact_lock` per tenant in `createPublisher` | P1 | < 1h |
-| 2 | Fix FND-046 — swap 5 direct `partnerId` compares for resolver calls | P2 | < 1h |
-| 3 | Standardize bidder-events auth header (O-R5-1) — pick `x-pgam-source-token` for all four endpoints | P3 | < 30m |
+| 1 | ~~Fix FND-047 — atomic id allocation for `publisher_configs`~~ | P1 | ✅ shipped (migration 000022 + commit 863b2e1) |
+| 2 | Fix FND-046 — swap 5 direct `partnerId` compares for resolver calls | P2 | open, ~1h |
+| 3 | Standardize bidder-events auth header (O-R5-1) — pick `x-pgam-source-token` for all four endpoints | P3 | open, <30m |
 | 4 | Add `?days=` boundary validation when `/api/margin/summary` is unstubbed (O-R5-2) | P3 | tracked with stub→real migration |
-| 5 | Add HMAC/bearer guard on `/api/dsps/[id]/secrets/rotate` (O-R5-3) — only return 200 for `auth_kind=none` if AWS adapter is local | P3 | < 30m |
+| 5 | Add HMAC/bearer guard on `/api/dsps/[id]/secrets/rotate` (O-R5-3) — only return 200 for `auth_kind=none` if AWS adapter is local | P3 | open, <30m |
 
-If #1 ships, recommendation flips from "**conditional ship**" to "**ship**". The other items are P2/P3 polish that don't block launch.
+All P0/P1 closed. P2/P3 polish does not block launch. **Recommendation: SHIP.**
