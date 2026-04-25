@@ -168,6 +168,9 @@ def setup_schedule():
     auto_revert_harmful    = _import("agents.optimization.auto_revert_harmful")
     # Every-6h adjuster for new-wiring performance (removes dead wirings)
     auto_adjust_wirings    = _import("agents.optimization.auto_adjust_wirings")
+    # Daily config health: auto-fix supplyChainEnabled, lurlEnabled, qpsLimit;
+    # alert on low-margin demands. Codifies all the manual fixes from 2026-04-25.
+    config_health_scanner  = _import("agents.optimization.config_health_scanner")
     # Weekly Monday digest of proposals needing human review
     weekly_review_digest   = _import("agents.reports.weekly_review_digest")
     # Pilot program
@@ -278,6 +281,8 @@ def setup_schedule():
     schedule.every(4).hours.do(_run("auto_revert_harmful",             auto_revert_harmful))
     # Auto-adjust new wirings that aren't performing — every 6 hours
     schedule.every(6).hours.do(_run("auto_adjust_wirings",             auto_adjust_wirings))
+    # Config health scanner — daily 06:30 ET, after contract_floor_sentry
+    schedule.every().day.at("06:30").do(_run("config_health_scanner",  config_health_scanner))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
     schedule.every().day.at("09:00").do(_run("weekly_review_digest",   weekly_review_digest))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
