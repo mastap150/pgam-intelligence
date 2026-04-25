@@ -39,19 +39,22 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from dotenv import load_dotenv; load_dotenv(override=True)
 import core.tb_mgmt as tbm
 
-# Conservative default blocklist — these never hurt legitimate revenue
+# Conservative default blocklist — TB only accepts TOP-LEVEL IAB codes
+# (subcategories like IAB7-39 are rejected as invalid).
+# These three are the only safe-to-block-globally top-level categories:
 DEFAULT_BLOCKLIST = [
-    "IAB7-39",   # Sexuality/Adult
-    "IAB9-9",    # Gambling
     "IAB24",     # Uncategorized (MFA proxy)
-    "IAB25",     # Non-Standard Content
+    "IAB25",     # Non-Standard Content (profanity/violence/hate)
     "IAB26",     # Illegal Content
 ]
 
-# Opt-in (not applied by default — uncomment to enable)
+# Aggressive (heavy hammer — opt-in via --aggressive)
+# Note: blocking IAB7 (Health) cuts entire vertical to filter sexuality.
+# Blocking IAB9 (Hobbies) cuts entire vertical to filter gambling.
 AGGRESSIVE_BLOCKLIST = [
+    "IAB7",      # Health & Fitness (includes Sexuality IAB7-39)
+    "IAB9",      # Hobbies & Interests (includes Gambling IAB9-9)
     "IAB11",     # Law/Government/Politics
-    "IAB14-4",   # Dating
     "IAB23",     # Religion
 ]
 
