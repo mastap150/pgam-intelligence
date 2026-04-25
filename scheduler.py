@@ -268,6 +268,13 @@ def setup_schedule():
     # on unfamiliar PGAM-domain DIRECT entries.
     adstxt_monitor = _import("agents.alerts.adstxt_monitor")
     schedule.every().day.at("09:00").do(_run("adstxt_monitor",       adstxt_monitor))
+    # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
+    # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
+    # zombie wirings. TB section flags any signs of life (account is supposed
+    # to be dormant). Slack digest deduped daily; full JSON in
+    # data/config_audit_report.json.
+    config_auditor = _import("agents.alerts.config_auditor")
+    schedule.every().day.at("06:30").do(_run("config_auditor",       config_auditor))
     # Auto-wire qualifying demand-gaps — runs daily after demand_gap Monday refresh
     # (demand_gap runs weekly Monday; re-running this agent daily is idempotent:
     # it skips anything already wired and caps new wirings per run.)
