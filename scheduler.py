@@ -173,7 +173,12 @@ def setup_schedule():
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
-    floor_optimizer        = _import("scripts.floor_optimizer")
+    # floor_optimizer removed from scheduler 2026-04-25 — see PR #16 history.
+    # The internal env-flag gate (PGAM_FLOOR_OPTIMIZER_ENABLED=0) was being
+    # bypassed in production (writes still landing every 2h), so the registration
+    # itself is now removed for belt-and-suspenders safety. To revive: review
+    # and modernize the tuning logic, then re-add registration here.
+    # floor_optimizer        = _import("scripts.floor_optimizer")
     # TB (TechBid) agents removed 2026-04-18 — account is LL-only; agents
     # were erroring daily with 401 against inactive TB endpoints.
     # ML tranche 1 — instrumentation only (no auto-actions)
@@ -283,7 +288,8 @@ def setup_schedule():
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
 
     # ── Every 2 hours — dynamic floor optimizer ──────────────────────────────
-    schedule.every(2).hours.do(_run("floor_optimizer", floor_optimizer))
+    # floor_optimizer registration removed 2026-04-25. See _import block above.
+    # schedule.every(2).hours.do(_run("floor_optimizer", floor_optimizer))
 
     # ── Daily 9:00 AM ET ─────────────────────────────────────────────────────
     schedule.every().day.at("09:00").do(_run("pilot_snapshot",    pilot_snapshot))     # daily dedup inside
