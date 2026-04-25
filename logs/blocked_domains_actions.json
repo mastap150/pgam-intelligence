@@ -1,0 +1,416 @@
+[
+  {
+    "inventory_id": 804,
+    "added": [
+      "140474",
+      "545519333"
+    ],
+    "before_list": [],
+    "new_list": [
+      "140474",
+      "545519333"
+    ],
+    "before_count": 0,
+    "after_count": 2,
+    "applied": false,
+    "status_code": 400,
+    "response": "{\"message\":\"Bad Request\",\"fields\":{\"inventory_dsp.white\":[\"Selected DSP cannot be selected because: Stirista - CTV Hispanic CTV\\/OTT #1251 not active. Stirista - CTV Canibus CTV\\/OTT #1252 not active.",
+    "timestamp": "2026-04-25T20:51:20.853398+00:00"
+  },
+  {
+    "inventory_id": 624,
+    "added": [
+      "avg.1news.io"
+    ],
+    "before_list": [],
+    "new_list": [
+      "avg.1news.io"
+    ],
+    "before_count": 0,
+    "after_count": 1,
+    "applied": false,
+    "status_code": 400,
+    "response": "{\"message\":\"Bad Request\",\"fields\":{\"inventory_dsp.white\":[\"Selected DSP cannot be selected because: Sharethrough - Airfind Video #737 not active. 33Across Airfind Video #738 not active. InMobi RON Dis",
+    "timestamp": "2026-04-25T20:51:21.247217+00:00"
+  },
+  {
+    "inventory_id": 1076,
+    "added": [
+      "asianetnews.com"
+    ],
+    "before_list": [],
+    "new_list": [
+      "asianetnews.com"
+    ],
+    "before_count": 0,
+    "after_count": 1,
+    "applied": true,
+    "status_code": 200,
+    "response": {
+      "inventory_id": 1076,
+      "title": "BlackNews.com",
+      "platform": "web",
+      "language": "EN",
+      "address": "blacknews.com",
+      "categories": [
+        "IAB1"
+      ],
+      "blocked_categories": [],
+      "status": 1,
+      "inventory_dsp[white]": [
+        1234,
+        1237,
+        1238,
+        1241,
+        1246
+      ],
+      "inventory_dsp[black]": [],
+      "ron_traffic": true,
+      "blocked_domains": [
+        "asianetnews.com"
+      ]
+    },
+    "timestamp": "2026-04-25T20:51:52.642892+00:00"
+  },
+  {
+    "inventory_id": 864,
+    "added": [
+      "direct.messletters.com"
+    ],
+    "before_list": [
+      "threatcleaner.info"
+    ],
+    "new_list": [
+      "threatcleaner.info",
+      "direct.messletters.com"
+    ],
+    "before_count": 1,
+    "after_count": 2,
+    "applied": false,
+    "status_code": 400,
+    "response": "{\"message\":\"Bad Request\",\"fields\":{\"inventory_dsp.white\":[\"Selected DSP cannot be selected because: Sharethrough - Adapex Display #643 not active. Sovrn Adapex Display #716 not active. Stirista - Disp",
+    "timestamp": "2026-04-25T20:51:53.085038+00:00"
+  },
+  {
+    "inventory_id": 1213,
+    "added": [
+      "B07MXL1Q2C"
+    ],
+    "before_list": [],
+    "new_list": [
+      "B07MXL1Q2C"
+    ],
+    "before_count": 0,
+    "after_count": 1,
+    "applied": false,
+    "status_code": 400,
+    "response": "{\"message\":\"Bad Request\",\"fields\":{\"inventory_dsp.white\":[\"Selected DSP cannot be selected because: Stirista - CTV Hispanic CTV\\/OTT #1251 not active. Stirista - CTV Canibus CTV\\/OTT #1252 not active.",
+    "timestamp": "2026-04-25T20:51:53.725707+00:00"
+  },
+  {
+    "inventory_id": 1453,
+    "added": [
+      "meaegi.com"
+    ],
+    "before_list": [],
+    "new_list": [
+      "meaegi.com"
+    ],
+    "before_count": 0,
+    "after_count": 1,
+    "applied": false,
+    "status_code": 400,
+    "response": "{\"message\":\"Bad Request\",\"fields\":{\"inventory_dsp.white\":[\"Selected DSP cannot be selected because: Illumin - RevIQ Display endpoint1 #871 not active. InMobi RevIQ - Video #1268 not active\"]}}",
+    "timestamp": "2026-04-25T20:51:54.104632+00:00"
+  },
+  {
+    "inventory_id": 624,
+    "added": [
+      "avg.1news.io"
+    ],
+    "before_blocked": [],
+    "before_whitelist": [
+      735,
+      736,
+      737,
+      738,
+      739,
+      1548,
+      1549,
+      1628,
+      1629,
+      1631,
+      1632,
+      1633,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      737,
+      738,
+      1631,
+      1632
+    ],
+    "after_blocked": [
+      "avg.1news.io"
+    ],
+    "applied": true,
+    "status_code": 200,
+    "response": {
+      "inventory_id": 624,
+      "title": "1news.io",
+      "platform": "web",
+      "language": "EN",
+      "address": "1news.io",
+      "categories": [
+        "IAB1"
+      ],
+      "blocked_categories": [],
+      "status": 1,
+      "inventory_dsp[white]": [
+        735,
+        736,
+        739,
+        1548,
+        1549,
+        1628,
+        1629,
+        1633,
+        1791
+      ],
+      "inventory_dsp[black]": [],
+      "ron_traffic": true,
+      "blocked_domains": [
+        "avg.1news.io"
+      ]
+    },
+    "timestamp": "2026-04-25T20:54:58.138195+00:00"
+  },
+  {
+    "inventory_id": 1076,
+    "added": [],
+    "applied": false,
+    "dry_run": false
+  },
+  {
+    "inventory_id": 804,
+    "added": [
+      "140474",
+      "545519333"
+    ],
+    "before_blocked": [],
+    "before_whitelist": [
+      1087,
+      1251,
+      1252,
+      1253,
+      1462,
+      1933,
+      1934,
+      1935
+    ],
+    "inactive_dsps_dropped": [
+      1251,
+      1252,
+      1253,
+      1462,
+      1933,
+      1934,
+      1935
+    ],
+    "after_blocked": [
+      "140474",
+      "545519333"
+    ],
+    "applied": true,
+    "status_code": 200,
+    "response": {
+      "inventory_id": 804,
+      "title": "Bidfuse CTV",
+      "platform": "ctv",
+      "language": "EN",
+      "address": "bidfuse.io",
+      "categories": [
+        "IAB1",
+        "IAB1-5",
+        "IAB1-7"
+      ],
+      "blocked_categories": [],
+      "status": 1,
+      "inventory_dsp[white]": [
+        1087
+      ],
+      "inventory_dsp[black]": [],
+      "ron_traffic": true,
+      "blocked_domains": [
+        "140474,545519333"
+      ]
+    },
+    "timestamp": "2026-04-25T20:55:24.156206+00:00"
+  },
+  {
+    "inventory_id": 864,
+    "added": [
+      "direct.messletters.com"
+    ],
+    "before_blocked": [
+      "threatcleaner.info"
+    ],
+    "before_whitelist": [
+      640,
+      641,
+      642,
+      643,
+      644,
+      716,
+      959,
+      1124,
+      1189,
+      1190,
+      1192,
+      1198,
+      1255,
+      1263,
+      1316,
+      1317,
+      1713,
+      1753,
+      1759,
+      1818,
+      1819,
+      1820,
+      1821,
+      1822,
+      1823,
+      1824,
+      1825,
+      1826,
+      1827,
+      1828,
+      1829,
+      1830,
+      1833,
+      1928,
+      1952
+    ],
+    "inactive_dsps_dropped": [
+      643,
+      716,
+      1198,
+      1255,
+      1317,
+      1713,
+      1753,
+      1828,
+      1829,
+      1833,
+      1928
+    ],
+    "after_blocked": [
+      "threatcleaner.info",
+      "direct.messletters.com"
+    ],
+    "applied": true,
+    "status_code": 200,
+    "response": {
+      "inventory_id": 864,
+      "title": "messletters.com",
+      "platform": "web",
+      "language": "EN",
+      "address": "messletters.com",
+      "categories": [
+        "IAB1"
+      ],
+      "blocked_categories": [],
+      "status": 1,
+      "inventory_dsp[white]": [
+        640,
+        641,
+        642,
+        644,
+        959,
+        1124,
+        1189,
+        1190,
+        1192,
+        1263,
+        1316,
+        1759,
+        1818,
+        1819,
+        1820,
+        1821,
+        1822,
+        1823,
+        1824,
+        1825,
+        1826,
+        1827,
+        1830,
+        1952
+      ],
+      "inventory_dsp[black]": [],
+      "ron_traffic": true,
+      "blocked_domains": [
+        "threatcleaner.info,direct.messletters.com"
+      ]
+    },
+    "timestamp": "2026-04-25T20:55:47.250518+00:00"
+  },
+  {
+    "inventory_id": 1213,
+    "added": [
+      "B07MXL1Q2C"
+    ],
+    "before_blocked": [],
+    "before_whitelist": [
+      1251,
+      1252,
+      1479,
+      1495,
+      1496,
+      1497,
+      1502
+    ],
+    "inactive_dsps_dropped": [
+      1251,
+      1252,
+      1479,
+      1495,
+      1496,
+      1497,
+      1502
+    ],
+    "after_blocked": [
+      "B07MXL1Q2C"
+    ],
+    "applied": true,
+    "status_code": 200,
+    "response": {
+      "inventory_id": 1213,
+      "title": "weny.com",
+      "platform": "ctv",
+      "language": "EN",
+      "address": "B07MXL1Q2C",
+      "categories": [
+        "IAB1",
+        "IAB1-5",
+        "IAB1-7"
+      ],
+      "blocked_categories": [],
+      "status": 1,
+      "inventory_dsp[white]": [],
+      "inventory_dsp[black]": [],
+      "ron_traffic": true,
+      "blocked_domains": [
+        "B07MXL1Q2C"
+      ]
+    },
+    "timestamp": "2026-04-25T20:55:58.442012+00:00"
+  },
+  {
+    "inventory_id": 1453,
+    "added": [],
+    "applied": false,
+    "dry_run": false
+  }
+]

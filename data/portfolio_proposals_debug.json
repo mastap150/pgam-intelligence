@@ -1,26 +1,32 @@
 {
-  "generated_utc": "2026-04-24T11:45:50.812886Z",
-  "multi_pub_demand_count": 69,
+  "generated_utc": "2026-04-25T11:45:50.201525Z",
+  "multi_pub_demand_count": 68,
   "rows": [
     {
       "demand_id": 52,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 955,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 893,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 975,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 16.5
+    },
+    {
+      "demand_id": 51,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 862,
       "verdict": "gated",
       "detail": "pub 290115372 in holdout:control"
-    },
-    {
-      "demand_id": 605,
-      "verdict": "gated",
-      "detail": "pub 290115318 in holdout:control"
-    },
-    {
-      "demand_id": 685,
-      "verdict": "gated",
-      "detail": "pub 290115319 in holdout:control"
-    },
-    {
-      "demand_id": 919,
-      "verdict": "gated",
-      "detail": "pub 290115268 in holdout:control"
     },
     {
       "demand_id": 670,
@@ -28,283 +34,13 @@
       "detail": "pub 290115326 in holdout:control"
     },
     {
-      "demand_id": 955,
-      "verdict": "gated",
-      "detail": "pub 290115270 in holdout:control"
-    },
-    {
-      "demand_id": 604,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 922,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 19.41
-    },
-    {
-      "demand_id": 50,
-      "verdict": "gated",
-      "detail": "pub 290115377 in holdout:control"
-    },
-    {
-      "demand_id": 51,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 42.11
-    },
-    {
-      "demand_id": 53,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.16
-    },
-    {
-      "demand_id": 673,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 1166,
-      "verdict": "gated",
-      "detail": "pub 290115318 in quarantine"
-    },
-    {
-      "demand_id": 54,
-      "verdict": "cooldown"
-    },
-    {
-      "demand_id": 918,
-      "verdict": "gated",
-      "detail": "pub 290115373 in holdout:control"
-    },
-    {
-      "demand_id": 879,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.04
-    },
-    {
-      "demand_id": 45,
-      "verdict": "cooldown"
-    },
-    {
-      "demand_id": 930,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 24.43
-    },
-    {
-      "demand_id": 970,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 15.25
-    },
-    {
-      "demand_id": 929,
-      "verdict": "gated",
-      "detail": "pub 290115313 in holdout:control"
-    },
-    {
-      "demand_id": 667,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 649,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.26
-    },
-    {
-      "demand_id": 788,
-      "verdict": "gated",
-      "detail": "pub 290115333 in holdout:control"
-    },
-    {
-      "demand_id": 692,
-      "verdict": "proposed",
-      "proposal_id": "prop_19dbf4f6a5d3636e5",
-      "breakdown": [
-        {
-          "pub_id": 290115340,
-          "pub_name": "BidMachine - In App Display & Video Reseller",
-          "cur_weekly_rev": 322.55,
-          "new_weekly_rev": 652.32,
-          "delta": 329.76
-        },
-        {
-          "pub_id": 290115319,
-          "pub_name": "BidMachine - In App Display & Video",
-          "cur_weekly_rev": 0.4,
-          "new_weekly_rev": 0.44,
-          "delta": 0.04
-        },
-        {
-          "pub_id": 290115318,
-          "pub_name": "BidMachine - In App Display & Video (WL)",
-          "cur_weekly_rev": 0.25,
-          "new_weekly_rev": 0.26,
-          "delta": 0.01
-        },
-        {
-          "pub_id": 290115333,
-          "pub_name": "BidMachine - In App Interstitial",
-          "cur_weekly_rev": 25.64,
-          "new_weekly_rev": 25.65,
-          "delta": 0.01
-        },
-        {
-          "pub_id": 290115332,
-          "pub_name": "BidMachine - In App Interstitial (WL)",
-          "cur_weekly_rev": 9.34,
-          "new_weekly_rev": 9.35,
-          "delta": 0.0
-        }
-      ]
-    },
-    {
-      "demand_id": 684,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.02
-    },
-    {
-      "demand_id": 956,
-      "verdict": "proposed",
-      "proposal_id": "prop_19dbf4f6bbacc119f",
-      "breakdown": [
-        {
-          "pub_id": 290115340,
-          "pub_name": "BidMachine - In App Display & Video Reseller",
-          "cur_weekly_rev": 0.16,
-          "new_weekly_rev": 93.75,
-          "delta": 93.58
-        },
-        {
-          "pub_id": 290115319,
-          "pub_name": "BidMachine - In App Display & Video",
-          "cur_weekly_rev": 1.0,
-          "new_weekly_rev": 1.14,
-          "delta": 0.14
-        },
-        {
-          "pub_id": 290115318,
-          "pub_name": "BidMachine - In App Display & Video (WL)",
-          "cur_weekly_rev": 0.58,
-          "new_weekly_rev": 0.7,
-          "delta": 0.12
-        },
-        {
-          "pub_id": 290115333,
-          "pub_name": "BidMachine - In App Interstitial",
-          "cur_weekly_rev": 16.65,
-          "new_weekly_rev": 16.66,
-          "delta": 0.01
-        },
-        {
-          "pub_id": 290115332,
-          "pub_name": "BidMachine - In App Interstitial (WL)",
-          "cur_weekly_rev": 6.32,
-          "new_weekly_rev": 6.32,
-          "delta": 0.0
-        }
-      ]
-    },
-    {
-      "demand_id": 686,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 40.62
-    },
-    {
-      "demand_id": 925,
-      "verdict": "gated",
-      "detail": "pub 290115268 in holdout:control"
-    },
-    {
-      "demand_id": 672,
-      "verdict": "gated",
-      "detail": "pub 290115340 in holdout:control"
-    },
-    {
-      "demand_id": 963,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 1.86
-    },
-    {
-      "demand_id": 665,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 926,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 893,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.29
-    },
-    {
-      "demand_id": 892,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.08
-    },
-    {
-      "demand_id": 931,
-      "verdict": "gated",
-      "detail": "pub 290115326 in holdout:control"
-    },
-    {
-      "demand_id": 8,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
       "demand_id": 47,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
     },
     {
-      "demand_id": 693,
-      "verdict": "proposed",
-      "proposal_id": "prop_19dbf4f728f558518",
-      "breakdown": [
-        {
-          "pub_id": 290115340,
-          "pub_name": "BidMachine - In App Display & Video Reseller",
-          "cur_weekly_rev": 348.83,
-          "new_weekly_rev": 694.02,
-          "delta": 345.19
-        },
-        {
-          "pub_id": 290115319,
-          "pub_name": "BidMachine - In App Display & Video",
-          "cur_weekly_rev": 0.44,
-          "new_weekly_rev": 0.45,
-          "delta": 0.01
-        },
-        {
-          "pub_id": 290115318,
-          "pub_name": "BidMachine - In App Display & Video (WL)",
-          "cur_weekly_rev": 0.25,
-          "new_weekly_rev": 0.26,
-          "delta": 0.01
-        },
-        {
-          "pub_id": 290115333,
-          "pub_name": "BidMachine - In App Interstitial",
-          "cur_weekly_rev": 33.87,
-          "new_weekly_rev": 33.87,
-          "delta": 0.0
-        },
-        {
-          "pub_id": 290115332,
-          "pub_name": "BidMachine - In App Interstitial (WL)",
-          "cur_weekly_rev": 11.39,
-          "new_weekly_rev": 11.4,
-          "delta": 0.0
-        }
-      ]
-    },
-    {
-      "demand_id": 921,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
+      "demand_id": 45,
+      "verdict": "cooldown"
     },
     {
       "demand_id": 671,
@@ -312,19 +48,21 @@
       "detail": "pub 290115333 in holdout:control"
     },
     {
-      "demand_id": 674,
-      "verdict": "gated",
-      "detail": "pub 290115333 in holdout:control"
+      "demand_id": 606,
+      "verdict": "cooldown"
     },
     {
-      "demand_id": 976,
+      "demand_id": 693,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 604,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 963,
       "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 22.8
-    },
-    {
-      "demand_id": 923,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
+      "weekly_rev": 1.86
     },
     {
       "demand_id": 877,
@@ -337,9 +75,43 @@
       "gross_lift": 0.0
     },
     {
-      "demand_id": 668,
+      "demand_id": 953,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 2.15
+    },
+    {
+      "demand_id": 50,
       "verdict": "gated",
-      "detail": "pub 290115334 in holdout:control"
+      "detail": "pub 290115377 in holdout:control"
+    },
+    {
+      "demand_id": 672,
+      "verdict": "gated",
+      "detail": "pub 290115340 in holdout:control"
+    },
+    {
+      "demand_id": 446,
+      "verdict": "gated",
+      "detail": "pub 290115270 in holdout:control"
+    },
+    {
+      "demand_id": 930,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 24.05
+    },
+    {
+      "demand_id": 684,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 0.03
+    },
+    {
+      "demand_id": 665,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 607,
+      "verdict": "cooldown"
     },
     {
       "demand_id": 958,
@@ -347,17 +119,212 @@
       "weekly_rev": 0.45
     },
     {
-      "demand_id": 607,
+      "demand_id": 669,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
     },
     {
-      "demand_id": 606,
+      "demand_id": 951,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 0.8
+    },
+    {
+      "demand_id": 1166,
       "verdict": "gated",
-      "detail": "pub 290115332 in holdout:control"
+      "detail": "pub 290115318 in quarantine"
+    },
+    {
+      "demand_id": 605,
+      "verdict": "gated",
+      "detail": "pub 290115318 in holdout:control"
+    },
+    {
+      "demand_id": 649,
+      "verdict": "lift_under_min",
+      "gross_lift": 4.78
+    },
+    {
+      "demand_id": 1147,
+      "verdict": "gated",
+      "detail": "pub 290115318 in holdout:control"
+    },
+    {
+      "demand_id": 686,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 50.69
+    },
+    {
+      "demand_id": 929,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 926,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 788,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 919,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 947,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 0.97
+    },
+    {
+      "demand_id": 54,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 956,
+      "verdict": "proposed",
+      "proposal_id": "prop_19dc475cb61e75f6e",
+      "breakdown": [
+        {
+          "pub_id": 290115340,
+          "pub_name": "BidMachine - In App Display & Video Reseller",
+          "cur_weekly_rev": 0.04,
+          "new_weekly_rev": 93.61,
+          "delta": 93.57
+        },
+        {
+          "pub_id": 290115319,
+          "pub_name": "BidMachine - In App Display & Video",
+          "cur_weekly_rev": 0.67,
+          "new_weekly_rev": 0.79,
+          "delta": 0.12
+        },
+        {
+          "pub_id": 290115318,
+          "pub_name": "BidMachine - In App Display & Video (WL)",
+          "cur_weekly_rev": 0.41,
+          "new_weekly_rev": 0.5,
+          "delta": 0.09
+        },
+        {
+          "pub_id": 290115333,
+          "pub_name": "BidMachine - In App Interstitial",
+          "cur_weekly_rev": 15.95,
+          "new_weekly_rev": 15.96,
+          "delta": 0.01
+        },
+        {
+          "pub_id": 290115332,
+          "pub_name": "BidMachine - In App Interstitial (WL)",
+          "cur_weekly_rev": 6.05,
+          "new_weekly_rev": 6.05,
+          "delta": 0.0
+        }
+      ]
+    },
+    {
+      "demand_id": 959,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 0.29
+    },
+    {
+      "demand_id": 8,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 1165,
+      "verdict": "gated",
+      "detail": "pub 290115318 in quarantine"
+    },
+    {
+      "demand_id": 692,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 674,
+      "verdict": "gated",
+      "detail": "pub 290115333 in holdout:control"
+    },
+    {
+      "demand_id": 922,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 19.15
+    },
+    {
+      "demand_id": 53,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 0.17
+    },
+    {
+      "demand_id": 918,
+      "verdict": "gated",
+      "detail": "pub 290115373 in holdout:control"
+    },
+    {
+      "demand_id": 892,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 1148,
+      "verdict": "gated",
+      "detail": "pub 290115318 in quarantine"
+    },
+    {
+      "demand_id": 954,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 921,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 673,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 49,
+      "verdict": "gated",
+      "detail": "pub 290115268 in holdout:control"
+    },
+    {
+      "demand_id": 876,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 685,
+      "verdict": "gated",
+      "detail": "pub 290115319 in holdout:control"
+    },
+    {
+      "demand_id": 931,
+      "verdict": "gated",
+      "detail": "pub 290115326 in holdout:control"
+    },
+    {
+      "demand_id": 920,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 970,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 10.65
     },
     {
       "demand_id": 650,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 952,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 2.46
+    },
+    {
+      "demand_id": 667,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
     },
@@ -367,94 +334,34 @@
       "weekly_rev": 1.65
     },
     {
-      "demand_id": 952,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 2.46
-    },
-    {
-      "demand_id": 959,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.29
-    },
-    {
-      "demand_id": 951,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.8
-    },
-    {
-      "demand_id": 669,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 954,
-      "verdict": "gated",
-      "detail": "pub 290115377 in holdout:control"
-    },
-    {
-      "demand_id": 1165,
-      "verdict": "gated",
-      "detail": "pub 290115318 in quarantine"
-    },
-    {
-      "demand_id": 920,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 947,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.97
-    },
-    {
-      "demand_id": 446,
-      "verdict": "gated",
-      "detail": "pub 290115270 in holdout:control"
-    },
-    {
-      "demand_id": 876,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 975,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 18.35
-    },
-    {
-      "demand_id": 862,
-      "verdict": "gated",
-      "detail": "pub 290115372 in holdout:control"
-    },
-    {
-      "demand_id": 953,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 2.15
-    },
-    {
-      "demand_id": 1147,
-      "verdict": "gated",
-      "detail": "pub 290115318 in holdout:control"
-    },
-    {
-      "demand_id": 863,
-      "verdict": "gated",
-      "detail": "pub 290115364 in holdout:control"
-    },
-    {
       "demand_id": 878,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
     },
     {
-      "demand_id": 1148,
-      "verdict": "gated",
-      "detail": "pub 290115318 in quarantine"
+      "demand_id": 976,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 19.49
     },
     {
-      "demand_id": 49,
+      "demand_id": 668,
       "verdict": "gated",
-      "detail": "pub 290115268 in holdout:control"
+      "detail": "pub 290115334 in holdout:control"
+    },
+    {
+      "demand_id": 923,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 879,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.04
+    },
+    {
+      "demand_id": 863,
+      "verdict": "gated",
+      "detail": "pub 290115364 in holdout:control"
     }
   ]
 }

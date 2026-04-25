@@ -142,5 +142,101 @@
       "demand_runs_on_n_pubs": 5,
       "multi_pub_acknowledged": false
     }
+  },
+  "prop_19dc4754e948215ac": {
+    "posted_utc": "2026-04-25T12:00:24.696631+00:00",
+    "snapshot": {
+      "id": "prop_19dc4754e948215ac",
+      "ts_utc": "2026-04-25T11:45:15.415712Z",
+      "publisher_id": 290115340,
+      "publisher_name": "BidMachine - In App Display & Video Reseller",
+      "demand_id": 693,
+      "demand_name": "Xandr - BidMachine oRTB 2.6 9 Dots",
+      "current_floor": 2.0,
+      "proposed_floor": 1.5,
+      "expected_weekly_net_lift": 161.93,
+      "expected_weekly_gross_lift": 372.26,
+      "ci_low_net": 104.18,
+      "ci_high_net": 217.11,
+      "margin_pct": 43.5,
+      "current_weekly_rev": 96.14,
+      "proposed_weekly_rev": 468.4,
+      "confidence": "high",
+      "reason": "lower floor \u2014 current clears below it; 173 hourly samples, 14d",
+      "demand_runs_on_n_pubs": 8,
+      "multi_pub_acknowledged": false
+    }
+  },
+  "prop_19dc475923dcf0c35": {
+    "posted_utc": "2026-04-25T12:00:24.718673+00:00",
+    "snapshot": {
+      "id": "prop_19dc475923dcf0c35",
+      "ts_utc": "2026-04-25T11:45:32.733558Z",
+      "publisher_id": 290115340,
+      "publisher_name": "BidMachine - In App Display & Video Reseller",
+      "demand_id": 692,
+      "demand_name": "Xandr - BidMachine 9 Dots",
+      "current_floor": 2.0,
+      "proposed_floor": 1.5,
+      "expected_weekly_net_lift": 154.64,
+      "expected_weekly_gross_lift": 355.49,
+      "ci_low_net": 108.31,
+      "ci_high_net": 206.09,
+      "margin_pct": 43.5,
+      "current_weekly_rev": 91.3,
+      "proposed_weekly_rev": 446.79,
+      "confidence": "high",
+      "reason": "lower floor \u2014 current clears below it; 173 hourly samples, 14d",
+      "demand_runs_on_n_pubs": 5,
+      "multi_pub_acknowledged": false
+    }
+  },
+  "prop_19dc475cb61e75f6e": {
+    "posted_utc": "2026-04-25T12:00:24.718829+00:00",
+    "snapshot": {
+      "id": "prop_19dc475cb61e75f6e",
+      "ts_utc": "2026-04-25T11:45:47.361456Z",
+      "publisher_id": 0,
+      "publisher_name": "[portfolio: 5 pubs]",
+      "demand_id": 956,
+      "demand_name": "Xandr - BidMachine oRTB 2.6 9 Dots US West",
+      "current_floor": 2.0,
+      "proposed_floor": 0.0,
+      "expected_weekly_net_lift": 38.55,
+      "expected_weekly_gross_lift": 93.78,
+      "ci_low_net": 30.28,
+      "ci_high_net": 47.82,
+      "margin_pct": 41.1,
+      "current_weekly_rev": 23.13,
+      "proposed_weekly_rev": 116.91,
+      "confidence": "high",
+      "reason": "portfolio across 5 pubs; F* chosen from 12-point grid, per-pub loss cap 20% held",
+      "demand_runs_on_n_pubs": 5,
+      "multi_pub_acknowledged": true
+    }
+  },
+  "prop_19dc475b4dbf31256": {
+    "posted_utc": "2026-04-25T12:00:24.718846+00:00",
+    "snapshot": {
+      "id": "prop_19dc475b4dbf31256",
+      "ts_utc": "2026-04-25T11:45:41.595479Z",
+      "publisher_id": 290115340,
+      "publisher_name": "BidMachine - In App Display & Video Reseller",
+      "demand_id": 956,
+      "demand_name": "Xandr - BidMachine oRTB 2.6 9 Dots US West",
+      "current_floor": 2.0,
+      "proposed_floor": 1.5,
+      "expected_weekly_net_lift": 12.02,
+      "expected_weekly_gross_lift": 27.63,
+      "ci_low_net": 7.34,
+      "ci_high_net": 17.34,
+      "margin_pct": 43.5,
+      "current_weekly_rev": 0.04,
+      "proposed_weekly_rev": 27.67,
+      "confidence": "high",
+      "reason": "lower floor \u2014 current clears below it; 213 hourly samples, 14d",
+      "demand_runs_on_n_pubs": 5,
+      "multi_pub_acknowledged": false
+    }
   }
 }

@@ -66,9 +66,33 @@ LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
                         "logs", "brand_safety_sweep_log.json")
 
 
+import re as _re
+_INACTIVE_RE = _re.compile(r"#(\d+)\s+not active", _re.IGNORECASE)
+
+
+def _build_form(inv: dict, blocked_cats: list[str],
+                drop_dsp_ids: set[int] = None) -> list[tuple[str,str]]:
+    drop_dsp_ids = drop_dsp_ids or set()
+    form = [("inventory_id", str(inv["inventory_id"]))]
+    for c in blocked_cats:
+        form.append(("blocked_categories[]", c))
+    for pid in (inv.get("inventory_dsp[white]") or []):
+        if int(pid) in drop_dsp_ids: continue
+        form.append(("inventory_dsp[white][]", str(pid)))
+    for pid in (inv.get("inventory_dsp[black]") or []):
+        if int(pid) in drop_dsp_ids: continue
+        form.append(("inventory_dsp[black][]", str(pid)))
+    for cat in (inv.get("categories") or []):
+        form.append(("categories[]", str(cat)))
+    for dom in (inv.get("blocked_domains") or []):
+        form.append(("blocked_domains[]", dom))
+    return form
+
+
 def _write_inventory(inv_id: int, blocked_cats: list[str], dry_run: bool) -> dict:
     inv = tbm.get_inventory(inv_id)
     existing = list(inv.get("blocked_categories") or [])
+    existing_white = list(inv.get("inventory_dsp[white]") or [])
     added    = [c for c in blocked_cats if c not in existing]
     if not added:
         return {"inventory_id": inv_id, "added": [], "applied": False, "no_op": True}
@@ -79,26 +103,32 @@ def _write_inventory(inv_id: int, blocked_cats: list[str], dry_run: bool) -> dic
                 "applied": False, "dry_run": True}
 
     token = tbm._get_token()
-    form = [("inventory_id", str(inv_id))]
-    for c in new_list:
-        form.append(("blocked_categories[]", c))
-    # Preserve everything else
-    for pid in (inv.get("inventory_dsp[white]") or []):
-        form.append(("inventory_dsp[white][]", str(pid)))
-    for pid in (inv.get("inventory_dsp[black]") or []):
-        form.append(("inventory_dsp[black][]", str(pid)))
-    for cat in (inv.get("categories") or []):
-        form.append(("categories[]", str(cat)))
-    for dom in (inv.get("blocked_domains") or []):
-        form.append(("blocked_domains[]", dom))
+    url = f"{TB_BASE}/{token}/edit_inventory"
 
-    r = requests.post(f"{TB_BASE}/{token}/edit_inventory", data=form,
+    # Attempt 1: full write with all DSPs preserved
+    form = _build_form(inv, new_list)
+    r = requests.post(url, data=form,
                       headers={"Content-Type":"application/x-www-form-urlencoded"},
                       timeout=60)
     ok = r.ok and "html" not in r.headers.get("content-type","")
+    body_text = r.text if not ok else ""
+    inactive_dropped: set[int] = set()
+
+    # Attempt 2 (retry with inactive DSPs filtered out)
+    if not ok and "not active" in body_text:
+        inactive_dropped = {int(m) for m in _INACTIVE_RE.findall(body_text)}
+        if inactive_dropped:
+            form2 = _build_form(inv, new_list, drop_dsp_ids=inactive_dropped)
+            r2 = requests.post(url, data=form2,
+                               headers={"Content-Type":"application/x-www-form-urlencoded"},
+                               timeout=60)
+            ok = r2.ok and "html" not in r2.headers.get("content-type","")
+            r = r2
+
     return {"inventory_id": inv_id, "title": inv.get("title"),
-            "before_categories": existing, "added": added,
-            "after_categories": new_list, "applied": ok,
+            "before_categories": existing, "before_whitelist": existing_white,
+            "inactive_dsps_dropped": sorted(inactive_dropped),
+            "added": added, "after_categories": new_list, "applied": ok,
             "status_code": r.status_code,
             "timestamp": datetime.now(timezone.utc).isoformat()}
 

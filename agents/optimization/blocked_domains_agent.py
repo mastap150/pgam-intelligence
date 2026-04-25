@@ -138,10 +138,38 @@ def _classify(rows: list[dict]) -> dict:
     return dict(per_inv)
 
 
+import re
+_INACTIVE_RE = re.compile(r"#(\d+)\s+not active", re.IGNORECASE)
+
+
+def _build_form(inv: dict, new_blocked_domains: list[str],
+                drop_dsp_ids: set[int] = None) -> list[tuple[str,str]]:
+    drop_dsp_ids = drop_dsp_ids or set()
+    form = [("inventory_id", str(inv["inventory_id"]))]
+    for d in new_blocked_domains:
+        form.append(("blocked_domains[]", d))
+    for pid in (inv.get("inventory_dsp[white]") or []):
+        if int(pid) in drop_dsp_ids: continue
+        form.append(("inventory_dsp[white][]", str(pid)))
+    for pid in (inv.get("inventory_dsp[black]") or []):
+        if int(pid) in drop_dsp_ids: continue
+        form.append(("inventory_dsp[black][]", str(pid)))
+    for cat in (inv.get("categories") or []):
+        form.append(("categories[]", str(cat)))
+    for cat in (inv.get("blocked_categories") or []):
+        form.append(("blocked_categories[]", str(cat)))
+    return form
+
+
 def _apply_blocks(inv_id: int, domains_to_add: list[str], dry_run: bool) -> dict:
-    """Add domains to the inventory's blocked_domains list."""
+    """Add domains to the inventory's blocked_domains list.
+
+    Handles TB's quirk where inactive DSP IDs in the whitelist cause
+    edit_inventory to reject the entire write. On rejection, parse the
+    error, drop the inactive IDs, and retry."""
     inv = tbm.get_inventory(inv_id)
     existing = list(inv.get("blocked_domains") or [])
+    existing_white = list(inv.get("inventory_dsp[white]") or [])
     new_list = list(existing)
     added = []
     for d in domains_to_add:
@@ -156,33 +184,42 @@ def _apply_blocks(inv_id: int, domains_to_add: list[str], dry_run: bool) -> dict
                 "before_count": len(existing), "after_count": len(new_list),
                 "applied": False, "dry_run": True}
 
-    # Write via edit_inventory with blocked_domains[] form-array encoding
     token = tbm._get_token()
-    form = [("inventory_id", str(inv_id))]
-    for d in new_list:
-        form.append(("blocked_domains[]", d))
-    # Preserve critical fields that edit_inventory might reset
-    for pid in (inv.get("inventory_dsp[white]") or []):
-        form.append(("inventory_dsp[white][]", str(pid)))
-    for pid in (inv.get("inventory_dsp[black]") or []):
-        form.append(("inventory_dsp[black][]", str(pid)))
-    for cat in (inv.get("categories") or []):
-        form.append(("categories[]", str(cat)))
-    for cat in (inv.get("blocked_categories") or []):
-        form.append(("blocked_categories[]", str(cat)))
-
     url = f"{TB_BASE}/{token}/edit_inventory"
+
+    # Attempt 1: full write with all DSPs preserved
+    form = _build_form(inv, new_list)
     r = requests.post(url, data=form,
                       headers={"Content-Type": "application/x-www-form-urlencoded"},
                       timeout=60)
     ok = r.ok and "html" not in r.headers.get("content-type", "")
+    body_text = r.text if not ok else ""
+    inactive_dropped: set[int] = set()
+
+    # Attempt 2 (only if first failed with "not active"): drop inactive DSPs and retry
+    if not ok and "not active" in body_text:
+        inactive_dropped = {int(m) for m in _INACTIVE_RE.findall(body_text)}
+        if inactive_dropped:
+            # Filter the existing whitelist to only valid DSPs (preserve
+            # legit ones, drop the inactive flagged by API)
+            form2 = _build_form(inv, new_list, drop_dsp_ids=inactive_dropped)
+            r2 = requests.post(url, data=form2,
+                               headers={"Content-Type": "application/x-www-form-urlencoded"},
+                               timeout=60)
+            ok = r2.ok and "html" not in r2.headers.get("content-type", "")
+            r = r2
+
     return {
-        "inventory_id":   inv_id, "added": added,
-        "before_list":    existing, "new_list": new_list,
-        "before_count":   len(existing), "after_count": len(new_list),
-        "applied":        ok, "status_code": r.status_code,
-        "response":       (r.json() if ok else r.text[:200]),
-        "timestamp":      datetime.now(timezone.utc).isoformat(),
+        "inventory_id":         inv_id,
+        "added":                added,
+        "before_blocked":       existing,
+        "before_whitelist":     existing_white,
+        "inactive_dsps_dropped": sorted(inactive_dropped),
+        "after_blocked":        new_list,
+        "applied":              ok,
+        "status_code":          r.status_code,
+        "response":             (r.json() if ok else r.text[:300]),
+        "timestamp":            datetime.now(timezone.utc).isoformat(),
     }
 
 

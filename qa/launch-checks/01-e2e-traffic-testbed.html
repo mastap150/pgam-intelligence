@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<!--
+  E2E real-traffic testbed for pgamdirect Prebid.js adapter.
+
+  USAGE:
+    1. Replace ORG_ID + PLACEMENT_REF below with values from a real
+       active publisher row (run wizard to create, copy from
+       ActivationComplete screen).
+    2. Host this file on any HTTPS origin (Vercel, GitHub Pages, etc.)
+       — local file:// will not work because secure-context CORS.
+    3. Open in Chrome, open DevTools → Console + Network
+    4. Watch the Network tab for:
+       - GET prebid.js          (adapter source loaded)
+       - POST rtb.pgammedia.com/rtb/v1/auction
+                                (your auction request — should be 200/204)
+       - GET ad served (or no ad if 204)
+    5. Then check app.pgammedia.com partner-scoped reporting and
+       verify bid_requests counter ticked by 1 per pageview.
+
+  WHAT THIS VALIDATES:
+    - Adapter loads cleanly in Prebid.js
+    - orgId + placementId reach the bidder edge as imp.ext.pgam.orgId
+      and imp.tagid respectively
+    - Request is signed/authenticated correctly
+    - DSP fanout returns at least one bid (or clean nobid)
+    - Reporting tile increments
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>PGAM Direct — E2E Traffic Testbed</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; max-width: 900px; margin: 0 auto; }
+    .ad-slot { border: 2px dashed #ccc; padding: 16px; margin: 16px 0; min-height: 280px; }
+    .ad-slot-label { font-family: monospace; color: #666; font-size: 12px; margin-bottom: 8px; }
+    pre { background: #f4f4f4; padding: 12px; overflow: auto; font-size: 12px; }
+    .ok { color: green; }
+    .err { color: red; }
+  </style>
+</head>
+<body>
+  <h1>PGAM Direct — Prebid.js E2E Testbed</h1>
+  <p>Open DevTools (Network + Console). Each pageview triggers <strong>2 ad-unit auctions</strong>. Reload to generate more traffic.</p>
+
+  <h2>Test config</h2>
+  <pre id="config"></pre>
+
+  <h2>Banner slot — 300×250 / 728×90</h2>
+  <div class="ad-slot">
+    <div class="ad-slot-label">code: banner-test, placementId: <span id="banner-pid">CONFIGURE</span></div>
+    <div id="banner-test" style="width:300px;height:250px;"></div>
+  </div>
+
+  <h2>Video slot — preroll 640×480</h2>
+  <div class="ad-slot">
+    <div class="ad-slot-label">code: video-test, placementId: <span id="video-pid">CONFIGURE</span></div>
+    <div id="video-test"></div>
+  </div>
+
+  <h2>Auction events log</h2>
+  <pre id="log"></pre>
+
+  <!-- Prebid.js — pin to 11.8.0+ which ships pgamdirect adapter -->
+  <script async src="https://cdn.jsdelivr.net/npm/prebid.js@11.8.0/build/dist/prebid.js"></script>
+  <script>
+    // ============================================================
+    // EDIT THESE TWO BEFORE EACH TEST RUN
+    // Get these from the wizard's ActivationComplete screen, or from
+    // /admin/publishers/<id> → Integration card.
+    // ============================================================
+    var PGAM_ORG_ID = 'REPLACE-WITH-org_id';   // e.g. "demo-partner-prebid-client"
+    var BANNER_PLACEMENT_REF = 'REPLACE-WITH-banner-placement_ref';
+    var VIDEO_PLACEMENT_REF  = 'REPLACE-WITH-video-placement_ref';
+    // ============================================================
+
+    document.getElementById('config').textContent = JSON.stringify({
+      orgId: PGAM_ORG_ID,
+      bannerPlacement: BANNER_PLACEMENT_REF,
+      videoPlacement: VIDEO_PLACEMENT_REF,
+      prebidVersion: '11.8.0+',
+      endpoint: 'https://rtb.pgammedia.com/rtb/v1/auction'
+    }, null, 2);
+    document.getElementById('banner-pid').textContent = BANNER_PLACEMENT_REF;
+    document.getElementById('video-pid').textContent  = VIDEO_PLACEMENT_REF;
+
+    function log(msg, cls) {
+      var el = document.getElementById('log');
+      var line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = '[' + new Date().toISOString() + '] ' + msg;
+      el.appendChild(line);
+      console.log(msg);
+    }
+
+    var pbjs = window.pbjs = window.pbjs || {};
+    pbjs.que = pbjs.que || [];
+
+    var adUnits = [{
+      code: 'banner-test',
+      mediaTypes: { banner: { sizes: [[300,250],[728,90]] } },
+      bids: [{
+        bidder: 'pgamdirect',
+        params: {
+          orgId: PGAM_ORG_ID,
+          placementId: BANNER_PLACEMENT_REF
+        }
+      }]
+    }, {
+      code: 'video-test',
+      mediaTypes: {
+        video: {
+          playerSize: [640, 480],
+          mimes: ['video/mp4'],
+          protocols: [2,3,5,6],
+          plcmt: 1,
+          skip: 1
+        }
+      },
+      bids: [{
+        bidder: 'pgamdirect',
+        params: {
+          orgId: PGAM_ORG_ID,
+          placementId: VIDEO_PLACEMENT_REF
+        }
+      }]
+    }];
+
+    pbjs.que.push(function() {
+      pbjs.setConfig({ debug: true, bidderTimeout: 1500 });
+      pbjs.addAdUnits(adUnits);
+
+      pbjs.onEvent('auctionInit', function(e) { log('auctionInit: ' + e.auctionId); });
+      pbjs.onEvent('bidRequested', function(b) { log('bidRequested: ' + b.bidderCode + ' for ' + b.bids.length + ' units'); });
+      pbjs.onEvent('bidResponse', function(b) { log('bidResponse: ' + b.bidder + ' cpm=$' + b.cpm + ' currency=' + b.currency, 'ok'); });
+      pbjs.onEvent('noBid', function(b) { log('noBid: ' + b.bidder + ' for ' + b.adUnitCode, 'err'); });
+      pbjs.onEvent('bidWon', function(b) { log('bidWon: ' + b.bidder + ' cpm=$' + b.cpm + ' on ' + b.adUnitCode, 'ok'); });
+      pbjs.onEvent('auctionEnd', function(e) { log('auctionEnd: ' + e.bidsReceived.length + ' bids received'); });
+
+      pbjs.requestBids({
+        timeout: 1500,
+        bidsBackHandler: function() {
+          log('bidsBackHandler — rendering ads');
+          pbjs.setTargetingForGPTAsync && pbjs.setTargetingForGPTAsync();
+          // Render winning bid manually if no ad server
+          var bids = pbjs.getHighestCpmBids('banner-test');
+          if (bids.length) {
+            var ad = bids[0];
+            log('Rendering banner: ' + ad.bidder + ' @ $' + ad.cpm);
+            // pbjs.renderAd would normally be called by the ad server.
+            // For the testbed we skip to avoid creative cross-origin issues.
+          } else {
+            log('No banner bids returned', 'err');
+          }
+        }
+      });
+    });
+
+    log('testbed loaded — Prebid will auto-init when async script lands');
+  </script>
+</body>
+</html>
