@@ -1,0 +1,7340 @@
+[
+  {
+    "inventory_id": 1,
+    "title": "Test",
+    "before_categories": [],
+    "before_whitelist": [
+      6,
+      9,
+      14,
+      19
+    ],
+    "inactive_dsps_dropped": [
+      6,
+      14,
+      19
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:32.515908+00:00"
+  },
+  {
+    "inventory_id": 689,
+    "title": "multif",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:32.900434+00:00"
+  },
+  {
+    "inventory_id": 694,
+    "title": "Test #2",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:33.282879+00:00"
+  },
+  {
+    "inventory_id": 795,
+    "title": "Test CTV",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:33.672881+00:00"
+  },
+  {
+    "inventory_id": 1508,
+    "title": "inv1",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:34.057156+00:00"
+  },
+  {
+    "inventory_id": 11,
+    "title": "Aniview Test",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:34.451159+00:00"
+  },
+  {
+    "inventory_id": 1302,
+    "title": "Test",
+    "before_categories": [],
+    "before_whitelist": [
+      1343
+    ],
+    "inactive_dsps_dropped": [
+      1343
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:35.066007+00:00"
+  },
+  {
+    "inventory_id": 2,
+    "title": "Heavy.com",
+    "before_categories": [],
+    "before_whitelist": [
+      6,
+      7,
+      12,
+      176,
+      177
+    ],
+    "inactive_dsps_dropped": [
+      6,
+      7,
+      12
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:35.652460+00:00"
+  },
+  {
+    "inventory_id": 3,
+    "title": "Publir Display",
+    "before_categories": [],
+    "before_whitelist": [
+      358,
+      927,
+      928
+    ],
+    "inactive_dsps_dropped": [
+      927,
+      928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:36.245657+00:00"
+  },
+  {
+    "inventory_id": 454,
+    "title": "DailyCaller.com",
+    "before_categories": [],
+    "before_whitelist": [
+      4,
+      358,
+      383,
+      927,
+      928,
+      1124,
+      1125,
+      1271,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1638
+    ],
+    "inactive_dsps_dropped": [
+      4,
+      383,
+      927,
+      928,
+      1631,
+      1632,
+      1638
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:36.851110+00:00"
+  },
+  {
+    "inventory_id": 455,
+    "title": "Bizpacreview",
+    "before_categories": [],
+    "before_whitelist": [
+      358,
+      927,
+      928
+    ],
+    "inactive_dsps_dropped": [
+      927,
+      928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:37.703496+00:00"
+  },
+  {
+    "inventory_id": 556,
+    "title": "Publir RON",
+    "before_categories": [],
+    "before_whitelist": [
+      358,
+      1234,
+      1866,
+      1987
+    ],
+    "inactive_dsps_dropped": [
+      1866,
+      1987
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:38.273988+00:00"
+  },
+  {
+    "inventory_id": 4,
+    "title": "Times Of India",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:38.687033+00:00"
+  },
+  {
+    "inventory_id": 5,
+    "title": "Total Pro Sports",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:39.068916+00:00"
+  },
+  {
+    "inventory_id": 6,
+    "title": "Cox Media Group",
+    "before_categories": [],
+    "before_whitelist": [
+      35,
+      269,
+      312,
+      1791,
+      2211
+    ],
+    "inactive_dsps_dropped": [
+      312
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:39.706060+00:00"
+  },
+  {
+    "inventory_id": 996,
+    "title": "CMG RON",
+    "before_categories": [],
+    "before_whitelist": [
+      22,
+      24,
+      35,
+      312,
+      386
+    ],
+    "inactive_dsps_dropped": [
+      22,
+      24,
+      312,
+      386
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:40.276255+00:00"
+  },
+  {
+    "inventory_id": 7,
+    "title": "Bright Mountain Media",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:40.999151+00:00"
+  },
+  {
+    "inventory_id": 8,
+    "title": "Venatus",
+    "before_categories": [],
+    "before_whitelist": [
+      27,
+      28,
+      29,
+      30
+    ],
+    "inactive_dsps_dropped": [
+      27,
+      28,
+      29,
+      30
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:41.590143+00:00"
+  },
+  {
+    "inventory_id": 462,
+    "title": "Traderie.com",
+    "before_categories": [],
+    "before_whitelist": [
+      29,
+      438,
+      439,
+      441,
+      467
+    ],
+    "inactive_dsps_dropped": [
+      29,
+      438,
+      439,
+      441,
+      467
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:42.196555+00:00"
+  },
+  {
+    "inventory_id": 496,
+    "title": "duo.op.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      27,
+      28,
+      439,
+      440,
+      467,
+      540,
+      541,
+      542
+    ],
+    "inactive_dsps_dropped": [
+      27,
+      28,
+      439,
+      440,
+      467,
+      540,
+      541,
+      542
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:42.780314+00:00"
+  },
+  {
+    "inventory_id": 552,
+    "title": "wzstats.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      29,
+      273,
+      438,
+      441,
+      467
+    ],
+    "inactive_dsps_dropped": [
+      29,
+      273,
+      438,
+      441,
+      467
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:43.387504+00:00"
+  },
+  {
+    "inventory_id": 712,
+    "title": "Futbin.com",
+    "before_categories": [],
+    "before_whitelist": [
+      29,
+      438,
+      439,
+      441
+    ],
+    "inactive_dsps_dropped": [
+      29,
+      438,
+      439,
+      441
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:44.002616+00:00"
+  },
+  {
+    "inventory_id": 713,
+    "title": "op.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      27,
+      28,
+      29,
+      438,
+      439,
+      441,
+      467,
+      542
+    ],
+    "inactive_dsps_dropped": [
+      27,
+      28,
+      29,
+      438,
+      439,
+      441,
+      467,
+      542
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:44.584360+00:00"
+  },
+  {
+    "inventory_id": 714,
+    "title": "aternos.org",
+    "before_categories": [],
+    "before_whitelist": [
+      27,
+      29,
+      441
+    ],
+    "inactive_dsps_dropped": [
+      27,
+      29,
+      441
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:45.155308+00:00"
+  },
+  {
+    "inventory_id": 10,
+    "title": "Snackable",
+    "before_categories": [],
+    "before_whitelist": [
+      37,
+      1234,
+      1237,
+      1238,
+      1240,
+      1241,
+      1246,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      1240,
+      1631
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:45.905328+00:00"
+  },
+  {
+    "inventory_id": 1076,
+    "title": "BlackNews.com",
+    "before_categories": [],
+    "before_whitelist": [
+      1234,
+      1237,
+      1238,
+      1241,
+      1246
+    ],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:46.337930+00:00"
+  },
+  {
+    "inventory_id": 9,
+    "title": "ClutchPoints",
+    "before_categories": [],
+    "before_whitelist": [
+      841,
+      874,
+      1266,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:47.365814+00:00"
+  },
+  {
+    "inventory_id": 438,
+    "title": "cavsnation.com",
+    "before_categories": [],
+    "before_whitelist": [
+      841,
+      874,
+      1266,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:47.789071+00:00"
+  },
+  {
+    "inventory_id": 439,
+    "title": "thehbcupulse.com",
+    "before_categories": [],
+    "before_whitelist": [
+      841,
+      874,
+      1266,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:48.194827+00:00"
+  },
+  {
+    "inventory_id": 440,
+    "title": "geeksofcolor.com",
+    "before_categories": [],
+    "before_whitelist": [
+      841,
+      874,
+      1266,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:48.611532+00:00"
+  },
+  {
+    "inventory_id": 12,
+    "title": "Barstool Sports",
+    "before_categories": [
+      "IAB8-5",
+      "IAB8-18",
+      "IAB9-7",
+      "IAB11-4",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "before_whitelist": [
+      244,
+      248,
+      940,
+      1124,
+      1198,
+      1234,
+      1270,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      940,
+      1198,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9"
+    ],
+    "after_categories": [
+      "IAB8-5",
+      "IAB8-18",
+      "IAB9-7",
+      "IAB11-4",
+      "IAB24",
+      "IAB25",
+      "IAB26",
+      "IAB7-39",
+      "IAB9-9"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:49.263778+00:00"
+  },
+  {
+    "inventory_id": 13,
+    "title": "Altura - VT.co",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      346,
+      348,
+      753,
+      1124,
+      1198,
+      1234,
+      1270,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      346,
+      753,
+      1198,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:49.892221+00:00"
+  },
+  {
+    "inventory_id": 19,
+    "title": "Altura - TwistedFood",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      389,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      389,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:50.519310+00:00"
+  },
+  {
+    "inventory_id": 20,
+    "title": "Altura - AltChar",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      389,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      389,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:51.132667+00:00"
+  },
+  {
+    "inventory_id": 27,
+    "title": "Altura - Pubity.com",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      273,
+      346,
+      348,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      273,
+      346,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:51.731795+00:00"
+  },
+  {
+    "inventory_id": 28,
+    "title": "Altura - SportManual",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      273,
+      346,
+      348,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      273,
+      346,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:52.355122+00:00"
+  },
+  {
+    "inventory_id": 29,
+    "title": "Altura - SuperCarBlondie",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      346,
+      348,
+      753,
+      1124,
+      1125,
+      1234,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1638,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      346,
+      753,
+      1631,
+      1632,
+      1638
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:52.968464+00:00"
+  },
+  {
+    "inventory_id": 62,
+    "title": "The Ambient",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:53.561556+00:00"
+  },
+  {
+    "inventory_id": 63,
+    "title": "GRM Daily",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:54.195152+00:00"
+  },
+  {
+    "inventory_id": 404,
+    "title": "shoobs.com",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:54.826554+00:00"
+  },
+  {
+    "inventory_id": 405,
+    "title": "onefootball.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:55.412547+00:00"
+  },
+  {
+    "inventory_id": 411,
+    "title": "reed.co.uk",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:55.989315+00:00"
+  },
+  {
+    "inventory_id": 412,
+    "title": "getsweatgo.com",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:56.700848+00:00"
+  },
+  {
+    "inventory_id": 413,
+    "title": "dazeddigital.com",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1234,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      346,
+      389,
+      753,
+      754
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:57.313963+00:00"
+  },
+  {
+    "inventory_id": 463,
+    "title": "wareable.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:57.908721+00:00"
+  },
+  {
+    "inventory_id": 464,
+    "title": "joe.co.uk",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      1124,
+      1198,
+      1234,
+      1270,
+      1336,
+      1341,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      1198,
+      1336,
+      1341,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:58.537160+00:00"
+  },
+  {
+    "inventory_id": 629,
+    "title": "joe.ie",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1124,
+      1125,
+      1234,
+      1270,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1638,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1631,
+      1632,
+      1638
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:59.128726+00:00"
+  },
+  {
+    "inventory_id": 630,
+    "title": "sportsjoe.ie",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1234,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:57:59.751637+00:00"
+  },
+  {
+    "inventory_id": 631,
+    "title": "her.ie",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1336,
+      1341,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1336,
+      1341,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:00.605402+00:00"
+  },
+  {
+    "inventory_id": 632,
+    "title": "lovindublin.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:01.240991+00:00"
+  },
+  {
+    "inventory_id": 633,
+    "title": "herfamily.ie",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:01.859741+00:00"
+  },
+  {
+    "inventory_id": 634,
+    "title": "lovin.ie",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:02.779344+00:00"
+  },
+  {
+    "inventory_id": 635,
+    "title": "poker.org",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:03.427548+00:00"
+  },
+  {
+    "inventory_id": 636,
+    "title": "dogs.ie",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      1124,
+      1198,
+      1234,
+      1270,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      1198,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:04.057488+00:00"
+  },
+  {
+    "inventory_id": 637,
+    "title": "clickasnap.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      389,
+      753,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      389,
+      753,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:04.675945+00:00"
+  },
+  {
+    "inventory_id": 792,
+    "title": "theartnewspaper.com",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      346,
+      348,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      346,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:05.262401+00:00"
+  },
+  {
+    "inventory_id": 793,
+    "title": "anothermag.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      346,
+      348,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:05.832723+00:00"
+  },
+  {
+    "inventory_id": 875,
+    "title": "thelondoneconomic.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      753,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      753,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:06.461420+00:00"
+  },
+  {
+    "inventory_id": 926,
+    "title": "thejc.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      753,
+      754,
+      1124,
+      1198,
+      1234,
+      1270,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      753,
+      754,
+      1198,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:07.082636+00:00"
+  },
+  {
+    "inventory_id": 927,
+    "title": "thmanc.com",
+    "before_categories": [],
+    "before_whitelist": [
+      62,
+      100,
+      346,
+      348,
+      754,
+      1336,
+      1341,
+      1675,
+      1676,
+      1677
+    ],
+    "inactive_dsps_dropped": [
+      62,
+      346,
+      754,
+      1336,
+      1341
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:07.674103+00:00"
+  },
+  {
+    "inventory_id": 1791,
+    "title": "worldmanual.co.uk",
+    "before_categories": [],
+    "before_whitelist": [
+      100,
+      348
+    ],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:08.090198+00:00"
+  },
+  {
+    "inventory_id": 17,
+    "title": "Mom Junction",
+    "before_categories": [],
+    "before_whitelist": [
+      59,
+      60,
+      61,
+      88
+    ],
+    "inactive_dsps_dropped": [
+      59,
+      60,
+      61,
+      88
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:08.665211+00:00"
+  },
+  {
+    "inventory_id": 18,
+    "title": "Style Craze",
+    "before_categories": [],
+    "before_whitelist": [
+      59,
+      88
+    ],
+    "inactive_dsps_dropped": [
+      59,
+      88
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:09.215082+00:00"
+  },
+  {
+    "inventory_id": 14,
+    "title": "Minute Media",
+    "before_categories": [],
+    "before_whitelist": [
+      46,
+      47,
+      48,
+      639,
+      647,
+      664,
+      828,
+      829,
+      861,
+      862,
+      895,
+      896,
+      1051,
+      1060,
+      1061,
+      1111
+    ],
+    "inactive_dsps_dropped": [
+      47,
+      48,
+      639,
+      647,
+      664,
+      828,
+      861,
+      895,
+      896,
+      1051,
+      1060,
+      1061,
+      1111
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:09.807560+00:00"
+  },
+  {
+    "inventory_id": 15,
+    "title": "Shinez",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      292,
+      826,
+      827,
+      1124,
+      1198,
+      1264,
+      1270,
+      1548,
+      1549,
+      1633,
+      1675,
+      1676,
+      1677,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      826,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:10.425057+00:00"
+  },
+  {
+    "inventory_id": 70,
+    "title": "sportzbonanza.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      292,
+      1256,
+      1264,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      1256,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:11.028228+00:00"
+  },
+  {
+    "inventory_id": 71,
+    "title": "travelerdreams.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      1256,
+      1264,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      1256,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:11.636429+00:00"
+  },
+  {
+    "inventory_id": 72,
+    "title": "yoursportspot.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:12.511909+00:00"
+  },
+  {
+    "inventory_id": 73,
+    "title": "yourdailysportfix.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:13.131035+00:00"
+  },
+  {
+    "inventory_id": 74,
+    "title": "foodisinthehouse.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      292,
+      396,
+      1256,
+      1264,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      396,
+      1256,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:13.716948+00:00"
+  },
+  {
+    "inventory_id": 75,
+    "title": "everydaymonkey.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:14.340002+00:00"
+  },
+  {
+    "inventory_id": 76,
+    "title": "luxandlush.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:14.909719+00:00"
+  },
+  {
+    "inventory_id": 77,
+    "title": "falafelandcaviar.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:15.529820+00:00"
+  },
+  {
+    "inventory_id": 78,
+    "title": "thedancingcucumber.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:16.139714+00:00"
+  },
+  {
+    "inventory_id": 79,
+    "title": "theprimarymarket.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:16.689922+00:00"
+  },
+  {
+    "inventory_id": 80,
+    "title": "mydailymagazine.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:17.255076+00:00"
+  },
+  {
+    "inventory_id": 81,
+    "title": "graduatez.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:17.854612+00:00"
+  },
+  {
+    "inventory_id": 82,
+    "title": "travelermaster.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      292,
+      1256,
+      1264,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      1256,
+      1631,
+      1632
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:18.466660+00:00"
+  },
+  {
+    "inventory_id": 83,
+    "title": "omgcheckitout.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:19.042613+00:00"
+  },
+  {
+    "inventory_id": 84,
+    "title": "toppoptoday.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:19.632631+00:00"
+  },
+  {
+    "inventory_id": 85,
+    "title": "everydaykoala.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:21.187255+00:00"
+  },
+  {
+    "inventory_id": 86,
+    "title": "ourfunnylittlesite.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:21.773441+00:00"
+  },
+  {
+    "inventory_id": 87,
+    "title": "hotpoptoday.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:22.372435+00:00"
+  },
+  {
+    "inventory_id": 88,
+    "title": "simbaly.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:22.928477+00:00"
+  },
+  {
+    "inventory_id": 89,
+    "title": "5dwallpaper.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:23.483673+00:00"
+  },
+  {
+    "inventory_id": 90,
+    "title": "parentztalk.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:24.153424+00:00"
+  },
+  {
+    "inventory_id": 91,
+    "title": "tworeddots.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      292,
+      826,
+      1256,
+      1264,
+      1316,
+      1317,
+      1548,
+      1549,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      826,
+      1256,
+      1317,
+      1631
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:25.077849+00:00"
+  },
+  {
+    "inventory_id": 92,
+    "title": "cooking4all.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:25.633514+00:00"
+  },
+  {
+    "inventory_id": 93,
+    "title": "penguinmd.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:27.224188+00:00"
+  },
+  {
+    "inventory_id": 94,
+    "title": "historychronicle.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:27.857679+00:00"
+  },
+  {
+    "inventory_id": 95,
+    "title": "thestarsworldwide.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:28.465884+00:00"
+  },
+  {
+    "inventory_id": 96,
+    "title": "bobshideout.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:29.043284+00:00"
+  },
+  {
+    "inventory_id": 97,
+    "title": "gingerize.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:29.642805+00:00"
+  },
+  {
+    "inventory_id": 98,
+    "title": "beautifultrendstoday.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:30.233572+00:00"
+  },
+  {
+    "inventory_id": 99,
+    "title": "mobispirit.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:30.818392+00:00"
+  },
+  {
+    "inventory_id": 100,
+    "title": "tettybetty.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:31.426263+00:00"
+  },
+  {
+    "inventory_id": 101,
+    "title": "watchingtvnow.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:32.079064+00:00"
+  },
+  {
+    "inventory_id": 102,
+    "title": "playjunkie.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:32.673414+00:00"
+  },
+  {
+    "inventory_id": 103,
+    "title": "ourfashiontrends.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:33.252648+00:00"
+  },
+  {
+    "inventory_id": 104,
+    "title": "styleourlife.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      292,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:33.856715+00:00"
+  },
+  {
+    "inventory_id": 105,
+    "title": "entertainmentforus.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      257,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:34.453451+00:00"
+  },
+  {
+    "inventory_id": 106,
+    "title": "wallpaperdata.com",
+    "before_categories": [],
+    "before_whitelist": [
+      56,
+      57,
+      308,
+      1256,
+      1264,
+      1277,
+      1285,
+      1293
+    ],
+    "inactive_dsps_dropped": [
+      57,
+      308,
+      1256,
+      1277,
+      1285,
+      1293
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:35.085892+00:00"
+  },
+  {
+    "inventory_id": 16,
+    "title": "Investing Channel",
+    "before_categories": [],
+    "before_whitelist": [
+      58,
+      87,
+      313
+    ],
+    "inactive_dsps_dropped": [
+      58,
+      87,
+      313
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:35.716443+00:00"
+  },
+  {
+    "inventory_id": 21,
+    "title": "GeeksForGeeks",
+    "before_categories": [],
+    "before_whitelist": [
+      64,
+      65,
+      66,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1627,
+      1628,
+      1629,
+      1630,
+      1633,
+      1636,
+      1671,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1753,
+      1799,
+      1928,
+      2126
+    ],
+    "inactive_dsps_dropped": [
+      1198,
+      1715,
+      1753,
+      1928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:36.397520+00:00"
+  },
+  {
+    "inventory_id": 22,
+    "title": "Black Enterprise",
+    "before_categories": [],
+    "before_whitelist": [
+      69,
+      70,
+      1234,
+      1317,
+      1343,
+      1548,
+      1549,
+      1553,
+      1556,
+      1557,
+      1558,
+      1628,
+      1629,
+      1630,
+      1632,
+      1633,
+      1637,
+      1672,
+      1673,
+      1692,
+      1695,
+      1696,
+      1708,
+      1709,
+      1710
+    ],
+    "inactive_dsps_dropped": [
+      69,
+      70,
+      1317,
+      1343,
+      1632,
+      1637,
+      1673,
+      1696,
+      1708,
+      1709
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:36.992257+00:00"
+  },
+  {
+    "inventory_id": 1211,
+    "title": "standardnews.com",
+    "before_categories": [],
+    "before_whitelist": [
+      1234,
+      1343,
+      1548,
+      1549,
+      1553,
+      1627,
+      1628,
+      1629,
+      1630,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1673,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1696,
+      1703,
+      1704,
+      1706,
+      1707
+    ],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 403,
+    "timestamp": "2026-04-25T20:58:37.372167+00:00"
+  },
+  {
+    "inventory_id": 23,
+    "title": "SmartyAds",
+    "before_categories": [
+      "IAB1"
+    ],
+    "before_whitelist": [
+      74,
+      75,
+      76,
+      77
+    ],
+    "inactive_dsps_dropped": [
+      74,
+      75,
+      76,
+      77
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB1",
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:39.191622+00:00"
+  },
+  {
+    "inventory_id": 24,
+    "title": "SmartyAds",
+    "before_categories": [
+      "IAB1"
+    ],
+    "before_whitelist": [
+      74,
+      75,
+      76,
+      77
+    ],
+    "inactive_dsps_dropped": [
+      74,
+      75,
+      76,
+      77
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB1",
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:39.770314+00:00"
+  },
+  {
+    "inventory_id": 25,
+    "title": "Crate Network",
+    "before_categories": [],
+    "before_whitelist": [
+      78,
+      79
+    ],
+    "inactive_dsps_dropped": [
+      79
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:40.380215+00:00"
+  },
+  {
+    "inventory_id": 26,
+    "title": "Waev.co",
+    "before_categories": [],
+    "before_whitelist": [
+      98,
+      99
+    ],
+    "inactive_dsps_dropped": [
+      98,
+      99
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:40.979475+00:00"
+  },
+  {
+    "inventory_id": 30,
+    "title": "SportingNews",
+    "before_categories": [],
+    "before_whitelist": [
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      108,
+      205
+    ],
+    "inactive_dsps_dropped": [
+      101,
+      102,
+      103,
+      104,
+      105,
+      106,
+      108,
+      205
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:41.558546+00:00"
+  },
+  {
+    "inventory_id": 31,
+    "title": "RevIQ - Blitz.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      480,
+      838,
+      839,
+      870,
+      871,
+      1268
+    ],
+    "inactive_dsps_dropped": [
+      480,
+      871,
+      1268
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:42.147698+00:00"
+  },
+  {
+    "inventory_id": 32,
+    "title": "RevIQ Champion.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      273,
+      283,
+      838,
+      839,
+      870,
+      871,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      273,
+      283,
+      871,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:42.751269+00:00"
+  },
+  {
+    "inventory_id": 33,
+    "title": "RevIQ- Dyno.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      273,
+      283,
+      309,
+      480,
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1234,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      273,
+      283,
+      309,
+      480,
+      871,
+      1198,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:43.348467+00:00"
+  },
+  {
+    "inventory_id": 64,
+    "title": "OP.GG",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      480,
+      838,
+      839,
+      871,
+      1124,
+      1198,
+      1234,
+      1268,
+      1548,
+      1549,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1753,
+      1791,
+      1799,
+      1817,
+      1860,
+      1866,
+      1878,
+      1928,
+      1929,
+      1931,
+      1979,
+      1987,
+      2119,
+      2121,
+      2128,
+      2129,
+      2130,
+      2197,
+      2242,
+      2283
+    ],
+    "inactive_dsps_dropped": [
+      480,
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1715,
+      1753,
+      1860,
+      1866,
+      1878,
+      1928,
+      1931,
+      1979,
+      1987,
+      2119,
+      2121,
+      2197,
+      2242
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:43.972166+00:00"
+  },
+  {
+    "inventory_id": 114,
+    "title": "Tomato.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      480,
+      838,
+      839,
+      870,
+      871,
+      1234,
+      1268,
+      1791,
+      1866
+    ],
+    "inactive_dsps_dropped": [
+      480,
+      871,
+      1268,
+      1866
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:44.579860+00:00"
+  },
+  {
+    "inventory_id": 115,
+    "title": "Labs.Sydney",
+    "before_categories": [],
+    "before_whitelist": [
+      113,
+      208,
+      283,
+      382,
+      838,
+      839,
+      870,
+      871,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      382,
+      871,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:45.178190+00:00"
+  },
+  {
+    "inventory_id": 128,
+    "title": "RevIQ - Crazed.net",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      273,
+      283,
+      838,
+      839,
+      870,
+      871,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      273,
+      283,
+      871,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:45.750891+00:00"
+  },
+  {
+    "inventory_id": 129,
+    "title": "Raider.io",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      382,
+      480,
+      838,
+      839,
+      870,
+      871,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      382,
+      480,
+      871,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:46.360700+00:00"
+  },
+  {
+    "inventory_id": 437,
+    "title": "strats.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      113,
+      208,
+      283,
+      382,
+      480,
+      838,
+      839,
+      870,
+      871,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      382,
+      480,
+      871,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:46.954926+00:00"
+  },
+  {
+    "inventory_id": 444,
+    "title": "Modrinth",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      309,
+      382,
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1234,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      309,
+      382,
+      871,
+      1198,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:47.536851+00:00"
+  },
+  {
+    "inventory_id": 467,
+    "title": "lol.ps",
+    "before_categories": [],
+    "before_whitelist": [
+      113,
+      208,
+      283,
+      382,
+      480,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      382,
+      480,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:48.136260+00:00"
+  },
+  {
+    "inventory_id": 471,
+    "title": "deeplol.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      113,
+      208,
+      283,
+      309,
+      382,
+      480,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      309,
+      382,
+      480,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:48.730375+00:00"
+  },
+  {
+    "inventory_id": 472,
+    "title": "gorani.kr",
+    "before_categories": [],
+    "before_whitelist": [
+      283,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      283,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:49.315136+00:00"
+  },
+  {
+    "inventory_id": 473,
+    "title": "fcquiz.app",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      382,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      382,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:49.955795+00:00"
+  },
+  {
+    "inventory_id": 474,
+    "title": "streema.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      283,
+      382,
+      480,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      382,
+      480,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:50.556187+00:00"
+  },
+  {
+    "inventory_id": 475,
+    "title": "mypapercraft.com",
+    "before_categories": [],
+    "before_whitelist": [
+      283,
+      382,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      283,
+      382,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:51.155555+00:00"
+  },
+  {
+    "inventory_id": 476,
+    "title": "tfthandbook.com",
+    "before_categories": [],
+    "before_whitelist": [
+      208,
+      283,
+      1268,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      1268,
+      1631,
+      1632,
+      1715,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:51.734652+00:00"
+  },
+  {
+    "inventory_id": 477,
+    "title": "gamepix.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      838,
+      839,
+      1234,
+      1268,
+      1712,
+      1791
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:52.317772+00:00"
+  },
+  {
+    "inventory_id": 550,
+    "title": "metatft.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      480,
+      838,
+      839,
+      1124,
+      1198,
+      1234,
+      1268,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1753,
+      1789,
+      1799,
+      1817,
+      1860,
+      1866,
+      1878,
+      1928,
+      1979,
+      1980,
+      1987,
+      2128,
+      2197,
+      2242
+    ],
+    "inactive_dsps_dropped": [
+      480,
+      1198,
+      1268,
+      1631,
+      1632,
+      1715,
+      1753,
+      1789,
+      1860,
+      1866,
+      1878,
+      1928,
+      1979,
+      1980,
+      1987,
+      2197,
+      2242
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:52.955460+00:00"
+  },
+  {
+    "inventory_id": 690,
+    "title": "dpm.lol",
+    "before_categories": [],
+    "before_whitelist": [
+      838,
+      839,
+      1234,
+      1268,
+      1866
+    ],
+    "inactive_dsps_dropped": [
+      1268,
+      1866
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:53.536513+00:00"
+  },
+  {
+    "inventory_id": 691,
+    "title": "tactics.tools",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      382,
+      480,
+      838,
+      839,
+      1268,
+      1712
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      382,
+      480,
+      1268,
+      1712
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:54.133458+00:00"
+  },
+  {
+    "inventory_id": 774,
+    "title": "Modrinth",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      839,
+      1124,
+      1198,
+      1234,
+      1268,
+      1876
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      1198,
+      1268,
+      1876
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:54.730735+00:00"
+  },
+  {
+    "inventory_id": 873,
+    "title": "traderie.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      283,
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1234,
+      1268,
+      1548,
+      1549,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1675,
+      1676,
+      1677,
+      1692,
+      1753,
+      1791,
+      1860,
+      1866
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1753,
+      1860,
+      1866
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:55.329912+00:00"
+  },
+  {
+    "inventory_id": 1272,
+    "title": "Wowhead.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1234,
+      1548,
+      1549,
+      1553,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1788,
+      1789,
+      1791,
+      1799,
+      1817,
+      1860,
+      1866,
+      1878,
+      1928,
+      2128,
+      2187,
+      2197
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1637,
+      1753,
+      1788,
+      1789,
+      1860,
+      1866,
+      1878,
+      1928,
+      2197
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:56.071954+00:00"
+  },
+  {
+    "inventory_id": 1318,
+    "title": "tetr.io",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      839,
+      871,
+      1124,
+      1198,
+      1234,
+      1548,
+      1549,
+      1553,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817,
+      1866
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198,
+      1631,
+      1632,
+      1802,
+      1866
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:56.630466+00:00"
+  },
+  {
+    "inventory_id": 1319,
+    "title": "systemrequirementslab.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      839,
+      871,
+      1124,
+      1198,
+      1234,
+      1268,
+      1548,
+      1549,
+      1553,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1789,
+      1799,
+      1802,
+      1817,
+      1866
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1715,
+      1789,
+      1802,
+      1866
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:57.254505+00:00"
+  },
+  {
+    "inventory_id": 1320,
+    "title": "stats.cc",
+    "before_categories": [],
+    "before_whitelist": [
+      113,
+      208,
+      283,
+      480,
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1799,
+      1802,
+      1817,
+      1876
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      480,
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1715,
+      1802,
+      1876
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:57.845052+00:00"
+  },
+  {
+    "inventory_id": 1321,
+    "title": "routinehub.co",
+    "before_categories": [],
+    "before_whitelist": [
+      838,
+      839,
+      1124,
+      1198,
+      1234,
+      1268,
+      1548,
+      1549,
+      1553,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817,
+      1866
+    ],
+    "inactive_dsps_dropped": [
+      1198,
+      1268,
+      1631,
+      1632,
+      1802,
+      1866
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:58.448406+00:00"
+  },
+  {
+    "inventory_id": 1322,
+    "title": "howbazaar.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      283,
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1695,
+      1711,
+      1789,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      283,
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1789,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:59.085659+00:00"
+  },
+  {
+    "inventory_id": 1323,
+    "title": "supervive-stats.com",
+    "before_categories": [],
+    "before_whitelist": [
+      113,
+      208,
+      283,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817,
+      1876
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      1198,
+      1631,
+      1632,
+      1802,
+      1876
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:58:59.710325+00:00"
+  },
+  {
+    "inventory_id": 1324,
+    "title": "rivalskins.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817,
+      1876
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1637,
+      1802,
+      1876
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:00.333196+00:00"
+  },
+  {
+    "inventory_id": 1325,
+    "title": "myfolsom.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      480,
+      839,
+      871,
+      1124,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1715,
+      1799,
+      1802,
+      1817,
+      1876
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      480,
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1637,
+      1715,
+      1802,
+      1876
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:00.971824+00:00"
+  },
+  {
+    "inventory_id": 1326,
+    "title": "games.op.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      113,
+      208,
+      283,
+      480,
+      839,
+      871,
+      1124,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817,
+      1876
+    ],
+    "inactive_dsps_dropped": [
+      113,
+      208,
+      283,
+      480,
+      871,
+      1198,
+      1268,
+      1631,
+      1632,
+      1637,
+      1802,
+      1876
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:01.556216+00:00"
+  },
+  {
+    "inventory_id": 1327,
+    "title": "hearthstonetopdecks.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      480,
+      1124,
+      1198,
+      1234,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1695,
+      1711,
+      1715,
+      1802,
+      1817,
+      1866,
+      1931,
+      2119,
+      2121,
+      2128,
+      2129,
+      2130
+    ],
+    "inactive_dsps_dropped": [
+      480,
+      1198,
+      1631,
+      1632,
+      1715,
+      1802,
+      1866,
+      1931,
+      2119,
+      2121
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:02.210639+00:00"
+  },
+  {
+    "inventory_id": 1347,
+    "title": "ruliweb.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      283,
+      1124,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      1198,
+      1268,
+      1631,
+      1632,
+      1637,
+      1753,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:02.854298+00:00"
+  },
+  {
+    "inventory_id": 1348,
+    "title": "amvgg.com",
+    "before_categories": [],
+    "before_whitelist": [
+      839,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1817,
+      1928,
+      1979
+    ],
+    "inactive_dsps_dropped": [
+      1198,
+      1631,
+      1632,
+      1753,
+      1928,
+      1979
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:03.522031+00:00"
+  },
+  {
+    "inventory_id": 1349,
+    "title": "growagardengame.com",
+    "before_categories": [],
+    "before_whitelist": [
+      208,
+      283,
+      1124,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      1198,
+      1268,
+      1631,
+      1632,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:04.114352+00:00"
+  },
+  {
+    "inventory_id": 1350,
+    "title": "overlayedapps.com",
+    "before_categories": [],
+    "before_whitelist": [
+      208,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:04.731424+00:00"
+  },
+  {
+    "inventory_id": 1357,
+    "title": "etoland.co.kr",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1628,
+      1629,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1637,
+      1753,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:05.334805+00:00"
+  },
+  {
+    "inventory_id": 1370,
+    "title": "playdecodex.com",
+    "before_categories": [],
+    "before_whitelist": [
+      208,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:05.918928+00:00"
+  },
+  {
+    "inventory_id": 1371,
+    "title": "playwordslide.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      208,
+      283,
+      839,
+      871
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:06.522532+00:00"
+  },
+  {
+    "inventory_id": 1372,
+    "title": "playcineline.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1636,
+      1637,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1637,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:07.090005+00:00"
+  },
+  {
+    "inventory_id": 1373,
+    "title": "cancelwise.com",
+    "before_categories": [],
+    "before_whitelist": [
+      208,
+      283,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1631,
+      1632,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      208,
+      283,
+      871,
+      1198,
+      1631,
+      1632,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:07.732245+00:00"
+  },
+  {
+    "inventory_id": 1374,
+    "title": "genshin-builds.com",
+    "before_categories": [],
+    "before_whitelist": [
+      839,
+      871,
+      1124,
+      1198,
+      1234,
+      1548,
+      1549,
+      1553,
+      1627,
+      1630,
+      1631,
+      1632,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1802,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198,
+      1631,
+      1632,
+      1802
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:08.755249+00:00"
+  },
+  {
+    "inventory_id": 1450,
+    "title": "pastes.io",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:09.339560+00:00"
+  },
+  {
+    "inventory_id": 1451,
+    "title": "fellsims.com",
+    "before_categories": [],
+    "before_whitelist": [
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:09.920891+00:00"
+  },
+  {
+    "inventory_id": 1452,
+    "title": "iloa.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      838,
+      839,
+      870,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:10.561612+00:00"
+  },
+  {
+    "inventory_id": 1453,
+    "title": "meaegi.com",
+    "before_categories": [],
+    "before_whitelist": [],
+    "inactive_dsps_dropped": [],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:10.965206+00:00"
+  },
+  {
+    "inventory_id": 1477,
+    "title": "en.yna.co.kr",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      839,
+      870,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1928
+    ],
+    "inactive_dsps_dropped": [
+      1198,
+      1753,
+      1928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:11.548537+00:00"
+  },
+  {
+    "inventory_id": 1478,
+    "title": "paint-3d.com",
+    "before_categories": [],
+    "before_whitelist": [
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:12.178984+00:00"
+  },
+  {
+    "inventory_id": 1479,
+    "title": "ovoplay.net",
+    "before_categories": [],
+    "before_whitelist": [
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1799,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:12.790200+00:00"
+  },
+  {
+    "inventory_id": 1480,
+    "title": "bloxgamers.com",
+    "before_categories": [],
+    "before_whitelist": [
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1695,
+      1711,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:13.364230+00:00"
+  },
+  {
+    "inventory_id": 1481,
+    "title": "cn.yna.co.kr",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198,
+      1753
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:13.996697+00:00"
+  },
+  {
+    "inventory_id": 1482,
+    "title": "jp.yna.co.kr",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      839,
+      871,
+      1124,
+      1198,
+      1548,
+      1549,
+      1553,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1817,
+      1928
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198,
+      1753,
+      1928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:14.608596+00:00"
+  },
+  {
+    "inventory_id": 1569,
+    "title": "talentbuilds.com",
+    "before_categories": [],
+    "before_whitelist": [
+      838,
+      839,
+      870,
+      871,
+      1198,
+      1268,
+      1548,
+      1549,
+      1553,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1759,
+      1799,
+      1817
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1198,
+      1268
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:15.238802+00:00"
+  },
+  {
+    "inventory_id": 1570,
+    "title": "sheepesports.com",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      838,
+      839,
+      870,
+      871,
+      1268,
+      1548,
+      1549,
+      1553,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1817,
+      1928
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1268,
+      1753,
+      1928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:15.805641+00:00"
+  },
+  {
+    "inventory_id": 1571,
+    "title": "prosettings.gg",
+    "before_categories": [],
+    "before_whitelist": [
+      111,
+      838,
+      839,
+      870,
+      871,
+      1234,
+      1268,
+      1548,
+      1549,
+      1553,
+      1627,
+      1630,
+      1633,
+      1636,
+      1671,
+      1672,
+      1675,
+      1676,
+      1677,
+      1692,
+      1695,
+      1711,
+      1753,
+      1799,
+      1817,
+      1928
+    ],
+    "inactive_dsps_dropped": [
+      871,
+      1268,
+      1753,
+      1928
+    ],
+    "added": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "after_categories": [
+      "IAB7-39",
+      "IAB9-9",
+      "IAB24",
+      "IAB25",
+      "IAB26"
+    ],
+    "applied": false,
+    "status_code": 400,
+    "timestamp": "2026-04-25T20:59:16.484878+00:00"
+  }
+]

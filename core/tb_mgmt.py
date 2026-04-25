@@ -95,8 +95,13 @@ def _url(endpoint: str) -> str:
 
 
 def _get(endpoint: str, params: dict | None = None) -> list | dict:
-    """Authenticated GET — token lives in the URL path."""
+    """Authenticated GET — token lives in the URL path. Auto-refreshes on 401."""
     resp = requests.get(_url(endpoint), params=params or {}, timeout=30)
+    if resp.status_code == 401:
+        # Token went bad mid-session. Force a fresh one and retry once.
+        from core.tb_api import force_refresh_token
+        force_refresh_token()
+        resp = requests.get(_url(endpoint), params=params or {}, timeout=30)
     if not resp.ok:
         raise RuntimeError(
             f"TB mgmt GET {endpoint} failed: HTTP {resp.status_code} — {resp.text[:300]}"
@@ -124,11 +129,18 @@ def _post(endpoint: str, payload: dict) -> dict:
             form[k] = v
 
     resp = requests.post(
-        _url(endpoint),
-        data=form,
+        _url(endpoint), data=form,
         headers={"Content-Type": "application/x-www-form-urlencoded"},
         timeout=30,
     )
+    if resp.status_code == 401:
+        from core.tb_api import force_refresh_token
+        force_refresh_token()
+        resp = requests.post(
+            _url(endpoint), data=form,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=30,
+        )
     if not resp.ok:
         raise RuntimeError(
             f"TB mgmt POST {endpoint} failed: HTTP {resp.status_code} — {resp.text[:300]}"

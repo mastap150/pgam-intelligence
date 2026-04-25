@@ -160,6 +160,16 @@ def get_token() -> str:
     return _create_token()
 
 
+def force_refresh_token() -> str:
+    """Drop cache and create a fresh token. Use after a 401."""
+    try:
+        if os.path.exists(TOKEN_CACHE):
+            os.remove(TOKEN_CACHE)
+    except OSError:
+        pass
+    return _create_token()
+
+
 # ---------------------------------------------------------------------------
 # Normalise TB response rows into LL-compatible field names
 # ---------------------------------------------------------------------------
