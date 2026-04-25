@@ -255,8 +255,19 @@ def setup_schedule():
     schedule.every().day.at("08:15").do(_run("margin_health",          margin_health))       # daily — alert if any pub <30% margin
     # Pacing deviation — every 2h, fires Slack alert if revenue pace dips >20% below baseline
     schedule.every(2).hours.do(_run("pacing_deviation",                pacing_deviation))
-    # Contract floor sentry — daily safety net for 9 Dots + future contract minimums
-    schedule.every().day.at("06:00").do(_run("contract_floor_sentry",  contract_floor_sentry))
+    # Contract floor sentry — hourly safety net for 9 Dots + future contract
+    # minimums. Bumped from daily 06:00 ET → hourly 2026-04-25 to shrink the
+    # window between a UI-side / archived-and-recreated floor drop and
+    # restoration (was up to 24h, now ≤1h). Slack alerts on every restoration
+    # (deduped daily per-demand); P1 escalation if same demand restored ≥2×
+    # in trailing 7d (= upstream regression signal).
+    schedule.every().hour.at(":15").do(_run("contract_floor_sentry",  contract_floor_sentry))
+    # ads.txt monitor — daily at 09:00 ET. Verifies PGAM-owned seats remain
+    # DIRECT on each O&O site (destination.com, boxingnews.com); pages P1 on
+    # missing/wrong-relationship lines, P2 on fetch errors, P3 (deduped daily)
+    # on unfamiliar PGAM-domain DIRECT entries.
+    adstxt_monitor = _import("agents.alerts.adstxt_monitor")
+    schedule.every().day.at("09:00").do(_run("adstxt_monitor",       adstxt_monitor))
     # Auto-wire qualifying demand-gaps — runs daily after demand_gap Monday refresh
     # (demand_gap runs weekly Monday; re-running this agent daily is idempotent:
     # it skips anything already wired and caps new wirings per run.)
