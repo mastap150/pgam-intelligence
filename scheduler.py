@@ -150,6 +150,7 @@ def setup_schedule():
     placement_status_agent = _import("agents.optimization.placement_status_agent")
     placement_autocreate   = _import("agents.optimization.placement_autocreate_agent")
     blocked_domains_agent  = _import("agents.optimization.blocked_domains_agent")
+    revenue_guardian       = _import("agents.optimization.revenue_guardian")
     tb_floor_nudge_agent   = _import("agents.optimization.tb_floor_nudge")
     optimal_price_sweep_weekly = _import("scripts.optimal_price_sweep")
     train_floor_model      = _import("scripts.train_floor_model")
@@ -306,6 +307,7 @@ def setup_schedule():
     schedule.every().day.at("10:45").do(_run("placement_autocreate",   placement_autocreate))    # daily — auto-create for allowlisted inventories
     schedule.every().day.at("11:00").do(_run("blocked_domains_agent",  blocked_domains_agent))   # daily — junk domain hygiene (dry-run by default)
     schedule.every(4).hours.do(        _run("tb_floor_nudge",          tb_floor_nudge_agent))     # every 4h — +10% nudge w/ auto-rollback
+    schedule.every(4).hours.do(        _run("revenue_guardian",        revenue_guardian))         # every 4h — verify+act with rollback safety net
     schedule.every().monday.at("06:00").do(_run("optimal_price_weekly", optimal_price_sweep_weekly))  # Mon — catch any new placements
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))
