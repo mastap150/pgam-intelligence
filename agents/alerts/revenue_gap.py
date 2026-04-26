@@ -511,6 +511,31 @@ def run():
             f"_Claude memo unavailable: {exc}_"
         )
 
+    # ── Reality-check the memo against live LL state ─────────────────────────
+    # If the upstream data fed to the LLM doesn't match current state,
+    # replace the memo with a "data stale" alert. Prevents misleading prose
+    # like the 2026-04-26 BidMachine $3.25 floor recommendation that pointed
+    # at floors which didn't exist.
+    try:
+        from intelligence.advisory_verifier import verify_or_replace
+        memo, was_replaced, issues = verify_or_replace(
+            memo,
+            source_data={
+                "pub_gaps": pub_gaps,
+                "dp_trends": dp_trends,
+                "country_gaps": country_gaps,
+            },
+            advisory_label=f"Sunday revenue memo {week_label}",
+        )
+        if was_replaced:
+            print(f"[revenue_gap] Memo REPLACED — {len(issues)} fact-check issues:")
+            for issue in issues[:5]:
+                print(f"   • {issue.get('explanation','')}")
+        else:
+            print("[revenue_gap] Memo verified vs live LL state.")
+    except Exception as exc:
+        print(f"[revenue_gap] Verifier failed (posting memo as-is): {exc}")
+
     # ── Post to Slack ─────────────────────────────────────────────────────────
     try:
         send_text(memo)
