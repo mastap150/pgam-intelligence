@@ -1,13 +1,23 @@
 """
 agents/alerts/config_auditor.py
 
-Daily LL + TB configuration auditor.
+Daily LL + TB configuration auditor — FLAG-ONLY companion.
 
 Walks the live state of LiveRamp (LL) and TechBid (TB) and flags rules,
 wirings, and floors that look off and probably need attention. This is the
 "are we set up correctly?" check that complements the per-domain agents
 (contract_floor_sentry, floor_gap, dead_demand, etc.) — they each watch a
 specific failure mode; this one is the broad sweep.
+
+Relationship to config_health_scanner
+-------------------------------------
+Disjoint sibling. ``agents/optimization/config_health_scanner.py`` runs at
+06:30 ET and AUTO-FIXES known-good config defaults (supplyChainEnabled,
+lurlEnabled, qpsLimit util). This auditor runs at 06:45 ET and FLAGS issues
+that need human judgment (zero floors, contract-min breaches, orphan
+demands, zombie wirings, TB shadow activity). No field overlap — do not add
+checks for supplyChainEnabled / lurlEnabled / qpsLimit here, and do not add
+auto-remediation for floors / wirings here.
 
 Per memory (2026-04-18): PGAM is LL-only — TB is dormant. The TB section
 therefore inverts the usual logic: ANY signs of TB activity (reachable creds,

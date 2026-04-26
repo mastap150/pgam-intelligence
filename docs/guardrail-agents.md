@@ -174,9 +174,15 @@ so the source-of-truth and monitor stay in sync.
 | Field | Value |
 |---|---|
 | Module | [`agents/alerts/config_auditor.py`](../agents/alerts/config_auditor.py) |
-| Cadence | Daily 06:30 ET |
+| Cadence | Daily 06:45 ET (after `config_health_scanner` at 06:30) |
 | Severity | P1 (contract breach / TB unexpectedly live), P2 ($0 or outlier floor), P3 (orphan / zombie wiring) |
 | Slack | `SLACK_WEBHOOK` (digest, deduped daily) |
+
+> **Relationship to `config_health_scanner`** — disjoint sibling. The scanner
+> auto-fixes known-good defaults (`supplyChainEnabled`, `lurlEnabled`,
+> `qpsLimit` util) and runs first at 06:30. This auditor runs 15 min later
+> and reads the post-fix state, flagging only things that need human
+> judgment (floors, wirings, TB shadow). No field overlap.
 
 ### What it does
 

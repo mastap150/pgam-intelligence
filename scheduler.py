@@ -277,8 +277,13 @@ def setup_schedule():
     # zombie wirings. TB section flags any signs of life (account is supposed
     # to be dormant). Slack digest deduped daily; full JSON in
     # data/config_audit_report.json.
+    # Runs 15 min AFTER config_health_scanner so the scanner's auto-fixes
+    # (supplyChainEnabled / lurlEnabled / qpsLimit) land first; the auditor
+    # then reads the post-fix state and only flags the things humans need to
+    # judge (floor anomalies, orphan demands, zombie wirings, TB shadow).
+    # Field domains are disjoint — see docs/guardrail-agents.md §3.
     config_auditor = _import("agents.alerts.config_auditor")
-    schedule.every().day.at("06:30").do(_run("config_auditor",       config_auditor))
+    schedule.every().day.at("06:45").do(_run("config_auditor",       config_auditor))
     # Auto-wire qualifying demand-gaps — runs daily after demand_gap Monday refresh
     # (demand_gap runs weekly Monday; re-running this agent daily is idempotent:
     # it skips anything already wired and caps new wirings per run.)
