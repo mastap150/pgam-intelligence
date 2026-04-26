@@ -24,6 +24,7 @@ Environment:
         SENDGRID_KEY, EMAIL_FROM
 """
 
+import os
 import time
 import traceback
 from datetime import datetime
@@ -35,6 +36,67 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 ET = pytz.timezone("US/Eastern")
+
+
+def _maybe_run_bidmachine_floor_cut() -> None:
+    """One-shot, idempotent boot hook for the apr-26 BidMachine floor reset.
+
+    Runs exactly once per environment, gated on ``BIDMACHINE_CUT_APR26_APPLY=1``.
+    Skips if a prior LIVE run is already in the floor ledger so leaving the
+    flag set across redeploys is safe — only one execution will ever write.
+
+    Composes safely with the rest of the system:
+
+      * Runs at scheduler boot, BEFORE setup_schedule() registers any jobs.
+        No optimizer / dayparting / sentry job is fighting it for the API.
+      * Writes via core.ll_mgmt.set_demand_floor() (verify=True), so each
+        floor change is re-GET'd within 1s. Ledger entries are tagged
+        actor=bidmachine_floor_cut_apr26.
+      * The portfolio optimizer's 24h cooldown per (pub, demand) tuple
+        means the next daily run (07:45 ET) treats $2.00 as the new
+        baseline and proposes around it — no whiplash.
+      * intelligence/verifier.py (07:30 ET) re-checks every recent
+        ledger write within 24h.
+      * agents/optimization/auto_revert_harmful.py (every 4h) is the
+        safety net: if the cut correlates with >20% post-change revenue
+        drop on a demand, it auto-reverts. That's intentional — we want
+        to be wrong fast.
+      * LL's own traffic-shaping ML adapts to the new floor over its own
+        learning window. The one-shot model (vs daily nudges) gives LL
+        a single step-change to learn against rather than a moving target.
+    """
+    flag = (os.environ.get("BIDMACHINE_CUT_APR26_APPLY", "") or "").strip().lower()
+    if flag not in ("1", "true", "yes", "on"):
+        return
+
+    print("\n[scheduler] BIDMACHINE_CUT_APR26_APPLY is set — checking ledger…")
+    try:
+        from scripts import bidmachine_floor_cut_apr26 as bm_cut
+    except Exception as e:
+        print(f"[scheduler] ✗ failed to import bidmachine_floor_cut_apr26: {e}")
+        traceback.print_exc()
+        return
+
+    try:
+        if bm_cut.already_applied():
+            print("[scheduler] BidMachine floor cut already applied previously "
+                  "(ledger entry exists). Skipping. Unset "
+                  "BIDMACHINE_CUT_APR26_APPLY in the dashboard to clean up.")
+            return
+    except Exception as e:
+        print(f"[scheduler] ⚠ ledger check failed ({e}); proceeding anyway "
+              "(set_demand_floor's no-change guard still protects against "
+              "redundant writes).")
+
+    print("[scheduler] Running BidMachine floor cut LIVE (one-shot)…")
+    try:
+        summary = bm_cut.run_one_shot(apply=True)
+        print(f"[scheduler] BidMachine floor cut complete: "
+              f"applied={summary.get('applied', 0)}, "
+              f"failed={summary.get('failed', 0)}")
+    except Exception as e:
+        print(f"[scheduler] ✗ BidMachine floor cut raised: {e}")
+        traceback.print_exc()
 
 
 def _run(agent_name: str, fn):
@@ -337,6 +399,10 @@ def main():
     print(f"System time: {datetime.now()}")
     print(f"ET time:     {datetime.now(ET).strftime('%Y-%m-%d %H:%M %Z')}")
     print("=" * 60)
+
+    # Boot-time one-shots run BEFORE any recurring jobs are registered or
+    # fired, so they never compete with optimizer/sentry/dayparting writes.
+    _maybe_run_bidmachine_floor_cut()
 
     setup_schedule()
 

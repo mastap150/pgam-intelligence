@@ -246,37 +246,49 @@ def apply_change(change: dict, pub_id: int, pub_name: str, dry_run: bool) -> dic
         return {"applied": False, "error": str(e), **change}
 
 
-def main():
-    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    p.add_argument("--apply", action="store_true",
-                   help="Execute writes. Default is dry-run.")
-    p.add_argument("--publishers", type=str, default=None,
-                   help=f"Comma-separated publisher IDs (default: "
-                        f"{','.join(str(x) for x in DEFAULT_TARGETS)})")
-    p.add_argument("--from-floor", type=float, default=3.00,
-                   help="Only touch demands whose current floor is >= this. Default 3.00.")
-    p.add_argument("--to-floor", type=float, default=2.00,
-                   help="Target floor. Default 2.00.")
-    p.add_argument("--allow-multi-pub", action="store_true",
-                   help="Allow demand-global writes that propagate to non-BidMachine "
-                        "publishers. Default: skip those demands.")
-    p.add_argument("--max-changes", type=int, default=30,
-                   help="Hard cap on total writes per run. Default 30.")
-    args = p.parse_args()
+def already_applied() -> bool:
+    """Return True if a prior LIVE run by this actor exists in the ledger.
 
-    pub_ids = ([int(x) for x in args.publishers.split(",")] if args.publishers
-               else list(DEFAULT_TARGETS))
+    Used by the scheduler boot hook to make this script effectively idempotent
+    even if BIDMACHINE_CUT_APR26_APPLY is left set across redeploys.
+    """
+    try:
+        for row in floor_ledger.read_all():
+            if row.get("actor") == ACTOR and row.get("applied") and not row.get("dry_run"):
+                return True
+    except Exception:
+        # If the ledger can't be read, fall through and let the run proceed —
+        # set_demand_floor's own no-op guard will skip any floor that's already
+        # at the target value.
+        return False
+    return False
 
-    dry_run = not args.apply
+
+def run_one_shot(
+    *,
+    apply: bool,
+    publishers: list[int] | None = None,
+    from_floor: float = 3.00,
+    to_floor: float = 2.00,
+    allow_multi_pub: bool = False,
+    max_changes: int = 30,
+) -> dict:
+    """Programmatic entry point. Returns the summary dict.
+
+    Used by both the CLI ``main()`` and the scheduler boot hook in
+    ``scheduler.py`` (gated by ``BIDMACHINE_CUT_APR26_APPLY=1``).
+    """
+    pub_ids = list(publishers) if publishers else list(DEFAULT_TARGETS)
+    dry_run = not apply
     mode = "DRY-RUN" if dry_run else "LIVE"
 
     print("=" * 78)
     print(f"  BIDMACHINE FLOOR CUT — {mode} — {_now_iso()}")
     print(f"  publishers: {pub_ids}")
-    print(f"  policy: floor >= ${args.from_floor:.2f}  →  ${args.to_floor:.2f}")
+    print(f"  policy: floor >= ${from_floor:.2f}  →  ${to_floor:.2f}")
     print(f"  multi-pub outside BM family: "
-          f"{'ALLOWED (writes propagate)' if args.allow_multi_pub else 'SKIPPED'}")
-    print(f"  max changes per run: {args.max_changes}")
+          f"{'ALLOWED (writes propagate)' if allow_multi_pub else 'SKIPPED'}")
+    print(f"  max changes per run: {max_changes}")
     print("=" * 78)
 
     print("\n[1/3] Building cross-publisher demand map...")
@@ -286,8 +298,8 @@ def main():
     print("\n[2/3] Planning changes per publisher...")
     plans = []
     for pid in pub_ids:
-        plan = plan_publisher(pid, demand_to_pubs, args.from_floor,
-                              args.to_floor, args.allow_multi_pub)
+        plan = plan_publisher(pid, demand_to_pubs, from_floor,
+                              to_floor, allow_multi_pub)
         plans.append(plan)
         n_changes = len(plan["changes"])
         n_skipped = len(plan["skipped"])
@@ -295,14 +307,30 @@ def main():
               f"{n_changes} changes, {n_skipped} skipped")
 
     total_planned = sum(len(p["changes"]) for p in plans)
+    summary = {
+        "actor": ACTOR,
+        "ts_utc": _now_iso(),
+        "dry_run": dry_run,
+        "from_floor": from_floor,
+        "to_floor": to_floor,
+        "allow_multi_pub": allow_multi_pub,
+        "publishers": pub_ids,
+        "applied": 0,
+        "failed": 0,
+        "plans": plans,
+    }
+
     if total_planned == 0:
         print("\nNo changes to make. Exiting.")
-        return
+        os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
+        with open(RESULTS_PATH, "w") as f:
+            json.dump(summary, f, indent=2, default=str)
+        return summary
 
-    if total_planned > args.max_changes:
-        print(f"\n  CAP: {total_planned} changes exceed --max-changes={args.max_changes}. "
-              f"Truncating to first {args.max_changes}.")
-        remaining = args.max_changes
+    if total_planned > max_changes:
+        print(f"\n  CAP: {total_planned} changes exceed max_changes={max_changes}. "
+              f"Truncating to first {max_changes}.")
+        remaining = max_changes
         for plan in plans:
             if remaining <= 0:
                 plan["skipped"].extend(
@@ -335,6 +363,9 @@ def main():
             elif r.get("error"):
                 failed_count += 1
 
+    summary["applied"] = applied_count
+    summary["failed"] = failed_count
+
     print("\n" + "=" * 78)
     if dry_run:
         print(f"  DRY-RUN complete. {sum(len(p['changes']) for p in plans)} changes "
@@ -343,22 +374,42 @@ def main():
         print(f"  LIVE run complete. applied={applied_count}, failed={failed_count}")
     print("=" * 78)
 
-    summary = {
-        "actor": ACTOR,
-        "ts_utc": _now_iso(),
-        "dry_run": dry_run,
-        "from_floor": args.from_floor,
-        "to_floor": args.to_floor,
-        "allow_multi_pub": args.allow_multi_pub,
-        "publishers": pub_ids,
-        "applied": applied_count,
-        "failed": failed_count,
-        "plans": plans,
-    }
     os.makedirs(os.path.dirname(RESULTS_PATH), exist_ok=True)
     with open(RESULTS_PATH, "w") as f:
         json.dump(summary, f, indent=2, default=str)
     print(f"\n  Per-run summary: {RESULTS_PATH}")
+    return summary
+
+
+def main():
+    p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
+    p.add_argument("--apply", action="store_true",
+                   help="Execute writes. Default is dry-run.")
+    p.add_argument("--publishers", type=str, default=None,
+                   help=f"Comma-separated publisher IDs (default: "
+                        f"{','.join(str(x) for x in DEFAULT_TARGETS)})")
+    p.add_argument("--from-floor", type=float, default=3.00,
+                   help="Only touch demands whose current floor is >= this. Default 3.00.")
+    p.add_argument("--to-floor", type=float, default=2.00,
+                   help="Target floor. Default 2.00.")
+    p.add_argument("--allow-multi-pub", action="store_true",
+                   help="Allow demand-global writes that propagate to non-BidMachine "
+                        "publishers. Default: skip those demands.")
+    p.add_argument("--max-changes", type=int, default=30,
+                   help="Hard cap on total writes per run. Default 30.")
+    args = p.parse_args()
+
+    pub_ids = ([int(x) for x in args.publishers.split(",")] if args.publishers
+               else None)
+
+    run_one_shot(
+        apply=args.apply,
+        publishers=pub_ids,
+        from_floor=args.from_floor,
+        to_floor=args.to_floor,
+        allow_multi_pub=args.allow_multi_pub,
+        max_changes=args.max_changes,
+    )
 
 
 if __name__ == "__main__":
