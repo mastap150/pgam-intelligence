@@ -1,41 +1,52 @@
 """
 agents/alerts/config_auditor.py
 
-Daily LL + TB configuration auditor — FLAG-ONLY companion.
+Daily LL configuration auditor — FLAG-ONLY companion.
 
-Walks the live state of LiveRamp (LL) and TechBid (TB) and flags rules,
-wirings, and floors that look off and probably need attention. This is the
-"are we set up correctly?" check that complements the per-domain agents
+Walks the live state of LiveRamp (LL) and flags rules, wirings, and floors
+that look off and probably need attention. This is the "are we set up
+correctly?" check that complements the per-domain agents
 (contract_floor_sentry, floor_gap, dead_demand, etc.) — they each watch a
 specific failure mode; this one is the broad sweep.
+
+Calibration
+-----------
+Most demand-level fields ($0 floor, orphan-but-paused, etc.) are LEGITIMATE
+defaults in LL — per-publisher floors do the real work, and demands sit
+wired-but-paused all the time during testing. Flagging raw config state
+generates 700+ findings on a real fleet (we tried).
+
+So every "is this misconfigured?" check is gated on REVENUE EARNED, using
+the same data file as ``config_health_scanner`` (data/hourly_pub_demand.json.gz):
+we only flag demands that have earned >= MIN_DEMAND_REV_7D in the last 7
+days. A zero floor on a dormant test demand is fine; a zero floor on a
+demand that earned $5K last week is leaving margin on the table.
 
 Relationship to config_health_scanner
 -------------------------------------
 Disjoint sibling. ``agents/optimization/config_health_scanner.py`` runs at
 06:30 ET and AUTO-FIXES known-good config defaults (supplyChainEnabled,
 lurlEnabled, qpsLimit util). This auditor runs at 06:45 ET and FLAGS issues
-that need human judgment (zero floors, contract-min breaches, orphan
-demands, zombie wirings, TB shadow activity). No field overlap — do not add
-checks for supplyChainEnabled / lurlEnabled / qpsLimit here, and do not add
+that need human judgment (floor anomalies, orphan/zombie wirings,
+contract-min breaches). No field overlap — do not add checks for
+supplyChainEnabled / lurlEnabled / qpsLimit here, and do not add
 auto-remediation for floors / wirings here.
+
+TB note: TB has its own sentry stack (``tb_contract_floor_sentry``,
+``revenue_guardian``) as of 2026-04-26. We do not duplicate TB checks here.
 
 Per memory (2026-04-18): PGAM is LL-only — TB is dormant. The TB section
 therefore inverts the usual logic: ANY signs of TB activity (reachable creds,
 active inventories, non-zero floors) are flagged as anomalies. If TB auth
 fails outright, that's the expected steady state and we report "dormant".
 
-What it checks
---------------
-LL — active stack:
+What it checks (LL only)
+------------------------
   P1  contract floor below minimum   (defense-in-depth on contract_floor_sentry)
-  P2  $0 / null floor on active demand
-  P2  outlier high floor (>$15) — likely typo, blocks fill
-  P3  active demand with no publisher wirings (orphan)
-  P3  paused demand (status=2) still wired to active publishers (zombie wiring)
-
-TB — should be dormant:
-  P1  TB API reachable AND any active inventory/placement/non-zero floor
-  (P3 if reachable but everything is zeroed out → still worth a look)
+  P2  $0 / null floor AND demand earned >= $50 in last 7d   (real waste)
+  P2  outlier high floor (>$15) AND demand earned in last 7d (likely typo)
+  P3  active revenue-earning demand with no publisher wirings (orphan)
+  P3  paused but recently-revenue-earning demand still wired (zombie)
 
 Output
 ------
@@ -48,19 +59,24 @@ Manual run:
 """
 from __future__ import annotations
 
+import gzip
 import json
 import os
 import traceback
-from datetime import datetime, timezone
+from collections import defaultdict
+from datetime import date, datetime, timedelta, timezone
 
 from core import ll_mgmt, slack
 from core.ll_mgmt import PROTECTED_FLOOR_MINIMUMS
 
 ACTOR = "config_auditor"
-REPORT_PATH = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    "data", "config_audit_report.json",
-)
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+REPORT_PATH = os.path.join(_REPO_ROOT, "data", "config_audit_report.json")
+HOURLY_PATH = os.path.join(_REPO_ROOT, "data", "hourly_pub_demand.json.gz")
+
+# Revenue gate — share threshold with config_health_scanner so the two
+# agents have a consistent definition of "demand worth touching".
+MIN_DEMAND_REV_7D = 50.0
 
 # Outlier threshold — anything above this on a non-CTV demand is almost
 # certainly a typo (we've never legitimately set a floor this high).
@@ -78,10 +94,43 @@ def _contract_minimum_for(name: str) -> float | None:
     return None
 
 
+def _load_demand_rev_7d() -> dict[int, float]:
+    """Load demand_id → revenue($) for the last 7 days from the hourly store.
+
+    Same data file config_health_scanner uses, so the two agents share a
+    consistent definition of "demand worth touching". Returns an empty dict
+    if the file is missing — every revenue-gated check then becomes a no-op,
+    which is the right failure mode (don't flag based on stale state).
+    """
+    if not os.path.exists(HOURLY_PATH):
+        print(f"[{ACTOR}] WARNING: {HOURLY_PATH} missing — revenue gating disabled, all checks no-op")
+        return {}
+    try:
+        with gzip.open(HOURLY_PATH, "rt") as f:
+            rows = json.load(f)
+    except Exception as e:
+        print(f"[{ACTOR}] WARNING: could not read {HOURLY_PATH}: {e}")
+        return {}
+    cutoff = (date.today() - timedelta(days=7)).isoformat()
+    rev: dict[int, float] = defaultdict(float)
+    for r in rows:
+        if str(r.get("DATE", "")) < cutoff:
+            continue
+        did = r.get("DEMAND_ID")
+        if did is None:
+            continue
+        try:
+            rev[int(did)] += float(r.get("GROSS_REVENUE", 0) or 0)
+        except (TypeError, ValueError):
+            continue
+    return dict(rev)
+
+
 def _audit_ll() -> dict:
     findings: list[dict] = []
     demands = ll_mgmt.get_demands(include_archived=False)
     publishers = ll_mgmt.get_publishers(include_archived=False)
+    demand_rev = _load_demand_rev_7d()
 
     # Build demand-id → set(publisher_ids) wiring map by walking each publisher's
     # biddingpreferences. One pass, O(P × wirings_per_pub).
@@ -108,128 +157,76 @@ def _audit_ll() -> dict:
 
         contract_min = _contract_minimum_for(name)
         wired_pubs = wiring_map.get(int(did), set()) if did is not None else set()
+        rev_7d = demand_rev.get(int(did), 0.0) if did is not None else 0.0
+        is_revenue_earning = rev_7d >= MIN_DEMAND_REV_7D
 
-        # P1 — contract floor below minimum
+        # P1 — contract floor below minimum (always check, regardless of revenue)
         if contract_min is not None and (floor_val is None or floor_val < contract_min):
             findings.append({
                 "severity": "P1",
                 "kind": "contract_floor_below_min",
                 "demand_id": did, "demand_name": name,
                 "live_floor": floor_val, "expected_min": contract_min,
+                "rev_7d": round(rev_7d, 2),
                 "fix": "contract_floor_sentry should restore on next hourly run; "
                        "if it persists for >2h, investigate write-path.",
             })
             continue  # don't double-count the same demand on floor sanity
 
-        # P2 — $0 / null floor on active demand (skip paused demands)
-        if status == 1 and (floor_val is None or floor_val == 0):
+        # P2 — $0 / null floor on a REVENUE-EARNING active demand
+        # (raw $0 floors are a legitimate default; only flag when there's actual
+        # money flowing through and the floor would matter)
+        if status == 1 and is_revenue_earning and (floor_val is None or floor_val == 0):
             findings.append({
                 "severity": "P2",
-                "kind": "zero_floor_active_demand",
+                "kind": "zero_floor_revenue_demand",
                 "demand_id": did, "demand_name": name,
-                "live_floor": floor_val,
-                "fix": "Set a real floor — $0 lets any bid win regardless of margin.",
+                "live_floor": floor_val, "rev_7d": round(rev_7d, 2),
+                "fix": "Set a real floor — earning $%.0f/wk with $0 floor leaves margin on the table." % rev_7d,
             })
 
-        # P2 — outlier high floor
-        if floor_val is not None and floor_val > HIGH_FLOOR_THRESHOLD:
+        # P2 — outlier high floor on a revenue-earning demand
+        # (a $35 floor on a dead test demand is fine; on a live one it blocks fill)
+        if floor_val is not None and floor_val > HIGH_FLOOR_THRESHOLD and is_revenue_earning:
             findings.append({
                 "severity": "P2",
                 "kind": "outlier_high_floor",
                 "demand_id": did, "demand_name": name,
                 "live_floor": floor_val, "threshold": HIGH_FLOOR_THRESHOLD,
+                "rev_7d": round(rev_7d, 2),
                 "fix": "Verify intent — likely typo (e.g. $35 instead of $3.50).",
             })
 
-        # P3 — active demand with no publisher wirings (orphan)
-        if status == 1 and not wired_pubs:
+        # P3 — revenue-earning active demand with no publisher wirings
+        # (a paid demand with zero wirings means revenue happens via some path
+        # we don't see — worth investigating)
+        if status == 1 and is_revenue_earning and not wired_pubs:
             findings.append({
                 "severity": "P3",
-                "kind": "orphan_active_demand",
+                "kind": "orphan_revenue_demand",
                 "demand_id": did, "demand_name": name,
-                "fix": "Either wire to ≥1 publisher or pause the demand.",
+                "rev_7d": round(rev_7d, 2),
+                "fix": "Earning revenue but no publisher wirings visible — verify wiring source.",
             })
 
-        # P3 — paused demand still wired (zombie wiring)
-        if status == 2 and wired_pubs:
+        # P3 — paused demand that was earning recently still wired
+        # (a long-paused demand wired to pubs is just stale config; one paused
+        # *this week* that earned recently is a likely accidental pause)
+        if status == 2 and is_revenue_earning and wired_pubs:
             findings.append({
                 "severity": "P3",
-                "kind": "zombie_wiring_paused_demand",
+                "kind": "zombie_wiring_recent_revenue",
                 "demand_id": did, "demand_name": name,
                 "wired_publisher_count": len(wired_pubs),
-                "fix": "Unwire from publishers or re-activate the demand.",
+                "rev_7d": round(rev_7d, 2),
+                "fix": "Demand earned $%.0f in last 7d but is now paused — accidental pause? "
+                       "auto_unpause should catch it; if it persists, investigate." % rev_7d,
             })
 
     return {
         "demands_scanned": len(demands),
         "publishers_scanned": len(publishers),
-        "findings": findings,
-    }
-
-
-# ── TB shadow check ─────────────────────────────────────────────────────────
-
-
-def _audit_tb() -> dict:
-    """TB should be dormant. Flag any active state."""
-    findings: list[dict] = []
-    try:
-        from core import tb_mgmt
-        # If creds are bad / TB endpoint is dead, this raises — which is the
-        # expected dormant state per memory ("PGAM is LL-only — TB inactive").
-        inventories = tb_mgmt.list_inventories()
-    except Exception as e:
-        return {
-            "reachable": False,
-            "status": "dormant_as_expected",
-            "error": str(e)[:200],
-            "findings": [],
-        }
-
-    active_inv = [i for i in inventories if i.get("status")]
-    placements_all: list[dict] = []
-    try:
-        # list_placements with no inventory filter returns the whole account
-        placements_all = tb_mgmt.list_placements()
-    except Exception as e:
-        placements_all = []
-        findings.append({
-            "severity": "P3",
-            "kind": "tb_placements_unreadable",
-            "detail": str(e)[:200],
-        })
-
-    active_placements = [p for p in placements_all if p.get("status")]
-    nonzero_floor_placements = [
-        p for p in placements_all
-        if (p.get("price") or 0) and float(p["price"]) > 0
-    ]
-
-    if active_inv or active_placements or nonzero_floor_placements:
-        findings.append({
-            "severity": "P1",
-            "kind": "tb_unexpectedly_live",
-            "active_inventories": len(active_inv),
-            "active_placements": len(active_placements),
-            "placements_with_nonzero_floor": len(nonzero_floor_placements),
-            "fix": "TB should be dormant. Either disable the active TB state "
-                   "or update memory if PGAM is intentionally re-enabling TB.",
-        })
-    elif inventories or placements_all:
-        # API reachable but everything is zeroed out — still note it.
-        findings.append({
-            "severity": "P3",
-            "kind": "tb_reachable_but_idle",
-            "inventory_count": len(inventories),
-            "placement_count": len(placements_all),
-            "fix": "TB API is reachable but no active state. Consider revoking "
-                   "TB credentials if truly retired.",
-        })
-
-    return {
-        "reachable": True,
-        "inventory_count": len(inventories),
-        "placement_count": len(placements_all),
+        "revenue_earning_demands": sum(1 for v in demand_rev.values() if v >= MIN_DEMAND_REV_7D),
         "findings": findings,
     }
 
@@ -242,9 +239,9 @@ def _slack_dedup_key() -> str:
     return f"config_auditor:digest:{today}"
 
 
-def _format_digest(ll: dict, tb: dict) -> str | None:
+def _format_digest(ll: dict) -> str | None:
     """Build a single Slack message summarising findings. None = nothing to say."""
-    all_findings = ll["findings"] + tb["findings"]
+    all_findings = ll["findings"]
     if not all_findings:
         return None
 
@@ -256,10 +253,10 @@ def _format_digest(ll: dict, tb: dict) -> str | None:
         ":warning:" if by_sev["P2"] else ":information_source:"
     )
     lines = [
-        f"{header_emoji} *Config audit* — "
+        f"{header_emoji} *LL config audit* — "
         f"{len(by_sev['P1'])} P1 / {len(by_sev['P2'])} P2 / {len(by_sev['P3'])} P3 "
-        f"(LL demands scanned: {ll['demands_scanned']}, "
-        f"TB: {'reachable' if tb.get('reachable') else 'dormant'})"
+        f"(scanned {ll['demands_scanned']} demands, "
+        f"{ll.get('revenue_earning_demands', 0)} revenue-earning)"
     ]
 
     # Show up to 6 of each severity to keep the message readable.
@@ -267,11 +264,15 @@ def _format_digest(ll: dict, tb: dict) -> str | None:
         items = by_sev[sev]
         if not items:
             continue
+        # Sort each tier by 7d revenue desc — biggest dollar impact first.
+        items_sorted = sorted(items, key=lambda f: f.get("rev_7d", 0), reverse=True)
         lines.append(f"\n*{sev}* ({len(items)}):")
-        for f in items[:6]:
+        for f in items_sorted[:6]:
             ident = f.get("demand_id") or f.get("kind")
-            name = (f.get("demand_name") or "")[:50]
-            lines.append(f"• `{f['kind']}` — `{ident}` {name}".rstrip())
+            name = (f.get("demand_name") or "")[:40]
+            rev = f.get("rev_7d")
+            rev_str = f" ${rev:.0f}/7d" if rev else ""
+            lines.append(f"• `{f['kind']}` — `{ident}` {name}{rev_str}".rstrip())
         if len(items) > 6:
             lines.append(f"  …and {len(items) - 6} more")
 
@@ -283,7 +284,7 @@ def _format_digest(ll: dict, tb: dict) -> str | None:
 
 
 def audit() -> dict:
-    print(f"[{ACTOR}] starting LL + TB config audit")
+    print(f"[{ACTOR}] starting LL config audit (revenue-gated)")
 
     try:
         ll_result = _audit_ll()
@@ -293,18 +294,10 @@ def audit() -> dict:
         ll_result = {"demands_scanned": 0, "publishers_scanned": 0,
                      "findings": [], "error": str(e)[:200]}
 
-    try:
-        tb_result = _audit_tb()
-    except Exception as e:
-        print(f"[{ACTOR}] TB audit failed: {e}")
-        tb_result = {"reachable": False, "status": "audit_error",
-                     "error": str(e)[:200], "findings": []}
-
     report = {
         "ran_at": datetime.now(timezone.utc).isoformat(),
         "actor": ACTOR,
         "ll": ll_result,
-        "tb": tb_result,
     }
 
     # Persist the JSON report.
@@ -316,7 +309,7 @@ def audit() -> dict:
         print(f"[{ACTOR}] failed to write report: {e}")
 
     # Slack digest, deduped daily.
-    digest = _format_digest(ll_result, tb_result)
+    digest = _format_digest(ll_result)
     if digest:
         try:
             if not slack.already_sent_today(_slack_dedup_key()):
@@ -325,10 +318,10 @@ def audit() -> dict:
         except Exception as e:
             print(f"[{ACTOR}] Slack post failed: {e}")
 
-    total = len(ll_result["findings"]) + len(tb_result["findings"])
+    total = len(ll_result["findings"])
     print(
-        f"[{ACTOR}] done — {total} findings "
-        f"(LL: {len(ll_result['findings'])}, TB: {len(tb_result['findings'])}); "
+        f"[{ACTOR}] done — {total} findings; "
+        f"revenue-earning demands: {ll_result.get('revenue_earning_demands', 0)}; "
         f"report at {REPORT_PATH}"
     )
     return report
