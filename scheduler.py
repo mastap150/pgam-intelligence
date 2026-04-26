@@ -179,6 +179,9 @@ def setup_schedule():
     # Per-write A/B watch — evaluates every floor-changing ledger entry 48h
     # post-write and auto-reverts losers. Catches subtle bleeds.
     intervention_journal   = _import("agents.optimization.intervention_journal")
+    # Daily change-accountability digest — Slack post each morning showing
+    # what the agents did + outcomes from 48-72h ago + week-to-date impact
+    change_outcome_digest  = _import("agents.reports.change_outcome_digest")
     # Weekly Monday digest of proposals needing human review
     weekly_review_digest   = _import("agents.reports.weekly_review_digest")
     # Pilot program
@@ -307,6 +310,8 @@ def setup_schedule():
     schedule.every(6).hours.do(_run("trend_hunter",                    trend_hunter))
     # Intervention journal — every 4h offset by 2h from auto_revert_harmful
     schedule.every(4).hours.do(_run("intervention_journal",            intervention_journal))
+    # Daily change-accountability digest — 09:15 ET, after weekly_review_digest
+    schedule.every().day.at("09:15").do(_run("change_outcome_digest",  change_outcome_digest))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
     schedule.every().day.at("09:00").do(_run("weekly_review_digest",   weekly_review_digest))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
