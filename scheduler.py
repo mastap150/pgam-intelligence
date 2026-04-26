@@ -172,6 +172,13 @@ def setup_schedule():
     # Daily config health: auto-fix supplyChainEnabled, lurlEnabled, qpsLimit;
     # alert on low-margin demands. Codifies all the manual fixes from 2026-04-25.
     config_health_scanner  = _import("agents.optimization.config_health_scanner")
+    # Daily revenue-pattern hunter — finds underpriced demands, DSP-decliners,
+    # WoW drops; auto-raises underpriced floors (capped, safety-netted by
+    # intervention_journal); Slacks rest as new findings only.
+    trend_hunter           = _import("agents.optimization.trend_hunter")
+    # Per-write A/B watch — evaluates every floor-changing ledger entry 48h
+    # post-write and auto-reverts losers. Catches subtle bleeds.
+    intervention_journal   = _import("agents.optimization.intervention_journal")
     # Weekly Monday digest of proposals needing human review
     weekly_review_digest   = _import("agents.reports.weekly_review_digest")
     # Pilot program
@@ -291,6 +298,10 @@ def setup_schedule():
     schedule.every(6).hours.do(_run("auto_adjust_wirings",             auto_adjust_wirings))
     # Config health scanner — daily 06:30 ET, after contract_floor_sentry
     schedule.every().day.at("06:30").do(_run("config_health_scanner",  config_health_scanner))
+    # Trend hunter — every 6h, dedup'd, auto-executes safe raises only
+    schedule.every(6).hours.do(_run("trend_hunter",                    trend_hunter))
+    # Intervention journal — every 4h offset by 2h from auto_revert_harmful
+    schedule.every(4).hours.do(_run("intervention_journal",            intervention_journal))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
     schedule.every().day.at("09:00").do(_run("weekly_review_digest",   weekly_review_digest))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
