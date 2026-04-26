@@ -75,6 +75,29 @@ TB_BASE = "https://ssp.pgammedia.com/api"
 # Override via env var TB_USER_ID (e.g. 34 for Dexerto).
 DEFAULT_USER_ID = os.getenv("TB_USER_ID", "45")
 
+# ─── Write-path safety: contract floor minimums ──────────────────────────────
+#
+# Mirror of LL's PROTECTED_FLOOR_MINIMUMS (see core/ll_mgmt.py).
+# Any set_floor() write is clamped UP to the placement's protected
+# minimum if the requested price would violate. Architecturally
+# impossible to drop a contract floor below contract.
+#
+# Format: {placement_id_or_inventory_id: minimum_price_usd}
+# When a placement_id is in the dict, that's the precise minimum.
+# When an inventory_id is in the dict, ALL placements under that
+# inventory inherit the minimum.
+#
+# Populate this from contract sheets / pgam_recon. Until the TB-side
+# mapping is enumerated, the GLOBAL_MIN_FLOOR ($0.01) is the only
+# safety net — prevents accidental zero-out attacks but won't stop
+# a $0.05 write on a $1.70 contract floor partner.
+PROTECTED_FLOOR_MINIMUMS: dict[int, float] = {
+    # placement_id: min_price
+    # inventory_id: min_price (applies to all placements under it)
+    # ── populate as contract mapping is confirmed ──
+}
+GLOBAL_MIN_FLOOR = 0.01
+
 # ---------------------------------------------------------------------------
 # Token  — delegate to tb_api so both modules share one cached token
 # ---------------------------------------------------------------------------
@@ -289,12 +312,27 @@ def list_all_placements_via_report(
 # Floor management
 # ---------------------------------------------------------------------------
 
+def _resolve_protected_minimum(placement: dict) -> float | None:
+    """Return the contract minimum applicable to this placement, or None."""
+    pid = int(placement.get("placement_id") or 0)
+    iid = int(placement.get("inventory_id") or 0)
+    # Placement-level mapping wins over inventory-level
+    if pid in PROTECTED_FLOOR_MINIMUMS:
+        return float(PROTECTED_FLOOR_MINIMUMS[pid])
+    if iid in PROTECTED_FLOOR_MINIMUMS:
+        return float(PROTECTED_FLOOR_MINIMUMS[iid])
+    return None
+
+
 def set_floor(
     placement_id: int | str,
     price: float | None = None,
     price_country: list[dict] | None = None,
     is_optimal_price: bool | None = None,
     dry_run: bool = False,
+    actor: str = "manual",
+    reason: str = "",
+    verify: bool = True,
 ) -> dict:
     """
     Set bid floor on a TB placement.
@@ -335,6 +373,27 @@ def set_floor(
     effective_geo     = price_country   if price_country   is not None else current_geo
     effective_optimal = is_optimal_price if is_optimal_price is not None else current_optimal
 
+    # ─── WRITE-PATH CLAMP ─────────────────────────────────────────────────
+    # 1. Contract floor minimum (per-placement or per-inventory)
+    # 2. Global zero-out guard (GLOBAL_MIN_FLOOR)
+    # Clamp UP if violated. Always log.
+    if price is not None and effective_price is not None:
+        contract_min = _resolve_protected_minimum(placement)
+        if contract_min is not None and effective_price < contract_min:
+            print(
+                f"[tb_mgmt] ⚠️  CLAMP  pid={placement_id}  requested ${effective_price:.4f} "
+                f"< contract floor ${contract_min:.4f} — clamping up"
+            )
+            effective_price = contract_min
+            price = contract_min  # mutate so payload sends correct value
+        elif effective_price < GLOBAL_MIN_FLOOR:
+            print(
+                f"[tb_mgmt] ⚠️  CLAMP  pid={placement_id}  requested ${effective_price:.4f} "
+                f"< global min ${GLOBAL_MIN_FLOOR} — clamping up"
+            )
+            effective_price = GLOBAL_MIN_FLOOR
+            price = GLOBAL_MIN_FLOOR
+
     if dry_run:
         print(
             f"[tb_mgmt] DRY_RUN  placement_id={placement_id}  type={ptype}"
@@ -370,12 +429,65 @@ def set_floor(
     result = _post(endpoint, payload)
     new_price = result.get("price", effective_price)
 
+    # ─── verify=True: read-after-write to catch silent endpoint failures ──
+    verify_ok: bool | None = None
+    verify_diff: dict | None = None
+    if verify:
+        try:
+            import time as _t
+            _t.sleep(0.3)  # TB has minor write-read consistency lag
+            after_state = get_placement(placement_id)
+            checks = []
+            if price is not None:
+                live_price = float(after_state.get("price") or 0)
+                checks.append(("price", live_price, float(price), abs(live_price - float(price)) < 0.005))
+            if is_optimal_price is not None:
+                live_opt = bool(after_state.get("is_optimal_price"))
+                checks.append(("is_optimal_price", live_opt, bool(is_optimal_price), live_opt == bool(is_optimal_price)))
+            failures = [c for c in checks if not c[3]]
+            verify_ok = (len(failures) == 0)
+            if failures:
+                verify_diff = {c[0]: {"live": c[1], "expected": c[2]} for c in failures}
+                print(
+                    f"[tb_mgmt] ⚠️  VERIFY FAIL  pid={placement_id}  "
+                    f"diff={verify_diff}  ← silent ghost-write?"
+                )
+        except Exception as _e:
+            verify_ok = None
+            print(f"[tb_mgmt] verify-read failed pid={placement_id}: {_e}")
+
     print(
         f"[tb_mgmt] set_floor  placement_id={placement_id}  type={ptype}"
         f"  ${current_price:.4f} → ${new_price:.4f}"
         f"  geo_floors={len(result.get('price_country', []))}"
-        f"  optimal={result.get('is_optimal_price', effective_optimal)}  ✓"
+        f"  optimal={result.get('is_optimal_price', effective_optimal)}"
+        f"  verify={'✓' if verify_ok else ('✗' if verify_ok is False else '?')}"
     )
+
+    # Ledger every applied write
+    try:
+        from core import tb_ledger
+        tb_ledger.record(
+            actor=actor, action="set_floor",
+            entity_type="placement", entity_id=int(placement_id),
+            reason=reason,
+            before={
+                "price": current_price,
+                "price_country": current_geo,
+                "is_optimal_price": current_optimal,
+            },
+            after={
+                "price": new_price,
+                "price_country": result.get("price_country", []),
+                "is_optimal_price": result.get("is_optimal_price", effective_optimal),
+            },
+            applied=True,
+            verify_ok=verify_ok,
+            extra={"verify_diff": verify_diff} if verify_diff else None,
+        )
+    except Exception as _e:
+        print(f"[tb_mgmt] ledger record failed: {_e}")
+
     return {
         "placement_id": placement_id,
         "type": ptype,
@@ -384,6 +496,8 @@ def set_floor(
         "price_country": result.get("price_country", []),
         "is_optimal_price": result.get("is_optimal_price", effective_optimal),
         "applied": True,
+        "verify_ok": verify_ok,
+        "verify_diff": verify_diff,
         "result": result,
     }
 

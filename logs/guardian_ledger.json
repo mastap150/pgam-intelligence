@@ -1,0 +1,87 @@
+[
+  {
+    "type": "guardian_apply",
+    "placement_id": 1067,
+    "title": "rough_ros_mobile_300x250_3",
+    "inventory_id": 107,
+    "before_floor": 0.05,
+    "after_floor": 0.08,
+    "pre_metrics": {
+      "publisher_revenue": 101.7,
+      "fill_rate": 0.0088,
+      "ecpm": 1.05
+    },
+    "pre_window_days": 7,
+    "ratio_at_apply": 21.0,
+    "verify_status": null,
+    "timestamp": "2026-04-26T16:20:01.677172+00:00"
+  },
+  {
+    "type": "guardian_apply",
+    "placement_id": 7847,
+    "title": "mm_secondary-P5",
+    "inventory_id": 954,
+    "before_floor": 0.1,
+    "after_floor": 0.15,
+    "pre_metrics": {
+      "publisher_revenue": 12.55,
+      "fill_rate": 0.2026,
+      "ecpm": 1.61
+    },
+    "pre_window_days": 7,
+    "ratio_at_apply": 16.1,
+    "verify_status": null,
+    "timestamp": "2026-04-26T16:20:01.677172+00:00"
+  },
+  {
+    "type": "guardian_apply",
+    "placement_id": 7836,
+    "title": "mm_primary-over-header-4",
+    "inventory_id": 954,
+    "before_floor": 0.1,
+    "after_floor": 0.15,
+    "pre_metrics": {
+      "publisher_revenue": 11.88,
+      "fill_rate": 0.1195,
+      "ecpm": 1.26
+    },
+    "pre_window_days": 7,
+    "ratio_at_apply": 12.6,
+    "verify_status": null,
+    "timestamp": "2026-04-26T16:20:01.677172+00:00"
+  },
+  {
+    "type": "guardian_apply",
+    "placement_id": 16641,
+    "title": "veganavenue.com_below-first-imgblock-mobile",
+    "inventory_id": 1563,
+    "before_floor": 0.05,
+    "after_floor": 0.08,
+    "pre_metrics": {
+      "publisher_revenue": 18.87,
+      "fill_rate": 0.1201,
+      "ecpm": 1.4
+    },
+    "pre_window_days": 7,
+    "ratio_at_apply": 28.0,
+    "verify_status": null,
+    "timestamp": "2026-04-26T16:20:01.677172+00:00"
+  },
+  {
+    "type": "guardian_apply",
+    "placement_id": 8974,
+    "title": "peoplevstheworld.com_Mobile In content",
+    "inventory_id": 1085,
+    "before_floor": 0.08,
+    "after_floor": 0.12,
+    "pre_metrics": {
+      "publisher_revenue": 12.16,
+      "fill_rate": 0.1215,
+      "ecpm": 0.66
+    },
+    "pre_window_days": 7,
+    "ratio_at_apply": 8.3,
+    "verify_status": null,
+    "timestamp": "2026-04-26T16:20:01.677172+00:00"
+  }
+]
