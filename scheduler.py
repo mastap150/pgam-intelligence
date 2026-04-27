@@ -151,6 +151,11 @@ def setup_schedule():
     placement_autocreate   = _import("agents.optimization.placement_autocreate_agent")
     blocked_domains_agent  = _import("agents.optimization.blocked_domains_agent")
     revenue_guardian       = _import("agents.optimization.revenue_guardian")
+    # Partner-scoped floor-lift optimizer. KILL SWITCH: writes only when
+    # PARTNER_OPTIMIZER_ENABLED=1 in env; defaults to dry-run-only otherwise.
+    # Touches only partner-UNIQUE demands (never RON), strict per-day caps,
+    # safety net = auto_revert_harmful (every 4h) reverts on >20% revenue drop.
+    partner_revenue_optimizer = _import("agents.optimization.partner_revenue_optimizer")
     tb_contract_floor_sentry = _import("agents.optimization.tb_contract_floor_sentry")
     tb_floor_nudge_agent   = _import("agents.optimization.tb_floor_nudge")
     optimal_price_sweep_weekly = _import("scripts.optimal_price_sweep")
@@ -303,6 +308,11 @@ def setup_schedule():
     schedule.every().day.at("09:45").do(_run("auto_unpause",           auto_unpause))
     # Auto-revert harmful floor changes — every 4 hours
     schedule.every(4).hours.do(_run("auto_revert_harmful",             auto_revert_harmful))
+    # Partner revenue optimizer — every 4 hours, gated by PARTNER_OPTIMIZER_ENABLED=1
+    # env var (defaults to dry-run). Lifts floors on partner-UNIQUE low-yield
+    # demands for AppStock / Start.IO Mag / PubNative Mag. Caps: 3 changes/run,
+    # 1/partner/day. auto_revert_harmful (above) catches >20% revenue drops.
+    schedule.every(4).hours.do(_run("partner_revenue_optimizer",       partner_revenue_optimizer))
     # Auto-adjust new wirings that aren't performing — every 6 hours
     schedule.every(6).hours.do(_run("auto_adjust_wirings",             auto_adjust_wirings))
     # Config health scanner — daily 06:30 ET, after contract_floor_sentry

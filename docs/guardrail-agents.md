@@ -1,7 +1,8 @@
 # Guardrail agents (pgam-intelligence)
 
-Three scheduled agents that protect contract-floor compliance, ads.txt
-integrity for PGAM-owned O&O sites, and overall LL/TB configuration health.
+Four scheduled agents that protect contract-floor compliance, ads.txt
+integrity for PGAM-owned O&O sites, overall LL/TB configuration health, and
+per-partner revenue optimization (with strict RON-isolation safety).
 All run inside the existing `scheduler.py` worker on Render and post to the
 system Slack webhook.
 
@@ -242,7 +243,107 @@ python -m agents.alerts.config_auditor
 
 ---
 
-## Required env vars (all three agents)
+## 4. Partner Revenue Optimizer
+
+| Field | Value |
+|---|---|
+| Module | [`agents/optimization/partner_revenue_optimizer.py`](../agents/optimization/partner_revenue_optimizer.py) |
+| Cadence | Every 4 hours (aligned with `auto_revert_harmful`) |
+| Severity | Slack post per change (no severity tier — these are intentional optimization writes) |
+| Slack | `SLACK_WEBHOOK` |
+| Kill switch | `PARTNER_OPTIMIZER_ENABLED=1` required to write — otherwise dry-run only |
+
+### What it does
+
+Per-partner floor-lift optimizer for a small whitelist of partner publishers
+(AppStock, Start.IO Video Magnite, Start.IO Display Magnite, PubNative In-App
+Magnite). Lifts the floor on partner-UNIQUE low-yield demands so the freed
+impressions can flow to higher-eCPM unique demands already wired on the same
+publisher.
+
+### Hard safety contract
+
+| Rule | Mechanism |
+|---|---|
+| Never touches RON/shared demands | Filters to demands wired to exactly **1** publisher |
+| Never touches non-whitelisted publishers | `PARTNER_PUBS` dict — explicit code change to extend |
+| Never lowers floors | Skips any candidate where current floor ≥ proposed |
+| Cap 3 changes/run, 1/partner/day | Per-run + ledger-based per-partner-per-day check |
+| Defaults to dry-run | `PARTNER_OPTIMIZER_ENABLED=1` env var required to write |
+| Auto-rollback on >20% revenue drop in 48h | Existing `auto_revert_harmful` (every 4h) handles this |
+| Contract floor minimums respected | `set_demand_floor()` clamp — sentinel demands skip-restored |
+
+### How to enable
+
+In Render dashboard → Environment → add:
+```
+PARTNER_OPTIMIZER_ENABLED=1
+```
+
+Then redeploy. The agent will start applying changes on its next 4-hour tick.
+Until that var is set, the agent runs every 4h in dry-run mode and ledgers
+proposed changes (with `dry_run=True`) so you can review what it would do.
+
+### How to see results
+
+- **Slack:** one message per applied change (or per dry-run preview), with
+  demand id, old → new floor, eCPM, imp share, estimated 7d upside, and
+  the auto-rollback contract.
+- **Floor ledger:** `data/floor_ledger.jsonl.gz` — every change appended
+  with `actor=partner_revenue_optimizer_<YYYYMMDD>`. Inspect with:
+  ```bash
+  python -m core.floor_ledger --show | grep partner_revenue
+  ```
+- **Render logs:** stdout summary per run:
+  ```
+  [partner_revenue_optimizer] enabled=True ll_dry_run=False → effective_dry=False
+  [partner_revenue_optimizer] 2 candidate floor lifts (across 4 partners)
+  [partner_revenue_optimizer] changes today by partner: {290115373: 0}
+  ```
+
+### Manual trigger
+
+```bash
+# Dry-run (safe; PARTNER_OPTIMIZER_ENABLED unset)
+cd ~/Desktop/pgam-intelligence
+python -m agents.optimization.partner_revenue_optimizer
+
+# Apply mode (writes!)
+PARTNER_OPTIMIZER_ENABLED=1 python -m agents.optimization.partner_revenue_optimizer
+```
+
+### Why this isn't a re-run of the deprecated `floor_optimizer`
+
+`scripts/floor_optimizer.py` was unregistered 2026-04-25 because its kill
+switch was being bypassed and writes landed every 2h without oversight. This
+agent is intentionally different:
+
+1. **Partner whitelist** — touches only the 4 pubs in `PARTNER_PUBS`.
+2. **Unique-only filter** — never touches a demand wired to ≥2 publishers,
+   even if someone widens the whitelist by mistake.
+3. **Strict caps** — 3 changes/run + 1/partner/day = at most 4 changes/day total.
+4. **Belt-and-suspenders kill switch** — the env-var gate AND `LL_DRY_RUN`
+   support AND the existing safety nets (`auto_revert_harmful`,
+   `revenue_guardian`) catch any misbehavior.
+
+### Adding a new partner
+
+Edit `PARTNER_PUBS` in `agents/optimization/partner_revenue_optimizer.py`:
+
+```python
+PARTNER_PUBS = {
+    290115377: "AppStock",
+    # ... existing partners ...
+    99999999: "New Partner Pub Name",  # ← add here
+}
+```
+
+Tune thresholds (`LOW_YIELD_ECPM_CEILING`, `LOW_YIELD_MIN_IMP_SHARE`,
+`NEW_FLOOR_ON_LIFT`) if the new partner has a different yield profile.
+
+---
+
+## Required env vars (all four agents)
 
 | Var | Purpose |
 |---|---|
