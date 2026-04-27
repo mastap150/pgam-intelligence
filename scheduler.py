@@ -240,8 +240,11 @@ def setup_schedule():
     schedule.every().day.at("07:45").do(_run("ml_optimizer",  ml_optimizer))
     schedule.every().day.at("08:00").do(_run("ml_proposer",   ml_proposer))
     # Dayparting — rebuild schedule + rotate per-hour floor at :05 each hour.
-    # Internally no-ops unless PGAM_DAYPARTING_ENABLED=1.
-    schedule.every().hour.at(":05").do(_run("ml_dayparting", ml_dayparting))
+    # Gated at registration time so a disabled flag doesn't cost an hourly
+    # wakeup. Flip PGAM_DAYPARTING_ENABLED=1 in Render and redeploy to enable.
+    import os as _os
+    if _os.getenv("PGAM_DAYPARTING_ENABLED") == "1":
+        schedule.every().hour.at(":05").do(_run("ml_dayparting", ml_dayparting))
 
     # Weekly — discovery + rep-conversation feeds (Monday mornings)
     schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
