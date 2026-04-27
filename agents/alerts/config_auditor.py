@@ -62,6 +62,7 @@ from __future__ import annotations
 import gzip
 import json
 import os
+import re
 import traceback
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -81,6 +82,22 @@ MIN_DEMAND_REV_7D = 50.0
 # Outlier threshold — anything above this on a non-CTV demand is almost
 # certainly a typo (we've never legitimately set a floor this high).
 HIGH_FLOOR_THRESHOLD = 15.00
+
+# Wrapper-side / prebid-server demands set their floors in the wrapper or
+# prebid config, NOT in the LL minBidFloor field. The LL field on these is
+# essentially decorative — flagging "$0 floor" on them generates noise.
+# This regex matches integration patterns we know are wrapper-side.
+WRAPPER_SIDE_NAME_PATTERN = re.compile(
+    r"prebid server|bidmachine|blueseax|magnite\s*-\s*smaato|"
+    r"magnite\s*-\s*illumin|unruly|verve\s*-\s*ron|onetag|sovrn|"
+    r"pubmatic\s*-\s*ron|pubmatic\s+ron",
+    re.IGNORECASE,
+)
+
+
+def _is_wrapper_side_demand(name: str) -> bool:
+    """True if the demand's floor lives in wrapper/prebid config, not LL."""
+    return bool(WRAPPER_SIDE_NAME_PATTERN.search(name or ""))
 
 
 # ── LL checks ───────────────────────────────────────────────────────────────
@@ -173,16 +190,22 @@ def _audit_ll() -> dict:
             })
             continue  # don't double-count the same demand on floor sanity
 
-        # P2 — $0 / null floor on a REVENUE-EARNING active demand
-        # (raw $0 floors are a legitimate default; only flag when there's actual
-        # money flowing through and the floor would matter)
-        if status == 1 and is_revenue_earning and (floor_val is None or floor_val == 0):
+        # P2 — $0 / null floor on a REVENUE-EARNING active DIRECT demand.
+        # Wrapper-side / prebid-server demands set floors in wrapper config;
+        # the LL field is decorative on those. Skip them to avoid noise.
+        if (
+            status == 1
+            and is_revenue_earning
+            and (floor_val is None or floor_val == 0)
+            and not _is_wrapper_side_demand(name)
+        ):
             findings.append({
                 "severity": "P2",
-                "kind": "zero_floor_revenue_demand",
+                "kind": "zero_floor_direct_demand",
                 "demand_id": did, "demand_name": name,
                 "live_floor": floor_val, "rev_7d": round(rev_7d, 2),
-                "fix": "Set a real floor — earning $%.0f/wk with $0 floor leaves margin on the table." % rev_7d,
+                "fix": "Direct demand earning $%.0f/wk with no LL floor — verify "
+                       "win rate first; if >30%%, leave it. If <30%%, consider a small floor." % rev_7d,
             })
 
         # P2 — outlier high floor on a revenue-earning demand
