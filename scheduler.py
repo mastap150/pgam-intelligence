@@ -87,6 +87,7 @@ def _import(module_path: str, func_name: str = "run"):
 #
 # Agent                  | Frequency  | When it actually fires
 # -----------------------|------------|------------------------------------------
+# partner_revenue_etl    | every 60m  | UPSERTs LL daily rollup into Neon (today + yesterday)
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
 # opp_fill_rate          | every 4h   | daily summary + critical repeat
@@ -114,6 +115,10 @@ def _import(module_path: str, func_name: str = "run"):
 # ---------------------------------------------------------------------------
 
 def setup_schedule():
+    # ETL: lands LL daily revenue into Neon for the Partner Revenue Dashboard
+    # at admin.pgammedia.com/admin/partner-revenue. Hourly UPSERT of today +
+    # yesterday; backfill via `python -m agents.etl.partner_revenue_etl --backfill 30`.
+    partner_revenue_etl    = _import("agents.etl.partner_revenue_etl")
     ll_revenue             = _import("agents.alerts.ll_revenue")
     revenue_pace           = _import("agents.alerts.revenue_pace")
     opp_fill_rate          = _import("agents.alerts.opp_fill_rate")
@@ -219,6 +224,7 @@ def setup_schedule():
     ml_dayparting          = _import("intelligence.dayparting")
 
     # ── Hourly ───────────────────────────────────────────────────────────────
+    schedule.every(60).minutes.do(_run("partner_revenue_etl", partner_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
