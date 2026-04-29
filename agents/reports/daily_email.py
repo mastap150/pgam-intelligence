@@ -564,20 +564,29 @@ def _collect_opp_fill(fetch, today_fn, n_days_ago_fn, sf, pct) -> dict:
 # HTML builders
 # ---------------------------------------------------------------------------
 
-# Colour palette
-_BG      = "#0f1117"
-_CARD    = "#1a1d27"
-_BORDER  = "#2a2d3a"
-_TEXT    = "#e2e8f0"
-_MUTED   = "#94a3b8"
-_GREEN   = "#4ade80"
-_RED     = "#f87171"
-_YELLOW  = "#fbbf24"
-_BLUE    = "#60a5fa"
-_PURPLE  = "#a78bfa"
+# Colour palette — light theme.
+# Email clients (especially Gmail in dark mode) aggressively override or
+# invert dark themes, leaving body text invisible. A light theme renders
+# consistently across Gmail/Outlook/Apple Mail/mobile.
+_BG      = "#f3f4f6"   # page background (light grey)
+_CARD    = "#ffffff"   # card background (white)
+_BORDER  = "#e5e7eb"   # card border
+_TEXT    = "#111827"   # primary text (near-black)
+_MUTED   = "#6b7280"   # secondary text (grey)
+_GREEN   = "#16a34a"   # success / gainer
+_RED     = "#dc2626"   # warning / loser
+_YELLOW  = "#d97706"   # caution
+_BLUE    = "#2563eb"   # info / LL platform
+_PURPLE  = "#7c3aed"   # exec brief accent
+_HEADER_BG_FROM = "#1e293b"  # dark header gradient (still dark — lots of contrast w/ white below)
+_HEADER_BG_TO   = "#0f172a"
+_TABLE_DIVIDER  = "#f1f5f9"
 
 
 def _css() -> str:
+    # Note: every cell-level element (td, strong, .metric .value) gets an
+    # explicit color so Gmail dark-mode overrides can't strip the inherited
+    # color: from body and leave text invisible on white.
     return f"""
     body {{
         margin: 0; padding: 0; background: {_BG};
@@ -586,55 +595,57 @@ def _css() -> str:
     }}
     .wrapper {{ max-width: 700px; margin: 0 auto; padding: 24px 16px; }}
     .header {{
-        background: linear-gradient(135deg, #1e2235 0%, #252a3d 100%);
-        border: 1px solid {_BORDER}; border-radius: 12px;
+        background: linear-gradient(135deg, {_HEADER_BG_FROM} 0%, {_HEADER_BG_TO} 100%);
+        border-radius: 12px;
         padding: 28px 32px; margin-bottom: 20px;
     }}
-    .header h1 {{ margin: 0 0 4px; font-size: 22px; font-weight: 700; color: {_TEXT}; }}
-    .header .sub {{ color: {_MUTED}; font-size: 13px; margin: 0; }}
+    .header h1 {{ margin: 0 0 4px; font-size: 22px; font-weight: 700; color: #ffffff; }}
+    .header .sub {{ color: #cbd5e1; font-size: 13px; margin: 0; }}
     .card {{
         background: {_CARD}; border: 1px solid {_BORDER};
         border-radius: 10px; padding: 20px 24px; margin-bottom: 16px;
+        color: {_TEXT};
     }}
     .card h2 {{
-        margin: 0 0 16px; font-size: 15px; font-weight: 600;
+        margin: 0 0 16px; font-size: 13px; font-weight: 700;
         color: {_MUTED}; text-transform: uppercase; letter-spacing: 0.06em;
     }}
     .metric-grid {{
         display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
         margin-bottom: 12px;
     }}
-    .metric {{ background: #0f1117; border-radius: 8px; padding: 14px 16px; }}
+    .metric {{ background: {_BG}; border-radius: 8px; padding: 14px 16px; }}
     .metric .label {{ font-size: 11px; color: {_MUTED}; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }}
     .metric .value {{ font-size: 20px; font-weight: 700; color: {_TEXT}; }}
-    .metric .change {{ font-size: 12px; margin-top: 2px; }}
+    .metric .change {{ font-size: 12px; margin-top: 2px; color: {_MUTED}; }}
     .green {{ color: {_GREEN}; }}
     .red   {{ color: {_RED}; }}
     .yellow {{ color: {_YELLOW}; }}
     .blue  {{ color: {_BLUE}; }}
     .purple {{ color: {_PURPLE}; }}
     .muted {{ color: {_MUTED}; }}
+    strong {{ color: {_TEXT}; }}
     .progress-bar-bg {{
-        background: #0f1117; border-radius: 4px; height: 8px;
+        background: {_BG}; border-radius: 4px; height: 8px;
         overflow: hidden; margin: 8px 0 4px;
     }}
     .progress-bar-fill {{ height: 100%; border-radius: 4px; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
+    table {{ width: 100%; border-collapse: collapse; font-size: 13px; color: {_TEXT}; }}
     th {{
         text-align: left; color: {_MUTED}; font-weight: 600;
         font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em;
         padding: 0 0 8px; border-bottom: 1px solid {_BORDER};
     }}
-    td {{ padding: 8px 0; border-bottom: 1px solid #1e2235; }}
+    td {{ padding: 8px 0; border-bottom: 1px solid {_TABLE_DIVIDER}; color: {_TEXT}; }}
     tr:last-child td {{ border-bottom: none; }}
     .badge {{
         display: inline-block; padding: 2px 8px; border-radius: 4px;
         font-size: 11px; font-weight: 600; text-transform: uppercase;
     }}
-    .badge-green  {{ background: #052e16; color: {_GREEN}; }}
-    .badge-red    {{ background: #300; color: {_RED}; }}
-    .badge-yellow {{ background: #2d1d00; color: {_YELLOW}; }}
-    .badge-blue   {{ background: #0c1a2e; color: {_BLUE}; }}
+    .badge-green  {{ background: #dcfce7; color: #15803d; }}
+    .badge-red    {{ background: #fee2e2; color: #b91c1c; }}
+    .badge-yellow {{ background: #fef3c7; color: #b45309; }}
+    .badge-blue   {{ background: #dbeafe; color: #1d4ed8; }}
     .brief-para {{ color: {_TEXT}; margin: 0 0 14px; line-height: 1.7; }}
     .brief-para:last-child {{ margin: 0; }}
     .footer {{ color: {_MUTED}; font-size: 11px; text-align: center; padding-top: 12px; }}
@@ -763,7 +774,7 @@ def _html_topline_section(top: dict, fmt_usd, fmt_n) -> str:
 
     # Movers are now rendered in the dedicated _html_health_section.
     return f"""
-    <div class="card" style="border-color:#1e3a5f;">
+    <div class="card" style="border-color:{_BLUE};border-width:1px 1px 1px 4px;">
       <h2>Yesterday — Supply Rollup ({yest_date})</h2>
       <table>
         <thead><tr>
@@ -1405,7 +1416,7 @@ def _html_brief_section(brief: str) -> str:
     paras_html = "".join(f'<p class="brief-para">{p}</p>' for p in paragraphs)
 
     return f"""
-    <div class="card" style="border-color:#3730a3;background:linear-gradient(135deg,#1a1d27 0%,#1e1b2e 100%);">
+    <div class="card" style="border-color:{_PURPLE};border-width:1px 1px 1px 4px;background:#faf5ff;">
       <h2 style="color:{_PURPLE};">Executive Intelligence Brief</h2>
       {paras_html}
     </div>
