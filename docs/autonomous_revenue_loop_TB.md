@@ -426,6 +426,14 @@ Implemented as `core.tb_mgmt._check_enabled(agent_name)` helper.
 - Build `change_outcome_digest` for morning Slack summary
 - Build TB-specific `pacing_deviation`
 
+**TB platform-side roadmap (confirmed by TB team 2026-04-29)**:
+- **SSP Company / AdX API** — TB acknowledged the gap. Misha is scoping
+  the build, ETA pending. Once shipped, we can drop the
+  `ssp_company_optimizer` catalog-name reverse-parse and get canonical
+  SSP Company P&L direct from the API.
+- **`price_country` on banner placements** — documented in
+  BannerModification but silently drops on write. Flagged to Vadym.
+
 ---
 
 ## Bottom line

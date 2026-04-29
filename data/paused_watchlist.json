@@ -1,0 +1,174 @@
+{
+  "generated_utc": "2026-04-27T13:00:24.811162+00:00",
+  "lookback_days": 30,
+  "inactive_count": 16,
+  "verdicts": {
+    "strong_resurrect": 0,
+    "watch": 0,
+    "prune": 0,
+    "insufficient_history": 16,
+    "no_active_peers": 0
+  },
+  "candidates": [
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1115,
+      "demand_name": "Sovrn - Adapex 320x100",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 31,
+      "ecpm_samples": 1,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1107,
+      "demand_name": "Sovrn - Adapex 120x600",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 25,
+      "ecpm_samples": 1,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1123,
+      "demand_name": "Sovrn - Adapex 336x280 oRTB 2.6",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 5,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115381,
+      "publisher_name": "Geeks For Geeks - Display",
+      "demand_id": 1143,
+      "demand_name": "AdaptMX - GeeksForGeeks Display",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 1,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115381,
+      "publisher_name": "Geeks For Geeks - Display",
+      "demand_id": 925,
+      "demand_name": "Verve - RON Display West Endpoint",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 2,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115364,
+      "publisher_name": "Smaato - Interstitial ",
+      "demand_id": 788,
+      "demand_name": "Illumin - US",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 1,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115381,
+      "publisher_name": "Geeks For Geeks - Display",
+      "demand_id": 1044,
+      "demand_name": "Pubmatic - GeekForGeek 300x50 oRTB 2.6",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 1,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1117,
+      "demand_name": "Sovrn - Adapex 320x50",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 42,
+      "ecpm_samples": 5,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115370,
+      "publisher_name": "GrowInTech Display and Video Network",
+      "demand_id": 51,
+      "demand_name": "Pubmatic - RON 300x250 Prebid Server",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 2,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1108,
+      "demand_name": "Sovrn - Adapex 120x600 oRTB 2.6",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 22,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115369,
+      "publisher_name": "GrowInTech Display and Video Ads.txt",
+      "demand_id": 51,
+      "demand_name": "Pubmatic - RON 300x250 Prebid Server",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 5,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1121,
+      "demand_name": "Sovrn - Adapex 320x50 oRTB 2.6",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 37,
+      "ecpm_samples": 1,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115384,
+      "publisher_name": "Adapex - Display",
+      "demand_id": 1122,
+      "demand_name": "Sovrn - Adapex 336x280",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 8,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115381,
+      "publisher_name": "Geeks For Geeks - Display",
+      "demand_id": 1038,
+      "demand_name": "Pubmatic - GeekForGeek 120x600 oRTB 2.6",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 2,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115381,
+      "publisher_name": "Geeks For Geeks - Display",
+      "demand_id": 1036,
+      "demand_name": "Pubmatic - GeekForGeek 728x90 oRTB 2.6",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 1,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    },
+    {
+      "publisher_id": 290115370,
+      "publisher_name": "GrowInTech Display and Video Network",
+      "demand_id": 929,
+      "demand_name": "Pubmatic - RON 300x250 Prebid Server New EP",
+      "revenue_30d_pre_pause": 0.0,
+      "bids_30d_pre_pause": 1,
+      "ecpm_samples": 0,
+      "verdict": "insufficient_history"
+    }
+  ]
+}

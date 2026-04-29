@@ -939,7 +939,9 @@ def _html_geo_section(geo: dict, fmt_usd, fmt_n) -> str:
 
     tb_note = ""
     if not geo.get("tb"):
-        tb_note = f'<div class="muted" style="font-size:11px;margin-top:8px;">TB country data unavailable — TB API doesn\'t reliably attribute geo.</div>'
+        tb_note = ('<div class="muted" style="font-size:11px;margin-top:8px;">'
+                   'TB country breakdown not yet available in the AdX API — '
+                   'TB engineering scoping the build.</div>')
 
     return f"""
     <div class="card">
@@ -998,10 +1000,17 @@ def _html_demand_margin_section(dm: dict, fmt_usd) -> str:
     body = _table(dm.get("ll", []), "LL", "badge-blue") + \
            _table(dm.get("tb", []), "TB", "badge-yellow")
 
+    tb_note = ""
+    if not dm.get("tb"):
+        tb_note = ('<div class="muted" style="font-size:11px;margin-top:8px;">'
+                   'TB demand-partner breakdown not yet available in the AdX API — '
+                   'TB engineering scoping the build.</div>')
+
     return f"""
     <div class="card">
       <h2>Margin by Demand Partner ({dm.get('date','')})</h2>
       {body}
+      {tb_note}
     </div>
     """
 
@@ -1068,6 +1077,12 @@ def _html_top_combos_section(combos: dict, fmt_usd, fmt_n) -> str:
 
     # ── TB block: flat leaderboard ────────────────────────────────────────────
     tb_html = ""
+    if not tb_data or not tb_data.get("combos"):
+        # Show a pending note so recipients know TB is intentionally absent here
+        tb_html = ('<div style="margin-top:18px;" class="muted" style="font-size:11px;">'
+                   '<span class="badge badge-yellow">TB</span> '
+                   '&nbsp;Publisher × demand breakdown not yet available in the AdX API — '
+                   'TB engineering scoping the build.</div>')
     if tb_data and tb_data.get("combos"):
         plat_avg = tb_data["platform_avg_ecpm"]
         filtered = tb_data["filtered"]

@@ -1,41 +1,68 @@
 {
-  "timestamp": "2026-04-24T15:44:25.696452+00:00",
+  "timestamp": "2026-04-28T11:31:19.171077+00:00",
   "alerts": [
     {
       "publisher": "Rough Maps #36",
       "severity": "\ud83d\udd34 CRITICAL",
-      "prior_rev": 2608.313075039994,
-      "cur_rev": 502.8897566799996,
-      "rev_delta_pct": -80.7,
-      "req_delta_pct": -3.4,
-      "imp_delta_pct": -69.0
+      "prior_rev": 2103.9362289,
+      "cur_rev": 123.89710145999997,
+      "rev_delta_pct": -94.1,
+      "req_delta_pct": -43.4,
+      "imp_delta_pct": -92.0
     },
     {
-      "publisher": "WeBlog WeBlog #96",
-      "severity": "\ud83d\udfe0 WARNING",
-      "prior_rev": 52.028701110000036,
-      "cur_rev": 38.19803943000001,
-      "rev_delta_pct": -26.6,
-      "req_delta_pct": -8.3,
-      "imp_delta_pct": -33.7
+      "publisher": "Ascender Ascender #40",
+      "severity": "\ud83d\udd34 CRITICAL",
+      "prior_rev": 201.6712589099998,
+      "cur_rev": 101.88122546000002,
+      "rev_delta_pct": -49.5,
+      "req_delta_pct": -56.9,
+      "imp_delta_pct": -48.5
+    },
+    {
+      "publisher": "Vertical Scope #166",
+      "severity": "\ud83d\udd34 CRITICAL",
+      "prior_rev": 349.5762938299998,
+      "cur_rev": 195.9505531699999,
+      "rev_delta_pct": -43.9,
+      "req_delta_pct": -25.5,
+      "imp_delta_pct": -34.3
     },
     {
       "publisher": "Aditude Aditude #60",
+      "severity": "\ud83d\udd34 CRITICAL",
+      "prior_rev": 1986.4865874100167,
+      "cur_rev": 1188.9189837499907,
+      "rev_delta_pct": -40.1,
+      "req_delta_pct": -2.0,
+      "imp_delta_pct": -21.9
+    },
+    {
+      "publisher": "MetaSpoon MetaSpoon #114",
       "severity": "\ud83d\udfe1 WATCH",
-      "prior_rev": 1874.3127890000092,
-      "cur_rev": 1676.168266650019,
-      "rev_delta_pct": -10.6,
-      "req_delta_pct": -3.3,
-      "imp_delta_pct": 15.4
+      "prior_rev": 192.50505621999974,
+      "cur_rev": 155.00100733,
+      "rev_delta_pct": -19.5,
+      "req_delta_pct": -26.0,
+      "imp_delta_pct": -27.3
     },
     {
       "publisher": "RevIQ RevIQ #32",
-      "severity": "\ud83d\udfe0 WARNING",
-      "prior_rev": 816.53326522,
-      "cur_rev": 794.5771763999985,
-      "rev_delta_pct": -2.7,
-      "req_delta_pct": -65.2,
-      "imp_delta_pct": 5.0
+      "severity": "\ud83d\udfe1 WATCH",
+      "prior_rev": 817.5852483299996,
+      "cur_rev": 671.7363101499985,
+      "rev_delta_pct": -17.8,
+      "req_delta_pct": -8.4,
+      "imp_delta_pct": -17.5
+    },
+    {
+      "publisher": "Landocs Landocs #66",
+      "severity": "\ud83d\udfe1 WATCH",
+      "prior_rev": 222.66898461999995,
+      "cur_rev": 189.52328925,
+      "rev_delta_pct": -14.9,
+      "req_delta_pct": -14.2,
+      "imp_delta_pct": -7.4
     }
   ]
 }

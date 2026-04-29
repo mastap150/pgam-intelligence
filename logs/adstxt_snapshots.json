@@ -1,0 +1,14 @@
+{
+  "destination.com": {
+    "sha": "81330fb74755686a",
+    "entry_count": 565,
+    "prev_sha": null,
+    "checked_at": "2026-04-29T13:00:08.443250+00:00"
+  },
+  "boxingnews.com": {
+    "sha": "81330fb74755686a",
+    "entry_count": 565,
+    "prev_sha": null,
+    "checked_at": "2026-04-29T13:00:08.862300+00:00"
+  }
+}

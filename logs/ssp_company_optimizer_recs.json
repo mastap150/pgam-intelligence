@@ -1,17 +1,35 @@
 {
   "window": {
-    "start": "2026-04-10",
-    "end": "2026-04-17"
+    "start": "2026-04-21",
+    "end": "2026-04-28"
   },
-  "timestamp": "2026-04-17T23:47:44.944467+00:00",
+  "timestamp": "2026-04-28T13:15:53.936641+00:00",
   "dry_run": true,
-  "bootstrap": true,
+  "bootstrap": false,
   "total_companies": 12,
   "by_class": {
-    "PRUNE": [
+    "PRUNE": [],
+    "REVIEW": [],
+    "EXPAND": [],
+    "KEEP": [
+      {
+        "ssp_company": "RevIQ",
+        "active_endpoints": 1,
+        "wins": 555601,
+        "impressions": 111566,
+        "bid_responses": 661448,
+        "publisher_revenue": 89.58212226999999,
+        "dsp_spend": 121.36239043000008,
+        "profit": 31.78026816000009,
+        "total_endpoints": 26,
+        "fill_rate": 0.16866934362187203,
+        "dsp_ecpm": 1.0878080278041704,
+        "margin": 0.2618625757732619,
+        "classification": "KEEP"
+      },
       {
         "ssp_company": "Start.io",
-        "total_endpoints": 21,
+        "total_endpoints": 22,
         "active_endpoints": 0,
         "wins": 0,
         "impressions": 0,
@@ -22,7 +40,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Dexerto",
@@ -37,11 +55,11 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Illumin",
-        "total_endpoints": 100,
+        "total_endpoints": 101,
         "active_endpoints": 0,
         "wins": 0,
         "impressions": 0,
@@ -52,7 +70,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Media Lab RTB",
@@ -67,7 +85,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Mission Media",
@@ -82,7 +100,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Pijper Publishing",
@@ -97,11 +115,11 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Smaato",
-        "total_endpoints": 34,
+        "total_endpoints": 35,
         "active_endpoints": 0,
         "wins": 0,
         "impressions": 0,
@@ -112,7 +130,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "WeBlog RTB",
@@ -127,7 +145,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "Zoomer Media",
@@ -142,7 +160,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "OC Media Solutions",
@@ -157,11 +175,11 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
+        "classification": "KEEP"
       },
       {
         "ssp_company": "PubNative",
-        "total_endpoints": 15,
+        "total_endpoints": 16,
         "active_endpoints": 0,
         "wins": 0,
         "impressions": 0,
@@ -172,25 +190,6 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "PRUNE"
-      }
-    ],
-    "REVIEW": [],
-    "EXPAND": [],
-    "KEEP": [
-      {
-        "ssp_company": "RevIQ",
-        "active_endpoints": 1,
-        "wins": 361336,
-        "impressions": 71943,
-        "bid_responses": 430059,
-        "publisher_revenue": 60.98503525000003,
-        "dsp_spend": 82.60632102,
-        "profit": 21.621285769999965,
-        "total_endpoints": 26,
-        "fill_rate": 0.16728634908233522,
-        "dsp_ecpm": 1.1482190208915393,
-        "margin": 0.2617388778852067,
         "classification": "KEEP"
       }
     ]

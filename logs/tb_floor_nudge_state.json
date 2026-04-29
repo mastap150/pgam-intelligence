@@ -705,6 +705,41 @@
       "baseline_fill": 0.016437006404610124,
       "baseline_revenue": 0.8748029300000001,
       "nudge_count": 0
+    },
+    "6784": {
+      "baseline_floor": 0.01,
+      "baseline_ecpm": 0.869818982317968,
+      "baseline_fill": 0.07361129794074796,
+      "baseline_revenue": 27.828066720000006,
+      "nudge_count": 0
+    },
+    "23603": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.5371430462916873,
+      "baseline_fill": 0.47113174804183666,
+      "baseline_revenue": 3.41335465,
+      "nudge_count": 0
+    },
+    "15556": {
+      "baseline_floor": 0.02,
+      "baseline_ecpm": 0.09693896122800053,
+      "baseline_fill": 0.858457344087243,
+      "baseline_revenue": 0.65893391,
+      "nudge_count": 0
+    },
+    "3656": {
+      "baseline_floor": 0.1,
+      "baseline_ecpm": 0.7802823031496067,
+      "baseline_fill": 0.0225908302574821,
+      "baseline_revenue": 0.61350463,
+      "nudge_count": 0
+    },
+    "12279": {
+      "baseline_floor": 0.05,
+      "baseline_ecpm": 2.9704329990800358,
+      "baseline_fill": 0.0029346652267818575,
+      "baseline_revenue": 2.4556482200000005,
+      "nudge_count": 0
     }
   }
 }

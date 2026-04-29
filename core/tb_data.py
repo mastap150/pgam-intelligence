@@ -16,6 +16,7 @@ TB API quirks
 
 from __future__ import annotations
 
+import os
 import time
 
 from core.api import fetch_tb, tb_configured, sf, pct
@@ -24,6 +25,16 @@ BD_DATE      = "DATE"
 BD_PUBLISHER = "PUBLISHER"
 METRICS      = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS", "WINS", "BIDS"]
 INTER_CALL_SLEEP = 5  # seconds
+
+# ---------------------------------------------------------------------------
+# Granular-breakdown gate
+# ---------------------------------------------------------------------------
+# As of 2026-04-29, TB confirmed that several granular breakdowns aren't yet
+# available in the AdX API (they're scoping the work). The three functions
+# below — DEMAND_PARTNER, COUNTRY_NAME, PUBLISHER,DEMAND_PARTNER — short-circuit
+# to [] when this flag is off so we don't waste 30+ seconds per email run on
+# guaranteed timeouts. When TB ships the feature, set TB_GRANULAR_ENABLED=1.
+TB_GRANULAR_ENABLED = os.environ.get("TB_GRANULAR_ENABLED", "0") == "1"
 
 
 def sleep_between() -> None:
@@ -155,9 +166,11 @@ def fetch_pub_demand_combos(start: str, end: str, retries: int = 1) -> list[dict
     Returns one row per (publisher, demand) combo. TB doesn't expose bundle
     or domain breakdowns, so this is the finest granularity available.
 
-    TB API is flaky on multi-dim breakdowns — retries once with extra backoff
-    before giving up.
+    Gated on TB_GRANULAR_ENABLED — TB hasn't shipped this breakdown in their
+    AdX API as of 2026-04-29. Returns [] immediately when off.
     """
+    if not TB_GRANULAR_ENABLED:
+        return []
     if not tb_configured():
         return []
     rows = None
@@ -198,7 +211,13 @@ def fetch_pub_demand_combos(start: str, end: str, retries: int = 1) -> list[dict
 
 
 def fetch_by_country(start: str, end: str, n: int = 20, retries: int = 1) -> list[dict]:
-    """TB COUNTRY_NAME breakdown — sorted by revenue. Retries once on timeout."""
+    """
+    TB COUNTRY_NAME breakdown — sorted by revenue.
+
+    Gated on TB_GRANULAR_ENABLED — TB hasn't shipped this breakdown yet.
+    """
+    if not TB_GRANULAR_ENABLED:
+        return []
     if not tb_configured():
         return []
     rows = None
@@ -238,7 +257,13 @@ def fetch_by_country(start: str, end: str, n: int = 20, retries: int = 1) -> lis
 
 
 def fetch_by_demand_partner(start: str, end: str, n: int = 30, retries: int = 1) -> list[dict]:
-    """TB DEMAND_PARTNER breakdown — for partner profitability ranking. Retries once."""
+    """
+    TB DEMAND_PARTNER breakdown — for partner profitability ranking.
+
+    Gated on TB_GRANULAR_ENABLED — TB hasn't shipped this breakdown yet.
+    """
+    if not TB_GRANULAR_ENABLED:
+        return []
     if not tb_configured():
         return []
     rows = None
