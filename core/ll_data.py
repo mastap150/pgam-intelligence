@@ -97,6 +97,43 @@ def fetch_top_publishers(start: str, end: str, n: int = 20) -> list[dict]:
     return pubs[:n]
 
 
+def fetch_bundle_pub_demand(start: str, end: str) -> list[dict]:
+    """
+    LL 3-way breakdown: BUNDLE × PUBLISHER × DEMAND_PARTNER.
+    Returns one row per (bundle, publisher, demand_partner) combo with
+    derived eCPM/margin/win_rate. Used for per-pub combo analysis.
+    """
+    try:
+        rows = fetch("BUNDLE,PUBLISHER,DEMAND_PARTNER", METRICS, start, end)
+    except Exception as exc:
+        print(f"[ll_data] bundle×pub×demand fetch failed ({start}..{end}): {exc}")
+        return []
+    out = []
+    for r in rows:
+        bundle = (r.get("BUNDLE") or r.get("bundle") or r.get("BUNDLE_NAME") or "").strip()
+        pub    = (r.get("PUBLISHER_NAME") or r.get("PUBLISHER") or r.get("publisher") or "Unknown").strip()
+        dem    = (r.get("DEMAND_PARTNER_NAME") or r.get("DEMAND_PARTNER") or r.get("demand_partner") or "Unknown").strip()
+        rev    = _f(r, "GROSS_REVENUE", "gross_revenue", "grossRevenue")
+        pay    = _f(r, "PUB_PAYOUT",    "pub_payout",    "pubPayout")
+        imp    = _f(r, "IMPRESSIONS",   "impressions")
+        wins   = _f(r, "WINS",          "wins")
+        bids   = _f(r, "BIDS",          "bids")
+        if not bundle or rev <= 0:
+            continue
+        out.append({
+            "bundle":      bundle,
+            "publisher":   pub,
+            "demand":      dem,
+            "revenue":     rev,
+            "payout":      pay,
+            "impressions": imp,
+            "ecpm":        (rev / imp * 1000) if imp > 0 else 0.0,
+            "margin":      pct(rev - pay, rev),
+            "win_rate":    pct(wins, bids),
+        })
+    return out
+
+
 def avg_per_day(summary: dict, n_days: int) -> dict:
     """Scale a multi-day summary into a daily-average summary. Margin/eCPM unchanged."""
     if not summary or n_days <= 0:

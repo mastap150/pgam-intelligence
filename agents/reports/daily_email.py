@@ -211,6 +211,82 @@ def _delta_pct(now: float, base: float) -> float | None:
     return (now - base) / base * 100.0
 
 
+def _collect_top_combos(yesterday_fn, top_pubs_ll: list[str],
+                        n_pubs: int = 5, n_combos_per_pub: int = 3) -> dict:
+    """
+    Per-publisher top (bundle × demand) combos for LL, plus a flat
+    (publisher × demand) leaderboard for TB.
+
+    "Working well" = combo eCPM > publisher's average eCPM, ranked by revenue.
+    Falls back to top-by-revenue (no quality filter) if no combos pass for
+    a given pub, so the publisher row is never empty.
+    """
+    from core import ll_data, tb_data
+
+    yest = yesterday_fn()
+    out = {"date": yest, "ll": [], "tb": []}
+
+    # ── LL: BUNDLE × PUBLISHER × DEMAND_PARTNER ───────────────────────────────
+    combos = ll_data.fetch_bundle_pub_demand(yest, yest)
+    if combos:
+        # Group by publisher
+        by_pub: dict[str, list[dict]] = {}
+        for c in combos:
+            by_pub.setdefault(c["publisher"], []).append(c)
+
+        # Restrict to top N pubs by total revenue (use the topline-derived
+        # ranking if provided, otherwise compute from these combos)
+        if top_pubs_ll:
+            pubs_ordered = [p for p in top_pubs_ll if p in by_pub][:n_pubs]
+            # Fill from combo-derived ranking if topline list was short
+            if len(pubs_ordered) < n_pubs:
+                seen = set(pubs_ordered)
+                extra = sorted(by_pub.keys(),
+                               key=lambda p: -sum(c["revenue"] for c in by_pub[p]))
+                for p in extra:
+                    if p not in seen:
+                        pubs_ordered.append(p)
+                        if len(pubs_ordered) >= n_pubs:
+                            break
+        else:
+            pubs_ordered = sorted(by_pub.keys(),
+                                  key=lambda p: -sum(c["revenue"] for c in by_pub[p]))[:n_pubs]
+
+        for pub in pubs_ordered:
+            pub_combos = by_pub[pub]
+            total_rev  = sum(c["revenue"] for c in pub_combos)
+            total_imp  = sum(c["impressions"] for c in pub_combos)
+            pub_avg_ecpm = (total_rev / total_imp * 1000) if total_imp > 0 else 0.0
+
+            quality = [c for c in pub_combos if c["ecpm"] > pub_avg_ecpm]
+            ranked  = sorted(quality or pub_combos, key=lambda c: -c["revenue"])[:n_combos_per_pub]
+
+            out["ll"].append({
+                "publisher":     pub,
+                "total_revenue": total_rev,
+                "avg_ecpm":      pub_avg_ecpm,
+                "filtered":      bool(quality),  # False => fell back to raw top-revenue
+                "combos":        ranked,
+            })
+
+    # ── TB: PUBLISHER × DEMAND_PARTNER (no bundle granularity available) ─────
+    tb_combos = tb_data.fetch_pub_demand_combos(yest, yest)
+    if tb_combos:
+        # Compute platform-wide avg eCPM as quality threshold
+        total_rev = sum(c["revenue"] for c in tb_combos)
+        total_imp = sum(c["impressions"] for c in tb_combos)
+        platform_avg_ecpm = (total_rev / total_imp * 1000) if total_imp > 0 else 0.0
+        quality = [c for c in tb_combos if c["ecpm"] > platform_avg_ecpm]
+        ranked  = sorted(quality or tb_combos, key=lambda c: -c["revenue"])[:n_pubs * n_combos_per_pub]
+        out["tb"] = {
+            "platform_avg_ecpm": platform_avg_ecpm,
+            "filtered":          bool(quality),
+            "combos":            ranked,
+        }
+
+    return out
+
+
 def _collect_revenue_summary(fetch, yesterday_fn, today_fn, n_days_ago_fn,
                               sf, pct, fmt_usd, fmt_n) -> dict:
     """Fetch today + yesterday publisher-level data and build a summary dict."""
@@ -547,6 +623,111 @@ def _html_topline_section(top: dict, fmt_usd, fmt_n) -> str:
         <tbody>{rows_html}</tbody>
       </table>
       {movers_html}
+    </div>
+    """
+
+
+def _html_top_combos_section(combos: dict, fmt_usd, fmt_n) -> str:
+    """
+    Per-publisher top (bundle × demand) combos for LL, plus flat
+    (publisher × demand) leaderboard for TB. "Working well" filter:
+    eCPM above publisher (or platform) average, ranked by revenue.
+    """
+    if not combos or (not combos.get("ll") and not combos.get("tb")):
+        return ""
+
+    ll_pubs = combos.get("ll", []) or []
+    tb_data = combos.get("tb") or {}
+    yest_date = combos.get("date", "")
+
+    # ── LL block: one mini-table per publisher ───────────────────────────────
+    ll_html = ""
+    if ll_pubs:
+        pub_blocks = []
+        for pub in ll_pubs:
+            pub_name   = pub["publisher"]
+            avg_ecpm   = pub["avg_ecpm"]
+            filtered   = pub["filtered"]
+            label_note = '' if filtered else f' <span class="muted" style="font-size:11px;">(top by revenue — none beat avg eCPM)</span>'
+
+            rows_html = ""
+            for c in pub["combos"]:
+                ecpm_color = _GREEN if c["ecpm"] > avg_ecpm else _MUTED
+                rows_html += f"""
+                <tr>
+                  <td style="font-family:ui-monospace,monospace;font-size:12px;">{c['bundle'][:36]}</td>
+                  <td>{c['demand']}</td>
+                  <td>{fmt_usd(c['revenue'])}</td>
+                  <td style="color:{ecpm_color};">{fmt_usd(c['ecpm'])}</td>
+                  <td class="muted">{c['win_rate']:.1f}%</td>
+                </tr>"""
+
+            pub_blocks.append(f"""
+            <div style="margin-bottom:18px;">
+              <div style="margin-bottom:6px;">
+                <strong style="color:{_TEXT};">{pub_name}</strong>
+                <span class="muted" style="font-size:11px;margin-left:8px;">
+                  pub avg eCPM {fmt_usd(avg_ecpm)} · total {fmt_usd(pub['total_revenue'])}
+                </span>{label_note}
+              </div>
+              <table>
+                <thead><tr>
+                  <th>Bundle / App ID</th><th>Demand</th><th>Revenue</th><th>eCPM</th><th>WR</th>
+                </tr></thead>
+                <tbody>{rows_html}</tbody>
+              </table>
+            </div>""")
+
+        ll_html = f"""
+        <div style="margin-bottom:6px;">
+          <span class="badge badge-blue">LL</span>
+          <span style="font-size:12px;color:{_MUTED};margin-left:6px;">
+            Top {len(ll_pubs)} publishers · top combos by bundle × demand (eCPM &gt; pub avg)
+          </span>
+        </div>
+        {''.join(pub_blocks)}"""
+
+    # ── TB block: flat leaderboard ────────────────────────────────────────────
+    tb_html = ""
+    if tb_data and tb_data.get("combos"):
+        plat_avg = tb_data["platform_avg_ecpm"]
+        filtered = tb_data["filtered"]
+        rows_html = ""
+        for c in tb_data["combos"]:
+            ecpm_color = _GREEN if c["ecpm"] > plat_avg else _MUTED
+            rows_html += f"""
+            <tr>
+              <td>{c['publisher']}</td>
+              <td>{c['demand']}</td>
+              <td>{fmt_usd(c['revenue'])}</td>
+              <td style="color:{ecpm_color};">{fmt_usd(c['ecpm'])}</td>
+              <td class="muted">{c['win_rate']:.1f}%</td>
+            </tr>"""
+        label_note = '' if filtered else f' <span class="muted" style="font-size:11px;">(top by revenue — none beat platform avg)</span>'
+        tb_html = f"""
+        <div style="margin-top:18px;">
+          <div style="margin-bottom:6px;">
+            <span class="badge badge-yellow">TB</span>
+            <span style="font-size:12px;color:{_MUTED};margin-left:6px;">
+              Top publisher × demand combos · platform avg eCPM {fmt_usd(plat_avg)}
+            </span>{label_note}
+          </div>
+          <table>
+            <thead><tr>
+              <th>Publisher</th><th>Demand</th><th>Revenue</th><th>eCPM</th><th>WR</th>
+            </tr></thead>
+            <tbody>{rows_html}</tbody>
+          </table>
+        </div>"""
+
+    if not ll_html and not tb_html:
+        return ""
+
+    return f"""
+    <div class="card">
+      <h2>Top Combos by Publisher ({yest_date})</h2>
+      {ll_html}
+      {tb_html}
     </div>
     """
 
@@ -901,6 +1082,7 @@ def _build_html(
     date_str:    str,
     now_et:      datetime,
     topline:     dict,
+    top_combos:  dict,
     rev_summary: dict,
     floors:      dict,
     opp_fill:    dict,
@@ -915,6 +1097,7 @@ def _build_html(
         _html_header(date_str, now_et),
         _html_brief_section(brief),
         _html_topline_section(topline, fmt_usd, fmt_n),
+        _html_top_combos_section(top_combos, fmt_usd, fmt_n),
         _html_revenue_section(rev_summary, fmt_usd, fmt_n),
         _html_opp_fill_section(opp_fill, fmt_n),
         _html_floor_section(floors, fmt_usd),
@@ -1044,6 +1227,21 @@ def run():
         print(f"[daily_email] Topline collection failed: {exc}")
         traceback.print_exc()
 
+    # Top combos: per-pub bundle × demand (LL) + pub × demand (TB)
+    top_combos: dict = {}
+    try:
+        # Use the LL movers' publisher list to anchor the top-pubs ranking,
+        # falling back to combo-derived ranking if movers list is empty.
+        ll_top_pubs = [m["publisher"] for m in topline.get("movers", [])
+                       if m.get("platform") == "LL"]
+        top_combos = _collect_top_combos(yesterday_fn, ll_top_pubs)
+        n_ll = len(top_combos.get("ll", []))
+        n_tb = len((top_combos.get("tb") or {}).get("combos", []))
+        print(f"[daily_email] Top combos: {n_ll} LL pubs · {n_tb} TB combos")
+    except Exception as exc:
+        print(f"[daily_email] Top combos collection failed: {exc}")
+        traceback.print_exc()
+
     rev_summary = _collect_revenue_summary(
         fetch, yesterday_fn, today_fn, n_days_ago_fn, sf, pct, fmt_usd, fmt_n
     )
@@ -1131,6 +1329,7 @@ def run():
         date_str    = date_str,
         now_et      = now_et,
         topline     = topline,
+        top_combos  = top_combos,
         rev_summary = rev_summary,
         floors      = floors,
         opp_fill    = opp_fill,
