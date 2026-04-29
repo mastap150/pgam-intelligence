@@ -88,6 +88,7 @@ def _import(module_path: str, func_name: str = "run"):
 # Agent                  | Frequency  | When it actually fires
 # -----------------------|------------|------------------------------------------
 # partner_revenue_etl    | every 60m  | UPSERTs LL daily rollup into Neon (today + yesterday)
+# tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
 # opp_fill_rate          | every 4h   | daily summary + critical repeat
@@ -119,6 +120,11 @@ def setup_schedule():
     # at admin.pgammedia.com/admin/partner-revenue. Hourly UPSERT of today +
     # yesterday; backfill via `python -m agents.etl.partner_revenue_etl --backfill 30`.
     partner_revenue_etl    = _import("agents.etl.partner_revenue_etl")
+    # TB analogue of partner_revenue_etl. Pulls TB DATE,PUBLISHER and
+    # DATE,DEMAND_PARTNER breakdowns into pgam_direct.tb_daily_publisher_revenue
+    # and pgam_direct.tb_daily_demand_revenue. Two-dim breakdown was tried first
+    # but ssp.pgammedia.com times out on the cell-count fan-out.
+    tb_revenue_etl         = _import("agents.etl.tb_revenue_etl")
     ll_revenue             = _import("agents.alerts.ll_revenue")
     revenue_pace           = _import("agents.alerts.revenue_pace")
     opp_fill_rate          = _import("agents.alerts.opp_fill_rate")
@@ -225,6 +231,7 @@ def setup_schedule():
 
     # ── Hourly ───────────────────────────────────────────────────────────────
     schedule.every(60).minutes.do(_run("partner_revenue_etl", partner_revenue_etl))
+    schedule.every(60).minutes.do(_run("tb_revenue_etl",     tb_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
