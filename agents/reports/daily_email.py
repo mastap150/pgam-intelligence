@@ -1133,6 +1133,7 @@ def _send_email(
     sendgrid_key: str,
     sender:    str,
     recipients: list[str],
+    subject_prefix: str = "",
 ) -> bool:
     """Send HTML email via SendGrid REST API. Returns True on success."""
     try:
@@ -1141,7 +1142,7 @@ def _send_email(
         print("[daily_email] urllib not available")
         return False
 
-    subject = f"PGAM Intelligence — Daily Report {date_str}"
+    subject = f"{subject_prefix}PGAM Intelligence — Daily Report {date_str}"
     payload = {
         "personalizations": [{"to": [{"email": r} for r in recipients]}],
         "from": {"email": sender},
@@ -1177,20 +1178,33 @@ def _send_email(
 # Main entry point
 # ---------------------------------------------------------------------------
 
-def run():
+def run(force_test: bool = False, test_recipients: list[str] | None = None):
+    """
+    Build and send the daily report.
+
+    Args:
+        force_test:      If True, bypass the time-of-day gate and the once-per-day
+                         dedup, prefix the subject with "[TEST] ", and skip the
+                         dedup state write so production sends still go out later.
+        test_recipients: Override the configured recipient list (test mode only).
+                         Useful for sending the test to just one inbox.
+    """
     now_et    = datetime.now(ET)
     hour_et   = now_et.hour
     date_str  = now_et.strftime("%Y-%m-%d")
 
-    # Hour gate — only send at or after SEND_HOUR_ET
-    if hour_et < SEND_HOUR_ET:
-        print(f"[daily_email] Too early ({hour_et:02d}:xx ET). Will send at {SEND_HOUR_ET:02d}:00 ET.")
-        return
+    if not force_test:
+        # Hour gate — only send at or after SEND_HOUR_ET
+        if hour_et < SEND_HOUR_ET:
+            print(f"[daily_email] Too early ({hour_et:02d}:xx ET). Will send at {SEND_HOUR_ET:02d}:00 ET.")
+            return
 
-    # Deduplication — once per day
-    if _already_sent(date_str):
-        print(f"[daily_email] Already sent for {date_str}. Exiting.")
-        return
+        # Deduplication — once per day
+        if _already_sent(date_str):
+            print(f"[daily_email] Already sent for {date_str}. Exiting.")
+            return
+    else:
+        print(f"[daily_email] TEST MODE — bypassing time gate and dedup")
 
     # ------------------------------------------------------------------
     # Load core dependencies
@@ -1341,13 +1355,32 @@ def run():
         fmt_n       = fmt_n,
     )
 
-    success = _send_email(html, date_str, sendgrid_key, sender, recipients)
+    # Recipient + subject overrides for test mode
+    if force_test:
+        active_recipients = test_recipients or recipients[:1]  # default: first recipient only
+        subject_prefix    = "[TEST] "
+        print(f"[daily_email] Test send → {active_recipients}")
+    else:
+        active_recipients = recipients
+        subject_prefix    = ""
 
-    if success:
+    success = _send_email(html, date_str, sendgrid_key, sender, active_recipients,
+                          subject_prefix=subject_prefix)
+
+    if success and not force_test:
         _mark_sent(date_str)
+    elif force_test:
+        print("[daily_email] Test send complete — production dedup state untouched.")
     else:
         print("[daily_email] Email not delivered — state NOT marked as sent.")
 
 
 if __name__ == "__main__":
-    run()
+    import sys
+    force_test = "--test" in sys.argv
+    # Optional: --to=email@example.com to override recipient
+    test_to = None
+    for arg in sys.argv[1:]:
+        if arg.startswith("--to="):
+            test_to = [arg.split("=", 1)[1]]
+    run(force_test=force_test, test_recipients=test_to)
