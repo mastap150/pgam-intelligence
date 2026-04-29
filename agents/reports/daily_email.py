@@ -83,6 +83,134 @@ def _mark_sent(date_str: str) -> None:
 # Data collection helpers
 # ---------------------------------------------------------------------------
 
+def _collect_topline(yesterday_fn, n_days_ago_fn) -> dict:
+    """
+    Cross-platform supply rollup for YESTERDAY (full day) — LL + TB + Combined.
+
+    Compares yesterday vs:
+      - Day-before-yesterday  (DoD)
+      - 7-day daily average ending day-before-yesterday (clean WoW baseline)
+
+    Also returns top movers (per-publisher revenue delta vs the 7d-avg
+    baseline) tagged with their platform.
+    """
+    from core import ll_data, tb_data
+
+    yest    = yesterday_fn()
+    d2_ago  = n_days_ago_fn(2)
+    d8_ago  = n_days_ago_fn(8)   # baseline range start (8 days ago through 2 days ago = 7 days)
+
+    # ── LL ────────────────────────────────────────────────────────────────────
+    ll_yest    = ll_data.fetch_summary(yest, yest)
+    ll_d2      = ll_data.fetch_summary(d2_ago, d2_ago)
+    ll_7d_sum  = ll_data.fetch_summary(d8_ago, d2_ago)
+    ll_7d_avg  = ll_data.avg_per_day(ll_7d_sum, 7)
+
+    ll_pubs_yest = ll_data.fetch_top_publishers(yest, yest, n=30)
+    ll_pubs_7d   = ll_data.fetch_top_publishers(d8_ago, d2_ago, n=80)
+
+    # ── TB ────────────────────────────────────────────────────────────────────
+    # TB API times out on long ranges + has shorter history than LL, so we use
+    # per-day summaries for the 7d window and skip the 7d publisher breakdown.
+    # Movers fall back to DoD baseline (day-before-yesterday) when 7d is empty.
+    tb_yest = tb_data.fetch_summary(yest, yest)
+    tb_data.sleep_between()
+    tb_d2   = tb_data.fetch_summary(d2_ago, d2_ago)
+    tb_data.sleep_between()
+    tb_7d_sum = tb_data.fetch_summary_by_day(d8_ago, d2_ago)
+    tb_data.sleep_between()
+    tb_7d_avg = tb_data.avg_per_day(tb_7d_sum, 7)
+
+    tb_pubs_yest = tb_data.fetch_top_publishers(yest, yest, n=30)
+    tb_data.sleep_between()
+    tb_pubs_d2   = tb_data.fetch_top_publishers(d2_ago, d2_ago, n=80)
+
+    # ── Combined totals ───────────────────────────────────────────────────────
+    combined_yest = _combine(ll_yest, tb_yest)
+    combined_d2   = _combine(ll_d2,   tb_d2)
+    combined_7d   = _combine(ll_7d_avg, tb_7d_avg)
+
+    # ── Movers ────────────────────────────────────────────────────────────────
+    # LL uses 7d-avg baseline; TB uses DoD (day-before) baseline since 7d
+    # publisher fetches time out and TB has limited history. If the TB baseline
+    # fetch comes back empty we skip TB movers entirely rather than fabricate
+    # a "NEW" tag for every TB publisher.
+    ll_movers = _compute_movers(ll_pubs_yest, ll_pubs_7d, "LL",
+                                baseline_label="7d avg", baseline_divisor=7)
+    tb_movers = (_compute_movers(tb_pubs_yest, tb_pubs_d2, "TB",
+                                  baseline_label="day-before", baseline_divisor=1)
+                 if tb_pubs_d2 else [])
+    movers = ll_movers + tb_movers
+    movers.sort(key=lambda m: abs(m["delta"]), reverse=True)
+
+    return {
+        "date":     yest,
+        "ll":       {"yest": ll_yest, "d2": ll_d2, "d7avg": ll_7d_avg},
+        "tb":       {"yest": tb_yest, "d2": tb_d2, "d7avg": tb_7d_avg},
+        "combined": {"yest": combined_yest, "d2": combined_d2, "d7avg": combined_7d},
+        "movers":   movers[:6],
+    }
+
+
+def _combine(a: dict, b: dict) -> dict:
+    """Sum two summary dicts and recompute derived ratios."""
+    if not a and not b:
+        return {}
+    a = a or {}
+    b = b or {}
+    rev  = a.get("revenue", 0)     + b.get("revenue", 0)
+    pay  = a.get("payout", 0)      + b.get("payout", 0)
+    imp  = a.get("impressions", 0) + b.get("impressions", 0)
+    wins = a.get("wins", 0)        + b.get("wins", 0)
+    bids = a.get("bids", 0)        + b.get("bids", 0)
+    return {
+        "revenue": rev, "payout": pay, "impressions": imp, "wins": wins, "bids": bids,
+        "margin":   ((rev - pay) / rev * 100) if rev > 0 else 0.0,
+        "ecpm":     (rev / imp * 1000) if imp > 0 else 0.0,
+        "win_rate": (wins / bids * 100) if bids > 0 else 0.0,
+    }
+
+
+def _compute_movers(yest_pubs: list, baseline_pubs: list, platform: str,
+                    baseline_label: str = "7d avg",
+                    baseline_divisor: int = 7,
+                    min_abs_delta: float = 50.0) -> list[dict]:
+    """
+    For each pub in yest, compute revenue delta vs a baseline.
+
+    baseline_divisor: how many days the baseline_pubs revenue sums cover
+                      (7 for a 7-day range, 1 for a single-day DoD baseline).
+    Pubs with no baseline history are returned with delta_pct=None and tagged
+    as "new" rather than fabricating a meaningless +0% / +inf%.
+    """
+    base_by_name = {p["name"]: p["revenue"] / baseline_divisor for p in baseline_pubs}
+    movers = []
+    for p in yest_pubs:
+        baseline = base_by_name.get(p["name"], 0.0)
+        delta    = p["revenue"] - baseline
+        if abs(delta) < min_abs_delta:
+            continue
+        is_new   = baseline <= 0
+        delta_pct = None if is_new else ((p["revenue"] - baseline) / baseline * 100)
+        movers.append({
+            "platform":       platform,
+            "publisher":      p["name"],
+            "yest_rev":       p["revenue"],
+            "baseline":       baseline,
+            "baseline_label": baseline_label,
+            "delta":          delta,
+            "delta_pct":      delta_pct,
+            "is_new":         is_new,
+        })
+    return movers
+
+
+def _delta_pct(now: float, base: float) -> float | None:
+    if base is None or base == 0:
+        return None
+    return (now - base) / base * 100.0
+
+
 def _collect_revenue_summary(fetch, yesterday_fn, today_fn, n_days_ago_fn,
                               sf, pct, fmt_usd, fmt_n) -> dict:
     """Fetch today + yesterday publisher-level data and build a summary dict."""
@@ -315,6 +443,110 @@ def _html_header(date_str: str, now_et: datetime) -> str:
     <div class="header">
       <h1>PGAM Intelligence — Daily Report</h1>
       <p class="sub">{date_str} &nbsp;·&nbsp; Generated {ts}</p>
+    </div>
+    """
+
+
+def _html_topline_section(top: dict, fmt_usd, fmt_n) -> str:
+    """Cross-platform LL+TB+Combined supply rollup for yesterday."""
+    if not top:
+        return ""
+
+    yest_date = top.get("date", "")
+    ll  = top.get("ll", {})
+    tb  = top.get("tb", {})
+    cb  = top.get("combined", {})
+    movers = top.get("movers", [])
+
+    def _delta_html(now: float, base: float, kind: str = "pct") -> str:
+        d = _delta_pct(now, base)
+        if d is None:
+            return f'<span class="muted">—</span>'
+        cls  = "green" if d >= 0 else "red"
+        arr  = "▲" if d >= 0 else "▼"
+        sign = "+" if d >= 0 else ""
+        return f'<span class="{cls}">{arr} {sign}{d:.1f}%</span>'
+
+    def _row(label: str, plat: dict) -> str:
+        y    = plat.get("yest", {}) or {}
+        d2   = plat.get("d2", {})   or {}
+        d7   = plat.get("d7avg", {}) or {}
+        rev  = y.get("revenue", 0)
+        imp  = y.get("impressions", 0)
+        ecpm = y.get("ecpm", 0)
+        marg = y.get("margin", 0)
+        return f"""
+        <tr>
+          <td><strong>{label}</strong></td>
+          <td>{fmt_usd(rev)}<div style="font-size:11px;">{_delta_html(rev, d2.get('revenue'))} <span class="muted">DoD</span> · {_delta_html(rev, d7.get('revenue'))} <span class="muted">vs 7d</span></div></td>
+          <td>{fmt_n(imp)}<div style="font-size:11px;">{_delta_html(imp, d7.get('impressions'))} <span class="muted">vs 7d</span></div></td>
+          <td>{fmt_usd(ecpm)}<div style="font-size:11px;">{_delta_html(ecpm, d7.get('ecpm'))} <span class="muted">vs 7d</span></div></td>
+          <td>{marg:.1f}%<div style="font-size:11px;" class="muted">7d: {d7.get('margin', 0):.1f}%</div></td>
+        </tr>"""
+
+    has_ll = bool(ll.get("yest"))
+    has_tb = bool(tb.get("yest"))
+    rows_html = ""
+    if has_ll:
+        rows_html += _row("LL (Limelight)", ll)
+    if has_tb:
+        rows_html += _row("TB (Teqblaze)", tb)
+    if has_ll and has_tb:
+        rows_html += _row("Combined", cb)
+
+    if not rows_html:
+        return '<div class="card"><h2>Yesterday — Supply Rollup</h2><p class="muted">No platform data available.</p></div>'
+
+    # Movers block
+    movers_html = ""
+    if movers:
+        m_rows = ""
+        for m in movers:
+            plat_badge = ('<span class="badge badge-blue">LL</span>'
+                          if m["platform"] == "LL" else
+                          '<span class="badge badge-yellow">TB</span>')
+            delta = m["delta"]
+            cls   = "green" if delta >= 0 else "red"
+            arr   = "▲" if delta >= 0 else "▼"
+            sign  = "+" if delta >= 0 else ""
+            if m.get("is_new"):
+                baseline_cell = '<span class="badge badge-green">new</span>'
+                delta_cell    = f'<span class="{cls}">{arr} {sign}{fmt_usd(delta)}</span>'
+            else:
+                baseline_cell = f'<span class="muted">{fmt_usd(m["baseline"])}<br><span style="font-size:11px;">{m["baseline_label"]}</span></span>'
+                pct_str       = f'({sign}{m["delta_pct"]:.0f}%)' if m["delta_pct"] is not None else ''
+                delta_cell    = f'<span class="{cls}">{arr} {sign}{fmt_usd(delta)} <span class="muted" style="font-size:11px;">{pct_str}</span></span>'
+            m_rows += f"""
+            <tr>
+              <td>{plat_badge}</td>
+              <td>{m['publisher']}</td>
+              <td>{fmt_usd(m['yest_rev'])}</td>
+              <td>{baseline_cell}</td>
+              <td>{delta_cell}</td>
+            </tr>"""
+        movers_html = f"""
+        <div style="margin-top:18px;">
+          <div style="font-size:12px;color:{_MUTED};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;">
+            Top Movers vs Baseline
+          </div>
+          <table>
+            <thead><tr>
+              <th></th><th>Publisher</th><th>Yesterday</th><th>Baseline</th><th>Delta</th>
+            </tr></thead>
+            <tbody>{m_rows}</tbody>
+          </table>
+        </div>"""
+
+    return f"""
+    <div class="card" style="border-color:#1e3a5f;">
+      <h2>Yesterday — Supply Rollup ({yest_date})</h2>
+      <table>
+        <thead><tr>
+          <th>Platform</th><th>Revenue</th><th>Impressions</th><th>eCPM</th><th>Margin</th>
+        </tr></thead>
+        <tbody>{rows_html}</tbody>
+      </table>
+      {movers_html}
     </div>
     """
 
@@ -668,6 +900,7 @@ def _html_footer(date_str: str) -> str:
 def _build_html(
     date_str:    str,
     now_et:      datetime,
+    topline:     dict,
     rev_summary: dict,
     floors:      dict,
     opp_fill:    dict,
@@ -681,6 +914,7 @@ def _build_html(
     body_parts = [
         _html_header(date_str, now_et),
         _html_brief_section(brief),
+        _html_topline_section(topline, fmt_usd, fmt_n),
         _html_revenue_section(rev_summary, fmt_usd, fmt_n),
         _html_opp_fill_section(opp_fill, fmt_n),
         _html_floor_section(floors, fmt_usd),
@@ -799,6 +1033,17 @@ def run():
     # ------------------------------------------------------------------
     # Collect data from all sources (failures are non-fatal)
     # ------------------------------------------------------------------
+    topline: dict = {}
+    try:
+        topline = _collect_topline(yesterday_fn, n_days_ago_fn)
+        ll_rev = topline.get("ll", {}).get("yest", {}).get("revenue", 0)
+        tb_rev = topline.get("tb", {}).get("yest", {}).get("revenue", 0)
+        print(f"[daily_email] Topline: LL ${ll_rev:,.0f}  |  TB ${tb_rev:,.0f}  |  "
+              f"{len(topline.get('movers', []))} movers")
+    except Exception as exc:
+        print(f"[daily_email] Topline collection failed: {exc}")
+        traceback.print_exc()
+
     rev_summary = _collect_revenue_summary(
         fetch, yesterday_fn, today_fn, n_days_ago_fn, sf, pct, fmt_usd, fmt_n
     )
@@ -885,6 +1130,7 @@ def run():
     html = _build_html(
         date_str    = date_str,
         now_et      = now_et,
+        topline     = topline,
         rev_summary = rev_summary,
         floors      = floors,
         opp_fill    = opp_fill,
