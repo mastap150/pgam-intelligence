@@ -197,6 +197,87 @@ def fetch_pub_demand_combos(start: str, end: str, retries: int = 1) -> list[dict
     return out
 
 
+def fetch_by_country(start: str, end: str, n: int = 20, retries: int = 1) -> list[dict]:
+    """TB COUNTRY_NAME breakdown — sorted by revenue. Retries once on timeout."""
+    if not tb_configured():
+        return []
+    rows = None
+    for attempt in range(retries + 1):
+        if attempt > 0:
+            time.sleep(INTER_CALL_SLEEP * 3)
+            print(f"[tb_data] retrying country ({start}..{end}), attempt {attempt + 1}…")
+        try:
+            rows = fetch_tb("COUNTRY_NAME", METRICS, start, end)
+            break
+        except Exception as exc:
+            print(f"[tb_data] country fetch failed ({start}..{end}): {exc}")
+            rows = None
+    if not rows:
+        return []
+    out = []
+    for r in rows:
+        country = (r.get("COUNTRY") or r.get("country") or r.get("COUNTRY_NAME") or "Unknown").strip()
+        rev  = _f(r, "GROSS_REVENUE", "gross_revenue", "grossRevenue")
+        pay  = _f(r, "PUB_PAYOUT",    "pub_payout",    "pubPayout")
+        imp  = _f(r, "IMPRESSIONS",   "impressions")
+        wins = _f(r, "WINS",          "wins")
+        bids = _f(r, "BIDS",          "bids")
+        if rev <= 0 and imp <= 0:
+            continue
+        out.append({
+            "country":     country,
+            "revenue":     rev,
+            "payout":      pay,
+            "impressions": imp,
+            "ecpm":        (rev / imp * 1000) if imp > 0 else 0.0,
+            "margin":      pct(rev - pay, rev),
+            "win_rate":    pct(wins, bids),
+        })
+    out.sort(key=lambda x: x["revenue"], reverse=True)
+    return out[:n]
+
+
+def fetch_by_demand_partner(start: str, end: str, n: int = 30, retries: int = 1) -> list[dict]:
+    """TB DEMAND_PARTNER breakdown — for partner profitability ranking. Retries once."""
+    if not tb_configured():
+        return []
+    rows = None
+    for attempt in range(retries + 1):
+        if attempt > 0:
+            time.sleep(INTER_CALL_SLEEP * 3)
+            print(f"[tb_data] retrying demand_partner ({start}..{end}), attempt {attempt + 1}…")
+        try:
+            rows = fetch_tb("DEMAND_PARTNER", METRICS, start, end)
+            break
+        except Exception as exc:
+            print(f"[tb_data] demand_partner fetch failed ({start}..{end}): {exc}")
+            rows = None
+    if not rows:
+        return []
+    out = []
+    for r in rows:
+        name = (r.get("DEMAND_PARTNER_NAME") or r.get("DEMAND_PARTNER") or
+                r.get("demand_partner") or "Unknown").strip()
+        rev  = _f(r, "GROSS_REVENUE", "gross_revenue", "grossRevenue")
+        pay  = _f(r, "PUB_PAYOUT",    "pub_payout",    "pubPayout")
+        imp  = _f(r, "IMPRESSIONS",   "impressions")
+        wins = _f(r, "WINS",          "wins")
+        bids = _f(r, "BIDS",          "bids")
+        if rev <= 0:
+            continue
+        out.append({
+            "demand":      name,
+            "revenue":     rev,
+            "payout":      pay,
+            "impressions": imp,
+            "ecpm":        (rev / imp * 1000) if imp > 0 else 0.0,
+            "margin":      pct(rev - pay, rev),
+            "win_rate":    pct(wins, bids),
+        })
+    out.sort(key=lambda x: x["revenue"], reverse=True)
+    return out[:n]
+
+
 def avg_per_day(summary: dict, n_days: int) -> dict:
     """
     Scale a multi-day summary into a daily-average summary.

@@ -149,6 +149,12 @@ def _collect_topline(yesterday_fn, n_days_ago_fn) -> dict:
         "tb":       {"yest": tb_yest, "d2": tb_d2, "d7avg": tb_7d_avg},
         "combined": {"yest": combined_yest, "d2": combined_d2, "d7avg": combined_7d},
         "movers":   movers[:6],
+        # Raw publisher rankings — exposed so health checks (concentration,
+        # dead inventory) can reuse them without re-fetching.
+        "_pubs": {
+            "ll_yest": ll_pubs_yest, "ll_7d":   ll_pubs_7d,
+            "tb_yest": tb_pubs_yest, "tb_d2":   tb_pubs_d2,
+        },
     }
 
 
@@ -209,6 +215,148 @@ def _delta_pct(now: float, base: float) -> float | None:
     if base is None or base == 0:
         return None
     return (now - base) / base * 100.0
+
+
+def _collect_geo(yesterday_fn, n_days_ago_fn, top_n: int = 5) -> dict:
+    """
+    Top countries by revenue for LL (TB doesn't track country reliably).
+    Yesterday + 7d-avg baseline for WoW comparison.
+    """
+    from core import ll_data, tb_data
+
+    yest   = yesterday_fn()
+    d2_ago = n_days_ago_fn(2)
+    d8_ago = n_days_ago_fn(8)
+
+    ll_yest = ll_data.fetch_by_country(yest, yest, n=20)
+    ll_7d   = ll_data.fetch_by_country(d8_ago, d2_ago, n=20)
+
+    base_by_country = {c["country"]: c["revenue"] / 7.0 for c in ll_7d}
+    out_ll = []
+    for c in ll_yest[:top_n]:
+        baseline = base_by_country.get(c["country"], 0.0)
+        delta_pct = ((c["revenue"] - baseline) / baseline * 100) if baseline > 0 else None
+        out_ll.append({**c, "baseline": baseline, "delta_pct": delta_pct})
+
+    # TB: try country, but fall back gracefully if it's all "Unknown"
+    tb_yest = tb_data.fetch_by_country(yest, yest, n=20)
+    tb_data.sleep_between()
+    tb_meaningful = [c for c in tb_yest if c["country"] not in ("Unknown", "", "ZZ")]
+    out_tb = tb_meaningful[:top_n] if tb_meaningful else []
+
+    return {"date": yest, "ll": out_ll, "tb": out_tb}
+
+
+def _collect_demand_margin(yesterday_fn, n_days_ago_fn, top_n: int = 8) -> dict:
+    """Demand-partner profitability ranking, LL + TB. Sort by revenue, surface margin."""
+    from core import ll_data, tb_data
+
+    yest   = yesterday_fn()
+    d8_ago = n_days_ago_fn(8)
+    d2_ago = n_days_ago_fn(2)
+
+    ll_yest = ll_data.fetch_by_demand_partner(yest, yest, n=30)
+    ll_7d   = ll_data.fetch_by_demand_partner(d8_ago, d2_ago, n=30)
+    base_ll = {d["demand"]: d["margin"] for d in ll_7d}
+    for d in ll_yest:
+        d["margin_7d"] = base_ll.get(d["demand"])
+        d["margin_delta_pp"] = ((d["margin"] - d["margin_7d"])
+                                 if d["margin_7d"] is not None else None)
+
+    tb_data.sleep_between()
+    tb_yest = tb_data.fetch_by_demand_partner(yest, yest, n=30)
+    tb_data.sleep_between()
+    tb_7d   = tb_data.fetch_by_demand_partner(d8_ago, d2_ago, n=30)
+    base_tb = {d["demand"]: d["margin"] for d in tb_7d}
+    for d in tb_yest:
+        d["margin_7d"] = base_tb.get(d["demand"])
+        d["margin_delta_pp"] = ((d["margin"] - d["margin_7d"])
+                                 if d["margin_7d"] is not None else None)
+
+    return {
+        "date": yest,
+        "ll":   ll_yest[:top_n],
+        "tb":   tb_yest[:top_n],
+    }
+
+
+def _compute_concentration(topline: dict) -> dict:
+    """Top-3 publisher revenue share, with a flag at >= 70%."""
+    if not topline:
+        return {}
+    return {
+        "ll": _conc_for_platform(topline.get("ll", {})),
+        "tb": _conc_for_platform(topline.get("tb", {})),
+    }
+
+
+def _conc_for_platform(plat: dict) -> dict:
+    """
+    Compute concentration from the platform's yest summary alone — actual
+    publisher list comes from movers + we re-fetch via existing top-pubs path
+    embedded in topline. Returns approximation when only summary is present.
+    """
+    yest = plat.get("yest") or {}
+    return {
+        "total_revenue": yest.get("revenue", 0.0),
+        "platform_margin": yest.get("margin", 0.0),
+    }
+
+
+def _compute_dead_inventory(yest_pubs: list, baseline_pubs: list,
+                             min_baseline: float = 100.0,
+                             max_yest_ratio: float = 0.10) -> list[dict]:
+    """
+    Pubs that delivered >= min_baseline daily-avg over the last 7d but <= 10%
+    of that yesterday — likely outage, partner removal, or wiring break.
+    """
+    yest_by_name = {p["name"]: p["revenue"] for p in yest_pubs}
+    dead = []
+    for p in baseline_pubs:
+        baseline = p["revenue"] / 7.0
+        if baseline < min_baseline:
+            continue
+        yest_rev = yest_by_name.get(p["name"], 0.0)
+        if yest_rev <= baseline * max_yest_ratio:
+            dead.append({
+                "name":       p["name"],
+                "baseline":   baseline,
+                "yest_rev":   yest_rev,
+                "drop_pct":   ((yest_rev - baseline) / baseline * 100) if baseline > 0 else 0,
+            })
+    dead.sort(key=lambda x: x["baseline"], reverse=True)
+    return dead
+
+
+def _split_movers(movers: list, n_each: int = 3) -> tuple[list, list]:
+    """Split mixed mover list into top gainers and worst drops."""
+    if not movers:
+        return [], []
+    gainers = sorted([m for m in movers if m["delta"] > 0],
+                     key=lambda m: -m["delta"])[:n_each]
+    losers  = sorted([m for m in movers if m["delta"] < 0],
+                     key=lambda m: m["delta"])[:n_each]
+    return gainers, losers
+
+
+def _compute_pub_concentration(yest_pubs: list, top_n: int = 3) -> dict:
+    """Top-N publisher share of total platform revenue."""
+    if not yest_pubs:
+        return {"top_n": top_n, "share_pct": 0.0, "total": 0.0,
+                "top_pubs": [], "flag": False}
+    total = sum(p["revenue"] for p in yest_pubs)
+    top   = sorted(yest_pubs, key=lambda p: -p["revenue"])[:top_n]
+    top_rev = sum(p["revenue"] for p in top)
+    share = (top_rev / total * 100) if total > 0 else 0.0
+    return {
+        "top_n":     top_n,
+        "share_pct": share,
+        "total":     total,
+        "top_pubs":  [{"name": p["name"], "revenue": p["revenue"],
+                        "share_pct": (p["revenue"]/total*100) if total > 0 else 0}
+                       for p in top],
+        "flag":      share >= 70.0,
+    }
 
 
 def _collect_top_combos(yesterday_fn, top_pubs_ll: list[str],
@@ -613,6 +761,7 @@ def _html_topline_section(top: dict, fmt_usd, fmt_n) -> str:
           </table>
         </div>"""
 
+    # Movers are now rendered in the dedicated _html_health_section.
     return f"""
     <div class="card" style="border-color:#1e3a5f;">
       <h2>Yesterday — Supply Rollup ({yest_date})</h2>
@@ -622,7 +771,237 @@ def _html_topline_section(top: dict, fmt_usd, fmt_n) -> str:
         </tr></thead>
         <tbody>{rows_html}</tbody>
       </table>
+    </div>
+    """
+
+
+def _html_health_section(gainers: list, losers: list, dead: dict,
+                          concentration: dict, fmt_usd) -> str:
+    """
+    Combined health card: top gainers, worst drops, dead inventory, and
+    revenue concentration. One scannable card replaces the old movers
+    block + adds the operational alerts.
+    """
+    if not gainers and not losers and not dead.get("ll") and not dead.get("tb") \
+       and not concentration.get("ll", {}).get("top_pubs"):
+        return ""
+
+    def _mover_row(m: dict) -> str:
+        plat_badge = ('<span class="badge badge-blue">LL</span>'
+                      if m["platform"] == "LL" else
+                      '<span class="badge badge-yellow">TB</span>')
+        delta = m["delta"]
+        cls   = "green" if delta >= 0 else "red"
+        arr   = "▲" if delta >= 0 else "▼"
+        sign  = "+" if delta >= 0 else ""
+        if m.get("is_new"):
+            base_cell = '<span class="badge badge-green">new</span>'
+        else:
+            base_cell = f'<span class="muted">{fmt_usd(m["baseline"])}</span>'
+        pct_str = f' ({sign}{m["delta_pct"]:.0f}%)' if m.get("delta_pct") is not None else ''
+        return f"""
+        <tr>
+          <td>{plat_badge}</td>
+          <td>{m['publisher']}</td>
+          <td>{fmt_usd(m['yest_rev'])}</td>
+          <td>{base_cell}</td>
+          <td class="{cls}">{arr} {sign}{fmt_usd(delta)}<span class="muted" style="font-size:11px;">{pct_str}</span></td>
+        </tr>"""
+
+    # Gainers + losers tables (side-by-side header)
+    movers_html = ""
+    if gainers or losers:
+        gain_html = ""
+        if gainers:
+            gain_rows = "".join(_mover_row(m) for m in gainers)
+            gain_html = f"""
+            <div style="margin-bottom:14px;">
+              <div style="font-size:12px;color:{_GREEN};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+                ▲ Top Gainers
+              </div>
+              <table>
+                <thead><tr><th></th><th>Publisher</th><th>Yest</th><th>Baseline</th><th>Delta</th></tr></thead>
+                <tbody>{gain_rows}</tbody>
+              </table>
+            </div>"""
+        loss_html = ""
+        if losers:
+            loss_rows = "".join(_mover_row(m) for m in losers)
+            loss_html = f"""
+            <div style="margin-bottom:14px;">
+              <div style="font-size:12px;color:{_RED};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+                ▼ Worst Drops
+              </div>
+              <table>
+                <thead><tr><th></th><th>Publisher</th><th>Yest</th><th>Baseline</th><th>Delta</th></tr></thead>
+                <tbody>{loss_rows}</tbody>
+              </table>
+            </div>"""
+        movers_html = gain_html + loss_html
+
+    # Dead inventory: pubs with ≥$100/day baseline that delivered ≤10% yesterday
+    dead_html = ""
+    dead_all = []
+    for plat, items in (("LL", dead.get("ll", [])), ("TB", dead.get("tb", []))):
+        for d in items:
+            dead_all.append({**d, "platform": plat})
+    if dead_all:
+        dead_rows = ""
+        for d in dead_all[:5]:
+            badge = ('<span class="badge badge-blue">LL</span>'
+                     if d["platform"] == "LL" else
+                     '<span class="badge badge-yellow">TB</span>')
+            dead_rows += f"""
+            <tr>
+              <td>{badge}</td>
+              <td>{d['name']}</td>
+              <td class="muted">{fmt_usd(d['baseline'])}/day</td>
+              <td class="red">{fmt_usd(d['yest_rev'])}</td>
+              <td class="red">{d['drop_pct']:.0f}%</td>
+            </tr>"""
+        dead_html = f"""
+        <div style="margin-bottom:14px;">
+          <div style="font-size:12px;color:{_RED};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+            ⚠ Dead / Silent Inventory  <span class="muted" style="font-size:11px;text-transform:none;letter-spacing:normal;">(≥$100/d baseline, ≤10% yest)</span>
+          </div>
+          <table>
+            <thead><tr><th></th><th>Publisher</th><th>7d Avg</th><th>Yest</th><th>Drop</th></tr></thead>
+            <tbody>{dead_rows}</tbody>
+          </table>
+        </div>"""
+
+    # Concentration risk: top 3 share per platform
+    conc_html = ""
+    conc_blocks = []
+    for plat, plat_label, conc in (("LL", "Limelight", concentration.get("ll", {})),
+                                    ("TB", "Teqblaze", concentration.get("tb", {}))):
+        if not conc or not conc.get("top_pubs"):
+            continue
+        share   = conc["share_pct"]
+        flag    = conc["flag"]
+        flag_badge = '<span class="badge badge-red">HIGH</span>' if flag else \
+                     ('<span class="badge badge-yellow">elevated</span>' if share >= 50 else
+                      '<span class="badge badge-green">healthy</span>')
+        names = " · ".join(f"{p['name']} ({p['share_pct']:.0f}%)" for p in conc["top_pubs"])
+        conc_blocks.append(f"""
+        <tr>
+          <td><strong>{plat_label}</strong></td>
+          <td>{share:.1f}%</td>
+          <td>{flag_badge}</td>
+          <td class="muted" style="font-size:12px;">{names}</td>
+        </tr>""")
+    if conc_blocks:
+        conc_html = f"""
+        <div style="margin-bottom:6px;">
+          <div style="font-size:12px;color:{_MUTED};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+            Revenue Concentration  <span style="text-transform:none;letter-spacing:normal;">(top 3 publishers)</span>
+          </div>
+          <table>
+            <thead><tr><th>Platform</th><th>Top-3 Share</th><th>Status</th><th>Top Publishers</th></tr></thead>
+            <tbody>{''.join(conc_blocks)}</tbody>
+          </table>
+        </div>"""
+
+    return f"""
+    <div class="card">
+      <h2>Movers, Drops & Health</h2>
       {movers_html}
+      {dead_html}
+      {conc_html}
+    </div>
+    """
+
+
+def _html_geo_section(geo: dict, fmt_usd, fmt_n) -> str:
+    """Top countries by revenue for LL (TB skipped — no reliable country data)."""
+    if not geo or not geo.get("ll"):
+        return ""
+
+    def _delta_html(d):
+        if d is None:
+            return '<span class="muted">—</span>'
+        cls  = "green" if d >= 0 else "red"
+        arr  = "▲" if d >= 0 else "▼"
+        sign = "+" if d >= 0 else ""
+        return f'<span class="{cls}">{arr} {sign}{d:.0f}%</span>'
+
+    rows = ""
+    for c in geo["ll"]:
+        rows += f"""
+        <tr>
+          <td><strong>{c['country']}</strong></td>
+          <td>{fmt_usd(c['revenue'])}</td>
+          <td>{fmt_n(c['impressions'])}</td>
+          <td>{fmt_usd(c['ecpm'])}</td>
+          <td class="muted">{c['margin']:.1f}%</td>
+          <td>{_delta_html(c.get('delta_pct'))} <span class="muted" style="font-size:11px;">vs 7d</span></td>
+        </tr>"""
+
+    tb_note = ""
+    if not geo.get("tb"):
+        tb_note = f'<div class="muted" style="font-size:11px;margin-top:8px;">TB country data unavailable — TB API doesn\'t reliably attribute geo.</div>'
+
+    return f"""
+    <div class="card">
+      <h2>Geographic Breakdown — LL ({geo.get('date','')})</h2>
+      <table>
+        <thead><tr>
+          <th>Country</th><th>Revenue</th><th>Imps</th><th>eCPM</th><th>Margin</th><th>vs 7d Avg</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+      {tb_note}
+    </div>
+    """
+
+
+def _html_demand_margin_section(dm: dict, fmt_usd) -> str:
+    """Margin by demand partner — LL + TB. Surfaces partner profitability."""
+    if not dm or (not dm.get("ll") and not dm.get("tb")):
+        return ""
+
+    def _margin_delta_html(d):
+        if d is None:
+            return '<span class="muted">—</span>'
+        cls  = "green" if d >= 0 else "red"
+        sign = "+" if d >= 0 else ""
+        return f'<span class="{cls}">{sign}{d:.1f} pp</span>'
+
+    def _table(items: list, plat_label: str, badge_class: str) -> str:
+        if not items:
+            return ""
+        rows = ""
+        for d in items:
+            margin_color = _GREEN if d["margin"] >= 30 else (_YELLOW if d["margin"] >= 20 else _RED)
+            rows += f"""
+            <tr>
+              <td>{d['demand']}</td>
+              <td>{fmt_usd(d['revenue'])}</td>
+              <td style="color:{margin_color};">{d['margin']:.1f}%</td>
+              <td>{_margin_delta_html(d.get('margin_delta_pp'))}</td>
+              <td class="muted">{fmt_usd(d['ecpm'])}</td>
+              <td class="muted">{d['win_rate']:.1f}%</td>
+            </tr>"""
+        return f"""
+        <div style="margin-bottom:14px;">
+          <div style="margin-bottom:6px;">
+            <span class="badge {badge_class}">{plat_label}</span>
+          </div>
+          <table>
+            <thead><tr>
+              <th>Demand Partner</th><th>Revenue</th><th>Margin</th><th>vs 7d</th><th>eCPM</th><th>WR</th>
+            </tr></thead>
+            <tbody>{rows}</tbody>
+          </table>
+        </div>"""
+
+    body = _table(dm.get("ll", []), "LL", "badge-blue") + \
+           _table(dm.get("tb", []), "TB", "badge-yellow")
+
+    return f"""
+    <div class="card">
+      <h2>Margin by Demand Partner ({dm.get('date','')})</h2>
+      {body}
     </div>
     """
 
@@ -1079,17 +1458,20 @@ def _html_footer(date_str: str) -> str:
 
 
 def _build_html(
-    date_str:    str,
-    now_et:      datetime,
-    topline:     dict,
-    top_combos:  dict,
-    rev_summary: dict,
-    floors:      dict,
-    opp_fill:    dict,
-    floor_opps:  list,
-    ctv:         dict,
-    win_rate:    dict,
-    brief:       str,
+    date_str:      str,
+    now_et:        datetime,
+    topline:       dict,
+    health:        dict,
+    geo:           dict,
+    demand_margin: dict,
+    top_combos:    dict,
+    rev_summary:   dict,
+    floors:        dict,
+    opp_fill:      dict,
+    floor_opps:    list,
+    ctv:           dict,
+    win_rate:      dict,
+    brief:         str,
     fmt_usd,
     fmt_n,
 ) -> str:
@@ -1097,6 +1479,15 @@ def _build_html(
         _html_header(date_str, now_et),
         _html_brief_section(brief),
         _html_topline_section(topline, fmt_usd, fmt_n),
+        _html_health_section(
+            gainers       = health.get("gainers", []),
+            losers        = health.get("losers", []),
+            dead          = health.get("dead", {}),
+            concentration = health.get("concentration", {}),
+            fmt_usd       = fmt_usd,
+        ),
+        _html_geo_section(geo, fmt_usd, fmt_n),
+        _html_demand_margin_section(demand_margin, fmt_usd),
         _html_top_combos_section(top_combos, fmt_usd, fmt_n),
         _html_revenue_section(rev_summary, fmt_usd, fmt_n),
         _html_opp_fill_section(opp_fill, fmt_n),
@@ -1256,6 +1647,49 @@ def run(force_test: bool = False, test_recipients: list[str] | None = None):
         print(f"[daily_email] Top combos collection failed: {exc}")
         traceback.print_exc()
 
+    # Health: gainers/losers split + dead inventory + concentration risk.
+    # All derived from data already fetched by _collect_topline.
+    health: dict = {}
+    try:
+        gainers, losers = _split_movers(topline.get("movers", []), n_each=3)
+        pubs_data = topline.get("_pubs", {})
+        dead_ll = _compute_dead_inventory(
+            pubs_data.get("ll_yest", []), pubs_data.get("ll_7d", []))
+        # TB doesn't have a 7d publisher list (uses d2), so skip TB dead-check
+        conc_ll = _compute_pub_concentration(pubs_data.get("ll_yest", []))
+        conc_tb = _compute_pub_concentration(pubs_data.get("tb_yest", []))
+        health = {
+            "gainers":       gainers,
+            "losers":        losers,
+            "dead":          {"ll": dead_ll, "tb": []},
+            "concentration": {"ll": conc_ll, "tb": conc_tb},
+        }
+        print(f"[daily_email] Health: {len(gainers)} gainers · {len(losers)} drops · "
+              f"{len(dead_ll)} dead pubs · LL top-3 share {conc_ll['share_pct']:.1f}%")
+    except Exception as exc:
+        print(f"[daily_email] Health computation failed: {exc}")
+        traceback.print_exc()
+
+    # Geo breakdown (LL only — TB doesn't track country reliably)
+    geo: dict = {}
+    try:
+        geo = _collect_geo(yesterday_fn, n_days_ago_fn, top_n=5)
+        print(f"[daily_email] Geo: {len(geo.get('ll', []))} LL countries · "
+              f"{len(geo.get('tb', []))} TB countries")
+    except Exception as exc:
+        print(f"[daily_email] Geo collection failed: {exc}")
+        traceback.print_exc()
+
+    # Margin by demand partner
+    demand_margin: dict = {}
+    try:
+        demand_margin = _collect_demand_margin(yesterday_fn, n_days_ago_fn, top_n=8)
+        print(f"[daily_email] Demand margin: {len(demand_margin.get('ll', []))} LL · "
+              f"{len(demand_margin.get('tb', []))} TB partners")
+    except Exception as exc:
+        print(f"[daily_email] Demand margin collection failed: {exc}")
+        traceback.print_exc()
+
     rev_summary = _collect_revenue_summary(
         fetch, yesterday_fn, today_fn, n_days_ago_fn, sf, pct, fmt_usd, fmt_n
     )
@@ -1340,11 +1774,14 @@ def run(force_test: bool = False, test_recipients: list[str] | None = None):
     # Build and send HTML
     # ------------------------------------------------------------------
     html = _build_html(
-        date_str    = date_str,
-        now_et      = now_et,
-        topline     = topline,
-        top_combos  = top_combos,
-        rev_summary = rev_summary,
+        date_str      = date_str,
+        now_et        = now_et,
+        topline       = topline,
+        health        = health,
+        geo           = geo,
+        demand_margin = demand_margin,
+        top_combos    = top_combos,
+        rev_summary   = rev_summary,
         floors      = floors,
         opp_fill    = opp_fill,
         floor_opps  = floor_opps,
