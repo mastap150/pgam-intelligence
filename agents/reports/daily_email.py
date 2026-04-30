@@ -1503,7 +1503,10 @@ def _build_html(
 ) -> str:
     body_parts = [
         _html_header(date_str, now_et),
-        _html_brief_section(brief),
+        # Executive Brief removed 2026-04-30 — recipients said the prose summary
+        # was redundant with the structured data below. Brief generation is still
+        # wired (Claude analyst still runs) but no longer rendered. Restore by
+        # adding _html_brief_section(brief) back if needed.
         _html_topline_section(topline, fmt_usd, fmt_n),
         _html_health_section(
             gainers       = health.get("gainers", []),
