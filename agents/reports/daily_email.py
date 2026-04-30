@@ -217,6 +217,193 @@ def _delta_pct(now: float, base: float) -> float | None:
     return (now - base) / base * 100.0
 
 
+def _collect_today_actions(dead_ll: list, losers: list,
+                            max_actions: int = 7) -> list[dict]:
+    """
+    Build prioritized action list by reading the recommendation snapshots
+    written by the optimizer agents, plus live signals from the topline
+    health computation.
+
+    Output shape (per action):
+        {severity: HIGH|MED|LOW, category: str, title: str, context: str,
+         source: str}
+    """
+    from pathlib import Path
+
+    actions: list[dict] = []
+
+    def _load(path: str) -> dict | list | None:
+        try:
+            with open(path) as f:
+                return json.load(f)
+        except (OSError, json.JSONDecodeError):
+            return None
+
+    # 1. Partner churn radar — the highest-priority signal: pubs collapsing
+    churn = _load("logs/partner_churn_recs.json") or {}
+    for alert in (churn.get("alerts") or [])[:5]:
+        delta = alert.get("rev_delta_pct", 0)
+        if delta > -30:
+            continue
+        sev  = "HIGH" if delta <= -50 else "MED"
+        actions.append({
+            "severity": sev,
+            "category": "INVESTIGATE",
+            "title":    f"Investigate {alert.get('publisher','?')} (rev {delta:+.0f}%)",
+            "context":  f"${alert.get('prior_rev',0):,.0f}/d → ${alert.get('cur_rev',0):,.0f}/d · imps {alert.get('imp_delta_pct',0):+.0f}%",
+            "source":   "partner_churn",
+            "_sort_key": abs(delta),
+        })
+
+    # 2. Dead / silent inventory (already computed for the health card —
+    #    surface as actions because each one is a real ops item)
+    for d in dead_ll[:3]:
+        actions.append({
+            "severity": "HIGH",
+            "category": "PAUSE/CHECK",
+            "title":    f"Check {d['name']} — {d['drop_pct']:.0f}% drop",
+            "context":  f"7d baseline ${d['baseline']:,.0f}/d · yest ${d['yest_rev']:,.0f} (likely outage or wiring break)",
+            "source":   "dead_inventory",
+            "_sort_key": abs(d['drop_pct']),
+        })
+
+    # 3. Demand concentration risk — pubs over-dependent on single DSP
+    conc = _load("logs/demand_concentration_recs.json") or {}
+    for alert in (conc.get("alerts") or [])[:4]:
+        top1_pct = alert.get("top1_pct", 0)
+        if top1_pct < 70:
+            continue
+        sev = "HIGH" if top1_pct >= 80 else "MED"
+        actions.append({
+            "severity": sev,
+            "category": "DIVERSIFY",
+            "title":    f"Diversify {alert.get('title','?')} demand",
+            "context":  f"{alert.get('top1_dsp','?')} = {top1_pct:.0f}% of ${alert.get('total_revenue',0):,.0f}/d · {alert.get('dsp_count',0)} DSPs wired",
+            "source":   "demand_concentration",
+            "_sort_key": top1_pct,
+        })
+
+    # 4. Yield compression — placements where eCPM dropped meaningfully
+    yc = _load("logs/yield_compression_recs.json") or {}
+    for alert in (yc.get("alerts") or [])[:3]:
+        ecpm_d = alert.get("ecpm_delta_pct", 0)
+        if ecpm_d > -15:
+            continue
+        actions.append({
+            "severity": "MED",
+            "category": "FLOOR",
+            "title":    f"Review floor on placement {alert.get('placement_id','?')}",
+            "context":  f"eCPM ${alert.get('prior_ecpm',0):.2f} → ${alert.get('cur_ecpm',0):.2f} ({ecpm_d:+.0f}%) · rev {alert.get('revenue_delta_pct',0):+.0f}%",
+            "source":   "yield_compression",
+            "_sort_key": abs(ecpm_d),
+        })
+
+    # 5. Top losers (cross-platform mover analysis) — annotate as MED actions
+    for m in losers[:2]:
+        actions.append({
+            "severity": "MED",
+            "category": "INVESTIGATE",
+            "title":    f"Investigate {m['publisher']} drop",
+            "context":  f"yest ${m['yest_rev']:,.0f} vs baseline ${m['baseline']:,.0f} (Δ ${m['delta']:+,.0f})",
+            "source":   "movers",
+            "_sort_key": abs(m['delta']) / 100,  # smaller scale — won't crowd out churn
+        })
+
+    # 6. SSP Company optimizer prune candidates — LOW priority cleanup
+    ssp_opt = _load("logs/ssp_company_optimizer_recs.json") or {}
+    by_class = ssp_opt.get("by_class") or {}
+    prune = (by_class.get("PRUNE") or [])[:3]
+    for p in prune:
+        actions.append({
+            "severity": "LOW",
+            "category": "PRUNE",
+            "title":    f"Prune {p.get('company','?')} (zero/low yield)",
+            "context":  f"{p.get('endpoint_count',0)} endpoints · ${p.get('revenue',0):,.0f} over window",
+            "source":   "ssp_company_optimizer",
+            "_sort_key": 0,
+        })
+
+    # Sort: severity rank, then magnitude
+    sev_rank = {"HIGH": 0, "MED": 1, "LOW": 2}
+    actions.sort(key=lambda a: (sev_rank.get(a["severity"], 9), -a["_sort_key"]))
+
+    # Strip private sort key
+    for a in actions:
+        a.pop("_sort_key", None)
+    return actions[:max_actions]
+
+
+def _collect_yesterday_outcomes(yesterday_fn, n_days_ago_fn) -> dict:
+    """
+    Summarize what auto-agents actually did in the last 24h by reading the
+    action ledger files. Pairs with Today's Actions to close the loop.
+    """
+    from datetime import datetime, timezone
+    from pathlib import Path
+
+    cutoff = datetime.now(timezone.utc).timestamp() - 86400  # last 24h
+
+    def _ts(rec: dict) -> float:
+        ts = rec.get("timestamp") or rec.get("ts") or rec.get("applied_at")
+        if not ts:
+            return 0.0
+        try:
+            return datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+        except Exception:
+            return 0.0
+
+    def _load(path: str) -> list:
+        try:
+            with open(path) as f:
+                d = json.load(f)
+            return d if isinstance(d, list) else (d.get("entries") or d.get("actions") or [])
+        except (OSError, json.JSONDecodeError):
+            return []
+
+    # ── TB floor nudges ──────────────────────────────────────────────────────
+    nudges = _load("logs/tb_floor_nudge_actions.json")
+    recent_nudges = [n for n in nudges if _ts(n) >= cutoff]
+    nudge_applied = sum(1 for n in recent_nudges
+                         if not n.get("dry_run") and n.get("action") not in (None, "skip"))
+    nudge_proposed = sum(1 for n in recent_nudges if n.get("action") not in (None, "skip"))
+    nudge_skipped = sum(1 for n in recent_nudges if n.get("action") == "skip")
+
+    # ── Geo floor updates ────────────────────────────────────────────────────
+    geo_actions = _load("logs/geo_floor_actions.json")
+    recent_geo = [a for a in geo_actions if _ts(a) >= cutoff]
+    geo_applied = sum(1 for a in recent_geo if a.get("applied"))
+    geo_proposed = len(recent_geo)
+
+    # ── Domain blocks ────────────────────────────────────────────────────────
+    blocks = _load("logs/blocked_domains_actions.json")
+    recent_blocks = [b for b in blocks if _ts(b) >= cutoff]
+    blocks_applied = sum(1 for b in recent_blocks if b.get("applied"))
+    blocks_proposed = len(recent_blocks)
+
+    # ── Placement pauses/enables ─────────────────────────────────────────────
+    placement = _load("logs/placement_status_actions.json")
+    recent_placement = [p for p in placement if _ts(p) >= cutoff]
+    placement_applied = sum(1 for p in recent_placement if p.get("applied"))
+
+    # ── Revenue Guardian floor restores ──────────────────────────────────────
+    guardian = _load("logs/guardian_ledger.json")
+    recent_guardian = [g for g in guardian if _ts(g) >= cutoff]
+    guardian_count = len(recent_guardian)
+
+    return {
+        "nudges": {
+            "applied":  nudge_applied,
+            "proposed": nudge_proposed,
+            "skipped":  nudge_skipped,
+            "total":    len(recent_nudges),
+        },
+        "geo_floors":   {"applied": geo_applied,    "proposed": geo_proposed},
+        "domain_blocks":{"applied": blocks_applied, "proposed": blocks_proposed},
+        "placement":    {"applied": placement_applied, "total": len(recent_placement)},
+        "guardian":     {"count": guardian_count},
+    }
+
+
 def _collect_geo(yesterday_fn, n_days_ago_fn, top_n: int = 5) -> dict:
     """
     Top countries by revenue for LL (TB doesn't track country reliably).
@@ -678,6 +865,114 @@ def _html_header(date_str: str, now_et: datetime) -> str:
     <div class="header">
       <h1>PGAM Intelligence — Daily Report</h1>
       <p class="sub">{date_str} &nbsp;·&nbsp; Generated {ts}</p>
+    </div>
+    """
+
+
+def _html_today_actions_section(actions: list[dict]) -> str:
+    """Top-of-email action list — what to do today, prioritized by severity."""
+    if not actions:
+        return f"""
+        <div class="card" style="border-color:{_GREEN};border-width:1px 1px 1px 4px;">
+          <h2 style="color:{_GREEN};">Today's Actions</h2>
+          <p class="muted" style="margin:0;">All clear — no high-severity items detected from yesterday's data.</p>
+        </div>
+        """
+
+    sev_styles = {
+        "HIGH": ("badge-red",    "🔴"),
+        "MED":  ("badge-yellow", "🟡"),
+        "LOW":  ("badge-blue",   "🔵"),
+    }
+
+    rows = ""
+    for a in actions:
+        badge_cls, icon = sev_styles.get(a["severity"], ("badge-blue", "•"))
+        rows += f"""
+        <tr>
+          <td style="width:80px;vertical-align:top;padding-right:12px;">
+            <span class="badge {badge_cls}">{a['severity']}</span>
+          </td>
+          <td style="vertical-align:top;">
+            <div><strong>{a['title']}</strong></div>
+            <div class="muted" style="font-size:12px;margin-top:2px;">{a['context']}</div>
+          </td>
+          <td class="muted" style="vertical-align:top;font-size:11px;text-align:right;white-space:nowrap;">
+            {a['category']}
+          </td>
+        </tr>"""
+
+    n_high = sum(1 for a in actions if a["severity"] == "HIGH")
+    n_med  = sum(1 for a in actions if a["severity"] == "MED")
+    summary_line = f"{n_high} high · {n_med} medium · {len(actions)} total" if n_high or n_med else f"{len(actions)} items"
+
+    return f"""
+    <div class="card" style="border-color:{_RED if n_high else _YELLOW};border-width:1px 1px 1px 4px;">
+      <h2 style="color:{_TEXT};">Today's Actions <span class="muted" style="text-transform:none;letter-spacing:normal;font-weight:400;font-size:12px;">· {summary_line}</span></h2>
+      <table>
+        <tbody>{rows}</tbody>
+      </table>
+    </div>
+    """
+
+
+def _html_outcomes_section(outcomes: dict) -> str:
+    """Yesterday's auto-agent activity — closes the loop on automation."""
+    if not outcomes:
+        return ""
+
+    n   = outcomes.get("nudges", {})
+    g   = outcomes.get("geo_floors", {})
+    b   = outcomes.get("domain_blocks", {})
+    p   = outcomes.get("placement", {})
+    gu  = outcomes.get("guardian", {})
+
+    total_activity = (n.get("total", 0) + g.get("proposed", 0) + b.get("proposed", 0)
+                       + p.get("total", 0) + gu.get("count", 0))
+    if total_activity == 0:
+        return f"""
+        <div class="card">
+          <h2>Yesterday's Outcomes (last 24h)</h2>
+          <p class="muted" style="margin:0;">No auto-agent activity recorded.</p>
+        </div>
+        """
+
+    def _stat(label: str, applied: int, proposed: int = None, color: str = None) -> str:
+        color = color or _TEXT
+        if proposed is not None and proposed != applied:
+            value_html = (f'<span style="color:{color};">{applied}</span>'
+                          f'<span class="muted" style="font-size:13px;"> / {proposed}</span>')
+            sub = "applied / proposed"
+        else:
+            value_html = f'<span style="color:{color};">{applied}</span>'
+            sub = "applied"
+        return f"""
+        <div class="metric">
+          <div class="label">{label}</div>
+          <div class="value">{value_html}</div>
+          <div class="change">{sub}</div>
+        </div>"""
+
+    grid = (
+        _stat("Floor Nudges (TB)", n.get("applied", 0),  n.get("proposed", 0), _BLUE) +
+        _stat("Geo Floors",        g.get("applied", 0),  g.get("proposed", 0), _BLUE) +
+        _stat("Domain Blocks",     b.get("applied", 0),  b.get("proposed", 0), _BLUE) +
+        _stat("Placement Actions", p.get("applied", 0),  p.get("total", 0),    _BLUE) +
+        _stat("Guardian Restores", gu.get("count", 0),   None,                  _GREEN)
+    )
+
+    nudge_skipped_note = ""
+    if n.get("skipped", 0) > 0:
+        nudge_skipped_note = (f'<div class="muted" style="font-size:11px;margin-top:8px;">'
+                               f'{n["skipped"]} floor nudges skipped (insufficient volume / outside elasticity band)</div>')
+
+    return f"""
+    <div class="card">
+      <h2>Yesterday's Outcomes (last 24h)</h2>
+      <div class="metric-grid" style="grid-template-columns:repeat(5, 1fr);">
+        {grid}
+      </div>
+      {nudge_skipped_note}
     </div>
     """
 
@@ -1484,25 +1779,30 @@ def _html_footer(date_str: str) -> str:
 
 
 def _build_html(
-    date_str:      str,
-    now_et:        datetime,
-    topline:       dict,
-    health:        dict,
-    geo:           dict,
-    demand_margin: dict,
-    top_combos:    dict,
-    rev_summary:   dict,
-    floors:        dict,
-    opp_fill:      dict,
-    floor_opps:    list,
-    ctv:           dict,
-    win_rate:      dict,
-    brief:         str,
+    date_str:       str,
+    now_et:         datetime,
+    today_actions:  list,
+    outcomes:       dict,
+    topline:        dict,
+    health:         dict,
+    geo:            dict,
+    demand_margin:  dict,
+    top_combos:     dict,
+    rev_summary:    dict,
+    floors:         dict,
+    opp_fill:       dict,
+    floor_opps:     list,
+    ctv:            dict,
+    win_rate:       dict,
+    brief:          str,
     fmt_usd,
     fmt_n,
 ) -> str:
     body_parts = [
         _html_header(date_str, now_et),
+        # Operations cards at the top: what to do, what we did.
+        _html_today_actions_section(today_actions),
+        _html_outcomes_section(outcomes),
         # Executive Brief removed 2026-04-30 — recipients said the prose summary
         # was redundant with the structured data below. Brief generation is still
         # wired (Claude analyst still runs) but no longer rendered. Restore by
@@ -1719,6 +2019,30 @@ def run(force_test: bool = False, test_recipients: list[str] | None = None):
         print(f"[daily_email] Demand margin collection failed: {exc}")
         traceback.print_exc()
 
+    # Today's Actions: prioritized op items pulled from rec snapshots + live signals
+    today_actions: list = []
+    try:
+        today_actions = _collect_today_actions(
+            dead_ll = health.get("dead", {}).get("ll", []),
+            losers  = health.get("losers", []),
+        )
+        n_high = sum(1 for a in today_actions if a["severity"] == "HIGH")
+        print(f"[daily_email] Today's actions: {len(today_actions)} total · {n_high} HIGH")
+    except Exception as exc:
+        print(f"[daily_email] Today's actions collection failed: {exc}")
+        traceback.print_exc()
+
+    # Yesterday's Outcomes: auto-agent ledger summary (last 24h)
+    outcomes: dict = {}
+    try:
+        outcomes = _collect_yesterday_outcomes(yesterday_fn, n_days_ago_fn)
+        n = outcomes.get("nudges", {})
+        print(f"[daily_email] Outcomes: {n.get('applied',0)} nudges applied / "
+              f"{n.get('proposed',0)} proposed · {n.get('skipped',0)} skipped")
+    except Exception as exc:
+        print(f"[daily_email] Outcomes collection failed: {exc}")
+        traceback.print_exc()
+
     rev_summary = _collect_revenue_summary(
         fetch, yesterday_fn, today_fn, n_days_ago_fn, sf, pct, fmt_usd, fmt_n
     )
@@ -1805,6 +2129,8 @@ def run(force_test: bool = False, test_recipients: list[str] | None = None):
     html = _build_html(
         date_str      = date_str,
         now_et        = now_et,
+        today_actions = today_actions,
+        outcomes      = outcomes,
         topline       = topline,
         health        = health,
         geo           = geo,
