@@ -88,6 +88,7 @@ def _import(module_path: str, func_name: str = "run"):
 # Agent                  | Frequency  | When it actually fires
 # -----------------------|------------|------------------------------------------
 # partner_revenue_etl    | every 60m  | UPSERTs LL daily rollup into Neon (today + yesterday)
+# ll_dimensions_etl      | every 60m  | UPSERTs LL per-publisher × domain/bundle rollups
 # tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
@@ -120,6 +121,10 @@ def setup_schedule():
     # at admin.pgammedia.com/admin/partner-revenue. Hourly UPSERT of today +
     # yesterday; backfill via `python -m agents.etl.partner_revenue_etl --backfill 30`.
     partner_revenue_etl    = _import("agents.etl.partner_revenue_etl")
+    # LL per-publisher × domain/bundle drill-down ETL. Powers the
+    # Executive Dashboard's "drill into a brand" panel. ~88% of LL's
+    # raw rows are zero-revenue and get filtered out at the ETL layer.
+    ll_dimensions_etl      = _import("agents.etl.ll_dimensions_etl")
     # TB analogue of partner_revenue_etl. Pulls TB DATE,PUBLISHER and
     # DATE,DEMAND_PARTNER breakdowns into pgam_direct.tb_daily_publisher_revenue
     # and pgam_direct.tb_daily_demand_revenue. Two-dim breakdown was tried first
@@ -231,6 +236,7 @@ def setup_schedule():
 
     # ── Hourly ───────────────────────────────────────────────────────────────
     schedule.every(60).minutes.do(_run("partner_revenue_etl", partner_revenue_etl))
+    schedule.every(60).minutes.do(_run("ll_dimensions_etl",   ll_dimensions_etl))
     schedule.every(60).minutes.do(_run("tb_revenue_etl",     tb_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
