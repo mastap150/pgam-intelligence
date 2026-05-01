@@ -19,6 +19,7 @@ target_date and stamp the date externally.
 
 import argparse
 import sys
+import time
 from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Iterable
@@ -26,6 +27,23 @@ from typing import Iterable
 from core.api import sf, n_days_ago, today
 from core.tb_api import fetch_tb
 from core.neon import connect
+
+
+def _fetch_with_retry(breakdown: str, day: str, attempts: int = 4) -> list[dict]:
+    """fetch_tb() with retry-on-timeout. The pub×demand call in
+    particular hits the 30s read deadline on busier days; a short
+    backoff usually lets the API catch up. After `attempts` failures
+    we give up and raise so the caller can skip-and-continue."""
+    last_exc: Exception | None = None
+    for i in range(attempts):
+        try:
+            return fetch_tb(breakdown, METRICS, day, day)
+        except Exception as exc:
+            last_exc = exc
+            wait = 5 * (i + 1)  # 5s, 10s, 15s, 20s
+            print(f"[tb_segments_etl]   {breakdown} {day} retry {i+1}/{attempts} in {wait}s: {exc}", flush=True)
+            time.sleep(wait)
+    raise last_exc if last_exc else RuntimeError("fetch failed without exception")
 
 WINDOW_DAYS = 2
 METRICS = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS", "WINS", "BIDS"]
@@ -202,7 +220,7 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
     for d in days:
         # 1. PUBLISHER × DEMAND_PARTNER
         try:
-            rows = fetch_tb("PUBLISHER,DEMAND_PARTNER", METRICS, d, d)
+            rows = _fetch_with_retry("PUBLISHER,DEMAND_PARTNER", d)
             recs = _normalize_pub_demand(d, rows)
             pd_records.extend(recs)
             print(f"[tb_segments_etl]   {d} pub×dmd: {len(rows)} -> {len(recs)} non-zero", flush=True)
@@ -211,7 +229,7 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
 
         # 2. PUBLISHER × COUNTRY
         try:
-            rows = fetch_tb("PUBLISHER,COUNTRY_NAME", METRICS, d, d)
+            rows = _fetch_with_retry("PUBLISHER,COUNTRY_NAME", d)
             recs = _normalize_pub_country(d, rows)
             pc_records.extend(recs)
             print(f"[tb_segments_etl]   {d} pub×cty: {len(rows)} -> {len(recs)} non-zero", flush=True)
@@ -220,7 +238,7 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
 
         # 3. OS
         try:
-            rows = fetch_tb("OS", METRICS, d, d)
+            rows = _fetch_with_retry("OS", d)
             recs = _normalize_os(d, rows)
             os_records.extend(recs)
             print(f"[tb_segments_etl]   {d} os: {len(rows)} -> {len(recs)} non-zero", flush=True)
