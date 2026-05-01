@@ -88,6 +88,11 @@ _BREAKDOWN_MAP = {
     "DATE,DEMAND_PARTNER": {"day_group": "day",   "attribute": ["dsp_name"]},
     "PUBLISHER,DEMAND_PARTNER": {"day_group": "total","attribute": ["ssp_name", "dsp_name"]},
     "DATE,PUBLISHER,DEMAND_PARTNER": {"day_group": "day","attribute": ["ssp_name", "dsp_name"]},
+    # Discovered 2026-04-30 — TB API actually supports more attribute
+    # combinations than the historical map implied. Pub × country and
+    # standalone OS work cleanly; pub × device_type returns 400.
+    "PUBLISHER,COUNTRY_NAME":   {"day_group": "total","attribute": ["ssp_name", "country"]},
+    "OS":                       {"day_group": "total","attribute": ["os"]},
 }
 
 # ---------------------------------------------------------------------------
