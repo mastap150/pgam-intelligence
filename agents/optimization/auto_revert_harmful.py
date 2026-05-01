@@ -49,7 +49,11 @@ MIN_POST_HOURS = 6              # need at least this many hours of post-data
 MAX_REVERTS_PER_RUN = 3
 
 ACTOR_PREFIX = "auto_revert_harmful"
-SELF_ACTOR_TOKENS = ("auto_revert", "contract_floor_sentry", "9dots_contract_restore")
+SELF_ACTOR_TOKENS = (
+    "auto_revert", "contract_floor_sentry", "9dots_contract_restore",
+    "manual_protected",  # human-marked changes; skip auto-revert.
+                         # Use actor name like "manual_protected_<context>" to opt-in.
+)
 
 
 def _is_protected_demand(name: str) -> bool:
