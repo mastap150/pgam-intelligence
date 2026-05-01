@@ -26,6 +26,17 @@ services:
       - key: LL_DRY_RUN
         value: "false"     # safety: set to "true" here and override in dashboard if needed
 
+      # ── TB (TechBid / ssp.pgammedia.com Management API) ───────────────────────
+      # Required by core/tb_api.py for token creation.
+      # Without these, every TB agent fails at first API call with no token.
+      # Set the values in the Render dashboard (Environment → Add Environment Variable).
+      - key: TB_EMAIL
+        sync: false
+      - key: TB_PASSWORD
+        sync: false
+      - key: TB_USER_ID
+        value: "45"        # PGAM Media's TB user_id; default for list_inventory scope
+
       # ── Notifications ────────────────────────────────────────────────────────
       - key: SLACK_WEBHOOK
         sync: false
