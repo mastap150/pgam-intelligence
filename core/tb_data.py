@@ -87,6 +87,56 @@ def fetch_summary(start: str, end: str) -> dict:
     return _derive(_sum(rows))
 
 
+def fetch_daily_rows(start: str, end: str) -> list[dict]:
+    """
+    Per-day TB revenue rows for [start, end] inclusive, formatted to match the
+    LL DATE-breakdown row shape so monthly_forecast (and other LL-shaped
+    consumers) can use them without an adapter.
+
+    Issues one DATE call per day (TB API times out on multi-day ranges) with
+    sleeps between, so a 30-day fetch takes ~2-3 minutes. Days that fail
+    contribute no row rather than aborting the whole window.
+
+    Returns rows like:
+        [{"DATE": "2026-04-01", "GROSS_REVENUE": 7500.0, "PUB_PAYOUT": 5200.0,
+          "IMPRESSIONS": 9_500_000, "WINS": 410000, "BIDS": 8_900_000}, ...]
+    """
+    from datetime import datetime, timedelta
+    if not tb_configured():
+        return []
+    try:
+        d0 = datetime.strptime(start, "%Y-%m-%d").date()
+        d1 = datetime.strptime(end,   "%Y-%m-%d").date()
+    except ValueError as exc:
+        print(f"[tb_data] bad date range ({start}..{end}): {exc}")
+        return []
+
+    out: list[dict] = []
+    cur = d0
+    first = True
+    while cur <= d1:
+        if not first:
+            sleep_between()
+        first = False
+        s = cur.strftime("%Y-%m-%d")
+        try:
+            rows = fetch_tb(BD_DATE, METRICS, s, s)
+            day = _sum(rows) if rows else None
+            if day and (day["revenue"] > 0 or day["impressions"] > 0):
+                out.append({
+                    "DATE":          s,
+                    "GROSS_REVENUE": day["revenue"],
+                    "PUB_PAYOUT":    day["payout"],
+                    "IMPRESSIONS":   day["impressions"],
+                    "WINS":          day["wins"],
+                    "BIDS":          day["bids"],
+                })
+        except Exception as exc:
+            print(f"[tb_data] day fetch failed ({s}): {exc}")
+        cur += timedelta(days=1)
+    return out
+
+
 def fetch_summary_by_day(start: str, end: str) -> dict:
     """
     Resilient multi-day TB fetch — issues one DATE call per day with sleeps.

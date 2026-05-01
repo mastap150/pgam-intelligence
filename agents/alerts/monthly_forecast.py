@@ -409,6 +409,15 @@ def _css() -> str:
     }}
     ul {{ margin:8px 0; padding-left:20px; }}
     li {{ margin-bottom:6px; color:{_TEXT}; }}
+    table {{ width:100%; border-collapse:collapse; font-size:13px; color:{_TEXT}; }}
+    th {{
+        text-align:left; color:{_MUTED}; font-weight:600;
+        font-size:11px; text-transform:uppercase; letter-spacing:0.05em;
+        padding:0 0 8px; border-bottom:1px solid {_BORDER};
+    }}
+    td {{ padding:10px 8px 10px 0; border-bottom:1px solid #1e2235; color:{_TEXT}; vertical-align:top; }}
+    tr:last-child td {{ border-bottom:none; }}
+    strong {{ color:{_TEXT}; }}
     .footer {{ color:{_MUTED}; font-size:11px; text-align:center; padding-top:12px; }}
     """
 
@@ -650,7 +659,9 @@ def _build_html(
 
 def _build_recap_html(
     prev_month_label: str,
-    prev_recap:       dict,
+    ll_recap:         dict,
+    tb_recap:         dict,
+    combined_recap:   dict,
     cur_month_label:  str,
     cur_day:          int,
     cur_days_total:   int,
@@ -658,17 +669,15 @@ def _build_recap_html(
     date_label:       str,
 ) -> str:
     """
-    Day-1-of-month email: recap of the month that just closed + a
-    placeholder for the new month. No projections, no Claude narrative.
+    Day-1-of-month email: recap of the month that just closed (LL + TB +
+    Combined) + a placeholder for the new month. No projections, no Claude
+    narrative.
     """
-    rev      = prev_recap.get("total_revenue", 0)
-    margin   = prev_recap.get("margin_pct", 0)
-    avg_day  = prev_recap.get("daily_avg", 0)
-    target   = prev_recap.get("monthly_target", MONTHLY_TARGET)
-    gap_pct  = prev_recap.get("gap_pct", 0)
-    hit      = prev_recap.get("hit_target", False)
-    best     = prev_recap.get("best_day", {})
-    worst    = prev_recap.get("worst_day", {})
+    # Combined headline drives status colour + progress bar
+    rev      = combined_recap.get("total_revenue", 0)
+    target   = combined_recap.get("monthly_target", MONTHLY_TARGET)
+    gap_pct  = combined_recap.get("gap_pct", 0)
+    hit      = combined_recap.get("hit_target", False)
     pct_of_target = (rev / target * 100) if target > 0 else 0
 
     if hit:
@@ -678,67 +687,93 @@ def _build_recap_html(
     else:
         status_color, status_label = _RED, "Below Target"
 
-    gap_sign = "+" if gap_pct >= 0 else ""
-
     bar_pct   = min(pct_of_target, 100)
     bar_color = status_color
 
+    # ── Per-platform table ───────────────────────────────────────────────────
+    def _row(label: str, recap: dict, sub: str = "") -> str:
+        if not recap or recap.get("total_revenue", 0) <= 0:
+            return f"""
+        <tr>
+          <td><strong>{label}</strong>{f'<div class="muted" style="font-size:11px;">{sub}</div>' if sub else ''}</td>
+          <td colspan="3" class="muted">No data</td>
+        </tr>"""
+        r_rev    = recap.get("total_revenue", 0)
+        r_margin = recap.get("margin_pct", 0)
+        r_avg    = recap.get("daily_avg", 0)
+        r_gap    = recap.get("gap_pct", 0)
+        r_sign   = "+" if r_gap >= 0 else ""
+        gap_color = _GREEN if r_gap >= -5 else (_YELLOW if r_gap >= -20 else _RED)
+        return f"""
+        <tr>
+          <td><strong>{label}</strong>{f'<div class="muted" style="font-size:11px;">{sub}</div>' if sub else ''}</td>
+          <td>${r_rev:,.0f}</td>
+          <td>${r_avg:,.0f}<div class="muted" style="font-size:11px;">/day</div></td>
+          <td>{r_margin:.1f}%</td>
+          <td style="color:{gap_color};">{r_sign}{r_gap:.1f}%</td>
+        </tr>"""
+
+    platform_rows = (
+        _row("LL (Limelight)", ll_recap) +
+        _row("TB (Teqblaze)",  tb_recap,
+             sub=f"{tb_recap.get('days_with_data', 0)}/{tb_recap.get('days_in_month', 0)} days") +
+        _row("Combined",       combined_recap)
+    )
+
+    # Best / worst day per platform (where available)
     extremes_html = ""
-    if best and worst:
+    extreme_blocks = []
+    for label, plat_recap in (("LL", ll_recap), ("TB", tb_recap)):
+        best  = plat_recap.get("best_day", {})
+        worst = plat_recap.get("worst_day", {})
+        if not (best and worst):
+            continue
         spread = best["revenue"] - worst["revenue"]
+        extreme_blocks.append(f"""
+        <div style="margin-bottom:14px;">
+          <div style="font-size:12px;color:{_MUTED};text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px;">
+            {label} day extremes
+          </div>
+          <div style="display:flex;gap:12px;">
+            <div class="metric" style="flex:1;">
+              <div class="label">Best</div>
+              <div class="value" style="color:{_GREEN};">${best['revenue']:,.0f}</div>
+              <div class="sub">{best['date']}</div>
+            </div>
+            <div class="metric" style="flex:1;">
+              <div class="label">Worst</div>
+              <div class="value" style="color:{_RED};">${worst['revenue']:,.0f}</div>
+              <div class="sub">{worst['date']}</div>
+            </div>
+            <div class="metric" style="flex:1;">
+              <div class="label">Range</div>
+              <div class="value">${spread:,.0f}</div>
+              <div class="sub">high-low</div>
+            </div>
+          </div>
+        </div>""")
+    if extreme_blocks:
         extremes_html = f"""
     <div class="card">
       <h2>Day Extremes — {prev_month_label}</h2>
-      <div style="display:flex;gap:16px;">
-        <div class="metric" style="flex:1;">
-          <div class="label">Best Day</div>
-          <div class="value" style="color:{_GREEN};">${best['revenue']:,.0f}</div>
-          <div class="sub">{best['date']}</div>
-        </div>
-        <div class="metric" style="flex:1;">
-          <div class="label">Worst Day</div>
-          <div class="value" style="color:{_RED};">${worst['revenue']:,.0f}</div>
-          <div class="sub">{worst['date']}</div>
-        </div>
-        <div class="metric" style="flex:1;">
-          <div class="label">Day Range</div>
-          <div class="value">${spread:,.0f}</div>
-          <div class="sub">high-low spread</div>
-        </div>
-      </div>
+      {''.join(extreme_blocks)}
     </div>"""
 
     recap_html = f"""
     <div class="card" style="border-color:{status_color};border-width:1px 1px 1px 4px;">
       <h2>{prev_month_label} — Final</h2>
-      <div class="metric-grid">
-        <div class="metric">
-          <div class="label">Total Revenue</div>
-          <div class="value">${rev:,.0f}</div>
-          <div class="sub">vs ${target:,.0f} target</div>
-        </div>
-        <div class="metric">
-          <div class="label">vs Target</div>
-          <div class="value" style="color:{status_color};">{gap_sign}{gap_pct:.1f}%</div>
-          <div class="sub">{status_label}</div>
-        </div>
-        <div class="metric">
-          <div class="label">Margin</div>
-          <div class="value">{margin:.1f}%</div>
-          <div class="sub">avg over {prev_recap.get('days_with_data', 0)} days</div>
-        </div>
-        <div class="metric">
-          <div class="label">Daily Average</div>
-          <div class="value">${avg_day:,.0f}</div>
-          <div class="sub">per day, full month</div>
-        </div>
-      </div>
+      <table>
+        <thead><tr>
+          <th>Platform</th><th>Revenue</th><th>Daily Avg</th><th>Margin</th><th>vs Target</th>
+        </tr></thead>
+        <tbody>{platform_rows}</tbody>
+      </table>
       <div style="margin-top:16px;">
         <div class="progress-bar-bg">
           <div class="progress-bar-fill" style="width:{bar_pct:.1f}%;background:{bar_color};"></div>
         </div>
         <div style="font-size:12px;color:{_MUTED};margin-top:4px;">
-          ${rev:,.0f} of ${target:,.0f} ({pct_of_target:.1f}% of monthly target)
+          Combined: ${rev:,.0f} of ${target:,.0f} ({pct_of_target:.1f}% of monthly target) — {status_label}
         </div>
       </div>
     </div>"""
@@ -850,11 +885,39 @@ def _send_email(
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def _combine_recaps(ll: dict, tb: dict) -> dict:
+    """Sum two platform recaps into a combined view. Re-derives ratios."""
+    if not ll and not tb:
+        return {}
+    ll = ll or {}
+    tb = tb or {}
+    rev = ll.get("total_revenue", 0)  + tb.get("total_revenue", 0)
+    pay = ll.get("total_payout", 0)   + tb.get("total_payout", 0)
+    days_in_month = ll.get("days_in_month") or tb.get("days_in_month") or 0
+    margin = ((rev - pay) / rev * 100) if rev > 0 else 0.0
+    daily_avg = (rev / days_in_month) if days_in_month > 0 else 0.0
+    gap = rev - MONTHLY_TARGET
+    gap_pct = (gap / MONTHLY_TARGET * 100) if MONTHLY_TARGET > 0 else 0.0
+    return {
+        "total_revenue":  round(rev, 2),
+        "total_payout":   round(pay, 2),
+        "margin_pct":     round(margin, 1),
+        "daily_avg":      round(daily_avg, 2),
+        "days_in_month":  days_in_month,
+        "monthly_target": MONTHLY_TARGET,
+        "gap_vs_target":  round(gap, 2),
+        "gap_pct":        round(gap_pct, 1),
+        "hit_target":     rev >= MONTHLY_TARGET * 0.95,
+    }
+
+
 def _run_month_recap(now_et, fetch, sendgrid_key, sender, date_label: str) -> bool:
     """
     Day-1-of-month flow: recap of the month that just closed.
     Skips projections + Claude entirely — single-day extrapolation is noise.
+    Surfaces LL + TB + Combined for honest cross-platform reporting.
     """
+    from core import tb_data
     today_et = now_et.date()
 
     # Previous month boundaries
@@ -868,41 +931,64 @@ def _run_month_recap(now_et, fetch, sendgrid_key, sender, date_label: str) -> bo
     prev_month_label = prev_month_start.strftime("%B %Y")
     cur_month_label  = now_et.strftime("%B %Y")
     cur_days_total   = calendar.monthrange(now_et.year, now_et.month)[1]
+    pms_str = prev_month_start.strftime("%Y-%m-%d")
+    pme_str = prev_month_end.strftime("%Y-%m-%d")
 
     print(f"[monthly_forecast] Day-1 recap path — fetching {prev_month_label} "
           f"({prev_month_start} → {prev_month_end})")
 
+    # ── LL ──────────────────────────────────────────────────────────────────
     try:
-        prev_rows = fetch(BREAKDOWN, METRICS,
-                          prev_month_start.strftime("%Y-%m-%d"),
-                          prev_month_end.strftime("%Y-%m-%d"))
+        ll_rows = fetch(BREAKDOWN, METRICS, pms_str, pme_str)
     except Exception as exc:
-        print(f"[monthly_forecast] Prev-month fetch failed: {exc}")
+        print(f"[monthly_forecast] LL prev-month fetch failed: {exc}")
+        ll_rows = []
+    ll_recap = _compute_recap(ll_rows or [], prev_month_start, prev_days_in_month)
+    print(f"[monthly_forecast] LL: ${ll_recap['total_revenue']:,.0f}  "
+          f"margin {ll_recap['margin_pct']:.1f}%  best {ll_recap.get('best_day', {}).get('date','—')} "
+          f"${ll_recap.get('best_day', {}).get('revenue', 0):,.0f}")
+
+    # ── TB ──────────────────────────────────────────────────────────────────
+    # TB API times out on long DATE ranges; fetch_daily_rows issues 30 single-
+    # day calls with sleeps. Slow (~2-3 min) but reliable for once-a-month run.
+    print(f"[monthly_forecast] TB: fetching {prev_days_in_month} daily rows…")
+    try:
+        tb_rows = tb_data.fetch_daily_rows(pms_str, pme_str)
+    except Exception as exc:
+        print(f"[monthly_forecast] TB prev-month fetch failed: {exc}")
+        tb_rows = []
+    tb_recap = _compute_recap(tb_rows or [], prev_month_start, prev_days_in_month)
+    print(f"[monthly_forecast] TB: ${tb_recap['total_revenue']:,.0f}  "
+          f"margin {tb_recap['margin_pct']:.1f}%  ({tb_recap.get('days_with_data', 0)}/{prev_days_in_month} days)")
+
+    # ── Combined ────────────────────────────────────────────────────────────
+    combined_recap = _combine_recaps(ll_recap, tb_recap)
+    print(f"[monthly_forecast] Combined: ${combined_recap.get('total_revenue', 0):,.0f}  "
+          f"vs target {combined_recap.get('gap_pct', 0):+.1f}%")
+
+    if (ll_recap["total_revenue"] + tb_recap["total_revenue"]) <= 0:
+        print("[monthly_forecast] No data on either platform. Exiting recap.")
         return False
 
-    if not prev_rows:
-        print("[monthly_forecast] Prev month had no data. Exiting recap.")
-        return False
-
-    prev_recap = _compute_recap(prev_rows, prev_month_start, prev_days_in_month)
-
-    # Today-so-far (best-effort, optional)
+    # ── Today-so-far (LL + TB best-effort) ──────────────────────────────────
+    today_str = today_et.strftime("%Y-%m-%d")
     cur_today_rev = 0.0
     try:
-        cur_rows = fetch(BREAKDOWN, METRICS,
-                         today_et.strftime("%Y-%m-%d"),
-                         today_et.strftime("%Y-%m-%d"))
-        cur_today_rev = sum(_sf(r.get("GROSS_REVENUE")) for r in (cur_rows or []))
+        cur_ll = fetch(BREAKDOWN, METRICS, today_str, today_str)
+        cur_today_rev += sum(_sf(r.get("GROSS_REVENUE")) for r in (cur_ll or []))
     except Exception as exc:
-        print(f"[monthly_forecast] Today-so-far fetch failed (non-fatal): {exc}")
-
-    print(f"[monthly_forecast] {prev_month_label} final: "
-          f"${prev_recap['total_revenue']:,.0f}  margin {prev_recap['margin_pct']:.1f}%  "
-          f"vs target {prev_recap['gap_pct']:+.1f}%")
+        print(f"[monthly_forecast] LL today-so-far fetch failed (non-fatal): {exc}")
+    try:
+        cur_tb = tb_data.fetch_summary(today_str, today_str)
+        cur_today_rev += cur_tb.get("revenue", 0) if cur_tb else 0
+    except Exception as exc:
+        print(f"[monthly_forecast] TB today-so-far fetch failed (non-fatal): {exc}")
 
     html = _build_recap_html(
         prev_month_label = prev_month_label,
-        prev_recap       = prev_recap,
+        ll_recap         = ll_recap,
+        tb_recap         = tb_recap,
+        combined_recap   = combined_recap,
         cur_month_label  = cur_month_label,
         cur_day          = now_et.day,
         cur_days_total   = cur_days_total,
@@ -910,9 +996,10 @@ def _run_month_recap(now_et, fetch, sendgrid_key, sender, date_label: str) -> bo
         date_label       = date_label,
     )
 
-    pct_of_target = (prev_recap['total_revenue'] / MONTHLY_TARGET * 100) if MONTHLY_TARGET > 0 else 0
+    rev = combined_recap.get("total_revenue", 0)
+    pct_of_target = (rev / MONTHLY_TARGET * 100) if MONTHLY_TARGET > 0 else 0
     subject = (f"PGAM Monthly Recap — {prev_month_label} | "
-               f"${prev_recap['total_revenue']:,.0f} final ({pct_of_target:.0f}% of target)")
+               f"${rev:,.0f} final ({pct_of_target:.0f}% of target)")
 
     return _send_email(html, subject, sendgrid_key, sender)
 
