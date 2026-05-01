@@ -1,15 +1,16 @@
 """
 agents/etl/ll_segments_etl.py
 
-Hourly ETL that lands three small LL "segment" rollups for the
-Executive Dashboard's Device & OS, Daypart, and Funnel sections:
+Hourly ETL that lands four small LL "segment" rollups for the
+Executive Dashboard:
 
-  pgam_direct.ll_daily_device_os         (PK date, device_type, os)
-  pgam_direct.ll_daily_hour              (PK date, hour)
-  pgam_direct.ll_daily_publisher_funnel  (PK date, publisher_id)
+  pgam_direct.ll_daily_device_os         Device & OS section
+  pgam_direct.ll_daily_hour              Daypart heatmap
+  pgam_direct.ll_daily_publisher_funnel  Funnel by supply brand
+  pgam_direct.ll_daily_publisher_country Country → publisher drill-down
 
-All three breakdowns are tiny (~30-50 rows/day each) and return in
-under a second on a single multi-day window — no chunking needed.
+All breakdowns are tiny (~30-300 rows/day) and return in under a
+second on a single multi-day window — no chunking needed.
 
 Window: trailing 2 days hourly. Backfill via
 `python -m agents.etl.ll_segments_etl --backfill 30`.
@@ -27,6 +28,7 @@ WINDOW_DAYS = 2
 DEVICE_OS_METRICS = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS"]
 HOUR_METRICS      = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS"]
 FUNNEL_METRICS    = ["OPPORTUNITIES", "BID_REQUESTS", "BIDS", "WINS", "IMPRESSIONS", "GROSS_REVENUE"]
+PUB_COUNTRY_METRICS = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS"]
 
 
 def _normalize_device_os(rows: Iterable[dict]) -> list[dict]:
@@ -159,6 +161,52 @@ ON CONFLICT (report_date, publisher_id) DO UPDATE SET
   updated_at     = now();
 """
 
+_PUB_COUNTRY_UPSERT = """
+INSERT INTO pgam_direct.ll_daily_publisher_country
+  (report_date, publisher_id, publisher_name, country,
+   impressions, gross_revenue, pub_payout, updated_at)
+VALUES
+  (%(report_date)s, %(publisher_id)s, %(publisher_name)s, %(country)s,
+   %(impressions)s, %(gross_revenue)s, %(pub_payout)s, now())
+ON CONFLICT (report_date, publisher_id, country) DO UPDATE SET
+  publisher_name = EXCLUDED.publisher_name,
+  impressions    = EXCLUDED.impressions,
+  gross_revenue  = EXCLUDED.gross_revenue,
+  pub_payout     = EXCLUDED.pub_payout,
+  updated_at     = now();
+"""
+
+
+def _normalize_pub_country(rows: Iterable[dict]) -> list[dict]:
+    grouped: dict[tuple, dict] = defaultdict(lambda: {
+        "impressions": 0.0, "gross_revenue": 0.0, "pub_payout": 0.0,
+    })
+    meta: dict[tuple, str] = {}
+    for row in rows:
+        date = str(row.get("DATE") or "")
+        pid = str(row.get("PUBLISHER_ID") or row.get("PUBLISHER") or "")
+        pname = str(row.get("PUBLISHER_NAME") or row.get("PUBLISHER") or "") or pid
+        country = str(row.get("COUNTRY") or "").strip().upper()
+        if not (date and pid and country):
+            continue
+        gross = sf(row.get("GROSS_REVENUE"))
+        if gross <= 0:
+            continue
+        key = (date, pid, country)
+        agg = grouped[key]
+        agg["impressions"]   += sf(row.get("IMPRESSIONS"))
+        agg["gross_revenue"] += gross
+        agg["pub_payout"]    += sf(row.get("PUB_PAYOUT"))
+        meta[key] = pname
+    return [
+        {"report_date": k[0], "publisher_id": k[1], "publisher_name": meta[k],
+         "country": k[2],
+         "impressions": int(v["impressions"]),
+         "gross_revenue": round(v["gross_revenue"], 4),
+         "pub_payout": round(v["pub_payout"], 4)}
+        for k, v in grouped.items()
+    ]
+
 
 def _upsert(sql: str, records: list[dict]) -> int:
     if not records:
@@ -197,14 +245,22 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
     print(f"[ll_segments_etl] funnel: {len(fun_rows)} -> {len(fun_records)}", flush=True)
 
     try:
+        pc_rows = fetch("DATE,PUBLISHER,COUNTRY", PUB_COUNTRY_METRICS, start_date, end_date)
+    except Exception as exc:
+        return {"ok": False, "error": f"pub_country: {exc}"}
+    pc_records = _normalize_pub_country(pc_rows)
+    print(f"[ll_segments_etl] pub_country: {len(pc_rows)} -> {len(pc_records)} non-zero", flush=True)
+
+    try:
         n_dev = _upsert(_DEVICE_OS_UPSERT, dev_records)
         n_hr  = _upsert(_HOUR_UPSERT, hr_records)
         n_fun = _upsert(_FUNNEL_UPSERT, fun_records)
+        n_pc  = _upsert(_PUB_COUNTRY_UPSERT, pc_records)
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
 
-    print(f"[ll_segments_etl] DONE — {n_dev} device_os + {n_hr} hour + {n_fun} funnel", flush=True)
-    return {"ok": True, "device_os": n_dev, "hour": n_hr, "funnel": n_fun}
+    print(f"[ll_segments_etl] DONE — {n_dev} device_os + {n_hr} hour + {n_fun} funnel + {n_pc} pub_country", flush=True)
+    return {"ok": True, "device_os": n_dev, "hour": n_hr, "funnel": n_fun, "pub_country": n_pc}
 
 
 if __name__ == "__main__":
