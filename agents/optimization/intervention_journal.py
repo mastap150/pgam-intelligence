@@ -51,10 +51,12 @@ MIN_PRE_REV_RATE = 1.0            # $/h baseline floor — skip tiny demands
 LOSER_RATIO = 0.85                # actual < 85% of expected = loser
 WINNER_RATIO = 1.15               # actual > 115% of expected = winner
 
-# Self-rules
+# Self-rules — agents that won't have their own writes evaluated/reverted by this loop
 SELF_ACTOR_TOKENS = (
     "intervention_journal", "auto_revert", "contract_floor_sentry",
     "9dots_contract_restore", "config_health_scanner",
+    "manual_protected",  # human-marked changes opt-out of auto-revert. Use
+                         # actor name like "manual_protected_<context>" to opt-in.
 )
 
 MAX_REVERTS_PER_RUN = 3
