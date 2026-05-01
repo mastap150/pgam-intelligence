@@ -442,13 +442,17 @@ def _progress_color(gap_pct: float) -> str:
 
 
 def _build_html(
-    day_of_month:  int,
-    month_label:   str,
-    date_label:    str,
-    projections:   dict,
-    claude:        dict,
-    is_critical:   bool,
+    day_of_month:    int,
+    month_label:     str,
+    date_label:      str,
+    projections:     dict,
+    claude:          dict,
+    is_critical:     bool,
+    ll_projections:  dict | None = None,
+    tb_projections:  dict | None = None,
 ) -> str:
+    ll_projections = ll_projections or {}
+    tb_projections = tb_projections or {}
     mtd_rev   = projections["mtd_revenue"]
     mtd_margin = projections["mtd_margin_pct"]
     simple_dr = projections["simple_daily_rate"]
@@ -486,15 +490,24 @@ def _build_html(
           </span>
         </div>"""
 
-    # MTD metrics
+    # Per-platform MTD breakdown line
+    ll_mtd = ll_projections.get("mtd_revenue", 0)
+    tb_mtd = tb_projections.get("mtd_revenue", 0)
+    platform_split = ""
+    if ll_mtd > 0 or tb_mtd > 0:
+        platform_split = (f'<div style="font-size:11px;color:{_MUTED};margin-top:4px;">'
+                          f'LL ${ll_mtd:,.0f} · TB ${tb_mtd:,.0f}</div>')
+
+    # MTD metrics (combined headline + per-platform sub-line)
     mtd_html = f"""
     <div class="card">
       <h2>Month-to-Date — {month_label}</h2>
       <div class="metric-grid">
         <div class="metric">
-          <div class="label">MTD Revenue</div>
+          <div class="label">MTD Revenue (Combined)</div>
           <div class="value">${mtd_rev:,.0f}</div>
           <div class="sub">{days_el}d of {days_tot}d elapsed</div>
+          {platform_split}
         </div>
         <div class="metric">
           <div class="label">MTD Margin</div>
@@ -515,12 +528,19 @@ def _build_html(
       </div>
     </div>"""
 
-    # Three projections
-    def _proj_row(label: str, desc: str, proj_data: dict) -> str:
+    # Three projections — combined headline + LL/TB sub-line
+    def _proj_row(label: str, desc: str, proj_key: str) -> str:
+        proj_data = projections[proj_key]
         proj  = proj_data["projection"]
         gap   = proj_data["gap_pct"]
         cls, badge_cls, badge_txt = _color_for_proj(gap)
         sign  = "+" if gap >= 0 else ""
+        ll_p = (ll_projections.get(proj_key) or {}).get("projection", 0)
+        tb_p = (tb_projections.get(proj_key) or {}).get("projection", 0)
+        platform_line = ""
+        if ll_p > 0 or tb_p > 0:
+            platform_line = (f'<div style="font-size:11px;color:{_MUTED};margin-top:2px;">'
+                             f'LL ${ll_p:,.0f} · TB ${tb_p:,.0f}</div>')
         return f"""
         <div class="proj-row">
           <div>
@@ -529,6 +549,7 @@ def _build_html(
           </div>
           <div style="text-align:right;">
             <div class="proj-amount {cls}">${proj:,.0f}</div>
+            {platform_line}
             <div style="margin-top:4px;">
               <span class="proj-badge {badge_cls}">{badge_txt}</span>
               <span style="font-size:12px;color:{_MUTED};margin-left:6px;">{sign}{gap:.1f}% vs target</span>
@@ -542,17 +563,17 @@ def _build_html(
       {_proj_row(
           "Simple Run Rate",
           f"MTD daily average (${simple_dr:,.0f}/day) × {days_tot} days",
-          projections["proj_simple"]
+          "proj_simple"
       )}
       {_proj_row(
           "Weighted (Last 7 Days)",
           f"Last-{projections['last7_n_days']}d rate (${w7_dr:,.0f}/day) × {days_rem}d remaining + MTD",
-          projections["proj_weighted"]
+          "proj_weighted"
       )}
       {_proj_row(
           "Seasonally Adjusted",
           "Weighted rate scaled by end-of-month budget-flush index",
-          projections["proj_adjusted"]
+          "proj_adjusted"
       )}
     </div>"""
 
@@ -885,6 +906,67 @@ def _send_email(
 # Main entry point
 # ---------------------------------------------------------------------------
 
+def _combine_projections(ll: dict, tb: dict, today_day: int, days_in_month: int) -> dict:
+    """
+    Sum two platform projection dicts into a combined view, recomputing all
+    derived rates and the three projection methods. Same return shape as
+    _compute_projections() so the existing _build_html consumer just works.
+    """
+    if not ll and not tb:
+        return {}
+    ll = ll or {}
+    tb = tb or {}
+
+    mtd_rev     = ll.get("mtd_revenue", 0)     + tb.get("mtd_revenue", 0)
+    mtd_payout  = ll.get("mtd_payout", 0)      + tb.get("mtd_payout", 0)
+    mtd_margin  = (mtd_rev - mtd_payout) / mtd_rev * 100 if mtd_rev > 0 else 0
+    days_el     = ll.get("days_elapsed")   or tb.get("days_elapsed")   or today_day
+    days_rem    = ll.get("days_remaining") or tb.get("days_remaining") or (days_in_month - today_day)
+
+    simple_dr   = mtd_rev / days_el if days_el > 0 else 0
+    weighted_dr = ll.get("weighted_daily_rate", 0) + tb.get("weighted_daily_rate", 0)
+
+    # Adjusted = weighted × avg seasonal index for remaining days
+    avg_seasonal = _remaining_seasonal_weight(today_day + 1, days_in_month)
+    adjusted_dr  = weighted_dr * avg_seasonal
+
+    proj_simple   = round(simple_dr   * days_in_month, 2)
+    proj_weighted = round(mtd_rev     + weighted_dr * days_rem, 2)
+    proj_adjusted = round(mtd_rev     + adjusted_dr * days_rem, 2)
+
+    def _vs_target(p):
+        gap = p - MONTHLY_TARGET
+        return {
+            "projection":    p,
+            "gap_vs_target": round(gap, 2),
+            "gap_pct":       round(gap / MONTHLY_TARGET * 100, 1) if MONTHLY_TARGET > 0 else 0,
+            "on_track":      p >= MONTHLY_TARGET * 0.95,
+        }
+
+    rev_needed_rest = max(0.0, MONTHLY_TARGET - mtd_rev)
+    needed_pd       = rev_needed_rest / days_rem if days_rem > 0 else 0
+
+    return {
+        "mtd_revenue":         round(mtd_rev, 2),
+        "mtd_payout":          round(mtd_payout, 2),
+        "mtd_margin_pct":      round(mtd_margin, 1),
+        "days_elapsed":        days_el,
+        "days_remaining":      days_rem,
+        "days_in_month":       days_in_month,
+        "simple_daily_rate":   round(simple_dr, 2),
+        "weighted_daily_rate": round(weighted_dr, 2),
+        "last7_n_days":        max(ll.get("last7_n_days", 0), tb.get("last7_n_days", 0)),
+        "monthly_target":      MONTHLY_TARGET,
+        "needed_per_day":      round(needed_pd, 2),
+        "revenue_needed_rest": round(rev_needed_rest, 2),
+        "proj_simple":         _vs_target(proj_simple),
+        "proj_weighted":       _vs_target(proj_weighted),
+        "proj_adjusted":       _vs_target(proj_adjusted),
+        "best_day":            ll.get("best_day", {}),   # LL extremes only — TB extremes shown separately if needed
+        "worst_day":           ll.get("worst_day", {}),
+    }
+
+
 def _combine_recaps(ll: dict, tb: dict) -> dict:
     """Sum two platform recaps into a combined view. Re-derives ratios."""
     if not ll and not tb:
@@ -1042,27 +1124,37 @@ def run():
 
     print(f"[monthly_forecast] Fetching {BREAKDOWN} {start_str} → {end_str}…")
 
-    # ── Fetch data ───────────────────────────────────────────────────────────
+    # ── Fetch LL ────────────────────────────────────────────────────────────
     try:
-        rows = fetch(BREAKDOWN, METRICS, start_str, end_str)
+        ll_rows = fetch(BREAKDOWN, METRICS, start_str, end_str)
     except Exception as exc:
-        print(f"[monthly_forecast] API fetch failed: {exc}")
+        print(f"[monthly_forecast] LL fetch failed: {exc}")
+        ll_rows = []
+    ll_projections = _compute_projections(ll_rows or [], month_start, today_et, days_in_month)
+
+    # ── Fetch TB (per-day, slow but reliable) ───────────────────────────────
+    from core import tb_data
+    print(f"[monthly_forecast] TB: fetching {(today_et - month_start).days + 1} daily rows "
+          f"(per-day calls, ~{(today_et - month_start).days * 5}s)…")
+    try:
+        tb_rows = tb_data.fetch_daily_rows(start_str, end_str)
+    except Exception as exc:
+        print(f"[monthly_forecast] TB fetch failed: {exc}")
+        tb_rows = []
+    tb_projections = _compute_projections(tb_rows or [], month_start, today_et, days_in_month)
+
+    # ── Combine ─────────────────────────────────────────────────────────────
+    projections = _combine_projections(ll_projections, tb_projections, day_of_month, days_in_month)
+
+    if projections.get("mtd_revenue", 0) <= 0:
+        print("[monthly_forecast] No data on either platform. Exiting.")
         return
-
-    if not rows:
-        print("[monthly_forecast] No data returned. Exiting.")
-        return
-
-    print(f"[monthly_forecast] {len(rows)} rows received.")
-
-    # ── Compute projections ──────────────────────────────────────────────────
-    projections = _compute_projections(rows, month_start, today_et, days_in_month)
 
     print(
-        f"[monthly_forecast] MTD: ${projections['mtd_revenue']:,.0f}  "
-        f"Simple: ${projections['proj_simple']['projection']:,.0f}  "
-        f"Weighted: ${projections['proj_weighted']['projection']:,.0f}  "
-        f"Adjusted: ${projections['proj_adjusted']['projection']:,.0f}"
+        f"[monthly_forecast] MTD: LL ${ll_projections['mtd_revenue']:,.0f} + "
+        f"TB ${tb_projections['mtd_revenue']:,.0f} = "
+        f"${projections['mtd_revenue']:,.0f}  |  "
+        f"Adjusted projection: ${projections['proj_adjusted']['projection']:,.0f}"
     )
 
     # ── Determine alert mode ─────────────────────────────────────────────────
@@ -1073,17 +1165,19 @@ def run():
     )
     is_critical = (day_of_month == 20) and all_below
 
-    # ── Claude assessment ────────────────────────────────────────────────────
+    # ── Claude assessment (on combined view) ─────────────────────────────────
     claude_result = _claude_forecast_analysis(projections, day_of_month)
 
     # ── Build email ──────────────────────────────────────────────────────────
     html = _build_html(
-        day_of_month = day_of_month,
-        month_label  = month_label,
-        date_label   = date_label,
-        projections  = projections,
-        claude       = claude_result,
-        is_critical  = is_critical,
+        day_of_month   = day_of_month,
+        month_label    = month_label,
+        date_label     = date_label,
+        projections    = projections,
+        ll_projections = ll_projections,
+        tb_projections = tb_projections,
+        claude         = claude_result,
+        is_critical    = is_critical,
     )
 
     checkpoint_label = {1: "Month Start", 10: "10-Day Check", 20: "20-Day Forecast"}.get(day_of_month, "Forecast")

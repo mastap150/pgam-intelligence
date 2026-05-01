@@ -407,7 +407,7 @@ def _collect_yesterday_outcomes(yesterday_fn, n_days_ago_fn) -> dict:
 def _collect_geo(yesterday_fn, n_days_ago_fn, top_n: int = 5) -> dict:
     """
     Top countries by revenue for LL (TB doesn't track country reliably).
-    Yesterday + 7d-avg baseline for WoW comparison.
+    Yesterday + day-before (DoD) + 7d-avg baseline for trend comparisons.
     """
     from core import ll_data, tb_data
 
@@ -415,19 +415,28 @@ def _collect_geo(yesterday_fn, n_days_ago_fn, top_n: int = 5) -> dict:
     d2_ago = n_days_ago_fn(2)
     d8_ago = n_days_ago_fn(8)
 
-    ll_yest = ll_data.fetch_by_country(yest, yest, n=20)
+    ll_yest = ll_data.fetch_by_country(yest,   yest,   n=20)
+    ll_d2   = ll_data.fetch_by_country(d2_ago, d2_ago, n=20)
     ll_7d   = ll_data.fetch_by_country(d8_ago, d2_ago, n=20)
 
-    base_by_country = {c["country"]: c["revenue"] / 7.0 for c in ll_7d}
+    rev_d2_by_country  = {c["country"]: c["revenue"] for c in ll_d2}
+    base_by_country    = {c["country"]: c["revenue"] / 7.0 for c in ll_7d}
     out_ll = []
     for c in ll_yest[:top_n]:
-        baseline = base_by_country.get(c["country"], 0.0)
-        delta_pct = ((c["revenue"] - baseline) / baseline * 100) if baseline > 0 else None
-        out_ll.append({**c, "baseline": baseline, "delta_pct": delta_pct})
+        baseline_7d = base_by_country.get(c["country"], 0.0)
+        rev_d2      = rev_d2_by_country.get(c["country"], 0.0)
+        delta_7d_pct = ((c["revenue"] - baseline_7d) / baseline_7d * 100) if baseline_7d > 0 else None
+        delta_dod_pct = ((c["revenue"] - rev_d2)     / rev_d2     * 100) if rev_d2     > 0 else None
+        out_ll.append({
+            **c,
+            "baseline":      baseline_7d,
+            "delta_pct":     delta_7d_pct,    # legacy name kept (vs 7d)
+            "rev_d2":        rev_d2,
+            "delta_dod_pct": delta_dod_pct,
+        })
 
-    # TB: try country, but fall back gracefully if it's all "Unknown"
+    # TB: country breakdown gated off until TB ships it
     tb_yest = tb_data.fetch_by_country(yest, yest, n=20)
-    tb_data.sleep_between()
     tb_meaningful = [c for c in tb_yest if c["country"] not in ("Unknown", "", "ZZ")]
     out_tb = tb_meaningful[:top_n] if tb_meaningful else []
 
@@ -435,30 +444,45 @@ def _collect_geo(yesterday_fn, n_days_ago_fn, top_n: int = 5) -> dict:
 
 
 def _collect_demand_margin(yesterday_fn, n_days_ago_fn, top_n: int = 8) -> dict:
-    """Demand-partner profitability ranking, LL + TB. Sort by revenue, surface margin."""
+    """
+    Demand-partner profitability ranking, LL + TB.
+    Sort by yesterday revenue. Surface margin (yest), margin pp delta vs 7d,
+    and revenue DoD % (yest vs day-before-yesterday).
+    """
     from core import ll_data, tb_data
 
     yest   = yesterday_fn()
     d8_ago = n_days_ago_fn(8)
     d2_ago = n_days_ago_fn(2)
 
-    ll_yest = ll_data.fetch_by_demand_partner(yest, yest, n=30)
+    ll_yest = ll_data.fetch_by_demand_partner(yest,   yest,   n=30)
+    ll_d2   = ll_data.fetch_by_demand_partner(d2_ago, d2_ago, n=30)
     ll_7d   = ll_data.fetch_by_demand_partner(d8_ago, d2_ago, n=30)
-    base_ll = {d["demand"]: d["margin"] for d in ll_7d}
+    base_margin_ll = {d["demand"]: d["margin"]  for d in ll_7d}
+    rev_d2_ll      = {d["demand"]: d["revenue"] for d in ll_d2}
     for d in ll_yest:
-        d["margin_7d"] = base_ll.get(d["demand"])
+        d["margin_7d"]       = base_margin_ll.get(d["demand"])
         d["margin_delta_pp"] = ((d["margin"] - d["margin_7d"])
                                  if d["margin_7d"] is not None else None)
+        d2_rev = rev_d2_ll.get(d["demand"], 0.0)
+        d["rev_d2"]          = d2_rev
+        d["rev_dod_pct"]     = ((d["revenue"] - d2_rev) / d2_rev * 100) if d2_rev > 0 else None
 
     tb_data.sleep_between()
-    tb_yest = tb_data.fetch_by_demand_partner(yest, yest, n=30)
+    tb_yest = tb_data.fetch_by_demand_partner(yest,   yest,   n=30)
+    tb_data.sleep_between()
+    tb_d2   = tb_data.fetch_by_demand_partner(d2_ago, d2_ago, n=30)
     tb_data.sleep_between()
     tb_7d   = tb_data.fetch_by_demand_partner(d8_ago, d2_ago, n=30)
-    base_tb = {d["demand"]: d["margin"] for d in tb_7d}
+    base_margin_tb = {d["demand"]: d["margin"]  for d in tb_7d}
+    rev_d2_tb      = {d["demand"]: d["revenue"] for d in tb_d2}
     for d in tb_yest:
-        d["margin_7d"] = base_tb.get(d["demand"])
+        d["margin_7d"]       = base_margin_tb.get(d["demand"])
         d["margin_delta_pp"] = ((d["margin"] - d["margin_7d"])
                                  if d["margin_7d"] is not None else None)
+        d2_rev = rev_d2_tb.get(d["demand"], 0.0)
+        d["rev_d2"]          = d2_rev
+        d["rev_dod_pct"]     = ((d["revenue"] - d2_rev) / d2_rev * 100) if d2_rev > 0 else None
 
     return {
         "date": yest,
@@ -1240,7 +1264,8 @@ def _html_geo_section(geo: dict, fmt_usd, fmt_n) -> str:
           <td>{fmt_n(c['impressions'])}</td>
           <td>{fmt_usd(c['ecpm'])}</td>
           <td class="muted">{c['margin']:.1f}%</td>
-          <td>{_delta_html(c.get('delta_pct'))} <span class="muted" style="font-size:11px;">vs 7d</span></td>
+          <td>{_delta_html(c.get('delta_dod_pct'))}<div class="muted" style="font-size:11px;">DoD</div></td>
+          <td>{_delta_html(c.get('delta_pct'))}<div class="muted" style="font-size:11px;">vs 7d</div></td>
         </tr>"""
 
     tb_note = ""
@@ -1254,7 +1279,7 @@ def _html_geo_section(geo: dict, fmt_usd, fmt_n) -> str:
       <h2>Geographic Breakdown — LL ({geo.get('date','')})</h2>
       <table>
         <thead><tr>
-          <th>Country</th><th>Revenue</th><th>Imps</th><th>eCPM</th><th>Margin</th><th>vs 7d Avg</th>
+          <th>Country</th><th>Revenue</th><th>Imps</th><th>eCPM</th><th>Margin</th><th>DoD</th><th>vs 7d</th>
         </tr></thead>
         <tbody>{rows}</tbody>
       </table>
@@ -1275,6 +1300,14 @@ def _html_demand_margin_section(dm: dict, fmt_usd) -> str:
         sign = "+" if d >= 0 else ""
         return f'<span class="{cls}">{sign}{d:.1f} pp</span>'
 
+    def _rev_dod_html(d):
+        if d is None:
+            return '<span class="muted">—</span>'
+        cls  = "green" if d >= 0 else "red"
+        arr  = "▲" if d >= 0 else "▼"
+        sign = "+" if d >= 0 else ""
+        return f'<span class="{cls}">{arr} {sign}{d:.0f}%</span>'
+
     def _table(items: list, plat_label: str, badge_class: str) -> str:
         if not items:
             return ""
@@ -1285,6 +1318,7 @@ def _html_demand_margin_section(dm: dict, fmt_usd) -> str:
             <tr>
               <td>{d['demand']}</td>
               <td>{fmt_usd(d['revenue'])}</td>
+              <td>{_rev_dod_html(d.get('rev_dod_pct'))}</td>
               <td style="color:{margin_color};">{d['margin']:.1f}%</td>
               <td>{_margin_delta_html(d.get('margin_delta_pp'))}</td>
               <td class="muted">{fmt_usd(d['ecpm'])}</td>
@@ -1297,7 +1331,7 @@ def _html_demand_margin_section(dm: dict, fmt_usd) -> str:
           </div>
           <table>
             <thead><tr>
-              <th>Demand Partner</th><th>Revenue</th><th>Margin</th><th>vs 7d</th><th>eCPM</th><th>WR</th>
+              <th>Demand Partner</th><th>Revenue</th><th>DoD</th><th>Margin</th><th>vs 7d</th><th>eCPM</th><th>WR</th>
             </tr></thead>
             <tbody>{rows}</tbody>
           </table>
