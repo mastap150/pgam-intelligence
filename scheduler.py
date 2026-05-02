@@ -93,6 +93,7 @@ def _import(module_path: str, func_name: str = "run"):
 # country_revenue_etl    | every 60m  | UPSERTs LL+TB country breakdown for the Geography section
 # ll_segments_etl        | every 60m  | UPSERTs LL device/os, hour, and funnel rollups
 # tb_segments_etl        | every 60m  | UPSERTs TB pub×demand, pub×country, OS rollups
+# dashboard_alerts       | daily 9am  | posts anomalies + recon drift + DSP health to Slack
 # tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
@@ -142,6 +143,10 @@ def setup_schedule():
     # — feeds symmetric drill-downs and enriches the Geography &
     # Device sections with TB data.
     tb_segments_etl        = _import("agents.etl.tb_segments_etl")
+    # Daily Slack post summarising dashboard-derived alerts: anomalies
+    # (revenue / CPM swings), recon drift, DSP win-rate WoW. Daily-
+    # deduped so the once-an-hour scheduler tick can't spam.
+    dashboard_alerts       = _import("agents.alerts.dashboard_alerts")
     # TB analogue of partner_revenue_etl. Pulls TB DATE,PUBLISHER and
     # DATE,DEMAND_PARTNER breakdowns into pgam_direct.tb_daily_publisher_revenue
     # and pgam_direct.tb_daily_demand_revenue. Two-dim breakdown was tried first
@@ -258,6 +263,10 @@ def setup_schedule():
     schedule.every(60).minutes.do(_run("country_revenue_etl", country_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_segments_etl",     ll_segments_etl))
     schedule.every(60).minutes.do(_run("tb_segments_etl",     tb_segments_etl))
+    # dashboard_alerts is daily-deduped internally; we tick it hourly
+    # so it self-heals against missed mornings (the dedup key blocks
+    # repeats once it succeeds).
+    schedule.every(60).minutes.do(_run("dashboard_alerts",    dashboard_alerts))
     schedule.every(60).minutes.do(_run("tb_revenue_etl",     tb_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
