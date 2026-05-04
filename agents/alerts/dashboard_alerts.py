@@ -149,14 +149,66 @@ def _fmt_pct(v: float | None, digits: int = 1) -> str:
     return "—" if v is None else f"{v:.{digits}f}%"
 
 
+def _fmt_age(min_value: float | None) -> str:
+    if min_value is None:
+        return "—"
+    if min_value < 1:
+        return "just now"
+    if min_value < 60:
+        return f"{round(min_value)} min ago"
+    if min_value < 60 * 24:
+        return f"{min_value / 60:.1f}h ago"
+    return f"{int(min_value / 60 / 24)}d ago"
+
+
 def _build_blocks(
     anomalies: dict | None,
     recon_drift: list[dict],
     dsp_health: dict | None,
+    etl_health: dict | None,
 ) -> list[dict] | None:
     """Build Slack Block Kit blocks. Returns None if there's nothing
     actionable to post (we don't spam an "all clear" message)."""
     sections: list[dict] = []
+
+    # ETL freshness — circuit-breaker section. Surfaces stale and
+    # broken sources in the daily digest. Broken-tier sources also
+    # fire a separate immediate alert via _post_broken_etl_alerts()
+    # before the digest runs, so this section is the "remember these
+    # are still down" reminder rather than the first warning.
+    if etl_health:
+        summary = etl_health.get("summary", {}) or {}
+        sources = etl_health.get("sources", []) or []
+        broken = [s for s in sources if s.get("status") == "broken"]
+        stale  = [s for s in sources if s.get("status") == "stale"]
+        unknown = [s for s in sources if s.get("status") == "unknown"]
+        # Worth posting if anything's not fresh. Pure "all fresh" stays silent.
+        if broken or stale or unknown:
+            lines: list[str] = []
+            for s in sorted(broken, key=lambda x: -(x.get("age_minutes") or 0))[:6]:
+                lines.append(
+                    f":red_circle: *{s.get('label')}* — last write "
+                    f"{_fmt_age(s.get('age_minutes'))} (agent `{s.get('agent')}`)"
+                )
+            for s in sorted(stale, key=lambda x: -(x.get("age_minutes") or 0))[:4]:
+                lines.append(
+                    f":large_yellow_circle: *{s.get('label')}* — "
+                    f"{_fmt_age(s.get('age_minutes'))}"
+                )
+            for s in unknown[:3]:
+                lines.append(
+                    f":white_circle: *{s.get('label')}* — empty/unknown "
+                    f"(table `{s.get('table')}`)"
+                )
+            header = (
+                f"*ETL freshness* — {summary.get('broken', 0)} broken, "
+                f"{summary.get('stale', 0)} stale, "
+                f"{summary.get('fresh', 0)} fresh"
+            )
+            sections.append({
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": header + "\n" + "\n".join(lines)},
+            })
 
     # Anomalies
     if anomalies:
@@ -235,28 +287,98 @@ def _build_blocks(
     return blocks
 
 
+def _post_broken_etl_alerts(etl_health: dict | None, today: str) -> int:
+    """Circuit-breaker: any ETL source >4h stale (status='broken')
+    fires immediately with per-source-per-day dedupe.
+
+    The daily digest still echoes broken sources in its ETL section
+    — but that runs once a day. If a backfill agent dies at 11am we
+    want Slack to know by noon, not at 9am tomorrow. Per-source
+    dedupe means we get one alert per breakage per day instead of
+    one per scheduler tick.
+    """
+    if not etl_health:
+        return 0
+    broken = [s for s in (etl_health.get("sources") or []) if s.get("status") == "broken"]
+    if not broken:
+        return 0
+    posted = 0
+    for s in broken:
+        key = f"dashboard_alerts:etl_broken:{s.get('key')}:{today}"
+        if already_sent_today(key):
+            continue
+        blocks = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": ":rotating_light: ETL pipeline broken", "emoji": True},
+            },
+            {
+                "type": "section",
+                "text": {
+                    "type": "mrkdwn",
+                    "text": (
+                        f"*{s.get('label')}* hasn't written in {_fmt_age(s.get('age_minutes'))}.\n"
+                        f"• Agent: `{s.get('agent')}`\n"
+                        f"• Table: `{s.get('table')}`\n"
+                        f"• Rows on file: {int(s.get('rows') or 0):,}\n"
+                        f"\n_Dashboard numbers backed by this source are stale until the agent recovers._"
+                    ),
+                },
+            },
+            {
+                "type": "context",
+                "elements": [{
+                    "type": "mrkdwn",
+                    "text": f"<{DASHBOARD_BASE}/admin/executive-dashboard|Open dashboard> · "
+                            f"check Render scheduler logs for `{s.get('agent')}`",
+                }],
+            },
+        ]
+        send_blocks(blocks=blocks, text=f"ETL broken: {s.get('label')} ({_fmt_age(s.get('age_minutes'))})")
+        mark_sent(key)
+        posted += 1
+        print(f"[dashboard_alerts] posted ETL-broken alert for {s.get('key')}", flush=True)
+    return posted
+
+
 def run() -> dict:
-    """Daily-deduped (one post per day per signal mix) Slack push."""
+    """Daily-deduped (one post per day per signal mix) Slack push,
+    plus immediate per-source alerts when an ETL goes broken-tier.
+
+    Order matters: broken-ETL alerts fire BEFORE the daily digest
+    so an outage gets the loudest, fastest signal even on the same
+    tick that produces the digest.
+    """
     today = time.strftime("%Y-%m-%d")
+
+    # Always probe ETL freshness — both for the immediate broken
+    # alerts and for inclusion in the daily digest section.
+    etl_health = _api_get("/api/reporting/partner-revenue/etl-health")
+
+    # Fire immediate per-source alerts for any broken-tier source.
+    # Independently deduped from the daily digest so a 9am digest
+    # doesn't suppress an 11am breakage.
+    broken_posted = _post_broken_etl_alerts(etl_health, today)
+
     dedup_key = f"dashboard_alerts:{today}"
     if already_sent_today(dedup_key):
-        print(f"[dashboard_alerts] already sent today ({dedup_key})", flush=True)
-        return {"ok": True, "skipped": "deduped"}
+        print(f"[dashboard_alerts] daily digest already sent ({dedup_key})", flush=True)
+        return {"ok": True, "skipped": "deduped", "etl_broken_posted": broken_posted}
 
     anomalies = _api_get("/api/reporting/partner-revenue/anomalies?window=7")
     dsp_health = _api_get("/api/reporting/partner-revenue/dsp-health")
     recon_drift = _fetch_recon_drift_neon(window_days=7)
 
-    blocks = _build_blocks(anomalies, recon_drift, dsp_health)
+    blocks = _build_blocks(anomalies, recon_drift, dsp_health, etl_health)
     if not blocks:
         print("[dashboard_alerts] nothing to post — all clear.", flush=True)
-        return {"ok": True, "skipped": "no_alerts"}
+        return {"ok": True, "skipped": "no_alerts", "etl_broken_posted": broken_posted}
 
     fallback = "Executive dashboard alerts — open the dashboard for details."
     send_blocks(blocks=blocks, text=fallback)
     mark_sent(dedup_key)
     print(f"[dashboard_alerts] posted {len(blocks)} blocks", flush=True)
-    return {"ok": True, "blocks": len(blocks)}
+    return {"ok": True, "blocks": len(blocks), "etl_broken_posted": broken_posted}
 
 
 if __name__ == "__main__":
