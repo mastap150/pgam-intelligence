@@ -1,5 +1,5 @@
 {
-  "generated_utc": "2026-04-27T13:00:24.811162+00:00",
+  "generated_utc": "2026-05-04T13:00:21.782986+00:00",
   "lookback_days": 30,
   "inactive_count": 16,
   "verdicts": {
@@ -17,7 +17,7 @@
       "demand_name": "Sovrn - Adapex 320x100",
       "revenue_30d_pre_pause": 0.0,
       "bids_30d_pre_pause": 31,
-      "ecpm_samples": 1,
+      "ecpm_samples": 0,
       "verdict": "insufficient_history"
     },
     {
@@ -27,7 +27,7 @@
       "demand_name": "Sovrn - Adapex 120x600",
       "revenue_30d_pre_pause": 0.0,
       "bids_30d_pre_pause": 25,
-      "ecpm_samples": 1,
+      "ecpm_samples": 0,
       "verdict": "insufficient_history"
     },
     {
@@ -87,7 +87,7 @@
       "demand_name": "Sovrn - Adapex 320x50",
       "revenue_30d_pre_pause": 0.0,
       "bids_30d_pre_pause": 42,
-      "ecpm_samples": 5,
+      "ecpm_samples": 0,
       "verdict": "insufficient_history"
     },
     {
@@ -127,7 +127,7 @@
       "demand_name": "Sovrn - Adapex 320x50 oRTB 2.6",
       "revenue_30d_pre_pause": 0.0,
       "bids_30d_pre_pause": 37,
-      "ecpm_samples": 1,
+      "ecpm_samples": 0,
       "verdict": "insufficient_history"
     },
     {

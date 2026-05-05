@@ -1,32 +1,14 @@
 {
   "window": {
-    "start": "2026-04-21",
-    "end": "2026-04-28"
+    "start": "2026-04-27",
+    "end": "2026-05-04"
   },
-  "timestamp": "2026-04-28T13:15:53.936641+00:00",
+  "timestamp": "2026-05-04T13:16:07.680439+00:00",
   "dry_run": true,
   "bootstrap": false,
   "total_companies": 12,
   "by_class": {
-    "PRUNE": [],
-    "REVIEW": [],
-    "EXPAND": [],
-    "KEEP": [
-      {
-        "ssp_company": "RevIQ",
-        "active_endpoints": 1,
-        "wins": 555601,
-        "impressions": 111566,
-        "bid_responses": 661448,
-        "publisher_revenue": 89.58212226999999,
-        "dsp_spend": 121.36239043000008,
-        "profit": 31.78026816000009,
-        "total_endpoints": 26,
-        "fill_rate": 0.16866934362187203,
-        "dsp_ecpm": 1.0878080278041704,
-        "margin": 0.2618625757732619,
-        "classification": "KEEP"
-      },
+    "PRUNE": [
       {
         "ssp_company": "Start.io",
         "total_endpoints": 22,
@@ -40,7 +22,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Dexerto",
@@ -55,7 +37,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Illumin",
@@ -70,7 +52,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Media Lab RTB",
@@ -85,7 +67,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Mission Media",
@@ -100,7 +82,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Pijper Publishing",
@@ -115,7 +97,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Smaato",
@@ -130,7 +112,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "WeBlog RTB",
@@ -145,7 +127,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "Zoomer Media",
@@ -160,7 +142,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "OC Media Solutions",
@@ -175,7 +157,7 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
-        "classification": "KEEP"
+        "classification": "PRUNE"
       },
       {
         "ssp_company": "PubNative",
@@ -190,6 +172,25 @@
         "fill_rate": 0.0,
         "dsp_ecpm": 0.0,
         "margin": 0.0,
+        "classification": "PRUNE"
+      }
+    ],
+    "REVIEW": [],
+    "EXPAND": [],
+    "KEEP": [
+      {
+        "ssp_company": "RevIQ",
+        "active_endpoints": 1,
+        "wins": 272712,
+        "impressions": 58855,
+        "bid_responses": 311744,
+        "publisher_revenue": 53.43859848999997,
+        "dsp_spend": 72.22434535000001,
+        "profit": 18.78574686000004,
+        "total_endpoints": 26,
+        "fill_rate": 0.18879272736604394,
+        "dsp_ecpm": 1.227157341772152,
+        "margin": 0.2601026948595255,
         "classification": "KEEP"
       }
     ]

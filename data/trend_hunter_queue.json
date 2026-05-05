@@ -1,16 +1,28 @@
 {
-  "generated_utc": "2026-04-29T17:57:46.167575+00:00",
+  "generated_utc": "2026-05-05T06:25:47.541226+00:00",
   "underpriced": [
     {
       "pattern": "underpriced_demand",
       "demand_id": 488,
       "name": "Stirista - General Dexerto",
-      "wr": 1.238,
-      "ecpm": 0.98,
-      "rev_7d": 233.82,
+      "wr": 1.258,
+      "ecpm": 1.01,
+      "rev_7d": 306.88,
       "n_pubs": 1,
       "action_class": "queue",
-      "suggested_action": "Raise floor 10-15% on demand 488. WR 124% says current floor is too low.",
+      "suggested_action": "Raise floor 10-15% on demand 488. WR 126% says current floor is too low.",
+      "is_protected": false
+    },
+    {
+      "pattern": "underpriced_demand",
+      "demand_id": 449,
+      "name": "Stirista - General Illumin",
+      "wr": 0.546,
+      "ecpm": 1.88,
+      "rev_7d": 114.06,
+      "n_pubs": 1,
+      "action_class": "queue",
+      "suggested_action": "Raise floor 10-15% on demand 449. WR 55% says current floor is too low.",
       "is_protected": false
     }
   ],
@@ -19,101 +31,101 @@
       "pattern": "dsp_declining",
       "demand_id": 456,
       "name": "Pubmatic - Dexerto 300x600",
-      "bids_7d": 2425672,
-      "wr": 0.0042,
-      "rev_7d": 2.82,
+      "bids_7d": 3577667,
+      "wr": 0.0086,
+      "rev_7d": 7.61,
       "action_class": "queue",
-      "suggested_action": "Investigate demand 456: 2,425,672 bids, only 0.42% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+      "suggested_action": "Investigate demand 456: 3,577,667 bids, only 0.86% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
     },
     {
       "pattern": "dsp_declining",
       "demand_id": 457,
       "name": "Pubmatic - Dexerto 300x600 oRTB 2.6",
-      "bids_7d": 2420911,
-      "wr": 0.004,
-      "rev_7d": 2.29,
+      "bids_7d": 3568751,
+      "wr": 0.008,
+      "rev_7d": 6.51,
       "action_class": "queue",
-      "suggested_action": "Investigate demand 457: 2,420,911 bids, only 0.40% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
-    },
-    {
-      "pattern": "dsp_declining",
-      "demand_id": 474,
-      "name": "Sovrn Dexerto_300x250 oRTB 2.6",
-      "bids_7d": 1928206,
-      "wr": 0.0012,
-      "rev_7d": 1.81,
-      "action_class": "queue",
-      "suggested_action": "Investigate demand 474: 1,928,206 bids, only 0.12% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
-    },
-    {
-      "pattern": "dsp_declining",
-      "demand_id": 477,
-      "name": "Sovrn Dexerto_320x50",
-      "bids_7d": 1845882,
-      "wr": 0.0005,
-      "rev_7d": 0.81,
-      "action_class": "queue",
-      "suggested_action": "Investigate demand 477: 1,845,882 bids, only 0.05% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+      "suggested_action": "Investigate demand 457: 3,568,751 bids, only 0.80% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
     },
     {
       "pattern": "dsp_declining",
       "demand_id": 475,
       "name": "Sovrn - Dexerto_300x600",
-      "bids_7d": 1438741,
-      "wr": 0.0003,
-      "rev_7d": 0.1,
+      "bids_7d": 2764698,
+      "wr": 0.0018,
+      "rev_7d": 1.61,
       "action_class": "queue",
-      "suggested_action": "Investigate demand 475: 1,438,741 bids, only 0.03% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
-    },
-    {
-      "pattern": "dsp_declining",
-      "demand_id": 161,
-      "name": "Sovrn - Start.IO_320x50",
-      "bids_7d": 1319576,
-      "wr": 0.0022,
-      "rev_7d": 0.51,
-      "action_class": "queue",
-      "suggested_action": "Investigate demand 161: 1,319,576 bids, only 0.22% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
-    },
-    {
-      "pattern": "dsp_declining",
-      "demand_id": 160,
-      "name": "Sovrn - Start.IO_160x600 oRTB 2.6",
-      "bids_7d": 1258981,
-      "wr": 0.0007,
-      "rev_7d": 0.14,
-      "action_class": "queue",
-      "suggested_action": "Investigate demand 160: 1,258,981 bids, only 0.07% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
-    },
-    {
-      "pattern": "dsp_declining",
-      "demand_id": 478,
-      "name": "Sovrn Dexerto_320x50 oRTB 2.6",
-      "bids_7d": 1244606,
-      "wr": 0.0006,
-      "rev_7d": 0.93,
-      "action_class": "queue",
-      "suggested_action": "Investigate demand 478: 1,244,606 bids, only 0.06% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+      "suggested_action": "Investigate demand 475: 2,764,698 bids, only 0.18% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
     },
     {
       "pattern": "dsp_declining",
       "demand_id": 476,
       "name": "Sovrn - Dexerto_300x600 oRTB 2.6",
-      "bids_7d": 963165,
-      "wr": 0.0004,
-      "rev_7d": 0.08,
+      "bids_7d": 1965357,
+      "wr": 0.0028,
+      "rev_7d": 1.99,
       "action_class": "queue",
-      "suggested_action": "Investigate demand 476: 963,165 bids, only 0.04% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+      "suggested_action": "Investigate demand 476: 1,965,357 bids, only 0.28% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+    },
+    {
+      "pattern": "dsp_declining",
+      "demand_id": 160,
+      "name": "Sovrn - Start.IO_160x600 oRTB 2.6",
+      "bids_7d": 713384,
+      "wr": 0.0006,
+      "rev_7d": 0.07,
+      "action_class": "queue",
+      "suggested_action": "Investigate demand 160: 713,384 bids, only 0.06% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+    },
+    {
+      "pattern": "dsp_declining",
+      "demand_id": 477,
+      "name": "Sovrn Dexerto_320x50",
+      "bids_7d": 516509,
+      "wr": 0.0005,
+      "rev_7d": 0.03,
+      "action_class": "queue",
+      "suggested_action": "Investigate demand 477: 516,509 bids, only 0.05% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+    },
+    {
+      "pattern": "dsp_declining",
+      "demand_id": 480,
+      "name": "Sovrn - Dexerto_728x90 oRTB 2.6",
+      "bids_7d": 488131,
+      "wr": 0.002,
+      "rev_7d": 0.12,
+      "action_class": "queue",
+      "suggested_action": "Investigate demand 480: 488,131 bids, only 0.20% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
     },
     {
       "pattern": "dsp_declining",
       "demand_id": 479,
       "name": "Sovrn - Dexerto_728x90",
-      "bids_7d": 941563,
-      "wr": 0.0005,
-      "rev_7d": 0.04,
+      "bids_7d": 381794,
+      "wr": 0.0018,
+      "rev_7d": 0.07,
       "action_class": "queue",
-      "suggested_action": "Investigate demand 479: 941,563 bids, only 0.05% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+      "suggested_action": "Investigate demand 479: 381,794 bids, only 0.18% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+    },
+    {
+      "pattern": "dsp_declining",
+      "demand_id": 478,
+      "name": "Sovrn Dexerto_320x50 oRTB 2.6",
+      "bids_7d": 309693,
+      "wr": 0.0006,
+      "rev_7d": 0.02,
+      "action_class": "queue",
+      "suggested_action": "Investigate demand 478: 309,693 bids, only 0.06% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
+    },
+    {
+      "pattern": "dsp_declining",
+      "demand_id": 161,
+      "name": "Sovrn - Start.IO_320x50",
+      "bids_7d": 305564,
+      "wr": 0.0043,
+      "rev_7d": 0.14,
+      "action_class": "queue",
+      "suggested_action": "Investigate demand 161: 305,564 bids, only 0.43% WR. DSP is requesting but not bidding meaningfully \u2014 check format/bundle filters, creative quality, or reach out to partner."
     }
   ],
   "wow_drops": [
@@ -121,111 +133,111 @@
       "pattern": "wow_drop",
       "demand_id": 54,
       "name": "Pubmatic RON - VIdeo Prebid Server",
-      "prev_week_rev": 11334.26,
-      "this_week_rev": 5575.97,
-      "delta": -5758.28,
-      "drop_pct": 50.8,
+      "prev_week_rev": 6263.6,
+      "this_week_rev": 3182.11,
+      "delta": -3081.5,
+      "drop_pct": 49.2,
       "action_class": "queue",
-      "suggested_action": "Demand 54 dropped 51% WoW ($11334 \u2192 $5576). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 54 dropped 49% WoW ($6264 \u2192 $3182). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
       "demand_id": 693,
       "name": "Xandr - BidMachine oRTB 2.6 9 Dots",
-      "prev_week_rev": 1050.34,
-      "this_week_rev": 398.74,
-      "delta": -651.61,
-      "drop_pct": 62.0,
+      "prev_week_rev": 1118.72,
+      "this_week_rev": 73.56,
+      "delta": -1045.16,
+      "drop_pct": 93.4,
       "action_class": "queue",
-      "suggested_action": "Demand 693 dropped 62% WoW ($1050 \u2192 $399). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 693 dropped 93% WoW ($1119 \u2192 $74). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
       "demand_id": 692,
       "name": "Xandr - BidMachine 9 Dots",
-      "prev_week_rev": 971.29,
-      "this_week_rev": 388.23,
-      "delta": -583.06,
-      "drop_pct": 60.0,
+      "prev_week_rev": 1067.63,
+      "this_week_rev": 56.54,
+      "delta": -1011.1,
+      "drop_pct": 94.7,
       "action_class": "queue",
-      "suggested_action": "Demand 692 dropped 60% WoW ($971 \u2192 $388). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 692 dropped 95% WoW ($1068 \u2192 $57). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
-      "demand_id": 924,
-      "name": "Verve - RON Display Southeast Endpoint",
-      "prev_week_rev": 659.4,
-      "this_week_rev": 179.91,
-      "delta": -479.49,
-      "drop_pct": 72.7,
+      "demand_id": 945,
+      "name": "Unruly PubRev+",
+      "prev_week_rev": 671.44,
+      "this_week_rev": 108.68,
+      "delta": -562.76,
+      "drop_pct": 83.8,
       "action_class": "queue",
-      "suggested_action": "Demand 924 dropped 73% WoW ($659 \u2192 $180). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 945 dropped 84% WoW ($671 \u2192 $109). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
-      "demand_id": 876,
-      "name": "Magnite - Smaato - In App US",
-      "prev_week_rev": 916.15,
-      "this_week_rev": 508.23,
-      "delta": -407.92,
-      "drop_pct": 44.5,
+      "demand_id": 607,
+      "name": "Magnite - BidMAchine - In App Prebid Server oRTB 2.6",
+      "prev_week_rev": 632.62,
+      "this_week_rev": 201.95,
+      "delta": -430.66,
+      "drop_pct": 68.1,
       "action_class": "queue",
-      "suggested_action": "Demand 876 dropped 45% WoW ($916 \u2192 $508). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 607 dropped 68% WoW ($633 \u2192 $202). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
-      "demand_id": 955,
-      "name": "Xandr - BidMachine 9 Dots US West",
-      "prev_week_rev": 554.09,
-      "this_week_rev": 169.55,
-      "delta": -384.55,
-      "drop_pct": 69.4,
+      "demand_id": 606,
+      "name": "Magnite - BidMachine - In App Prebid Server",
+      "prev_week_rev": 640.5,
+      "this_week_rev": 231.62,
+      "delta": -408.88,
+      "drop_pct": 63.8,
       "action_class": "queue",
-      "suggested_action": "Demand 955 dropped 69% WoW ($554 \u2192 $170). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 606 dropped 64% WoW ($641 \u2192 $232). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
-      "demand_id": 877,
-      "name": "Magnite - Smaato oRTB 2.6 US",
-      "prev_week_rev": 531.38,
-      "this_week_rev": 257.91,
-      "delta": -273.47,
-      "drop_pct": 51.5,
+      "demand_id": 604,
+      "name": "Magnite - BidMachine - In App",
+      "prev_week_rev": 569.81,
+      "this_week_rev": 240.12,
+      "delta": -329.69,
+      "drop_pct": 57.9,
       "action_class": "queue",
-      "suggested_action": "Demand 877 dropped 51% WoW ($531 \u2192 $258). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 604 dropped 58% WoW ($570 \u2192 $240). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
-      "demand_id": 673,
-      "name": "Magnite - BidMachine - In App Prebid Server US West",
-      "prev_week_rev": 398.63,
-      "this_week_rev": 151.72,
-      "delta": -246.92,
-      "drop_pct": 61.9,
+      "demand_id": 892,
+      "name": "Xandr - Illumin 9 Dots",
+      "prev_week_rev": 430.94,
+      "this_week_rev": 143.8,
+      "delta": -287.14,
+      "drop_pct": 66.6,
       "action_class": "queue",
-      "suggested_action": "Demand 673 dropped 62% WoW ($399 \u2192 $152). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 892 dropped 67% WoW ($431 \u2192 $144). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
-      "demand_id": 878,
-      "name": "Magnite - Smaato Prebid Server US",
-      "prev_week_rev": 423.91,
-      "this_week_rev": 192.06,
-      "delta": -231.85,
-      "drop_pct": 54.7,
+      "demand_id": 893,
+      "name": "Xandr - Illumin oRTB 2.6 9 Dots",
+      "prev_week_rev": 411.33,
+      "this_week_rev": 134.57,
+      "delta": -276.76,
+      "drop_pct": 67.3,
       "action_class": "queue",
-      "suggested_action": "Demand 878 dropped 55% WoW ($424 \u2192 $192). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 893 dropped 67% WoW ($411 \u2192 $135). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     },
     {
       "pattern": "wow_drop",
       "demand_id": 971,
       "name": "Xandr - Smaato 9 Dots US West",
-      "prev_week_rev": 323.35,
-      "this_week_rev": 108.88,
-      "delta": -214.47,
-      "drop_pct": 66.3,
+      "prev_week_rev": 294.77,
+      "this_week_rev": 26.64,
+      "delta": -268.14,
+      "drop_pct": 91.0,
       "action_class": "queue",
-      "suggested_action": "Demand 971 dropped 66% WoW ($323 \u2192 $109). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
+      "suggested_action": "Demand 971 dropped 91% WoW ($295 \u2192 $27). Check ledger for recent writes; if floor change correlates, propose revert. Otherwise check partner-side."
     }
   ]
 }

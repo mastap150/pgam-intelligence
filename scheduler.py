@@ -195,6 +195,7 @@ def setup_schedule():
     # safety net = auto_revert_harmful (every 4h) reverts on >20% revenue drop.
     partner_revenue_optimizer = _import("agents.optimization.partner_revenue_optimizer")
     tb_contract_floor_sentry = _import("agents.optimization.tb_contract_floor_sentry")
+    revenue_health_monitor = _import("agents.alerts.revenue_health_monitor")
     tb_floor_nudge_agent   = _import("agents.optimization.tb_floor_nudge")
     optimal_price_sweep_weekly = _import("scripts.optimal_price_sweep")
     train_floor_model      = _import("scripts.train_floor_model")
@@ -393,6 +394,7 @@ def setup_schedule():
     schedule.every(4).hours.do(        _run("tb_floor_nudge",          tb_floor_nudge_agent))     # every 4h — +10% nudge w/ auto-rollback
     schedule.every(4).hours.do(        _run("revenue_guardian",        revenue_guardian))         # every 4h — verify+act with rollback safety net
     schedule.every().hour.do(          _run("tb_contract_floor_sentry",tb_contract_floor_sentry)) # hourly — restore any contract-floor violation
+    schedule.every(6).hours.do(        _run("revenue_health_monitor", revenue_health_monitor))    # every 6h — kill switch on aggregate revenue drop
     schedule.every().monday.at("06:00").do(_run("optimal_price_weekly", optimal_price_sweep_weekly))  # Mon — catch any new placements
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────
     schedule.every().sunday.at("05:00").do(_run("train_floor_model",   train_floor_model))

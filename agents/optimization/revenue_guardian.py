@@ -296,6 +296,16 @@ def run() -> dict:
     print(f"\n{'='*72}\n  Revenue Guardian   "
           f"{datetime.now(timezone.utc).isoformat()}\n{'='*72}")
 
+    # Kill-switch check — if revenue health monitor tripped, skip ACT phase
+    # but still run VERIFY (rollbacks should still fire, they're protective).
+    try:
+        from agents.alerts.revenue_health_monitor import is_kill_switch_active
+        kill_active = is_kill_switch_active()
+    except Exception:
+        kill_active = False
+    if kill_active:
+        print("  ⚠️  KILL SWITCH ACTIVE — VERIFY only, ACT phase skipped")
+
     ledger = load_ledger()
     print(f"  ledger: {len(ledger)} historical entries")
 
@@ -303,9 +313,13 @@ def run() -> dict:
     print("\n[VERIFY phase]")
     rollback_actions = _verify_phase(ledger)
 
-    # Phase 2: ACT
+    # Phase 2: ACT (skipped under kill switch)
     print("\n[ACT phase]")
-    apply_actions = _opportunity_phase(ledger)
+    if kill_active:
+        print("  skipped (kill switch)")
+        apply_actions = []
+    else:
+        apply_actions = _opportunity_phase(ledger)
 
     save_ledger(ledger)
 

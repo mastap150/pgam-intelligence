@@ -213,6 +213,15 @@ def run(dry_run: bool = True) -> dict:
     print(f"  TB Floor Nudge  {'[DRY RUN]' if dry_run else '[LIVE]'}")
     print(f"{'='*72}")
 
+    # Kill-switch check — skip ACT entirely if account-wide rev unhealthy
+    if not dry_run:
+        try:
+            from agents.alerts.revenue_health_monitor import is_kill_switch_active
+            if is_kill_switch_active():
+                print("  ⚠️  KILL SWITCH ACTIVE — apply skipped, run forced to dry-run")
+                dry_run = True
+        except Exception: pass
+
     placements = tbm.list_all_placements_via_report(days=BASELINE_WINDOW_DAYS, min_impressions=MIN_IMP_THRESHOLD)
     print(f"  {len(placements)} placements account-wide (≥{MIN_IMP_THRESHOLD} imps)")
 

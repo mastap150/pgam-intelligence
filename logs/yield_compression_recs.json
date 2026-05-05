@@ -1,17 +1,53 @@
 {
-  "timestamp": "2026-04-29T12:07:06.667341+00:00",
+  "timestamp": "2026-05-05T12:07:08.506685+00:00",
   "alerts": [
     {
-      "placement_id": 3327,
+      "placement_id": 6610,
       "title": "?",
       "inventory_id": null,
-      "prior_revenue": 1281.59,
-      "cur_revenue": 985.96,
-      "revenue_delta_pct": -23.1,
-      "imp_delta_pct": -8.2,
-      "ecpm_delta_pct": -16.4,
-      "prior_ecpm": 0.19,
-      "cur_ecpm": 0.16
+      "prior_revenue": 60.89,
+      "cur_revenue": 38.53,
+      "revenue_delta_pct": -36.7,
+      "imp_delta_pct": -12.3,
+      "ecpm_delta_pct": -31.2,
+      "prior_ecpm": 0.84,
+      "cur_ecpm": 0.58
+    },
+    {
+      "placement_id": 174,
+      "title": "?",
+      "inventory_id": null,
+      "prior_revenue": 43.77,
+      "cur_revenue": 31.17,
+      "revenue_delta_pct": -28.8,
+      "imp_delta_pct": 0.2,
+      "ecpm_delta_pct": -29.5,
+      "prior_ecpm": 0.44,
+      "cur_ecpm": 0.31
+    },
+    {
+      "placement_id": 8922,
+      "title": "?",
+      "inventory_id": null,
+      "prior_revenue": 25.44,
+      "cur_revenue": 19.37,
+      "revenue_delta_pct": -23.9,
+      "imp_delta_pct": -1.3,
+      "ecpm_delta_pct": -22.8,
+      "prior_ecpm": 0.38,
+      "cur_ecpm": 0.29
+    },
+    {
+      "placement_id": 2697,
+      "title": "?",
+      "inventory_id": null,
+      "prior_revenue": 69.46,
+      "cur_revenue": 57.77,
+      "revenue_delta_pct": -16.8,
+      "imp_delta_pct": 8.1,
+      "ecpm_delta_pct": -18.9,
+      "prior_ecpm": 0.36,
+      "cur_ecpm": 0.3
     }
   ]
 }

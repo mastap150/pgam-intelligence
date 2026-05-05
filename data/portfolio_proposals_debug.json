@@ -1,230 +1,9 @@
 {
-  "generated_utc": "2026-04-28T11:46:11.726607Z",
-  "multi_pub_demand_count": 68,
+  "generated_utc": "2026-05-02T11:46:11.632920Z",
+  "multi_pub_demand_count": 76,
   "rows": [
     {
-      "demand_id": 877,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 684,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.1
-    },
-    {
-      "demand_id": 929,
-      "verdict": "gated",
-      "detail": "pub 290115271 in quarantine"
-    },
-    {
-      "demand_id": 50,
-      "verdict": "gated",
-      "detail": "pub 290115377 in holdout:control"
-    },
-    {
-      "demand_id": 970,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 3.97
-    },
-    {
-      "demand_id": 52,
-      "verdict": "gated",
-      "detail": "pub 290115271 in holdout:control"
-    },
-    {
-      "demand_id": 918,
-      "verdict": "gated",
-      "detail": "pub 290115373 in holdout:control"
-    },
-    {
-      "demand_id": 920,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 1166,
-      "verdict": "gated",
-      "detail": "pub 290115318 in quarantine"
-    },
-    {
-      "demand_id": 51,
-      "verdict": "gated",
-      "detail": "pub 290115270 in quarantine"
-    },
-    {
-      "demand_id": 649,
-      "verdict": "lift_under_min",
-      "gross_lift": 8.15
-    },
-    {
-      "demand_id": 919,
-      "verdict": "gated",
-      "detail": "pub 290115268 in holdout:control"
-    },
-    {
-      "demand_id": 45,
-      "verdict": "gated",
-      "detail": "pub 290115270 in quarantine"
-    },
-    {
-      "demand_id": 862,
-      "verdict": "gated",
-      "detail": "pub 290115372 in holdout:control"
-    },
-    {
-      "demand_id": 665,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 931,
-      "verdict": "gated",
-      "detail": "pub 290115326 in holdout:control"
-    },
-    {
-      "demand_id": 686,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 79.42
-    },
-    {
-      "demand_id": 607,
-      "verdict": "gated",
-      "detail": "pub 290115377 in quarantine"
-    },
-    {
-      "demand_id": 1165,
-      "verdict": "gated",
-      "detail": "pub 290115318 in quarantine"
-    },
-    {
-      "demand_id": 953,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 2.15
-    },
-    {
-      "demand_id": 666,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 954,
-      "verdict": "gated",
-      "detail": "pub 290115270 in quarantine"
-    },
-    {
-      "demand_id": 54,
-      "verdict": "gated",
-      "detail": "pub 290115270 in quarantine"
-    },
-    {
-      "demand_id": 788,
-      "verdict": "gated",
-      "detail": "pub 290115333 in holdout:control"
-    },
-    {
-      "demand_id": 1148,
-      "verdict": "gated",
-      "detail": "pub 290115318 in quarantine"
-    },
-    {
-      "demand_id": 685,
-      "verdict": "gated",
-      "detail": "pub 290115319 in holdout:control"
-    },
-    {
-      "demand_id": 955,
-      "verdict": "gated",
-      "detail": "pub 290115270 in holdout:control"
-    },
-    {
-      "demand_id": 671,
-      "verdict": "gated",
-      "detail": "pub 290115333 in holdout:control"
-    },
-    {
-      "demand_id": 876,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
       "demand_id": 47,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 975,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 13.07
-    },
-    {
-      "demand_id": 604,
-      "verdict": "gated",
-      "detail": "pub 290115373 in quarantine"
-    },
-    {
-      "demand_id": 878,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 446,
-      "verdict": "gated",
-      "detail": "pub 290115270 in holdout:control"
-    },
-    {
-      "demand_id": 923,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 674,
-      "verdict": "gated",
-      "detail": "pub 290115333 in holdout:control"
-    },
-    {
-      "demand_id": 963,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 1.86
-    },
-    {
-      "demand_id": 669,
-      "verdict": "proposed",
-      "proposal_id": "prop_19dd3e9339d8c1454",
-      "breakdown": [
-        {
-          "pub_id": 290115326,
-          "pub_name": "BidMachine - In App Display & Video (Europe)",
-          "cur_weekly_rev": 7.22,
-          "new_weekly_rev": 139.28,
-          "delta": 132.05
-        },
-        {
-          "pub_id": 290115334,
-          "pub_name": "Copy - BidMachine - In App Interstitial (Europe)",
-          "cur_weekly_rev": 116.51,
-          "new_weekly_rev": 116.64,
-          "delta": 0.14
-        }
-      ]
-    },
-    {
-      "demand_id": 606,
-      "verdict": "gated",
-      "detail": "pub 290115332 in holdout:control"
-    },
-    {
-      "demand_id": 1147,
-      "verdict": "gated",
-      "detail": "pub 290115318 in holdout:control"
-    },
-    {
-      "demand_id": 673,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 650,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
     },
@@ -234,29 +13,9 @@
       "detail": "pub 290115340 in holdout:control"
     },
     {
-      "demand_id": 951,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.8
-    },
-    {
-      "demand_id": 956,
-      "verdict": "contract_floor_clamp",
-      "min_floor": 1.7,
-      "remaining_grid": [
-        2.0,
-        2.6,
-        6.9,
-        10.72,
-        12.88,
-        14.7,
-        17.5,
-        19.29
-      ]
-    },
-    {
-      "demand_id": 956,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
+      "demand_id": 51,
+      "verdict": "gated",
+      "detail": "pub 290115270 in quarantine"
     },
     {
       "demand_id": 893,
@@ -264,74 +23,102 @@
       "detail": "pub 290115374 in quarantine"
     },
     {
-      "demand_id": 605,
+      "demand_id": 671,
       "verdict": "gated",
-      "detail": "pub 290115318 in holdout:control"
+      "detail": "pub 290115333 in holdout:control"
     },
     {
-      "demand_id": 8,
+      "demand_id": 606,
+      "verdict": "gated",
+      "detail": "pub 290115332 in holdout:control"
+    },
+    {
+      "demand_id": 673,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
     },
     {
-      "demand_id": 693,
+      "demand_id": 918,
       "verdict": "gated",
-      "detail": "pub 290115270 in quarantine"
+      "detail": "pub 290115367 in quarantine"
     },
     {
-      "demand_id": 53,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.19
+      "demand_id": 919,
+      "verdict": "gated",
+      "detail": "pub 290115268 in holdout:control"
+    },
+    {
+      "demand_id": 788,
+      "verdict": "gated",
+      "detail": "pub 290115333 in holdout:control"
+    },
+    {
+      "demand_id": 607,
+      "verdict": "gated",
+      "detail": "pub 290115377 in quarantine"
     },
     {
       "demand_id": 930,
       "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 22.82
+      "weekly_rev": 24.2
     },
     {
-      "demand_id": 976,
+      "demand_id": 52,
+      "verdict": "gated",
+      "detail": "pub 290115271 in holdout:control"
+    },
+    {
+      "demand_id": 54,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 53,
       "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 16.69
+      "weekly_rev": 0.23
     },
     {
-      "demand_id": 892,
+      "demand_id": 975,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 11.15
+    },
+    {
+      "demand_id": 1182,
       "verdict": "gated",
-      "detail": "pub 290115374 in quarantine"
+      "detail": "pub 290115368 in quarantine"
     },
     {
-      "demand_id": 879,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.04
-    },
-    {
-      "demand_id": 670,
-      "verdict": "gated",
-      "detail": "pub 290115326 in holdout:control"
-    },
-    {
-      "demand_id": 667,
-      "verdict": "lift_under_min",
-      "gross_lift": 0.0
-    },
-    {
-      "demand_id": 692,
+      "demand_id": 956,
       "verdict": "contract_floor_clamp",
       "min_floor": 1.7,
       "remaining_grid": [
         2.0,
-        4.9,
-        9.74,
-        12.4,
-        14.0,
-        15.94,
-        18.23,
-        20.44
+        3.0,
+        7.12,
+        11.0,
+        12.95,
+        14.6,
+        17.8,
+        20.9
       ]
     },
     {
-      "demand_id": 692,
+      "demand_id": 956,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
+    },
+    {
+      "demand_id": 955,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 674,
+      "verdict": "gated",
+      "detail": "pub 290115333 in holdout:control"
+    },
+    {
+      "demand_id": 45,
+      "verdict": "gated",
+      "detail": "pub 290115270 in quarantine"
     },
     {
       "demand_id": 921,
@@ -339,29 +126,269 @@
       "gross_lift": 0.0
     },
     {
+      "demand_id": 892,
+      "verdict": "gated",
+      "detail": "pub 290115374 in quarantine"
+    },
+    {
+      "demand_id": 693,
+      "verdict": "gated",
+      "detail": "pub 290115270 in quarantine"
+    },
+    {
+      "demand_id": 49,
+      "verdict": "gated",
+      "detail": "pub 290115378 in quarantine"
+    },
+    {
+      "demand_id": 604,
+      "verdict": "gated",
+      "detail": "pub 290115373 in quarantine"
+    },
+    {
+      "demand_id": 929,
+      "verdict": "gated",
+      "detail": "pub 290115271 in quarantine"
+    },
+    {
+      "demand_id": 692,
+      "verdict": "contract_floor_clamp",
+      "min_floor": 1.7,
+      "remaining_grid": [
+        2.05,
+        5.35,
+        10.55,
+        12.8,
+        14.63,
+        16.26,
+        18.9,
+        21.6
+      ]
+    },
+    {
+      "demand_id": 692,
+      "verdict": "lift_under_min",
+      "gross_lift": -6.79
+    },
+    {
+      "demand_id": 1173,
+      "verdict": "gated",
+      "detail": "pub 290115374 in quarantine"
+    },
+    {
+      "demand_id": 50,
+      "verdict": "gated",
+      "detail": "pub 290115373 in quarantine"
+    },
+    {
+      "demand_id": 650,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 1165,
+      "verdict": "gated",
+      "detail": "pub 290115318 in quarantine"
+    },
+    {
+      "demand_id": 920,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 924,
+      "verdict": "gated",
+      "detail": "pub 290115306 in quarantine"
+    },
+    {
+      "demand_id": 685,
+      "verdict": "gated",
+      "detail": "pub 290115319 in holdout:control"
+    },
+    {
+      "demand_id": 8,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 87.69
+    },
+    {
+      "demand_id": 922,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 23.31
+    },
+    {
+      "demand_id": 925,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 876,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 939,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
       "demand_id": 668,
       "verdict": "gated",
       "detail": "pub 290115334 in holdout:control"
     },
     {
-      "demand_id": 958,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.45
+      "demand_id": 1147,
+      "verdict": "gated",
+      "detail": "pub 290115336 in quarantine"
     },
     {
-      "demand_id": 952,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 2.46
+      "demand_id": 878,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
     },
     {
-      "demand_id": 959,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.29
+      "demand_id": 877,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
     },
     {
-      "demand_id": 947,
+      "demand_id": 944,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 945,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 669,
+      "verdict": "proposed",
+      "proposal_id": "prop_19de882a601d23b9d",
+      "breakdown": [
+        {
+          "pub_id": 290115326,
+          "pub_name": "BidMachine - In App Display & Video (Europe)",
+          "cur_weekly_rev": 44.59,
+          "new_weekly_rev": 135.55,
+          "delta": 90.96
+        },
+        {
+          "pub_id": 290115334,
+          "pub_name": "Copy - BidMachine - In App Interstitial (Europe)",
+          "cur_weekly_rev": 84.89,
+          "new_weekly_rev": 85.02,
+          "delta": 0.14
+        }
+      ]
+    },
+    {
+      "demand_id": 684,
       "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 0.97
+      "weekly_rev": 0.47
+    },
+    {
+      "demand_id": 954,
+      "verdict": "gated",
+      "detail": "pub 290115270 in quarantine"
+    },
+    {
+      "demand_id": 879,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.04
+    },
+    {
+      "demand_id": 666,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 931,
+      "verdict": "gated",
+      "detail": "pub 290115326 in holdout:control"
+    },
+    {
+      "demand_id": 665,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 946,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 686,
+      "verdict": "cooldown"
+    },
+    {
+      "demand_id": 605,
+      "verdict": "gated",
+      "detail": "pub 290115318 in holdout:control"
+    },
+    {
+      "demand_id": 1148,
+      "verdict": "gated",
+      "detail": "pub 290115336 in quarantine"
+    },
+    {
+      "demand_id": 926,
+      "verdict": "gated",
+      "detail": "pub 290115306 in holdout:control"
+    },
+    {
+      "demand_id": 862,
+      "verdict": "gated",
+      "detail": "pub 290115372 in holdout:control"
+    },
+    {
+      "demand_id": 1166,
+      "verdict": "gated",
+      "detail": "pub 290115318 in quarantine"
+    },
+    {
+      "demand_id": 446,
+      "verdict": "gated",
+      "detail": "pub 290115270 in holdout:control"
+    },
+    {
+      "demand_id": 976,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 14.87
+    },
+    {
+      "demand_id": 970,
+      "verdict": "portfolio_rev_too_small",
+      "weekly_rev": 9.12
+    },
+    {
+      "demand_id": 1181,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 670,
+      "verdict": "gated",
+      "detail": "pub 290115326 in holdout:control"
+    },
+    {
+      "demand_id": 649,
+      "verdict": "proposed",
+      "proposal_id": "prop_19de882ababac2967",
+      "breakdown": [
+        {
+          "pub_id": 290115327,
+          "pub_name": "Illumin Display EU",
+          "cur_weekly_rev": 76.68,
+          "new_weekly_rev": 89.5,
+          "delta": 12.82
+        },
+        {
+          "pub_id": 290115329,
+          "pub_name": "Illumin In App EU",
+          "cur_weekly_rev": 24.51,
+          "new_weekly_rev": 24.77,
+          "delta": 0.26
+        }
+      ]
     },
     {
       "demand_id": 863,
@@ -369,24 +396,49 @@
       "detail": "pub 290115364 in holdout:control"
     },
     {
-      "demand_id": 964,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 1.65
-    },
-    {
-      "demand_id": 49,
-      "verdict": "gated",
-      "detail": "pub 290115268 in holdout:control"
-    },
-    {
-      "demand_id": 922,
-      "verdict": "portfolio_rev_too_small",
-      "weekly_rev": 19.78
-    },
-    {
-      "demand_id": 926,
+      "demand_id": 667,
       "verdict": "lift_under_min",
       "gross_lift": 0.0
+    },
+    {
+      "demand_id": 923,
+      "verdict": "lift_under_min",
+      "gross_lift": 0.0
+    },
+    {
+      "demand_id": 942,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 943,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 938,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 937,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 940,
+      "verdict": "gated",
+      "detail": "pub 290115368 in holdout:control"
+    },
+    {
+      "demand_id": 941,
+      "verdict": "gated",
+      "detail": "pub 290115368 in quarantine"
+    },
+    {
+      "demand_id": 1174,
+      "verdict": "gated",
+      "detail": "pub 290115374 in quarantine"
     }
   ]
 }
