@@ -92,8 +92,16 @@ PARTNER_PUBS: dict[int, str] = {
 
 # Low-yield thresholds for the "lift floor on partner-unique low-yield demand"
 # rule. Tuned conservatively from the 2026-04-26 partner deep-dive.
+#
+# Tuning history:
+# - 2026-04-26 initial: ECPM_CEILING=$0.50, IMP_SHARE=5%, MIN_REV=$5
+# - 2026-05-05: IMP_SHARE 5% → 1% after pub-wide volume on PubNative collapsed
+#   7×, leaving the remaining Sovrn-PubNative siblings (e.g. demand 777) at
+#   ~2% imp share — high enough to drag yield, low enough that the 5%
+#   threshold excluded them. Dropping to 1% keeps the agent useful on
+#   smaller-volume tail demands.
 LOW_YIELD_ECPM_CEILING = 0.50      # only consider demands earning < $0.50 eCPM
-LOW_YIELD_MIN_IMP_SHARE = 0.05     # ...consuming > 5% of partner pub's imps
+LOW_YIELD_MIN_IMP_SHARE = 0.01     # ...consuming > 1% of partner pub's imps
 LOW_YIELD_MIN_REV = 5.0            # ...with > $5/7d (skip dust)
 NEW_FLOOR_ON_LIFT = 0.50           # lift floor to $0.50
 
