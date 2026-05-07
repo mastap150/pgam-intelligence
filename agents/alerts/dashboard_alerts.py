@@ -210,18 +210,49 @@ def _build_blocks(
                 "text": {"type": "mrkdwn", "text": header + "\n" + "\n".join(lines)},
             })
 
-    # Anomalies
+    # Anomalies — drop "likely_false" verdicts so Slack only fires on
+    # real signal. The dashboard endpoint enriches each alert with a
+    # verdict + reasons (data-gap, recon under-report, cluster) when
+    # explain=1 (now default). Falsy alerts stay visible in the UI
+    # behind a "show false alarms" toggle, but they shouldn't notify.
     if anomalies:
-        crit = [a for a in anomalies.get("alerts", []) if a.get("severity") == "critical"]
-        warn = [a for a in anomalies.get("alerts", []) if a.get("severity") == "warning"]
+        all_alerts = anomalies.get("alerts", [])
+        # Anything explicitly marked likely_false is suppressed. Anything
+        # without an explainer field falls through (back-compat).
+        actionable = [
+            a for a in all_alerts
+            if a.get("verdict") != "likely_false"
+            and a.get("severity") in ("critical", "warning")
+        ]
+        crit = [a for a in actionable if a["severity"] == "critical"]
+        warn = [a for a in actionable if a["severity"] == "warning"]
         if crit or warn:
             lines: list[str] = []
             for a in (crit + warn)[:8]:
-                emoji = ":red_circle:" if a["severity"] == "critical" else ":large_yellow_circle:"
-                lines.append(f"{emoji} *{a['brand']}* — {a['message']}")
+                base_emoji = ":red_circle:" if a["severity"] == "critical" else ":large_yellow_circle:"
+                # Verdict suffix tells the reader at-a-glance how confident
+                # we are without burying the lede.
+                v = a.get("verdict")
+                if v == "likely_real":
+                    verdict_tag = " · _likely real_"
+                elif v == "needs_review":
+                    verdict_tag = " · _needs review_"
+                else:
+                    verdict_tag = ""
+                line = f"{base_emoji} *{a['brand']}* — {a['message']}{verdict_tag}"
+                # Append the first reason (most informative one) as
+                # context if present.
+                reasons = a.get("reasons") or []
+                if reasons:
+                    line += f"\n        ↳ {reasons[0]}"
+                lines.append(line)
+            suppressed = len(all_alerts) - len(actionable)
+            header = "*Anomaly alerts (last 7d vs prior 7d)*"
+            if suppressed > 0:
+                header += f" — _{suppressed} likely-false alarm{'s' if suppressed != 1 else ''} suppressed_"
             sections.append({
                 "type": "section",
-                "text": {"type": "mrkdwn", "text": "*Anomaly alerts (last 7d vs prior 7d)*\n" + "\n".join(lines)},
+                "text": {"type": "mrkdwn", "text": header + "\n" + "\n".join(lines)},
             })
 
     # Reconciliation drift
