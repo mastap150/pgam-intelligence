@@ -23,6 +23,14 @@ ALERT (requires human judgment, posts to Slack):
   5. New publisher created with lurlEnabled=False or wrong defaults
   6. Demand auctionType=2 (second-price) on high-revenue inventory
   7. iabCategories filter on publisher with non-Arts/Entertainment traffic
+  8. overridenPubId blank on a revenue-earning publisher
+     → no auto-fix (the value is the seller_id we sign chains with;
+        if it's missing, every chain we sign downstream is unverifiable
+        and DSPs reject). Onboarding-drift catcher.
+  9. adsTxtRecords empty on a top-revenue publisher
+     → no auto-fix (operator picks the right seller_id text). DSPs
+        cross-check ads.txt against schain nodes; missing entries
+        weaken the chain's complete=1 claim.
 
 Safety posture
 --------------
@@ -257,6 +265,49 @@ def check_demand_qps(demands: list[dict], demand_rev: dict, actor: str) -> dict:
             "fixed": fixed}
 
 
+def check_pub_schain_hygiene(all_pubs_summary: list[dict], pub_rev: dict) -> dict:
+    """ALERT: schain-related hygiene drift on revenue-earning publishers.
+
+    Two findings, neither has a safe auto-fix because both require a
+    human-chosen value:
+      - missing_seller_id: overridenPubId is blank. We sign every outbound
+        schain with this — if it's missing, our node is unverifiable and
+        compliant DSPs (Magnite, Pubmatic post-Q3) reject the request.
+      - empty_adstxt: adsTxtRecords is empty. DSPs cross-reference ads.txt
+        against schain nodes for the complete=1 attestation; missing entries
+        don't fail the request directly but weaken our standing in
+        sellers.json audits and limit downstream revenue.
+
+    Both checks share one publisher-detail walk (top 30 pubs by revenue).
+    Skips TEST/Copy- pubs so we don't alert on staging artefacts.
+    """
+    revenue_pubs = sorted(
+        [p for p in all_pubs_summary if pub_rev.get(p["id"], 0) >= MIN_PUB_REV_7D],
+        key=lambda p: -pub_rev.get(p["id"], 0),
+    )
+    missing_seller_id: list[dict] = []
+    empty_adstxt: list[dict] = []
+    for p_summary in revenue_pubs[:30]:
+        pid = p_summary["id"]
+        name = p_summary.get("name", "") or ""
+        if "TEST" in name.upper() or name.startswith("Copy -"):
+            continue
+        try:
+            p = ll_mgmt.get_publisher(pid)
+        except Exception:
+            continue
+        rev = pub_rev.get(pid, 0)
+        if not (p.get("overridenPubId") or "").strip():
+            missing_seller_id.append({"pub_id": pid, "name": name, "rev_7d": rev})
+        if not p.get("adsTxtRecords"):
+            empty_adstxt.append({"pub_id": pid, "name": name, "rev_7d": rev})
+    return {
+        "missing_seller_id": missing_seller_id,  # rare — alert on every one
+        "empty_adstxt": empty_adstxt[:5],        # common — top 5 by revenue
+        "empty_adstxt_total": len(empty_adstxt),
+    }
+
+
 def check_low_margin_demands(demands: list[dict], demand_rev: dict) -> list[dict]:
     """ALERT: demands with margin <=10% earning >$500/wk (renegotiation candidates)."""
     findings = []
@@ -288,13 +339,16 @@ def run() -> dict:
     lurl_result = check_pub_lurl(pubs_summary, pub_rev, actor)
     qps_result = check_demand_qps(demands, demand_rev, actor)
     low_margin = check_low_margin_demands(demands, demand_rev)
+    schain_hygiene = check_pub_schain_hygiene(pubs_summary, pub_rev)
 
     autofix_count = (len(schain_result["fixed"]) + len(pub_schain_node_result["fixed"])
                      + len(lurl_result["fixed"]) + len(qps_result["fixed"]))
     print(f"[{actor}] AUTO-FIXES: {autofix_count} ({len(schain_result['fixed'])} schain, "
           f"{len(pub_schain_node_result['fixed'])} pub-schain-node, "
           f"{len(lurl_result['fixed'])} lurl, {len(qps_result['fixed'])} qps)")
-    print(f"[{actor}] ALERTS: {len(low_margin)} low-margin demands")
+    print(f"[{actor}] ALERTS: {len(low_margin)} low-margin demands, "
+          f"{len(schain_hygiene['missing_seller_id'])} missing seller_id, "
+          f"{schain_hygiene['empty_adstxt_total']} empty adsTxtRecords")
 
     # Slack: only post if there were autofixes or new alerts
     msg_parts = []
@@ -326,6 +380,21 @@ def run() -> dict:
                              f"${f['rev_7d']:.0f}/7d gross, ${f['net_rev_7d']:.0f}/7d net  "
                              f"{f['name'][:35]}")
 
+    if schain_hygiene["missing_seller_id"]:
+        if not msg_parts:
+            msg_parts.append(f":bar_chart: *Config health — {now.strftime('%Y-%m-%d')}*")
+        msg_parts.append(f"\n• {len(schain_hygiene['missing_seller_id'])} pub(s) with blank `overridenPubId` (schain we sign is unverifiable — DSPs reject):")
+        for f in schain_hygiene["missing_seller_id"][:5]:
+            msg_parts.append(f"   — `{f['pub_id']}` (${f['rev_7d']:.0f}/7d) {f['name'][:45]}")
+
+    if schain_hygiene["empty_adstxt"]:
+        if not msg_parts:
+            msg_parts.append(f":bar_chart: *Config health — {now.strftime('%Y-%m-%d')}*")
+        total = schain_hygiene["empty_adstxt_total"]
+        msg_parts.append(f"\n• {total} pub(s) with empty `adsTxtRecords` — top 5 by revenue (manual review):")
+        for f in schain_hygiene["empty_adstxt"]:
+            msg_parts.append(f"   — `{f['pub_id']}` (${f['rev_7d']:.0f}/7d) {f['name'][:45]}")
+
     if msg_parts:
         try:
             slack.send_text("\n".join(msg_parts))
@@ -339,6 +408,7 @@ def run() -> dict:
         "lurl": lurl_result,
         "qps": qps_result,
         "low_margin_alerts": low_margin,
+        "schain_hygiene_alerts": schain_hygiene,
         "autofix_total": autofix_count,
     }
 
