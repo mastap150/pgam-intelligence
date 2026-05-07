@@ -14,6 +14,9 @@ AUTO-FIX (safe, idempotent, well-understood):
         bid more conservatively.
   3. qpsLimit utilization >= 90% on a revenue-earning demand
      → double the qpsLimit. Throttled bids = lost revenue.
+  4. dontAddSupplyChainNode=False on a reseller publisher
+     → set True. Avoids 3-node schain violations that get filtered/blocked
+        by SSPs (Magnite Q3 enforcement).
 
 ALERT (requires human judgment, posts to Slack):
   4. Demand margin < 10% on revenue-earning demand (renegotiation candidate)
@@ -158,6 +161,60 @@ def check_pub_lurl(all_pubs_summary: list[dict], pub_rev: dict, actor: str) -> d
             "fixed": fixed}
 
 
+def check_pub_dont_add_supplychain_node(all_pubs_summary: list[dict], pub_rev: dict, actor: str) -> dict:
+    """AUTO-FIX: set dontAddSupplyChainNode=True on revenue-earning publishers.
+
+    When False, LL appends pgamrtb.com to the upstream supply chain — turning a
+    2-node chain into a 3-node chain that Magnite (and other SSPs as of Q3)
+    filter or block. Only flips pubs explicitly set to False (not None, which
+    indicates field absent / use-default).
+    """
+    candidates = []
+    revenue_pubs = sorted(
+        [p for p in all_pubs_summary if pub_rev.get(p["id"], 0) >= MIN_PUB_REV_7D],
+        key=lambda p: -pub_rev.get(p["id"], 0)
+    )
+    for p_summary in revenue_pubs[:30]:
+        pid = p_summary["id"]
+        name = p_summary.get("name", "") or ""
+        if "TEST" in name.upper() or name.startswith("Copy -"):
+            continue
+        try:
+            p = ll_mgmt.get_publisher(pid)
+        except Exception:
+            continue
+        if p.get("dontAddSupplyChainNode") is False:
+            candidates.append((pid, p, pub_rev.get(pid, 0)))
+
+    fixed = []
+    for pid, p_obj, rev in candidates[:MAX_AUTOFIX_PER_CATEGORY]:
+        try:
+            p_modified = dict(p_obj)
+            p_modified["dontAddSupplyChainNode"] = True
+            ll_mgmt._put(f"/v1/publishers/{pid}", p_modified)
+            after = ll_mgmt.get_publisher(pid)
+            if after.get("dontAddSupplyChainNode") is True:
+                floor_ledger.record(
+                    publisher_id=pid, publisher_name=p_obj.get("name", ""),
+                    demand_id=0, demand_name="[schain-node-suppress]",
+                    old_floor=None, new_floor=None,
+                    actor=actor,
+                    reason=("Magnite/IAB schain compliance: dontAddSupplyChainNode "
+                            "False→True. Was causing pgamrtb.com to be appended as "
+                            "3rd node, violating max-2-node SSP policy."),
+                    dry_run=False, applied=True,
+                )
+                fixed.append({"pub_id": pid, "name": p_obj.get("name", ""),
+                              "rev_7d": rev})
+                print(f"[{actor}] dontAddSupplyChainNode=True on pub {pid}: {p_obj.get('name','')[:45]}")
+            else:
+                print(f"[{actor}] dontAddSupplyChainNode PUT didn't stick on pub {pid}")
+        except Exception as e:
+            print(f"[{actor}] dontAddSupplyChainNode FAILED on pub {pid}: {e}")
+    return {"category": "pub_schain_node_suppress", "candidates": len(candidates),
+            "fixed": fixed}
+
+
 def check_demand_qps(demands: list[dict], demand_rev: dict, actor: str) -> dict:
     """AUTO-FIX: double qpsLimit on demands hitting >=90% utilization."""
     candidates = []
@@ -227,13 +284,15 @@ def run() -> dict:
     print(f"[{actor}] starting — {len(demands)} demands, {len(pubs_summary)} pubs")
 
     schain_result = check_demand_supplychain(demands, demand_rev, actor)
+    pub_schain_node_result = check_pub_dont_add_supplychain_node(pubs_summary, pub_rev, actor)
     lurl_result = check_pub_lurl(pubs_summary, pub_rev, actor)
     qps_result = check_demand_qps(demands, demand_rev, actor)
     low_margin = check_low_margin_demands(demands, demand_rev)
 
-    autofix_count = (len(schain_result["fixed"]) + len(lurl_result["fixed"])
-                     + len(qps_result["fixed"]))
+    autofix_count = (len(schain_result["fixed"]) + len(pub_schain_node_result["fixed"])
+                     + len(lurl_result["fixed"]) + len(qps_result["fixed"]))
     print(f"[{actor}] AUTO-FIXES: {autofix_count} ({len(schain_result['fixed'])} schain, "
+          f"{len(pub_schain_node_result['fixed'])} pub-schain-node, "
           f"{len(lurl_result['fixed'])} lurl, {len(qps_result['fixed'])} qps)")
     print(f"[{actor}] ALERTS: {len(low_margin)} low-margin demands")
 
@@ -245,6 +304,10 @@ def run() -> dict:
             msg_parts.append(f"\n• supplyChain enabled on {len(schain_result['fixed'])} demand(s):")
             for f in schain_result["fixed"][:5]:
                 msg_parts.append(f"   — `{f['demand_id']}` (${f['rev_7d']:.0f}/7d) {f['name'][:45]}")
+        if pub_schain_node_result["fixed"]:
+            msg_parts.append(f"\n• dontAddSupplyChainNode=True on {len(pub_schain_node_result['fixed'])} pub(s) (Magnite 3-node fix):")
+            for f in pub_schain_node_result["fixed"][:5]:
+                msg_parts.append(f"   — `{f['pub_id']}` (${f['rev_7d']:.0f}/7d) {f['name'][:45]}")
         if lurl_result["fixed"]:
             msg_parts.append(f"\n• LURL enabled on {len(lurl_result['fixed'])} pub(s):")
             for f in lurl_result["fixed"][:5]:
@@ -272,6 +335,7 @@ def run() -> dict:
     return {
         "ran_at": now.isoformat(),
         "schain": schain_result,
+        "pub_schain_node": pub_schain_node_result,
         "lurl": lurl_result,
         "qps": qps_result,
         "low_margin_alerts": low_margin,
