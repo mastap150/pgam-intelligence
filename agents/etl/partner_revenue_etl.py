@@ -51,7 +51,12 @@ METRICS = [
     "WINS",
     "BIDS",
 ]
-WINDOW_DAYS = 2  # incremental: today + yesterday
+WINDOW_DAYS = 14  # incremental: 14d trailing (was 2). The bump captures
+# LL's late stat-restatements which were producing a systematic
+# 0.2–0.7% under-report on the dashboard vs Domo for older days. LL
+# operators reconcile billing and partner_payout adjustments days
+# after the fact; with a 2-day window we never re-fetched and got
+# stuck on the provisional number.
 
 # Possible LL field aliases (the API has been seen returning either
 # casing/underscore variant depending on the dimension combination)

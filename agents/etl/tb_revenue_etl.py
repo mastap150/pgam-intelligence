@@ -36,7 +36,10 @@ from core.tb_api import fetch_tb
 from core.neon import connect
 
 METRICS = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS", "WINS", "BIDS"]
-WINDOW_DAYS = 2
+WINDOW_DAYS = 14  # bumped from 2 — see partner_revenue_etl.py for rationale.
+# Same systematic 0.2–0.7% drift Domo reconciliation surfaced was
+# present on TB days too; keeping LL and TB on the same backfill
+# window so the dashboard's mixed-source numbers stay coherent.
 # TB stats endpoint has two hard ceilings:
 #   1. 30s read timeout (hardcoded in core/tb_api.py)
 #   2. limit=1000 rows per response — DATE,DEMAND_PARTNER returns ~438
