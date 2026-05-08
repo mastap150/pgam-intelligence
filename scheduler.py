@@ -165,6 +165,10 @@ def setup_schedule():
     win_rate_maximizer     = _import("agents.reports.win_rate_maximizer")
     floor_elasticity       = _import("agents.reports.floor_elasticity")
     weekly_review          = _import("agents.alerts.weekly_review")
+    # Auto-generated weekly business digest. Pulls the dashboard's
+    # /weekly-digest endpoint (deterministic — no LLM) and posts to
+    # Slack. Self-gates to Mon 13:00–15:00 UTC and dedupes by ISO week.
+    weekly_digest          = _import("agents.alerts.weekly_digest")
     ctv_optimizer          = _import("agents.alerts.ctv_optimizer")
     demand_expansion       = _import("agents.alerts.demand_expansion")
     geo_expansion          = _import("agents.alerts.geo_expansion")
@@ -308,6 +312,10 @@ def setup_schedule():
     # ── Daily at 7:00 AM ET ───────────────────────────────────────────────────
     schedule.every().day.at("07:00").do(_run("daily_email",    daily_email))
     schedule.every().day.at("07:00").do(_run("weekly_review",  weekly_review))   # Mon guard inside
+    # Auto weekly digest: tick hourly Mon morning; the agent self-gates
+    # to 13:00-15:00 UTC and ISO-week-dedupes so we get a single Mon
+    # post even with multiple ticks.
+    schedule.every().hour.do(_run("weekly_digest", weekly_digest))
 
     # ── Daily at 8:00 AM ET ───────────────────────────────────────────────────
     schedule.every().day.at("08:30").do(_run("daily_recommendations",  daily_recommendations))
