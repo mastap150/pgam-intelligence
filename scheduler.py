@@ -146,6 +146,9 @@ def setup_schedule():
     # TB ad_format breakdowns (banner / video / native / rewarded) ×
     # country + ssp_name. Powers the Format section on Geo Intelligence.
     tb_ad_format_etl       = _import("agents.etl.tb_ad_format_etl")
+    # TB hour-of-day breakdowns (via day_group=hour). Daypart heatmap
+    # + Geo Intelligence hour panel now show LL + TB combined.
+    tb_hour_etl            = _import("agents.etl.tb_hour_etl")
     # TB richer per-publisher rollups (pub×demand, pub×country, OS)
     # — feeds symmetric drill-downs and enriches the Geography &
     # Device sections with TB data.
@@ -276,6 +279,7 @@ def setup_schedule():
     schedule.every(60).minutes.do(_run("ll_segments_etl",     ll_segments_etl))
     schedule.every(60).minutes.do(_run("ll_geo_segments_etl", ll_geo_segments_etl))
     schedule.every(60).minutes.do(_run("tb_ad_format_etl",    tb_ad_format_etl))
+    schedule.every(60).minutes.do(_run("tb_hour_etl",         tb_hour_etl))
     schedule.every(60).minutes.do(_run("tb_segments_etl",     tb_segments_etl))
     # dashboard_alerts is daily-deduped internally; we tick it hourly
     # so it self-heals against missed mornings (the dedup key blocks

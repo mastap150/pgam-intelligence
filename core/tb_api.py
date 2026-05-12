@@ -101,6 +101,11 @@ _BREAKDOWN_MAP = {
     "AD_FORMAT,COUNTRY_NAME":     {"day_group": "total","attribute": ["ad_format", "country"]},
     "AD_FORMAT,PUBLISHER":        {"day_group": "total","attribute": ["ad_format", "ssp_name"]},
     "AD_FORMAT,DEMAND_PARTNER":   {"day_group": "total","attribute": ["ad_format", "dsp_name"]},
+    # Hour-of-day — TB exposes via day_group=hour rather than as an
+    # attribute (probed 2026-05-12). The 'date' field comes back as
+    # a full timestamp "YYYY-MM-DD HH:00:00" which the ETL splits.
+    "HOUR":                       {"day_group": "hour", "attribute": []},
+    "HOUR,COUNTRY_NAME":          {"day_group": "hour", "attribute": ["country"]},
 }
 
 # ---------------------------------------------------------------------------
