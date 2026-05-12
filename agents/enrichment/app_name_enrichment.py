@@ -183,62 +183,73 @@ def _miss(bundle: str, kind: str) -> dict:
 # Main loop
 # ---------------------------------------------------------------------------
 
-def run(top_n: int = TOP_N_DEFAULT, fresh_days: int = FRESH_DAYS,
-        max_calls: int | None = None) -> dict:
-    started = time.time()
+def _flush(records: list[dict]) -> None:
+    """Short-lived DB connection for an UPSERT batch. Opens, writes,
+    commits, closes. Avoids Neon's idle-in-transaction timeout that
+    kills a connection held open through the iTunes rate-limit
+    sleeps."""
+    if not records:
+        return
     with connect() as conn:
-        bundles = _fetch_top_bundles(conn, top_n, fresh_days)
-        if max_calls:
-            bundles = bundles[:max_calls]
-        if not bundles:
-            print("[app_name_enrichment] nothing to fetch — all top bundles have fresh metadata", flush=True)
-            return {"ok": True, "resolved": 0, "missed": 0, "skipped": 0}
-
-        print(f"[app_name_enrichment] resolving {len(bundles)} bundles "
-              f"(top-N={top_n}, max_calls={max_calls})", flush=True)
-
-        resolved = 0
-        missed = 0
-        records: list[dict] = []
-        for i, bundle in enumerate(bundles, 1):
-            kind = _classify(bundle)
-            if kind == "unknown":
-                records.append(_miss(bundle, kind))
-                missed += 1
-                continue
-            result = _itunes_lookup(bundle, kind)
-            if result and result.get("trackName"):
-                records.append(_normalise_itunes(bundle, result))
-                resolved += 1
-            else:
-                records.append(_miss(bundle, kind))
-                missed += 1
-            if i % 25 == 0:
-                print(f"[app_name_enrichment]   {i}/{len(bundles)} (resolved={resolved}, missed={missed})", flush=True)
-            time.sleep(RATE_LIMIT_SECONDS)
-
-        # UPSERT — we can't pass NOW() through psycopg params so do
-        # rows one at a time but using a parameterised query that
-        # handles last_resolved=NULL vs now() via COALESCE on the
-        # `now()` SQL literal at the column default.
         with conn.cursor() as cur:
             for rec in records:
-                # Convert sentinel "now()" string to real None vs let
-                # the SQL default fire. Keep it simple: send None when
-                # we didn't resolve, and a literal timestamp via SQL
-                # when we did.
-                params = dict(rec)
-                params["last_resolved"] = None if rec["last_resolved"] is None else None
-                # We can't easily mix literal now() with parameter
-                # binding. Two-pass: when resolved, separately UPDATE
-                # last_resolved=now() right after the UPSERT.
-                cur.execute(_UPSERT, params)
+                cur.execute(_UPSERT, rec)
                 if rec["source"] == "itunes" and rec["app_name"]:
                     cur.execute(
                         "UPDATE pgam_direct.app_metadata SET last_resolved = now() WHERE bundle_id = %s",
                         (rec["bundle_id"],),
                     )
         conn.commit()
+
+
+def run(top_n: int = TOP_N_DEFAULT, fresh_days: int = FRESH_DAYS,
+        max_calls: int | None = None, flush_every: int = 25) -> dict:
+    started = time.time()
+
+    # Open + close a connection just to pick the bundle list. iTunes
+    # calls run with no DB connection held.
+    with connect() as conn:
+        bundles = _fetch_top_bundles(conn, top_n, fresh_days)
+    if max_calls:
+        bundles = bundles[:max_calls]
+    if not bundles:
+        print("[app_name_enrichment] nothing to fetch — all top bundles have fresh metadata", flush=True)
+        return {"ok": True, "resolved": 0, "missed": 0, "skipped": 0}
+
+    print(f"[app_name_enrichment] resolving {len(bundles)} bundles "
+          f"(top-N={top_n}, max_calls={max_calls})", flush=True)
+
+    resolved = 0
+    missed = 0
+    pending: list[dict] = []
+
+    for i, bundle in enumerate(bundles, 1):
+        kind = _classify(bundle)
+        if kind == "unknown":
+            pending.append(_miss(bundle, kind))
+            missed += 1
+        else:
+            result = _itunes_lookup(bundle, kind)
+            if result and result.get("trackName"):
+                pending.append(_normalise_itunes(bundle, result))
+                resolved += 1
+            else:
+                pending.append(_miss(bundle, kind))
+                missed += 1
+            time.sleep(RATE_LIMIT_SECONDS)
+
+        # Flush periodically so progress isn't lost if Render kills
+        # the agent mid-run, and so we don't carry a 500-row UPSERT
+        # tail at the very end.
+        if len(pending) >= flush_every:
+            _flush(pending)
+            print(f"[app_name_enrichment]   flushed batch ({i}/{len(bundles)} · resolved={resolved}, missed={missed})", flush=True)
+            pending = []
+
+    # Final flush.
+    if pending:
+        _flush(pending)
+        print(f"[app_name_enrichment]   flushed final batch ({len(bundles)}/{len(bundles)})", flush=True)
 
     elapsed = round(time.time() - started, 1)
     print(f"[app_name_enrichment] DONE — resolved {resolved}, missed {missed} in {elapsed}s", flush=True)
@@ -254,5 +265,5 @@ if __name__ == "__main__":
     parser.add_argument("--fresh-days", type=int, default=FRESH_DAYS,
                         help="Skip bundles fetched within this many days")
     args = parser.parse_args()
-    result = run(top_n=args.top_n, fresh_days=args.fresh_days, max_calls=args.max_calls)
+    result = run(top_n=args.top_n, fresh_days=args.fresh_days, max_calls=args.max_calls, flush_every=25)
     sys.exit(0 if result.get("ok") else 1)
