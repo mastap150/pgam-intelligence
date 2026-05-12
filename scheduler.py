@@ -139,6 +139,10 @@ def setup_schedule():
     # Device/OS, hour-of-day, and funnel rollups for the Executive
     # Dashboard's Device, Daypart, and Funnel sections.
     ll_segments_etl        = _import("agents.etl.ll_segments_etl")
+    # Geo Intelligence cross-cuts: country × {device_type, OS, hour}.
+    # Powers /admin/finance/geo-intelligence. LL only — TB's adx-report
+    # doesn't expose hour, device_type, state, or DMA dimensions.
+    ll_geo_segments_etl    = _import("agents.etl.ll_geo_segments_etl")
     # TB richer per-publisher rollups (pub×demand, pub×country, OS)
     # — feeds symmetric drill-downs and enriches the Geography &
     # Device sections with TB data.
@@ -267,6 +271,7 @@ def setup_schedule():
     schedule.every(60).minutes.do(_run("ll_4dim_etl",         ll_4dim_etl))
     schedule.every(60).minutes.do(_run("country_revenue_etl", country_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_segments_etl",     ll_segments_etl))
+    schedule.every(60).minutes.do(_run("ll_geo_segments_etl", ll_geo_segments_etl))
     schedule.every(60).minutes.do(_run("tb_segments_etl",     tb_segments_etl))
     # dashboard_alerts is daily-deduped internally; we tick it hourly
     # so it self-heals against missed mornings (the dedup key blocks
