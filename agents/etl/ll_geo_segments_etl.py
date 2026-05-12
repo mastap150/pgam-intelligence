@@ -4,13 +4,14 @@ agents/etl/ll_geo_segments_etl.py
 Geo Intelligence ETL — LL-only country × {device_type, OS, hour}
 cross-cuts that power /admin/finance/geo-intelligence.
 
-Three breakdowns, all LL via stats.ortb.net:
+Four breakdowns, all LL via stats.ortb.net:
 
-  DATE,COUNTRY,DEVICE_TYPE  → ll_daily_country_device  (~850 rows/day)
-  DATE,COUNTRY,OS           → ll_daily_country_os      (~1300 rows/day)
-  DATE,COUNTRY,HOUR         → ll_daily_country_hour    (~5600 rows/day)
+  DATE,COUNTRY,DEVICE_TYPE     → ll_daily_country_device   (~850 rows/day)
+  DATE,COUNTRY,OS              → ll_daily_country_os       (~1300 rows/day)
+  DATE,COUNTRY,HOUR            → ll_daily_country_hour     (~5600 rows/day)
+  DATE,COUNTRY,DEMAND_PARTNER  → ll_daily_country_demand   (~2800 rows/day)
 
-The hour one is the heaviest. All three return in <2s for a single
+The hour one is the heaviest. All four return in <2s for a single
 day on stats.ortb.net so no chunking is needed.
 
 TB does NOT expose hour, state, or DMA via their adx-report API
@@ -93,6 +94,40 @@ def _normalize_country_os(rows: Iterable[dict]) -> list[dict]:
     ]
 
 
+def _normalize_country_demand(rows: Iterable[dict]) -> list[dict]:
+    grouped: dict[tuple, dict] = defaultdict(lambda: {
+        "impressions": 0.0, "gross_revenue": 0.0, "pub_payout": 0.0,
+    })
+    meta: dict[tuple, str] = {}
+    for row in rows:
+        date = str(row.get("DATE") or "")
+        country = (str(row.get("COUNTRY") or "") or "").upper()
+        dmd_id = str(row.get("DEMAND_PARTNER") or row.get("DEMAND_PARTNER_ID") or "")
+        dmd_name = str(row.get("DEMAND_PARTNER_NAME") or "") or dmd_id
+        if not date or not country or not dmd_id:
+            continue
+        gross = sf(row.get("GROSS_REVENUE"))
+        imps  = sf(row.get("IMPRESSIONS"))
+        if gross <= 0 and imps <= 0:
+            continue
+        key = (date, country, dmd_id)
+        agg = grouped[key]
+        agg["impressions"]   += imps
+        agg["gross_revenue"] += gross
+        agg["pub_payout"]    += sf(row.get("PUB_PAYOUT"))
+        meta[key] = dmd_name
+    return [
+        {
+            "report_date": k[0], "country": k[1],
+            "demand_id": k[2], "demand_name": meta[k],
+            "impressions": int(v["impressions"]),
+            "gross_revenue": round(v["gross_revenue"], 4),
+            "pub_payout": round(v["pub_payout"], 4),
+        }
+        for k, v in grouped.items()
+    ]
+
+
 def _normalize_country_hour(rows: Iterable[dict]) -> list[dict]:
     grouped: dict[tuple, dict] = defaultdict(lambda: {
         "impressions": 0.0, "gross_revenue": 0.0, "pub_payout": 0.0,
@@ -153,6 +188,19 @@ ON CONFLICT (report_date, country, os) DO UPDATE
        updated_at    = now()
 """
 
+_COUNTRY_DEMAND_UPSERT = """
+INSERT INTO pgam_direct.ll_daily_country_demand
+    (report_date, country, demand_id, demand_name, impressions, gross_revenue, pub_payout, updated_at)
+VALUES (%(report_date)s, %(country)s, %(demand_id)s, %(demand_name)s,
+        %(impressions)s, %(gross_revenue)s, %(pub_payout)s, now())
+ON CONFLICT (report_date, country, demand_id) DO UPDATE
+   SET demand_name   = EXCLUDED.demand_name,
+       impressions   = EXCLUDED.impressions,
+       gross_revenue = EXCLUDED.gross_revenue,
+       pub_payout    = EXCLUDED.pub_payout,
+       updated_at    = now()
+"""
+
 _COUNTRY_HOUR_UPSERT = """
 INSERT INTO pgam_direct.ll_daily_country_hour
     (report_date, country, hour, impressions, gross_revenue, pub_payout, updated_at)
@@ -203,14 +251,22 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
     print(f"[ll_geo_segments_etl] country×hour: {len(hr_rows)} -> {len(hr_records)} non-zero", flush=True)
 
     try:
+        dmd_rows = fetch("DATE,COUNTRY,DEMAND_PARTNER", METRICS, start_date, end_date)
+    except Exception as exc:
+        return {"ok": False, "error": f"country_demand: {exc}"}
+    dmd_records = _normalize_country_demand(dmd_rows)
+    print(f"[ll_geo_segments_etl] country×demand: {len(dmd_rows)} -> {len(dmd_records)} non-zero", flush=True)
+
+    try:
         n_dev = _upsert(_COUNTRY_DEVICE_UPSERT, dev_records)
         n_os  = _upsert(_COUNTRY_OS_UPSERT, os_records)
         n_hr  = _upsert(_COUNTRY_HOUR_UPSERT, hr_records)
+        n_dmd = _upsert(_COUNTRY_DEMAND_UPSERT, dmd_records)
     except Exception as exc:
         return {"ok": False, "error": str(exc)}
 
-    print(f"[ll_geo_segments_etl] DONE — {n_dev} country×device + {n_os} country×os + {n_hr} country×hour", flush=True)
-    return {"ok": True, "country_device": n_dev, "country_os": n_os, "country_hour": n_hr}
+    print(f"[ll_geo_segments_etl] DONE — {n_dev} country×device + {n_os} country×os + {n_hr} country×hour + {n_dmd} country×demand", flush=True)
+    return {"ok": True, "country_device": n_dev, "country_os": n_os, "country_hour": n_hr, "country_demand": n_dmd}
 
 
 if __name__ == "__main__":
