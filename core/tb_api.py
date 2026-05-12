@@ -93,6 +93,14 @@ _BREAKDOWN_MAP = {
     # standalone OS work cleanly; pub × device_type returns 400.
     "PUBLISHER,COUNTRY_NAME":   {"day_group": "total","attribute": ["ssp_name", "country"]},
     "OS":                       {"day_group": "total","attribute": ["os"]},
+    # ad_format — TB exposes banner / video / native / rewarded video.
+    # Discovered 2026-05-12. Combines cleanly with country, ssp_name,
+    # and dsp_name; powers the Format breakdown on Geo Intelligence.
+    "AD_FORMAT":                  {"day_group": "total","attribute": ["ad_format"]},
+    "DATE,AD_FORMAT":             {"day_group": "day",  "attribute": ["ad_format"]},
+    "AD_FORMAT,COUNTRY_NAME":     {"day_group": "total","attribute": ["ad_format", "country"]},
+    "AD_FORMAT,PUBLISHER":        {"day_group": "total","attribute": ["ad_format", "ssp_name"]},
+    "AD_FORMAT,DEMAND_PARTNER":   {"day_group": "total","attribute": ["ad_format", "dsp_name"]},
 }
 
 # ---------------------------------------------------------------------------
@@ -243,6 +251,7 @@ def _normalise_rows(rows: list) -> list:
             "DEMAND_PARTNER":  row.get("dsp_name", ""),
             "DEMAND_PARTNER_NAME": row.get("dsp_name", ""),
             "COUNTRY_NAME":    row.get("country", ""),
+            "AD_FORMAT":       row.get("ad_format", ""),
         }
         # Preserve any original fields not mapped above
         for k, v in row.items():
