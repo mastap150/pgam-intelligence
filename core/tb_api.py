@@ -158,7 +158,25 @@ def _create_token() -> str:
 
 
 def get_token() -> str:
-    """Return a valid TB token, creating one if needed."""
+    """Return a valid TB token.
+
+    Priority order (matches pgam-recon's fetchers/teqblaze.py):
+
+      1. TB_ACCESS_TOKEN env — operator-supplied static token issued
+         directly from the TB dashboard UI. Used because TB suspended
+         /create_token for sagar@pgammedia.com on 2026-05-11 with a
+         403 "Account don't have access" while dashboard-minted tokens
+         still work for /adx-report calls. The operator pastes a fresh
+         token in here every ~30 days (or whenever TB rotates).
+
+      2. Cached token from a previous successful mint.
+
+      3. New token via TB_EMAIL / TB_PASSWORD (the original flow,
+         still works for accounts whose /create_token isn't suspended).
+    """
+    static = (os.environ.get("TB_ACCESS_TOKEN") or "").strip()
+    if static:
+        return static
     token = _load_cached_token()
     if token:
         return token
