@@ -272,6 +272,12 @@ def setup_schedule():
     # so it self-heals against missed mornings (the dedup key blocks
     # repeats once it succeeds).
     schedule.every(60).minutes.do(_run("dashboard_alerts",    dashboard_alerts))
+    # Revenue recheck — daily 06:00 ET. Scans current + prior month,
+    # snapshots LL/TB cells, flags variances vs prior snapshot. Months
+    # in 'paid'/'closed' get scanned but flagged variances are
+    # is_carry_forward=true (won't mutate locked invoices).
+    revenue_recheck         = _import("agents.recon.revenue_recheck")
+    schedule.every().day.at("06:00").do(_run("revenue_recheck", revenue_recheck))
     schedule.every(60).minutes.do(_run("tb_revenue_etl",     tb_revenue_etl))
     schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
