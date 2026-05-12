@@ -47,9 +47,28 @@ DASHBOARD_BASE = os.environ.get("PGAM_DASHBOARD_BASE", "https://app.pgammedia.co
 # API-derived sections and only posts the recon section (which it
 # can compute from Neon directly).
 DASHBOARD_SERVICE_TOKEN = os.environ.get("PGAM_DASHBOARD_SERVICE_TOKEN")
+if not DASHBOARD_SERVICE_TOKEN:
+    # LOUD warning at import time. Previous version silently returned
+    # None which led to ~3 weeks of unflagged ETL stalls. If you see
+    # this in Render logs, the anomaly + DSP-health alerts aren't
+    # firing — set PGAM_DASHBOARD_SERVICE_TOKEN on the scheduler.
+    print(
+        "[dashboard_alerts] !! PGAM_DASHBOARD_SERVICE_TOKEN not set — "
+        "anomaly + DSP-health alerts will be SILENT. "
+        "Stale-ETL detection still works (direct DB probe). "
+        "Set the env var in Render to enable full coverage.",
+        flush=True,
+    )
 
 
 def _api_get(path: str, timeout: int = 30) -> dict | None:
+    """Hit the dashboard's API. Returns None when:
+      - The service token isn't configured (we already warned at boot)
+      - The endpoint times out / errors
+
+    Anomalies + DSP-health depend on this. Stale-ETL no longer does —
+    see _probe_etl_health_direct() which queries Neon directly.
+    """
     if not DASHBOARD_SERVICE_TOKEN:
         return None
     url = f"{DASHBOARD_BASE}{path}"
@@ -62,6 +81,115 @@ def _api_get(path: str, timeout: int = 30) -> dict | None:
     except Exception as exc:
         print(f"[dashboard_alerts] {path} failed: {exc}", flush=True)
         return None
+
+
+# ---------------------------------------------------------------------------
+# Direct-DB ETL freshness probe — defense in depth.
+#
+# Previously this agent fetched freshness via the dashboard API, which
+# meant a missing PGAM_DASHBOARD_SERVICE_TOKEN silently disabled ALL
+# stale-ETL alerts. The ll_4dim_etl was stale for 12 days in May 2026
+# and the silence was the bug, not a feature. Now we query Neon
+# directly using the same MAX(updated_at) probe etl-health.ts runs.
+# Token-gated endpoints stay for the anomaly / DSP-health sections
+# until we port those too.
+# ---------------------------------------------------------------------------
+
+# Mirror of etl-health.ts SOURCES. Keep these two in sync — any
+# table added there should be added here too. (TODO: shared YAML
+# manifest both sides import from.)
+_ETL_SOURCES = [
+    ("ll_partner",        "LL × demand",            "pgam_direct.ll_daily_partner_revenue",        "partner_revenue_etl"),
+    ("ll_dom",            "LL × domain",            "pgam_direct.ll_daily_publisher_domain",       "ll_dimensions_etl"),
+    ("ll_bun",            "LL × bundle",            "pgam_direct.ll_daily_publisher_bundle",       "ll_dimensions_etl"),
+    ("ll_dom_dmd",        "LL × domain × demand",   "pgam_direct.ll_daily_publisher_domain_demand", "ll_4dim_etl"),
+    ("ll_bun_dmd",        "LL × bundle × demand",   "pgam_direct.ll_daily_publisher_bundle_demand", "ll_4dim_etl"),
+    ("ll_country",        "LL × country",           "pgam_direct.ll_daily_country_revenue",        "country_revenue_etl"),
+    ("ll_pub_country",    "LL × pub × country",     "pgam_direct.ll_daily_publisher_country",      "ll_segments_etl"),
+    ("ll_segments_devos", "LL device & OS",         "pgam_direct.ll_daily_device_os",              "ll_segments_etl"),
+    ("ll_segments_hour",  "LL hour-of-day",         "pgam_direct.ll_daily_hour",                   "ll_segments_etl"),
+    ("ll_segments_funnel","LL funnel",              "pgam_direct.ll_daily_publisher_funnel",       "ll_segments_etl"),
+    ("ll_geo_device",     "LL × country × device",  "pgam_direct.ll_daily_country_device",         "ll_geo_segments_etl"),
+    ("ll_geo_os",         "LL × country × OS",      "pgam_direct.ll_daily_country_os",             "ll_geo_segments_etl"),
+    ("ll_geo_hour",       "LL × country × hour",    "pgam_direct.ll_daily_country_hour",           "ll_geo_segments_etl"),
+    ("ll_geo_demand",     "LL × country × demand",  "pgam_direct.ll_daily_country_demand",         "ll_geo_segments_etl"),
+    ("tb_pub",            "TB × publisher",         "pgam_direct.tb_daily_publisher_revenue",      "tb_revenue_etl"),
+    ("tb_dmd",            "TB × demand",            "pgam_direct.tb_daily_demand_revenue",         "tb_revenue_etl"),
+    ("tb_pub_dmd",        "TB × pub × demand",      "pgam_direct.tb_daily_publisher_demand_revenue","tb_segments_etl"),
+    ("tb_pub_country",    "TB × pub × country",     "pgam_direct.tb_daily_publisher_country",      "tb_segments_etl"),
+    ("tb_country",        "TB × country",           "pgam_direct.tb_daily_country_revenue",        "country_revenue_etl"),
+    ("tb_os",             "TB OS",                  "pgam_direct.tb_daily_os",                     "tb_segments_etl"),
+    ("tb_format",         "TB × format",            "pgam_direct.tb_daily_ad_format",              "tb_ad_format_etl"),
+    ("tb_format_country", "TB × format × country",  "pgam_direct.tb_daily_ad_format_country",      "tb_ad_format_etl"),
+    ("tb_format_pub",     "TB × format × pub",      "pgam_direct.tb_daily_ad_format_publisher",    "tb_ad_format_etl"),
+    ("tb_hour",           "TB hour-of-day",         "pgam_direct.tb_daily_hour",                   "tb_hour_etl"),
+    ("tb_country_hour",   "TB × country × hour",    "pgam_direct.tb_daily_country_hour",           "tb_hour_etl"),
+]
+
+_FRESH_MINUTES = 90
+_STALE_MINUTES = 240
+
+
+def _probe_etl_health_direct() -> dict | None:
+    """Replicates etl-health.ts probeAll() against Neon directly.
+    Returns the same shape the API would have returned, so the rest
+    of the alert pipeline stays unchanged.
+
+    Returns None only if the DB connection fails outright."""
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                # Single UNION ALL — same approach as etl-health.ts.
+                # Most tables use updated_at; finance.ssp_recon_daily
+                # uses written_at, but that table is in a different
+                # DB (FINANCE_DATABASE_URL) and we already cover it via
+                # _fetch_recon_drift_neon, so skip it here.
+                parts = []
+                for key, _, table, _agent in _ETL_SOURCES:
+                    parts.append(
+                        "SELECT '" + key + "'::text AS key, "
+                        "COUNT(*)::bigint AS row_count, "
+                        "MAX(updated_at)::text AS last_updated_at, "
+                        "CASE WHEN MAX(updated_at) IS NULL THEN NULL "
+                        "ELSE EXTRACT(EPOCH FROM (now() - MAX(updated_at))) / 60.0 "
+                        "END AS age_minutes "
+                        "FROM " + table
+                    )
+                cur.execute("\nUNION ALL\n".join(parts))
+                rows = cur.fetchall()
+    except Exception as exc:
+        print(f"[dashboard_alerts] direct ETL probe failed: {exc}", flush=True)
+        return None
+
+    by_key = {r[0]: {"row_count": int(r[1] or 0), "last_updated_at": r[2], "age_min": float(r[3] or 0) if r[3] is not None else None} for r in rows}
+
+    sources: list[dict] = []
+    counts = {"fresh": 0, "stale": 0, "broken": 0, "unknown": 0}
+    for key, label, table, agent in _ETL_SOURCES:
+        v = by_key.get(key, {"row_count": 0, "last_updated_at": None, "age_min": None})
+        rows_count = v["row_count"]
+        age = v["age_min"]
+        if rows_count == 0:
+            status = "unknown"
+        elif age is None:
+            status = "unknown"
+        elif age <= _FRESH_MINUTES:
+            status = "fresh"
+        elif age <= _STALE_MINUTES:
+            status = "stale"
+        else:
+            status = "broken"
+        counts[status] += 1
+        sources.append({
+            "key": key, "label": label, "table": table, "agent": agent,
+            "rows": rows_count,
+            "last_updated_at": v["last_updated_at"],
+            "age_minutes": age,
+            "status": status,
+        })
+
+    overall = "broken" if counts["broken"] else "stale" if counts["stale"] else "unknown" if counts["unknown"] else "fresh"
+    return {"sources": sources, "summary": {**counts, "overall": overall}}
 
 
 def _fetch_recon_drift_neon(window_days: int = 7) -> list[dict]:
@@ -382,9 +510,12 @@ def run() -> dict:
     """
     today = time.strftime("%Y-%m-%d")
 
-    # Always probe ETL freshness — both for the immediate broken
-    # alerts and for inclusion in the daily digest section.
-    etl_health = _api_get("/api/reporting/partner-revenue/etl-health")
+    # ETL freshness — DIRECT DB probe, not via API. This is the one
+    # signal we genuinely can't afford to lose to misconfiguration,
+    # and the API path silently no-op'd for 3 weeks because the
+    # service token wasn't set. Probing Neon directly removes the
+    # token dependency entirely.
+    etl_health = _probe_etl_health_direct()
 
     # Fire immediate per-source alerts for any broken-tier source.
     # Independently deduped from the daily digest so a 9am digest
