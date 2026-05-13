@@ -106,6 +106,7 @@ def _import(module_path: str, func_name: str = "run"):
 # dashboard_alerts       | daily 9am  | posts anomalies + recon drift + DSP health to Slack
 # tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
+# tb_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
 # opp_fill_rate          | every 4h   | daily summary + critical repeat
 # floor_gap              | daily 8am  | once per day
@@ -178,6 +179,10 @@ def setup_schedule():
     # but ssp.pgammedia.com times out on the cell-count fan-out.
     tb_revenue_etl         = _import("agents.etl.tb_revenue_etl")
     ll_revenue             = _import("agents.alerts.ll_revenue")
+    # TB analogue of ll_revenue — hourly Slack snapshot of Teqblaze
+    # revenue, pacing, margin, top publishers, and MTD vs $1M combined goal.
+    # Self-skips cleanly when TB credentials aren't configured.
+    tb_revenue             = _import("agents.alerts.tb_revenue")
     revenue_pace           = _import("agents.alerts.revenue_pace")
     opp_fill_rate          = _import("agents.alerts.opp_fill_rate")
     floor_gap              = _import("agents.alerts.floor_gap")
@@ -334,6 +339,9 @@ def setup_schedule():
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
     _hourly("ml_collector",       ml_collector)           # :48
+    # tb_revenue Slack snapshot — runs 12 min after tb_revenue_etl so the
+    # TB API's single-concurrent-query lock has cleared.
+    _hourly("tb_revenue",         tb_revenue)             # :52
     # Geo (pub × demand × country) is much heavier than hourly (it fans rows
     # out ~50×). Run it once daily in a quiet window to avoid OOMing the worker.
     schedule.every().day.at("03:00").do(_run("ml_geo_collector", ml_geo_collector))
@@ -494,11 +502,11 @@ def main():
 
     setup_schedule()
 
-    # Run LL revenue once immediately on startup so we don't wait up to
+    # Run LL + TB revenue once immediately on startup so we don't wait up to
     # 60 minutes for the first snapshot.
-    print("\n[scheduler] Running startup revenue check (LL)…")
+    print("\n[scheduler] Running startup revenue check (LL + TB)…")
     for job in schedule.get_jobs():
-        if job.job_func.__name__ == "ll_revenue":
+        if job.job_func.__name__ in ("ll_revenue", "tb_revenue"):
             job.run()
 
     print("\n[scheduler] Entering main loop. Press Ctrl+C to stop.\n")
