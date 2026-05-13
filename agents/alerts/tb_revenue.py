@@ -9,8 +9,7 @@ an operator re-run manually after a gap.
 
 Metrics computed
 ----------------
-  pacing_pct     Today's revenue vs linear interpolation of $33,333 daily target
-                 ($1M/month ÷ 30 days)
+  pacing_pct     Today's revenue vs linear interpolation of $15,000 daily TB target
   margin_pct     (gross_revenue - pub_payout) / gross_revenue × 100
   eCPM           gross_revenue / impressions × 1,000
   win_rate_pct   wins / bids × 100
@@ -36,10 +35,9 @@ BREAKDOWN      = "DATE"
 PUB_BREAKDOWN  = "PUBLISHER"
 METRICS        = ["GROSS_REVENUE", "PUB_PAYOUT", "IMPRESSIONS", "WINS", "BIDS"]
 LL_DAILY_TARGET    = 10_000.0              # LL platform daily target
-COMBINED_MONTHLY   = 1_000_000.0          # Combined TB + LL monthly target
+DAILY_TARGET       = 15_000.0              # TB platform daily target
+COMBINED_MONTHLY   = 1_000_000.0           # Combined TB + LL monthly stretch goal
 COMBINED_DAILY     = COMBINED_MONTHLY / 30.0   # ≈ $33,333/day combined
-# TB daily target = combined minus LL share
-DAILY_TARGET       = COMBINED_DAILY - LL_DAILY_TARGET   # ≈ $23,333/day for TB alone
 COOLDOWN_SEC   = 55 * 60                 # 55 minutes between posts
 STATE_FILE     = "/tmp/pgam_tb_revenue_state.json"
 TOP_PUB_COUNT  = 5
