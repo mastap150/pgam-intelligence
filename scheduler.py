@@ -24,6 +24,7 @@ Environment:
         SENDGRID_KEY, EMAIL_FROM
 """
 
+import gc
 import time
 import traceback
 from datetime import datetime
@@ -38,7 +39,11 @@ ET = pytz.timezone("US/Eastern")
 
 
 def _run(agent_name: str, fn):
-    """Wrapper that catches all exceptions so one failing agent never kills the scheduler."""
+    """Wrapper that catches all exceptions so one failing agent never
+    kills the scheduler. Forces gc.collect() after each agent so we
+    don't pile up memory across the hourly tick — Render's starter
+    plan is 512MB and we were OOM'ing at the top of every hour because
+    multiple heavy ETLs ran back-to-back."""
     def job():
         now = datetime.now(ET).strftime("%Y-%m-%d %H:%M ET")
         print(f"[scheduler] ▶ {agent_name}  ({now})")
@@ -49,6 +54,11 @@ def _run(agent_name: str, fn):
             traceback.print_exc()
         else:
             print(f"[scheduler] ✓ {agent_name} completed.")
+        finally:
+            # Force a full collection. Heavy ETLs hold 400k+ row lists
+            # in memory; without this they linger until the next
+            # collection cycle and the *next* heavy ETL pushes us OOM.
+            gc.collect()
     job.__name__ = agent_name
     return job
 
@@ -276,32 +286,54 @@ def setup_schedule():
     # ML tranche 5 — dayparting rotator (gated by PGAM_DAYPARTING_ENABLED=1)
     ml_dayparting          = _import("intelligence.dayparting")
 
-    # ── Hourly ───────────────────────────────────────────────────────────────
-    schedule.every(60).minutes.do(_run("partner_revenue_etl", partner_revenue_etl))
-    schedule.every(60).minutes.do(_run("ll_dimensions_etl",   ll_dimensions_etl))
-    schedule.every(60).minutes.do(_run("ll_4dim_etl",         ll_4dim_etl))
-    schedule.every(60).minutes.do(_run("country_revenue_etl", country_revenue_etl))
-    schedule.every(60).minutes.do(_run("ll_segments_etl",     ll_segments_etl))
-    schedule.every(60).minutes.do(_run("ll_geo_segments_etl", ll_geo_segments_etl))
-    schedule.every(60).minutes.do(_run("tb_ad_format_etl",    tb_ad_format_etl))
-    schedule.every(60).minutes.do(_run("tb_hour_etl",         tb_hour_etl))
+    # ── Hourly, staggered ───────────────────────────────────────────────────
+    #
+    # Render's starter plan caps memory at 512 MB. All ETLs scheduled at
+    # `every(60).minutes` fire at the same moment after boot, which means
+    # they queue up back-to-back. Heavy ones (ll_4dim_etl with 400k+ rows,
+    # tb_* with multi-day windows) push us OOM mid-run — which is why the
+    # instance was restarting every ~61 min for the last 24+ hours and most
+    # ETL data was hours-to-days stale.
+    #
+    # Stagger by 4 min increments on the hour mark. That gives each heavy
+    # agent room to finish + GC before the next one starts. 15 hourly slots
+    # × 4 min = 60 min, fits exactly.
+    #
+    # Use `every().hour.at(":MM")` instead of `every(60).minutes` so the
+    # offsets are deterministic across restarts — the same minute mark
+    # always belongs to the same agent.
+    _hourly_minute = 0
+    def _hourly(name, fn):
+        nonlocal _hourly_minute
+        slot = f":{_hourly_minute:02d}"
+        _hourly_minute = (_hourly_minute + 4) % 60
+        return schedule.every().hour.at(slot).do(_run(name, fn))
+
+    _hourly("partner_revenue_etl", partner_revenue_etl)   # :00
+    _hourly("ll_dimensions_etl",   ll_dimensions_etl)     # :04
+    _hourly("ll_4dim_etl",         ll_4dim_etl)           # :08 — heavy
+    _hourly("country_revenue_etl", country_revenue_etl)   # :12
+    _hourly("ll_segments_etl",     ll_segments_etl)       # :16
+    _hourly("ll_geo_segments_etl", ll_geo_segments_etl)   # :20
+    _hourly("tb_ad_format_etl",    tb_ad_format_etl)      # :24
+    _hourly("tb_hour_etl",         tb_hour_etl)           # :28
     schedule.every().day.at("04:30").do(_run("app_name_enrichment", app_name_enrichment))
-    schedule.every(60).minutes.do(_run("tb_segments_etl",     tb_segments_etl))
+    _hourly("tb_segments_etl",     tb_segments_etl)       # :32 — heavy
     # dashboard_alerts is daily-deduped internally; we tick it hourly
     # so it self-heals against missed mornings (the dedup key blocks
     # repeats once it succeeds).
-    schedule.every(60).minutes.do(_run("dashboard_alerts",    dashboard_alerts))
+    _hourly("dashboard_alerts",    dashboard_alerts)      # :36
     # Revenue recheck — daily 06:00 ET. Scans current + prior month,
     # snapshots LL/TB cells, flags variances vs prior snapshot. Months
     # in 'paid'/'closed' get scanned but flagged variances are
     # is_carry_forward=true (won't mutate locked invoices).
     revenue_recheck         = _import("agents.recon.revenue_recheck")
     schedule.every().day.at("06:00").do(_run("revenue_recheck", revenue_recheck))
-    schedule.every(60).minutes.do(_run("tb_revenue_etl",     tb_revenue_etl))
-    schedule.every(60).minutes.do(_run("ll_revenue",         ll_revenue))
+    _hourly("tb_revenue_etl",     tb_revenue_etl)         # :40
+    _hourly("ll_revenue",         ll_revenue)             # :44
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
-    schedule.every(60).minutes.do(_run("ml_collector",       ml_collector))
+    _hourly("ml_collector",       ml_collector)           # :48
     # Geo (pub × demand × country) is much heavier than hourly (it fans rows
     # out ~50×). Run it once daily in a quiet window to avoid OOMing the worker.
     schedule.every().day.at("03:00").do(_run("ml_geo_collector", ml_geo_collector))
