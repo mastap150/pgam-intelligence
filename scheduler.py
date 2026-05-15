@@ -334,6 +334,13 @@ def setup_schedule():
     # is_carry_forward=true (won't mutate locked invoices).
     revenue_recheck         = _import("agents.recon.revenue_recheck")
     schedule.every().day.at("06:00").do(_run("revenue_recheck", revenue_recheck))
+    # Partner-portal scheduled reports — runs every hour, picks up rows
+    # in pgam_direct.scheduled_reports due to fire this UTC hour, builds
+    # a partner-scoped ZIP via the dashboard admin-download endpoint,
+    # emails it via SendGrid. Per-schedule dedupe ensures only one
+    # send per day even if multiple ticks land on the same hour.
+    partner_scheduled_reports = _import("agents.reports.partner_scheduled_reports")
+    schedule.every().hour.at(":52").do(_run("partner_scheduled_reports", partner_scheduled_reports))
     _hourly("tb_revenue_etl",     tb_revenue_etl)         # :40
     _hourly("ll_revenue",         ll_revenue)             # :44
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
