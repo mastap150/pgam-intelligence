@@ -258,6 +258,11 @@ def setup_schedule():
     # Per-write A/B watch — evaluates every floor-changing ledger entry 48h
     # post-write and auto-reverts losers. Catches subtle bleeds.
     intervention_journal   = _import("agents.optimization.intervention_journal")
+    # Per-pub margin-experiment A/B watch — evaluates margin_experiment_* ledger
+    # entries 48h+ post-write and auto-reverts losers based on NET CONTRIBUTION
+    # per day (gross × realized margin), not just gross revenue. Tighter than
+    # intervention_journal: max 1 revert/run, escalating thresholds with age.
+    margin_experiment_monitor = _import("agents.optimization.margin_experiment_monitor")
     # Daily change-accountability digest — Slack post each morning showing
     # what the agents did + outcomes from 48-72h ago + week-to-date impact
     change_outcome_digest  = _import("agents.reports.change_outcome_digest")
@@ -454,6 +459,10 @@ def setup_schedule():
     schedule.every(6).hours.do(_run("trend_hunter",                    trend_hunter))
     # Intervention journal — every 4h offset by 2h from auto_revert_harmful
     schedule.every(4).hours.do(_run("intervention_journal",            intervention_journal))
+    # Margin experiment monitor — every 4h, offset by 1h from intervention_journal
+    # so we don't double-fire safety nets simultaneously. Watches pub-level
+    # margin experiments and auto-reverts losers based on NET contribution drop.
+    schedule.every(4).hours.do(_run("margin_experiment_monitor",       margin_experiment_monitor))
     # Daily change-accountability digest — 09:15 ET, after weekly_review_digest
     schedule.every().day.at("09:15").do(_run("change_outcome_digest",  change_outcome_digest))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
