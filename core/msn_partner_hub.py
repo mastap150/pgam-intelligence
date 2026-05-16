@@ -1,0 +1,500 @@
+"""
+core/msn_partner_hub.py — Authenticated client for the MSN Partner Hub API.
+
+The Partner Hub (https://www.msn.com/en-us/partnerhub/...) is a SPA that
+authenticates via MSAL.js PKCE auth-code flow against
+login.microsoftonline.com and then calls api.msn.com endpoints with a
+short-lived Bearer JWE in the `authorization` header. The JWE is opaque
+(encrypted by MSN) so we can't decode or refresh it ourselves — but we
+don't need to. We let MSAL handle the OAuth dance inside a real browser
+via Playwright and call the API from inside that browser's page context
+where the SDK auto-attaches the bearer.
+
+Design choices
+--------------
+- One-time interactive login: first run pops a Chromium window so the user
+  can enter credentials + handle MFA if prompted. Subsequent runs use the
+  persisted user-data-dir and start headless.
+- We hit `api.msn.com` via `page.evaluate(fetch(...))` so we never have to
+  see or manage the bearer ourselves.
+- The Partner Hub page is reloaded every `_REFRESH_AFTER_MIN` minutes to
+  ensure the in-page bearer hasn't expired (default lifetime ~1h).
+- All endpoint params are derived; only `partnerId`, `startDate`, `endDate`,
+  and pagination differ between calls.
+
+Environment
+-----------
+- MSN_EMAIL, MSN_PASSWORD — populated in .env
+- MSN_SESSION_DIR (optional) — overrides ~/.pgam/msn-session
+- MSN_HEADLESS (optional, default "1") — set to "0" to force a visible
+  browser (useful for the first interactive login or debugging)
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any, Iterator, Optional
+from urllib.parse import urlencode
+
+try:
+    # Lazy import: Playwright is a heavy dep (~300MB Chromium) we don't
+    # want to require for engineers who only run other agents.
+    from playwright.sync_api import (
+        Browser,
+        BrowserContext,
+        Page,
+        Playwright,
+        TimeoutError as PlaywrightTimeout,
+        sync_playwright,
+    )
+    _PLAYWRIGHT_AVAILABLE = True
+except ImportError:
+    _PLAYWRIGHT_AVAILABLE = False
+
+
+# ---------------------------------------------------------------------------
+# Constants — discovered from DevTools traces against Partner Hub on
+# 2026-05-16 for BoxingNews (partner AA1lKiff). The apikey is a public
+# client identifier shared across all Partner Hub users.
+# ---------------------------------------------------------------------------
+API_HOST = "https://api.msn.com"
+API_BASE_PATH = "/msn/v0/pages/ugc/insights/content"
+PARTNER_HUB_URL = "https://www.msn.com/en-us/partnerhub/analytics/realtime/headline"
+
+APIKEY = "tfFF5vu2Sk8ndqqn6je2Vo4qOFve5LeicxEpNSnoZK"
+DEFAULT_PARTNER_ID = "AA1lKiff"           # BoxingNews
+DEFAULT_PARTNER_TYPE = "2"
+
+# Flight tags from the trace; copy verbatim so we look like the SPA.
+_UGC_FLIGHTS = (
+    "prg-ugc-benchmark,prg-ugc-revagvnext,prg-ugc-timespent,"
+    "prg-ugc-aiusage,prg-ugc-shortinsight,prg-ugc-pcm"
+)
+
+# Sentinel values MSN's UI uses for "all" / "no filter".
+_ALL = "-2"
+_NO_TITLE = "-1"
+
+# Page reload cadence. MSN bearers seem to last ~1h; we refresh well
+# before that to avoid mid-batch 401s.
+_REFRESH_AFTER_MIN = 40
+
+# Pagination — realtime endpoint returns up to 20 records per page and
+# we paginate via $skip until recordCount is exhausted. Hard cap so a
+# runaway recordCount can't loop forever.
+PAGE_SIZE = 20
+MAX_PAGES = 50
+
+
+def _default_session_dir() -> Path:
+    override = os.environ.get("MSN_SESSION_DIR")
+    if override:
+        return Path(override).expanduser()
+    return Path.home() / ".pgam" / "msn-session"
+
+
+def _iso_z(dt: datetime) -> str:
+    """Format a UTC datetime as MSN expects: 2026-05-16T20:35Z (no seconds)."""
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    dt = dt.astimezone(timezone.utc)
+    return dt.strftime("%Y-%m-%dT%H:%MZ")
+
+
+def _now_utc() -> datetime:
+    return datetime.now(tz=timezone.utc)
+
+
+class PartnerHubError(RuntimeError):
+    """Raised when the Partner Hub flow can't complete (auth, network, etc)."""
+
+
+class PartnerHubClient:
+    """Long-lived, reusable Partner Hub session.
+
+    Typical use:
+
+        with PartnerHubClient().session() as client:
+            page1 = client.fetch_realtime(skip=0)
+            page2 = client.fetch_realtime(skip=20)
+            daily = client.fetch_aggregate()
+
+    The context manager guarantees the browser is closed cleanly. For
+    long-running schedulers, you can also instantiate and call `start()`
+    / `close()` directly; the client will auto-refresh the in-page bearer
+    by reloading the Partner Hub URL when needed.
+    """
+
+    def __init__(
+        self,
+        partner_id: str = DEFAULT_PARTNER_ID,
+        email: Optional[str] = None,
+        password: Optional[str] = None,
+        session_dir: Optional[Path] = None,
+        headless: Optional[bool] = None,
+    ) -> None:
+        if not _PLAYWRIGHT_AVAILABLE:
+            raise PartnerHubError(
+                "playwright is not installed. Run: "
+                "`pip install playwright && playwright install chromium`"
+            )
+        self.partner_id = partner_id
+        self.email = email or os.environ.get("MSN_EMAIL", "").strip()
+        self.password = password or os.environ.get("MSN_PASSWORD", "").strip()
+        self.session_dir = (session_dir or _default_session_dir()).resolve()
+        self.session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Default to headless except for first run (no session yet) so the
+        # user can complete login + MFA interactively. Override with
+        # MSN_HEADLESS=0 to force visible.
+        env_headless = os.environ.get("MSN_HEADLESS")
+        if headless is not None:
+            self.headless = headless
+        elif env_headless is not None:
+            self.headless = env_headless not in ("0", "false", "no")
+        else:
+            self.headless = self._has_existing_session()
+
+        self._pw: Optional[Playwright] = None
+        self._ctx: Optional[BrowserContext] = None
+        self._page: Optional[Page] = None
+        self._last_refresh_at: Optional[datetime] = None
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def _has_existing_session(self) -> bool:
+        """A persisted Chromium user-data-dir has a Default/Cookies SQLite
+        file once a login has succeeded. Cheap heuristic to decide whether
+        first-run UX is needed."""
+        cookies_db = self.session_dir / "Default" / "Cookies"
+        return cookies_db.exists()
+
+    def start(self) -> "PartnerHubClient":
+        if self._ctx is not None:
+            return self
+        self._pw = sync_playwright().start()
+        self._ctx = self._pw.chromium.launch_persistent_context(
+            user_data_dir=str(self.session_dir),
+            headless=self.headless,
+            viewport={"width": 1400, "height": 900},
+            # Real-UA reduces "browser looks weird" detection from the
+            # Partner Hub stack and makes the Network trace match what
+            # the user sees in their own DevTools.
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/148.0.0.0 Safari/537.36"
+            ),
+        )
+        self._page = self._ctx.new_page()
+        self._open_partner_hub()
+        return self
+
+    def close(self) -> None:
+        try:
+            if self._ctx is not None:
+                self._ctx.close()
+        finally:
+            self._ctx = None
+            self._page = None
+            if self._pw is not None:
+                self._pw.stop()
+                self._pw = None
+
+    @contextmanager
+    def session(self) -> Iterator["PartnerHubClient"]:
+        self.start()
+        try:
+            yield self
+        finally:
+            self.close()
+
+    # ------------------------------------------------------------------
+    # Login + page management
+    # ------------------------------------------------------------------
+
+    def _open_partner_hub(self) -> None:
+        assert self._page is not None
+        self._page.goto(PARTNER_HUB_URL, wait_until="domcontentloaded")
+        self._ensure_logged_in()
+        # Wait for the SPA to mount and fire its first analytics call.
+        # The dashboard makes the `realtime` request on its own; once
+        # we see it land, the in-page bearer is ready for our own
+        # fetches to piggy-back on.
+        self._wait_for_app_ready()
+        self._last_refresh_at = _now_utc()
+
+    def _ensure_logged_in(self) -> None:
+        """Detect whether MSAL has redirected us to login.microsoftonline.com
+        and, if so, drive the username/password form. Persistent context
+        means this typically only runs on the very first call."""
+        assert self._page is not None
+        # If the URL after navigation contains login.microsoftonline.com
+        # we need to authenticate.
+        for _ in range(60):  # up to ~30s polling
+            url = self._page.url
+            if "login.microsoftonline.com" in url or "login.live.com" in url:
+                break
+            if "partnerhub" in url:
+                # already through the redirect dance
+                return
+            self._page.wait_for_timeout(500)
+        else:
+            # Neither obvious login nor partnerhub — assume we're already in.
+            return
+
+        if not self.email or not self.password:
+            # No creds in env — punt to the human running this. Visible
+            # browser will be open; they can finish login interactively
+            # and we'll resume after Partner Hub loads.
+            print(
+                "[msn_partner_hub] No MSN_EMAIL/MSN_PASSWORD in env. "
+                "Complete login interactively in the Chromium window. "
+                "Waiting up to 5 minutes..."
+            )
+            self._page.wait_for_url("**/partnerhub/**", timeout=5 * 60_000)
+            return
+
+        try:
+            # Email page
+            self._page.locator('input[type="email"]').first.fill(self.email)
+            self._page.locator('input[type="submit"], button[type="submit"]').first.click()
+            # Password page
+            self._page.locator('input[type="password"]').first.wait_for(timeout=15_000)
+            self._page.locator('input[type="password"]').first.fill(self.password)
+            self._page.locator('input[type="submit"], button[type="submit"]').first.click()
+            # "Stay signed in?" — answer Yes to persist refresh tokens.
+            try:
+                self._page.locator('input[type="submit"][value="Yes"], button:has-text("Yes")').first.click(
+                    timeout=10_000
+                )
+            except PlaywrightTimeout:
+                pass  # MFA path or page skipped — fine, we just wait below
+            # MFA may interrupt here; we wait for the final redirect.
+            self._page.wait_for_url("**/partnerhub/**", timeout=5 * 60_000)
+        except PlaywrightTimeout as exc:
+            raise PartnerHubError(
+                f"Timed out waiting for login redirect: {exc}. "
+                "If MFA is required, set MSN_HEADLESS=0 and complete it manually once; "
+                "the session will then persist."
+            ) from exc
+
+    def _wait_for_app_ready(self) -> None:
+        """The SPA fires its own `realtime` XHR on mount. We don't need to
+        wait for that exact call, but giving the app ~3s to finish setting
+        up MSAL state before our fetches go out is cheap insurance."""
+        assert self._page is not None
+        try:
+            self._page.wait_for_load_state("networkidle", timeout=15_000)
+        except PlaywrightTimeout:
+            # Some Partner Hub pages keep WebSockets open, so networkidle
+            # never fires. That's fine — we can still call fetch().
+            pass
+        self._page.wait_for_timeout(1500)
+
+    def _maybe_refresh(self) -> None:
+        """Reload Partner Hub when the in-page bearer is getting stale."""
+        if self._last_refresh_at is None:
+            return
+        age = _now_utc() - self._last_refresh_at
+        if age >= timedelta(minutes=_REFRESH_AFTER_MIN):
+            assert self._page is not None
+            self._page.reload(wait_until="domcontentloaded")
+            self._wait_for_app_ready()
+            self._last_refresh_at = _now_utc()
+
+    # ------------------------------------------------------------------
+    # API calls — executed inside the page's JS context so MSAL auto-
+    # attaches the Bearer JWE.
+    # ------------------------------------------------------------------
+
+    def _build_common_params(
+        self,
+        *,
+        start: datetime,
+        end: datetime,
+    ) -> dict[str, str]:
+        return {
+            "apikey": APIKEY,
+            "brandId": _ALL,
+            "clickSource": _ALL,
+            "contentType": _ALL,
+            "date": _ALL,
+            "device": _ALL,
+            "endDate": _iso_z(end),
+            "fdhead": _UGC_FLIGHTS,
+            "lang": _ALL,
+            "mkt": _ALL,
+            "ocid": "msph",
+            "partnerId": self.partner_id,
+            "partnerType": DEFAULT_PARTNER_TYPE,
+            "scn": "MSNRPSAuth",
+            "skipaadal": "true",
+            "startDate": _iso_z(start),
+            "timeout": "30000",
+            "title": _NO_TITLE,
+            "ugc-flights": _UGC_FLIGHTS,
+            "vertical": _ALL,
+            "wrapodata": "false",
+        }
+
+    def _call(self, path: str, params: dict[str, str]) -> dict[str, Any]:
+        """Run `fetch(url, {credentials:'include'})` inside Partner Hub's
+        page context and return the parsed JSON. Raises PartnerHubError
+        on non-2xx."""
+        self._maybe_refresh()
+        assert self._page is not None
+        url = f"{API_HOST}{path}?{urlencode(params, safe=',-')}"
+        # `same-origin` would block this — we're on www.msn.com calling
+        # api.msn.com — but the Partner Hub's own requests use the
+        # `include` mode plus MSAL-injected auth header, which the SPA
+        # sets up via an axios interceptor. Replicating the call from
+        # page.evaluate() picks up the interceptor automatically.
+        js = """
+        async (url) => {
+            const r = await fetch(url, {
+                method: 'GET',
+                credentials: 'include',
+                headers: { 'accept': '*/*', 'content-type': 'application/json' }
+            });
+            const text = await r.text();
+            return { status: r.status, body: text };
+        }
+        """
+        result = self._page.evaluate(js, url)
+        status = result.get("status")
+        body = result.get("body") or ""
+        if status == 401:
+            # The persistent context exists but the in-page MSAL bearer
+            # is missing or expired. Most common cause: first run created
+            # the session dir but the user closed the window before
+            # completing login. Surface this as an actionable error.
+            raise PartnerHubError(
+                "MSN API returned 401 Unauthorized. The persistent Playwright "
+                "session at "
+                f"{self.session_dir} exists but isn't authenticated. Re-run "
+                "with MSN_HEADLESS=0 in the environment to open a visible "
+                "browser and complete login (and MFA if prompted) once; the "
+                "session persists thereafter."
+            )
+        if status != 200:
+            raise PartnerHubError(
+                f"MSN API {path} returned HTTP {status}: {body[:300]}"
+            )
+        try:
+            return json.loads(body)
+        except json.JSONDecodeError as exc:
+            raise PartnerHubError(
+                f"MSN API {path} returned non-JSON: {body[:300]}"
+            ) from exc
+
+    # ------------------------------------------------------------------
+    # Public methods
+    # ------------------------------------------------------------------
+
+    def fetch_realtime(
+        self,
+        *,
+        skip: int = 0,
+        top: int = PAGE_SIZE,
+        end: Optional[datetime] = None,
+        window_hours: int = 24,
+    ) -> dict[str, Any]:
+        """Hit /realtime and return parsed JSON (recordList + recordCount).
+
+        The endpoint is a 24h rolling window keyed off the (start, end)
+        timestamps. We mirror Partner Hub's behavior of asking for
+        "ending now, starting 24h ago"."""
+        end_dt = end or _now_utc()
+        start_dt = end_dt - timedelta(hours=window_hours)
+        params = self._build_common_params(start=start_dt, end=end_dt)
+        params.update({
+            "$orderBy": "view",
+            "$skip": str(skip),
+            "$top": str(top),
+        })
+        return self._call(f"{API_BASE_PATH}/realtime", params)
+
+    def fetch_realtime_all(
+        self,
+        *,
+        end: Optional[datetime] = None,
+        window_hours: int = 24,
+        max_pages: int = MAX_PAGES,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Paginate /realtime until recordCount is exhausted.
+
+        Returns (all_records, record_count). Each record has at least
+        `title`, `titleStatus`, `docID`, `readCount`."""
+        records: list[dict[str, Any]] = []
+        record_count = 0
+        seen_doc_ids: set[str] = set()
+        for page in range(max_pages):
+            skip = page * PAGE_SIZE
+            payload = self.fetch_realtime(skip=skip, end=end, window_hours=window_hours)
+            chunk = payload.get("recordList") or []
+            record_count = int(payload.get("recordCount") or 0)
+            if not chunk:
+                break
+            # Defensive dedup — repeated calls can race the rolling
+            # window. We keep the first occurrence (highest rank).
+            for rec in chunk:
+                doc_id = rec.get("docID")
+                if not doc_id or doc_id in seen_doc_ids:
+                    continue
+                seen_doc_ids.add(doc_id)
+                records.append(rec)
+            if skip + len(chunk) >= record_count:
+                break
+        return records, record_count
+
+    def fetch_aggregate(
+        self,
+        *,
+        end: Optional[datetime] = None,
+        window_days: int = 30,
+    ) -> dict[str, Any]:
+        """Hit the daily-aggregate endpoint. Path discovered at runtime by
+        the SPA's "Overview" tab; here we use the documented sibling path
+        based on the realtime path pattern. Returns the raw JSON so the
+        caller can decide whether to inspect recordList directly."""
+        end_dt = end or _now_utc()
+        start_dt = end_dt - timedelta(days=window_days)
+        params = self._build_common_params(start=start_dt, end=end_dt)
+        params.update({"$orderBy": "date", "$skip": "0", "$top": str(window_days + 5)})
+        # The aggregate endpoint sibling. We try a couple of candidate
+        # paths — MSN's surface has evolved and we don't have a confirmed
+        # path from the user's trace yet. The first that returns 200 wins.
+        candidates = (
+            f"{API_BASE_PATH}/aggregate",
+            f"{API_BASE_PATH}/daily",
+            f"{API_BASE_PATH}/dailyDeck",
+        )
+        last_err: Optional[Exception] = None
+        for path in candidates:
+            try:
+                return self._call(path, params)
+            except PartnerHubError as exc:
+                last_err = exc
+                continue
+        # If none worked, raise the last error — the puller decides what
+        # to do (we still want realtime to land even if aggregate fails).
+        raise PartnerHubError(
+            f"None of the aggregate endpoint candidates returned 200. Last: {last_err}"
+        )
+
+
+__all__ = [
+    "PartnerHubClient",
+    "PartnerHubError",
+    "API_HOST",
+    "API_BASE_PATH",
+    "DEFAULT_PARTNER_ID",
+]

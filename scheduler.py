@@ -507,6 +507,33 @@ def setup_schedule():
     # ── Monthly forecast: runs daily at 7:30 AM, day-of-month guard inside ───
     schedule.every().day.at("07:30").do(_run("monthly_forecast",  monthly_forecast))   # 1/10/20 guard inside
 
+    # ── MSN Partner Hub insights (BoxingNews) ────────────────────────────────
+    # Playwright-driven puller + lazy docID resolver. Gated by env flag
+    # because Playwright/Chromium can't fit on Render's free Python tier;
+    # production cron is .github/workflows/msn-insights.yml. To run inside
+    # this scheduler (local dev or a Playwright-capable host) set
+    # PGAM_MSN_PULLER_ENABLED=1 in .env. The agents themselves no-op
+    # gracefully when playwright isn't importable, so it's also safe to
+    # leave on even if the deploy target can't actually run Chromium.
+    if _os.getenv("PGAM_MSN_PULLER_ENABLED") == "1":
+        msn_insights_etl  = _import("agents.etl.msn_insights_etl")
+        msn_doc_resolver  = _import("agents.enrichment.msn_doc_resolver")
+        msn_puller_health = _import("agents.alerts.msn_puller_health")
+        # Every 15 min, on the quarter, lightly offset to avoid colliding
+        # with the hourly ETL block at :00. recordCount=123 articles in
+        # MSN's 24h window means we capture full per-article time series.
+        schedule.every().hour.at(":01").do(_run("msn_insights_etl", msn_insights_etl))
+        schedule.every().hour.at(":16").do(_run("msn_insights_etl", msn_insights_etl))
+        schedule.every().hour.at(":31").do(_run("msn_insights_etl", msn_insights_etl))
+        schedule.every().hour.at(":46").do(_run("msn_insights_etl", msn_insights_etl))
+        # docID → boxingnews.com URL backfill — every 30 min, well off
+        # the realtime cadence so we don't fight Playwright for resources.
+        schedule.every().hour.at(":11").do(_run("msn_doc_resolver", msn_doc_resolver))
+        schedule.every().hour.at(":41").do(_run("msn_doc_resolver", msn_doc_resolver))
+        # Hourly health check — Slacks once/day if pulls stall or fail
+        # in a streak. Read-only against pgam_direct.msn_pull_runs.
+        schedule.every().hour.at(":50").do(_run("msn_puller_health", msn_puller_health))
+
     print("[scheduler] Schedule registered:")
     for job in schedule.get_jobs():
         print(f"  {job}")
