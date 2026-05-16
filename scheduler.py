@@ -263,6 +263,10 @@ def setup_schedule():
     # per day (gross × realized margin), not just gross revenue. Tighter than
     # intervention_journal: max 1 revert/run, escalating thresholds with age.
     margin_experiment_monitor = _import("agents.optimization.margin_experiment_monitor")
+    # Real-time supplier-level pacing comparison — today-vs-yesterday Slack
+    # digest every 2h. Lets the user see daily trajectory without manual
+    # screenshot-and-compare. Posts portfolio + top suppliers in a Slack table.
+    pacing_today_vs_yesterday = _import("agents.reports.pacing_today_vs_yesterday")
     # Daily change-accountability digest — Slack post each morning showing
     # what the agents did + outcomes from 48-72h ago + week-to-date impact
     change_outcome_digest  = _import("agents.reports.change_outcome_digest")
@@ -463,6 +467,9 @@ def setup_schedule():
     # so we don't double-fire safety nets simultaneously. Watches pub-level
     # margin experiments and auto-reverts losers based on NET contribution drop.
     schedule.every(4).hours.do(_run("margin_experiment_monitor",       margin_experiment_monitor))
+    # Pacing comparison — every 2h during US daytime. Posts supplier-level
+    # today-vs-yesterday Slack digest with pace ratio + projection.
+    schedule.every(2).hours.do(_run("pacing_today_vs_yesterday",       pacing_today_vs_yesterday))
     # Daily change-accountability digest — 09:15 ET, after weekly_review_digest
     schedule.every().day.at("09:15").do(_run("change_outcome_digest",  change_outcome_digest))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
