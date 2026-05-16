@@ -116,6 +116,25 @@ CREATE INDEX IF NOT EXISTS idx_msn_pull_runs_started
     ON pgam_direct.msn_pull_runs (started_at DESC);
 
 -- ---------------------------------------------------------------------
+-- 15-min traffic buckets — discovered 2026-05-16. Partner Hub's Overview
+-- tab calls the SAME /realtime endpoint but with `$orderBy` stripped and
+-- `date=-1` set; the response flips from per-article rows to per-15-min
+-- total-PV rows. recordCount ≈ 95 (24h × 4 slots, minus the partial
+-- bucket the call lands inside). Authoritative source for total 24h PVs
+-- and therefore current MSN revenue estimate.
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS pgam_direct.msn_traffic_buckets (
+    partner_id    TEXT        NOT NULL,
+    bucket_at     TIMESTAMPTZ NOT NULL,
+    read_count    INTEGER     NOT NULL,
+    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (partner_id, bucket_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_msn_traffic_buckets_partner_time
+    ON pgam_direct.msn_traffic_buckets (partner_id, bucket_at DESC);
+
+-- ---------------------------------------------------------------------
 -- Convenience view: per-doc peak readCount over a recent window.
 -- The dashboard's "top performers" table reads from this.
 -- We take MAX(read_count) over snapshots because readCount is the

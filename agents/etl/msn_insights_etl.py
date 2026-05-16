@@ -166,6 +166,22 @@ CREATE TABLE IF NOT EXISTS pgam_direct.msn_pull_runs (
 CREATE INDEX IF NOT EXISTS idx_msn_pull_runs_started
     ON pgam_direct.msn_pull_runs (started_at DESC);
 
+-- Per-15-minute total-PV buckets from the bucketed /realtime endpoint.
+-- One row per (partner_id, bucket_at). The current bucket re-emits with
+-- a growing count until the 15-min window closes, then it stabilizes —
+-- so we UPSERT and let the latest pull win. `consumed_seconds_*` are
+-- video-only and not surfaced by this endpoint, hence absent.
+CREATE TABLE IF NOT EXISTS pgam_direct.msn_traffic_buckets (
+    partner_id    TEXT        NOT NULL,
+    bucket_at     TIMESTAMPTZ NOT NULL,
+    read_count    INTEGER     NOT NULL,
+    last_seen_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (partner_id, bucket_at)
+);
+
+CREATE INDEX IF NOT EXISTS idx_msn_traffic_buckets_partner_time
+    ON pgam_direct.msn_traffic_buckets (partner_id, bucket_at DESC);
+
 CREATE OR REPLACE VIEW pgam_direct.msn_article_peak AS
 SELECT
     s.partner_id,
@@ -212,6 +228,44 @@ VALUES
   (%(doc_id)s, %(partner_id)s, %(msn_title_first)s, now(), 'pending')
 ON CONFLICT (doc_id) DO NOTHING;
 """
+
+_BUCKET_UPSERT_SQL = """
+INSERT INTO pgam_direct.msn_traffic_buckets
+  (partner_id, bucket_at, read_count, last_seen_at)
+VALUES
+  (%(partner_id)s, %(bucket_at)s, %(read_count)s, now())
+ON CONFLICT (partner_id, bucket_at) DO UPDATE SET
+  read_count   = EXCLUDED.read_count,
+  last_seen_at = now();
+"""
+
+
+def _write_traffic_buckets(
+    *,
+    partner_id: str,
+    records: list[dict[str, Any]],
+) -> int:
+    """UPSERT 15-min bucket rows. Returns count written."""
+    if not records:
+        return 0
+    rows: list[dict[str, Any]] = []
+    for rec in records:
+        bucket = rec.get("date")
+        read = rec.get("readCount")
+        if not bucket or read is None:
+            continue
+        rows.append({
+            "partner_id":  partner_id,
+            "bucket_at":   bucket,
+            "read_count":  int(read),
+        })
+    if not rows:
+        return 0
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(_BUCKET_UPSERT_SQL, rows)
+        conn.commit()
+    return len(rows)
 
 
 def _write_snapshots(
@@ -426,6 +480,7 @@ def run(
     realtime_inserted = 0
     record_count = 0
     aggregate_rows = 0
+    bucket_rows = 0
     pages = 0
     err: Optional[str] = None
 
@@ -456,6 +511,27 @@ def run(
                 print(f"[msn_insights_etl] realtime: {realtime_inserted} new snapshot rows persisted")
             elif dry_run:
                 _print_dry_run_summary(records)
+
+            # --- 15-min traffic buckets (Overview tab timeline) ---
+            try:
+                buckets_payload = client.fetch_realtime_buckets(window_hours=window_hours)
+                bucket_records = buckets_payload.get("recordList") or []
+                bucket_total = sum(int(b.get("readCount") or 0) for b in bucket_records)
+                est_24h = round(bucket_total * 0.004, 2)
+                print(
+                    f"[msn_insights_etl] buckets: {len(bucket_records)} 15-min slots, "
+                    f"sum readCount = {bucket_total} (est 24h revenue ${est_24h})"
+                )
+                if bucket_records and not dry_run:
+                    bucket_rows = _write_traffic_buckets(
+                        partner_id=partner_id,
+                        records=bucket_records,
+                    )
+                    print(f"[msn_insights_etl] buckets: {bucket_rows} rows upserted")
+            except PartnerHubError as exc:
+                # Buckets are nice-to-have; realtime articles is the
+                # load-bearing data. Don't fail the run on a bucket miss.
+                print(f"[msn_insights_etl] buckets skipped: {exc}")
 
             # --- aggregate (best-effort) ---
             try:
@@ -497,6 +573,7 @@ def run(
         "realtime_inserted": realtime_inserted,
         "record_count":      record_count,
         "aggregate_rows":    aggregate_rows,
+        "bucket_rows":       bucket_rows,
         "elapsed_seconds":   round(elapsed, 2),
         "error":             err,
     }

@@ -455,6 +455,38 @@ class PartnerHubClient:
                 break
         return records, record_count
 
+    def fetch_realtime_buckets(
+        self,
+        *,
+        end: Optional[datetime] = None,
+        window_hours: int = 24,
+        top: int = 96,
+    ) -> dict[str, Any]:
+        """Hit /realtime with the bucketed-traffic parameter set.
+
+        Discovered 2026-05-16: the same `/realtime` path is polymorphic.
+        Omitting `$orderBy` and passing `date=-1` flips the response from
+        per-article rows to **per-15-minute total-PV buckets** across the
+        rolling 24h window. `$top=96` covers 24h × 4 buckets/hr. This is
+        the timeline chart on Partner Hub's Overview tab.
+
+        Returns the raw payload; each `recordList` entry is
+        `{ "date": "2026-05-16T23:30Z", "readCount": 33 }`.
+        """
+        end_dt = end or _now_utc()
+        start_dt = end_dt - timedelta(hours=window_hours)
+        params = self._build_common_params(start=start_dt, end=end_dt)
+        # Strip the article-grouping filters; pass date=-1 to flip the
+        # endpoint into time-bucketing mode.
+        params.pop("title", None)
+        params.pop("device", None)
+        params.pop("clickSource", None)
+        params.pop("vertical", None)
+        params["date"] = "-1"
+        params["$skip"] = "0"
+        params["$top"] = str(top)
+        return self._call(f"{API_BASE_PATH}/realtime", params)
+
     def fetch_aggregate(
         self,
         *,

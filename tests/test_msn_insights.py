@@ -108,6 +108,22 @@ MSN_HTML_SAMPLE = """
 </body></html>
 """
 
+# 15-min traffic buckets fixture — captured 2026-05-16 from the
+# Partner Hub Overview tab. Same /realtime path but called without
+# $orderBy and with date=-1 → response is bucketed totals, not articles.
+BUCKETS_FIXTURE_JSON = """
+{
+    "recordList": [
+        { "date": "2026-05-16T23:30Z", "readCount": 33 },
+        { "date": "2026-05-16T23:15Z", "readCount": 19 },
+        { "date": "2026-05-16T23:00Z", "readCount": 26 },
+        { "date": "2026-05-16T22:45Z", "readCount": 25 },
+        { "date": "2026-05-16T22:30Z", "readCount": 19 }
+    ],
+    "recordCount": 95
+}
+"""
+
 MSN_HTML_NO_SOURCE = """
 <html><head>
 <meta property="og:title" content="Some Article">
@@ -234,6 +250,30 @@ def test_meta_parser() -> None:
     check("missing -> None", missing is None)
 
 
+def test_bucket_fixture_shape() -> None:
+    print("[test] buckets fixture has the shape the puller expects")
+    fixture = json.loads(BUCKETS_FIXTURE_JSON)
+    records = fixture["recordList"]
+    check("recordList is a list", isinstance(records, list))
+    check("recordCount is an int", isinstance(fixture["recordCount"], int))
+    # Each bucket has `date` (ISO timestamp) and `readCount` only.
+    first = records[0]
+    check("bucket has date",      "date" in first)
+    check("bucket has readCount", "readCount" in first)
+    check("date is ISO-Z format", str(first["date"]).endswith("Z"))
+    check("readCount is int",     isinstance(first["readCount"], int))
+
+    # The sum is what we use to estimate 24h revenue. Sanity-check that
+    # the math is intuitive.
+    total = sum(int(r["readCount"]) for r in records)
+    expected = 33 + 19 + 26 + 25 + 19
+    check("sum is sane",  total == expected, f"got {total}")
+    est = round(total * 0.004, 2)
+    check("est revenue from 5 buckets ~= 5 × 0.004 × avg ~24 PV",
+          est == round(expected * 0.004, 2),
+          f"got {est}")
+
+
 def test_clean_url_passthrough() -> None:
     print("[test] _clean_url is a noop for non-boxingnews URLs")
     # Don't touch unrelated URLs (e.g. raw MSN URLs returned during fallback).
@@ -252,6 +292,7 @@ def main() -> int:
         test_canonical_url_parser_finds_anchor,
         test_canonical_url_parser_returns_none,
         test_meta_parser,
+        test_bucket_fixture_shape,
         test_clean_url_passthrough,
     ]
     for t in tests:
