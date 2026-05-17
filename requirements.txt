@@ -22,3 +22,14 @@ pandas>=2.0.0
 scikit-learn>=1.3.0
 lightgbm>=4.0.0
 joblib>=1.3.0
+
+# MSN Partner Hub insights puller (agents/etl/msn_insights_etl.py).
+# Playwright + Chromium drives an authenticated browser session against
+# https://www.msn.com/en-us/partnerhub/... and calls api.msn.com from
+# inside the page so MSAL auto-attaches the Bearer JWE. Requires a
+# one-time `playwright install chromium` after pip-install.
+# Not included by default in slim deploys (Render's free Python tier
+# can't host Chromium); scheduler.py and the agent module both no-op
+# gracefully when the import fails. Production cron lives in GitHub
+# Actions (.github/workflows/msn-insights.yml).
+playwright>=1.40.0
