@@ -39,6 +39,10 @@ load_dotenv(dotenv_path=str(_REPO_ROOT / ".env"), override=True)
 
 from core.neon import connect  # noqa: E402
 
+from agents.compliance.activity_filter import (  # noqa: E402
+    load_active_publisher_keys,
+    refresh_partner_activity,
+)
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.crawlers.downstream_sellersjson import (  # noqa: E402
     fetch_downstream_sellers_json,
@@ -72,6 +76,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase2.sql",
     _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase3.sql",
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_phase5.sql",
+    _REPO_ROOT / "migrations" / "2026_05_18_compliance_partner_activity.sql",
 )
 
 
@@ -176,7 +181,16 @@ def _validate_all(
     *,
     app_ads: bool,
     enable_resellers: bool,
+    active_keys: set[str] | None = None,
 ) -> list[Finding]:
+    """Phase 1 + Phase 2 validation.
+
+    `active_keys`: if provided, restrict validation to these publisher_keys.
+    The runner populates this with the set of partners showing trailing-7d
+    revenue activity on LL — partners outside the set are skipped to avoid
+    firing critical alerts on stale sellers.json entries. If None, all
+    publishers are validated (legacy behaviour).
+    """
     pub_by_key: dict[str, Publisher] = {p.publisher_key: p for p in publishers}
     fetch_by_pub: dict[str, dict[str, AdsTxtFetch]] = {}
     for f in fetches:
@@ -190,6 +204,10 @@ def _validate_all(
     for pub_key, variants in fetch_by_pub.items():
         pub = pub_by_key.get(pub_key)
         if pub is None:
+            continue
+        # Activity gate — partners with no trailing-7d LL revenue are skipped.
+        # See agents/compliance/activity_filter.py.
+        if active_keys is not None and pub_key not in active_keys:
             continue
         ads = variants.get("ads.txt")
         if ads is not None:
@@ -334,6 +352,9 @@ def run() -> dict:
         "ll_bridge_unmatched": 0,
         "observed_ssp_rows": 0,
         "ssps_audited": 0,
+        "partners_active_recent": 0,
+        "partners_inactive_recent": 0,
+        "partners_unbridged": 0,
         "schain_demands_audited": 0,
         "schain_publishers_audited": 0,
         "phase5_entities_audited": 0,
@@ -391,9 +412,31 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] observed_monetization refresh failed (non-fatal): {exc}")
 
+        # Activity gate — restrict Phase 1 audits to partners currently
+        # earning revenue on LL. Runs AFTER the bridge so we can join via
+        # compliance_publishers.ll_publisher_id. If activity refresh fails
+        # we leave active_keys=None which falls back to the legacy "audit
+        # everything" behavior — better signal than going silent.
+        active_keys: set[str] | None = None
+        try:
+            act_stats = refresh_partner_activity()
+            active_keys = load_active_publisher_keys()
+            summary["partners_active_recent"]   = act_stats.active
+            summary["partners_inactive_recent"] = act_stats.inactive
+            summary["partners_unbridged"]       = act_stats.unbridged
+            print(
+                f"[{ACTOR}] partner_activity active={act_stats.active}/"
+                f"{act_stats.total} (inactive={act_stats.inactive}, "
+                f"unbridged={act_stats.unbridged}, "
+                f"revenue_7d=${act_stats.total_revenue_7d:,.0f})"
+            )
+        except Exception as exc:
+            print(f"[{ACTOR}] partner activity refresh failed (non-fatal): {exc}")
+
         findings = _validate_all(publishers, fetches,
                                  app_ads=app_ads,
-                                 enable_resellers=enable_resellers)
+                                 enable_resellers=enable_resellers,
+                                 active_keys=active_keys)
 
         # Phase 3: downstream sellers.json audit. Each SSP-level finding
         # uses a sentinel publisher_key '_ssp:<key>' so the upsert

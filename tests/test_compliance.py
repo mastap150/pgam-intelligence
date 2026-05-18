@@ -886,6 +886,52 @@ def test_tier_unreachable_passthrough() -> None:
            findings[0].check_id == "adstxt.file_unreachable")
 
 
+# ── Activity gate (Phase 1.5) ────────────────────────────────────────────────
+
+
+def test_validate_all_skips_inactive_partners() -> None:
+    """Synthetic test of the active_keys gate in runner._validate_all."""
+    print("\n[activity gate — _validate_all skips inactive partners]")
+    # Import only when running this test to avoid pulling Neon at module load.
+    from agents.compliance.runner import _validate_all
+    from agents.compliance.universe import Publisher
+
+    publishers = [
+        Publisher(publisher_key="pch.com", kind="domain", domain="pch.com",
+                  seller_id="734065", seller_type="PUBLISHER", seller_name="PCH"),
+        Publisher(publisher_key="stale.example", kind="domain", domain="stale.example",
+                  seller_id="000", seller_type="PUBLISHER", seller_name="Stale"),
+    ]
+
+    # Crafted fetches: both are reachable but missing the PGAM line.
+    from agents.compliance.crawlers.adstxt import AdsTxtFetch, parse_adstxt
+    body = "rubiconproject.com, 24852, RESELLER\n"
+    lines, _ = parse_adstxt(body)
+    def _fetch(key):
+        return AdsTxtFetch(
+            publisher_key=key, variant="ads.txt",
+            url=f"https://{key}/ads.txt",
+            http_status=200, body=body, body_sha256="x",
+            error=None, lines=lines, variables={},
+        )
+
+    fetches = [_fetch("pch.com"), _fetch("stale.example")]
+
+    # No gate → both fire findings
+    no_gate = _validate_all(publishers, fetches,
+                            app_ads=False, enable_resellers=False, active_keys=None)
+    _check("no-gate audits both partners", len(no_gate) == 2,
+           f"got {[f.publisher_key for f in no_gate]}")
+
+    # Gated to only pch.com → only one finding
+    gated = _validate_all(publishers, fetches,
+                         app_ads=False, enable_resellers=False,
+                         active_keys={"pch.com"})
+    _check("gate skips inactive partners", len(gated) == 1)
+    _check("gate keeps active partner",
+           gated[0].publisher_key == "pch.com")
+
+
 def test_build_pgam_seat_registry() -> None:
     print("\n[tier — build_pgam_seat_registry]")
     payload = {"sellers": [
@@ -967,6 +1013,8 @@ def main() -> int:
         test_tier_passes_when_own_seat_present_alongside_others,
         test_tier_unreachable_passthrough,
         test_build_pgam_seat_registry,
+        # Activity gate
+        test_validate_all_skips_inactive_partners,
     ]
     failures = 0
     for t in tests:
