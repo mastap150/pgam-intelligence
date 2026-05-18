@@ -404,27 +404,33 @@ def run() -> dict:
             findings.extend(ssp_findings)
             summary["ssps_audited"] = len(ssp_sentinel_keys)
 
-        # Phase 5: per-entity audit (LL "Suppliers" view granularity).
-        # Pulls top N apps + domains by 7d revenue from ll_4dim_etl tables
-        # and audits each individually. Independent of Phase 1's sellers.json
-        # universe; runs in parallel with Phases 2-4.
+        # Phase 5: per-entity audit, scoped to the LL "Suppliers" view.
+        # Universe = every (app, domain) flowing through each ACTIVE supply
+        # partner in LL (Start.IO, Smaato, BidMachine, ...). For each entity:
+        # tiered universal-DIRECT-line check + per-entity conditional reseller
+        # lines. Read-only — no writes to LL.
         phase5_sentinel_keys: list[str] = []
         if enable_phase5:
             try:
                 p5 = run_entity_audit(rate_hz=rate_hz)
-                findings.extend(p5.findings)
-                phase5_sentinel_keys = p5.sentinel_keys
-                summary["phase5_entities_audited"] = p5.universe_stats.top_n_selected
-                summary["phase5_domains"]          = p5.universe_stats.domains_in_universe
-                summary["phase5_apps"]             = p5.universe_stats.apps_in_universe
-                summary["phase5_apps_unresolved"]  = p5.universe_stats.apps_unresolved
-                print(
-                    f"[{ACTOR}] phase5 entities={p5.universe_stats.top_n_selected} "
-                    f"domains={p5.universe_stats.domains_in_universe} "
-                    f"apps={p5.universe_stats.apps_in_universe} "
-                    f"apps_unresolved={p5.universe_stats.apps_unresolved} "
-                    f"findings={len(p5.findings)}"
-                )
+                if p5.skipped_reason:
+                    print(f"[{ACTOR}] phase5 skipped: {p5.skipped_reason}")
+                else:
+                    findings.extend(p5.findings)
+                    phase5_sentinel_keys = p5.sentinel_keys
+                    summary["phase5_entities_audited"] = p5.universe_stats.top_n_selected
+                    summary["phase5_domains"]          = p5.universe_stats.domains_in_universe
+                    summary["phase5_apps"]             = p5.universe_stats.apps_in_universe
+                    summary["phase5_apps_unresolved"]  = p5.universe_stats.apps_unresolved
+                    summary["phase5_supply_partners"]  = len(p5.supply_partners or [])
+                    print(
+                        f"[{ACTOR}] phase5 partners={len(p5.supply_partners or [])} "
+                        f"entities={p5.universe_stats.top_n_selected} "
+                        f"domains={p5.universe_stats.domains_in_universe} "
+                        f"apps={p5.universe_stats.apps_in_universe} "
+                        f"apps_unresolved={p5.universe_stats.apps_unresolved} "
+                        f"findings={len(p5.findings)}"
+                    )
             except Exception as exc:
                 print(f"[{ACTOR}] phase5 entity audit failed (non-fatal): {exc}")
 

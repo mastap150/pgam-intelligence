@@ -58,6 +58,32 @@ ORDER BY compliance_score ASC, open_critical DESC
 LIMIT 5;
 """
 
+# Per-supply-partner rollup: count open findings against entities under
+# each LL supply partner. Joins compliance_findings (which keys on
+# entity_key for Phase 5) → compliance_supply_entities (which carries the
+# ll_publisher_name + entity count per partner).
+_PARTNER_ROLLUP_QUERY = """
+SELECT
+    e.ll_publisher_id,
+    e.ll_publisher_name,
+    COUNT(DISTINCT e.entity_key)                                       AS entities,
+    COUNT(DISTINCT f.entity_key) FILTER (WHERE f.severity = 'critical') AS pubs_crit,
+    COUNT(DISTINCT f.entity_key) FILTER (WHERE f.severity = 'high')     AS pubs_high,
+    COUNT(f.finding_id) FILTER (WHERE f.severity = 'critical')          AS findings_crit,
+    COUNT(f.finding_id) FILTER (WHERE f.severity = 'high')              AS findings_high
+FROM pgam_direct.compliance_supply_entities e
+LEFT JOIN (
+    SELECT publisher_key AS entity_key, severity, finding_id
+    FROM pgam_direct.compliance_findings
+    WHERE status = 'open'
+      AND (publisher_key LIKE 'dom:%%' OR publisher_key LIKE 'app:%%')
+) f ON f.entity_key = e.entity_key
+GROUP BY e.ll_publisher_id, e.ll_publisher_name
+ORDER BY findings_crit DESC NULLS LAST,
+         findings_high DESC NULLS LAST,
+         entities DESC;
+"""
+
 
 def _load_open_findings() -> list[dict]:
     with connect() as conn:
@@ -77,6 +103,35 @@ def _load_lowest_scores(as_of: date) -> list[dict]:
     except Exception as exc:
         print(f"[compliance.slack_digest] score query failed (non-fatal): {exc}")
         return []
+
+
+def _load_partner_rollup() -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_PARTNER_ROLLUP_QUERY)
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] partner rollup query failed (non-fatal): {exc}")
+        return []
+
+
+def _format_partner_row(r: dict) -> str:
+    name = (r.get("ll_publisher_name") or "?")[:24]
+    entities = int(r.get("entities") or 0)
+    crit = int(r.get("findings_crit") or 0)
+    high = int(r.get("findings_high") or 0)
+    if crit == 0 and high == 0:
+        verdict = ":white_check_mark:"
+    elif crit > 0:
+        verdict = ":rotating_light:"
+    else:
+        verdict = ":warning:"
+    return (
+        f"{verdict} *{name}*  ·  {entities} entities  ·  "
+        f"{crit} critical / {high} high"
+    )
 
 
 def _format_pub_key(key: str) -> str:
@@ -109,7 +164,8 @@ def _format_score_line(row: dict) -> str:
 
 
 def _build_blocks(findings: list[dict], summary: dict,
-                  lowest_scores: list[dict]) -> list[dict]:
+                  lowest_scores: list[dict],
+                  partner_rollup: list[dict] | None = None) -> list[dict]:
     by_sev: dict[str, list[dict]] = defaultdict(list)
     for f in findings:
         by_sev[f["severity"]].append(f)
@@ -174,6 +230,15 @@ def _build_blocks(findings: list[dict], summary: dict,
                      "text": ":small_orange_diamond: *Medium*\n" + "\n".join(lines)},
         })
 
+    if partner_rollup:
+        partner_lines = [_format_partner_row(r) for r in partner_rollup]
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn",
+                     "text": ":busts_in_silhouette: *Per supply partner*\n"
+                             + "\n".join(partner_lines)},
+        })
+
     if lowest_scores:
         score_lines = [_format_score_line(r) for r in lowest_scores]
         blocks.append({
@@ -213,7 +278,8 @@ def post_digest(summary: dict, force: bool = False) -> bool:
 
     findings = _load_open_findings()
     lowest_scores = _load_lowest_scores(date.today())
-    blocks = _build_blocks(findings, summary, lowest_scores)
+    partner_rollup = _load_partner_rollup()
+    blocks = _build_blocks(findings, summary, lowest_scores, partner_rollup)
     fallback = (
         f"Supply compliance: "
         f"{summary.get('findings_opened', 0)} opened, "

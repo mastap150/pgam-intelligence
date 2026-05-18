@@ -32,7 +32,12 @@ from core.neon import connect
 from agents.compliance.ssp_registry import classify_demand_name
 
 
-DEFAULT_TOP_N = 200
+# DEFAULT_TOP_N = None  → audit every entity under each supply partner.
+# Override with PGAM_COMPLIANCE_PHASE5_TOP_N if you need a safety cap
+# during initial rollout. The Phase 5.1 universe is naturally bounded
+# by the ~12 active LL supply partners' inventory, typically a few
+# hundred to a few thousand entities total.
+DEFAULT_TOP_N: int | None = None
 DEFAULT_LOOKBACK_DAYS = 7
 
 
@@ -134,10 +139,20 @@ def _normalize_domain(s: str) -> str:
 
 
 def build_entity_universe(
-    top_n: int = DEFAULT_TOP_N,
+    top_n: int | None = DEFAULT_TOP_N,
     lookback_days: int = DEFAULT_LOOKBACK_DAYS,
+    partner_filter: set[str] | None = None,
 ) -> tuple[list[Entity], UniverseStats]:
-    """Pull, classify, rank, return top-N entities. No DB writes yet."""
+    """Pull, classify, rank, return entities under active supply partners.
+
+    Args:
+        top_n:          Cap on entity count (None = audit everything).
+        lookback_days:  Revenue window (default 7).
+        partner_filter: If set, only include entities whose LL publisher_id
+                         is in this set — i.e., audit only the inventory of
+                         the LL "Suppliers" view, not unrelated publishers.
+                         If None, no partner filter is applied.
+    """
     with connect() as conn:
         with conn.cursor() as cur:
             cur.execute(_PULL_DOMAIN_SQL, {"lookback": lookback_days})
@@ -167,6 +182,12 @@ def build_entity_universe(
             }
             cur.execute(_APP_METADATA_SQL)
             dev_domain_map = {r[0]: r[1] for r in cur.fetchall()}
+
+    # Filter to the LL supply partners' inventory if a filter was supplied.
+    if partner_filter is not None:
+        partner_set = {str(p) for p in partner_filter}
+        dom_rows = [r for r in dom_rows if r["publisher_id"] in partner_set]
+        bun_rows = [r for r in bun_rows if r["publisher_id"] in partner_set]
 
     entities: dict[str, Entity] = {}
 
@@ -210,11 +231,12 @@ def build_entity_universe(
     _ingest(dom_rows, "domain")
     _ingest(bun_rows, "app")
 
-    # Rank by revenue, take top N. Bundles without dev_domain stay in
-    # the universe at this stage so the audit can raise an info finding
+    # Rank by revenue (so the digest's "top critical" highlights big-$ entities).
+    # Apply top_n cap only if explicitly set. Bundles without dev_domain stay
+    # in the universe at this stage so the audit can raise an info finding
     # rather than silently drop them.
     ranked = sorted(entities.values(), key=lambda e: e.revenue_7d, reverse=True)
-    selected = ranked[:top_n]
+    selected = ranked if top_n is None else ranked[:top_n]
 
     apps_unresolved = sum(1 for e in selected if e.kind == "app" and not e.audit_host)
     stats = UniverseStats(

@@ -26,6 +26,8 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 
+from core import ll_mgmt
+
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt
 from agents.compliance.crawlers.sellersjson import fetch_pgam_sellers_json
 from agents.compliance.entity_universe import (
@@ -57,6 +59,23 @@ class EntityAuditResult:
     findings: list[Finding]
     sentinel_keys: list[str]
     fetches: list[AdsTxtFetch]
+    skipped_reason: str | None = None
+    supply_partners: list[dict] | None = None        # [{id, name}]
+
+
+def _resolve_supply_partners() -> list[dict]:
+    """Pull active LL supply partners (publishers) for the universe filter.
+
+    The 12 entries shown at https://ui.pgamrtb.com/suppliers map 1:1 to
+    ll_mgmt.get_publishers(). status=1 == Active in LL; status=2 ==
+    Paused / Stopped (e.g. "Test Supply Partner") which we skip.
+    """
+    pubs = ll_mgmt.get_publishers(include_archived=False)
+    return [
+        {"id": str(p.get("id")), "name": p.get("name") or ""}
+        for p in pubs
+        if p.get("status") == 1 and p.get("id") is not None
+    ]
 
 
 def _crawl(entity: Entity) -> AdsTxtFetch | None:
@@ -132,9 +151,46 @@ def run_entity_audit(
     rate_hz: float = DEFAULT_RATE_HZ,
     workers: int = DEFAULT_WORKERS,
 ) -> EntityAuditResult:
-    top_n = top_n or int(os.environ.get("PGAM_COMPLIANCE_PHASE5_TOP_N") or DEFAULT_TOP_N)
+    # Top-N cap defaults to None (audit every entity under every active
+    # supply partner). Set PGAM_COMPLIANCE_PHASE5_TOP_N for a safety cap
+    # during initial rollout.
+    env_top_n = os.environ.get("PGAM_COMPLIANCE_PHASE5_TOP_N")
+    if top_n is None and env_top_n and env_top_n.isdigit():
+        top_n = int(env_top_n)
 
-    entities, stats = build_entity_universe(top_n=top_n)
+    # Resolve the active LL supply partners. Without LL_UI creds we
+    # cannot scope the audit correctly, so we degrade to a logged skip
+    # rather than silently auditing the wrong universe.
+    if not ll_mgmt.ll_mgmt_configured():
+        return EntityAuditResult(
+            universe_stats=UniverseStats(0, 0, 0, 0, 0),
+            findings=[], sentinel_keys=[], fetches=[],
+            skipped_reason="LL_UI credentials not configured",
+            supply_partners=[],
+        )
+
+    try:
+        partners = _resolve_supply_partners()
+    except Exception as exc:
+        return EntityAuditResult(
+            universe_stats=UniverseStats(0, 0, 0, 0, 0),
+            findings=[], sentinel_keys=[], fetches=[],
+            skipped_reason=f"ll_mgmt.get_publishers failed: {exc}",
+            supply_partners=[],
+        )
+
+    partner_ids = {p["id"] for p in partners}
+    if not partner_ids:
+        return EntityAuditResult(
+            universe_stats=UniverseStats(0, 0, 0, 0, 0),
+            findings=[], sentinel_keys=[], fetches=[],
+            skipped_reason="No active LL supply partners found",
+            supply_partners=[],
+        )
+
+    entities, stats = build_entity_universe(
+        top_n=top_n, partner_filter=partner_ids,
+    )
     persist_entity_universe(entities)
 
     # Pull PGAM sellers.json once for the tier registry.
@@ -181,4 +237,6 @@ def run_entity_audit(
         findings=findings,
         sentinel_keys=sentinel_keys,
         fetches=list(fetches.values()),
+        skipped_reason=None,
+        supply_partners=partners,
     )
