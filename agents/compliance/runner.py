@@ -1,0 +1,281 @@
+"""
+agents/compliance/runner.py
+
+Supply Compliance & Quality Intelligence agent — Phase 1 orchestrator.
+
+Daily run:
+  1. Fetch PGAM sellers.json -> rebuild compliance_publishers universe
+  2. Ensure schema (idempotent CREATE TABLE IF NOT EXISTS)
+  3. For each publisher: fetch ads.txt (+ app-ads.txt if present)
+     and persist fetch metadata
+  4. Validate the universal `pgammedia.com, <seller_id>, DIRECT` line
+  5. UPSERT findings; auto-resolve clears
+  6. Post a daily Slack digest (deduped per UTC date)
+  7. Write a row to compliance_runs
+
+Gating
+------
+PGAM_COMPLIANCE_ENABLED=1 must be set for the scheduler to fire this.
+PGAM_COMPLIANCE_LIMIT=N to scan only the first N publishers (dev/staging).
+PGAM_COMPLIANCE_APP_ADS_TXT=1 to also fetch and validate app-ads.txt.
+PGAM_COMPLIANCE_RATE_HZ (default 2.0) requests per second across all hosts.
+"""
+from __future__ import annotations
+
+import os
+import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone
+from pathlib import Path
+
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+from dotenv import load_dotenv  # noqa: E402
+
+load_dotenv(dotenv_path=str(_REPO_ROOT / ".env"), override=True)
+
+from core.neon import connect  # noqa: E402
+
+from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
+from agents.compliance.findings import resolve_cleared, upsert_findings  # noqa: E402
+from agents.compliance.reporters.slack_digest import post_digest  # noqa: E402
+from agents.compliance.universe import Publisher, build_universe, sync_universe  # noqa: E402
+from agents.compliance.validators.adstxt_universal import (  # noqa: E402
+    Finding,
+    validate_universal_direct,
+)
+
+ACTOR = "compliance_runner"
+MIGRATION_PATH = _REPO_ROOT / "migrations" / "2026_05_17_compliance.sql"
+
+
+# ── Schema bootstrap ─────────────────────────────────────────────────────────
+
+
+def _ensure_schema() -> None:
+    """Run the migration idempotently. Same pattern as MSN insights ETL."""
+    if not MIGRATION_PATH.exists():
+        print(f"[{ACTOR}] WARNING: migration file missing: {MIGRATION_PATH}")
+        return
+    sql = MIGRATION_PATH.read_text()
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql)
+        conn.commit()
+
+
+# ── Crawl + persist fetch metadata ───────────────────────────────────────────
+
+
+_FETCH_INSERT_SQL = """
+INSERT INTO pgam_direct.compliance_adstxt_fetches
+    (publisher_key, variant, fetched_at, http_status,
+     body_sha256, line_count, error)
+VALUES
+    (%(publisher_key)s, %(variant)s, now(), %(http_status)s,
+     %(body_sha256)s, %(line_count)s, %(error)s);
+"""
+
+
+def _persist_fetches(fetches: list[AdsTxtFetch]) -> None:
+    if not fetches:
+        return
+    rows = [
+        {
+            "publisher_key": f.publisher_key,
+            "variant":       f.variant,
+            "http_status":   f.http_status,
+            "body_sha256":   f.body_sha256,
+            "line_count":    len(f.lines),
+            "error":         f.error,
+        }
+        for f in fetches
+    ]
+    with connect() as conn:
+        with conn.cursor() as cur:
+            cur.executemany(_FETCH_INSERT_SQL, rows)
+        conn.commit()
+
+
+def _crawl_publisher(pub: Publisher, app_ads: bool) -> list[AdsTxtFetch]:
+    """Fetch ads.txt (and optionally app-ads.txt) for a single publisher."""
+    out: list[AdsTxtFetch] = [
+        fetch_adstxt(pub.publisher_key, pub.domain, variant="ads.txt"),
+    ]
+    if app_ads:
+        out.append(fetch_adstxt(pub.publisher_key, pub.domain, variant="app-ads.txt"))
+    return out
+
+
+def _crawl_all(
+    publishers: list[Publisher],
+    *,
+    app_ads: bool,
+    rate_hz: float,
+    workers: int = 6,
+) -> list[AdsTxtFetch]:
+    """Crawl publishers in parallel with a global rate cap."""
+    if not publishers:
+        return []
+    min_interval = 1.0 / max(rate_hz, 0.1)
+    next_slot = [time.monotonic()]
+
+    def _gated(pub: Publisher) -> list[AdsTxtFetch]:
+        wait_until = next_slot[0]
+        now = time.monotonic()
+        if now < wait_until:
+            time.sleep(wait_until - now)
+        next_slot[0] = max(time.monotonic(), wait_until) + min_interval
+        return _crawl_publisher(pub, app_ads=app_ads)
+
+    results: list[AdsTxtFetch] = []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {pool.submit(_gated, p): p for p in publishers}
+        for fut in as_completed(futures):
+            try:
+                results.extend(fut.result())
+            except Exception as exc:
+                pub = futures[fut]
+                print(f"[{ACTOR}] crawl error pub={pub.publisher_key}: {exc}")
+    return results
+
+
+# ── Validation pass ──────────────────────────────────────────────────────────
+
+
+def _validate_all(
+    publishers: list[Publisher],
+    fetches: list[AdsTxtFetch],
+    *,
+    app_ads: bool,
+) -> list[Finding]:
+    pub_by_key: dict[str, Publisher] = {p.publisher_key: p for p in publishers}
+    fetch_by_pub: dict[str, dict[str, AdsTxtFetch]] = {}
+    for f in fetches:
+        fetch_by_pub.setdefault(f.publisher_key, {})[f.variant] = f
+
+    findings: list[Finding] = []
+    for pub_key, variants in fetch_by_pub.items():
+        pub = pub_by_key.get(pub_key)
+        if pub is None:
+            continue
+        # Phase 1: validate ads.txt; only attempt app-ads.txt if we got 200.
+        ads = variants.get("ads.txt")
+        if ads is not None:
+            findings.extend(validate_universal_direct(pub_key, pub.seller_id, ads))
+        if app_ads:
+            aa = variants.get("app-ads.txt")
+            if aa is not None and aa.http_status == 200:
+                findings.extend(validate_universal_direct(pub_key, pub.seller_id, aa))
+    return findings
+
+
+# ── Run log ──────────────────────────────────────────────────────────────────
+
+
+_RUN_INSERT_SQL = """
+INSERT INTO pgam_direct.compliance_runs
+    (started_at, finished_at, publishers_scanned, adstxt_fetched,
+     findings_opened, findings_resolved, ok, error)
+VALUES
+    (%(started_at)s, now(), %(publishers_scanned)s, %(adstxt_fetched)s,
+     %(findings_opened)s, %(findings_resolved)s, %(ok)s, %(error)s)
+RETURNING run_id;
+"""
+
+
+def _write_run_log(payload: dict) -> int | None:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_RUN_INSERT_SQL, payload)
+                row = cur.fetchone()
+            conn.commit()
+        return row[0] if row else None
+    except Exception as exc:
+        print(f"[{ACTOR}] run log write failed: {exc}")
+        return None
+
+
+# ── Entry point ──────────────────────────────────────────────────────────────
+
+
+def run() -> dict:
+    """Scheduler entry. Returns a summary dict."""
+    started_at = datetime.now(timezone.utc)
+    print(f"[{ACTOR}] start {started_at.isoformat()}")
+
+    limit = int(os.environ.get("PGAM_COMPLIANCE_LIMIT") or 0) or None
+    app_ads = os.environ.get("PGAM_COMPLIANCE_APP_ADS_TXT") == "1"
+    rate_hz = float(os.environ.get("PGAM_COMPLIANCE_RATE_HZ") or 2.0)
+
+    summary: dict = {
+        "started_at": started_at,
+        "publishers_scanned": 0,
+        "adstxt_fetched": 0,
+        "findings_opened": 0,
+        "findings_resolved": 0,
+        "ok": False,
+        "error": None,
+    }
+
+    try:
+        _ensure_schema()
+
+        publishers = build_universe()
+        if limit:
+            publishers = publishers[:limit]
+        upserted, deactivated = sync_universe(publishers)
+        print(f"[{ACTOR}] universe upserted={upserted} deactivated={deactivated}")
+
+        fetches = _crawl_all(publishers, app_ads=app_ads, rate_hz=rate_hz)
+        _persist_fetches(fetches)
+        print(f"[{ACTOR}] crawled {len(fetches)} files across {len(publishers)} pubs")
+
+        findings = _validate_all(publishers, fetches, app_ads=app_ads)
+        opened, total = upsert_findings(findings)
+        print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
+
+        seen = [(f.publisher_key, f.check_id, f.fingerprint) for f in findings]
+        # Only auto-resolve for publishers whose ads.txt actually returned 200.
+        # An unreachable file is "I don't know" — don't infer "fixed".
+        reachable_pubs = sorted({
+            f.publisher_key for f in fetches
+            if f.variant == "ads.txt" and f.http_status == 200
+        })
+        resolved = resolve_cleared(reachable_pubs, seen)
+        print(f"[{ACTOR}] auto-resolved {resolved} previously-open findings")
+
+        summary.update({
+            "publishers_scanned": len(publishers),
+            "adstxt_fetched":     len(fetches),
+            "findings_opened":    opened,
+            "findings_resolved":  resolved,
+            "ok":                 True,
+        })
+
+        try:
+            post_digest(summary)
+        except Exception as exc:
+            print(f"[{ACTOR}] Slack digest failed (non-fatal): {exc}")
+
+    except Exception as exc:
+        summary["error"] = str(exc)
+        print(f"[{ACTOR}] FAILED: {exc}")
+
+    _write_run_log(summary)
+    print(
+        f"[{ACTOR}] done ok={summary['ok']} "
+        f"pubs={summary['publishers_scanned']} "
+        f"opened={summary['findings_opened']} "
+        f"resolved={summary['findings_resolved']}"
+    )
+    return summary
+
+
+if __name__ == "__main__":
+    result = run()
+    sys.exit(0 if result.get("ok") else 1)
