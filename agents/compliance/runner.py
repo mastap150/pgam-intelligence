@@ -50,6 +50,7 @@ from agents.compliance.observed_monetization import (  # noqa: E402
     refresh_observed_monetization,
 )
 from agents.compliance.reporters.slack_digest import post_digest  # noqa: E402
+from agents.compliance.schain_audit import run_schain_audit  # noqa: E402
 from agents.compliance.scoring import refresh_publisher_scores  # noqa: E402
 from agents.compliance.ssp_registry import PHASE_2_SSP_EXPECTATIONS  # noqa: E402
 from agents.compliance.universe import Publisher, build_universe, sync_universe  # noqa: E402
@@ -317,6 +318,8 @@ def run() -> dict:
     enable_downstream = os.environ.get("PGAM_COMPLIANCE_DOWNSTREAM", "1") != "0"
     # Phase 3 publisher scoring; defaults ON.
     enable_scoring = os.environ.get("PGAM_COMPLIANCE_SCORING", "1") != "0"
+    # Phase 4 schain static audit; defaults ON. Degrades cleanly without LL creds.
+    enable_schain = os.environ.get("PGAM_COMPLIANCE_SCHAIN", "1") != "0"
 
     summary: dict = {
         "started_at": started_at,
@@ -326,6 +329,8 @@ def run() -> dict:
         "ll_bridge_unmatched": 0,
         "observed_ssp_rows": 0,
         "ssps_audited": 0,
+        "schain_demands_audited": 0,
+        "schain_publishers_audited": 0,
         "scores_written": 0,
         "avg_score": 0.0,
         "findings_opened": 0,
@@ -390,18 +395,41 @@ def run() -> dict:
             findings.extend(ssp_findings)
             summary["ssps_audited"] = len(ssp_sentinel_keys)
 
+        # Phase 4: static schain audit on LL demands + publishers. Reports
+        # any drift the optimization-side auto-fixer didn't catch (rev-threshold
+        # backlog, manual UI toggles, etc). Read-only — does not write to LL.
+        schain_sentinel_keys: list[str] = []
+        if enable_schain:
+            try:
+                sch = run_schain_audit()
+                if sch.skipped_reason:
+                    print(f"[{ACTOR}] schain audit skipped: {sch.skipped_reason}")
+                else:
+                    findings.extend(sch.findings)
+                    schain_sentinel_keys = sch.sentinel_keys
+                    summary["schain_demands_audited"]   = sch.demands_audited
+                    summary["schain_publishers_audited"] = sch.publishers_audited
+                    print(
+                        f"[{ACTOR}] schain audit demands={sch.demands_audited} "
+                        f"publishers={sch.publishers_audited} "
+                        f"findings={len(sch.findings)}"
+                    )
+            except Exception as exc:
+                print(f"[{ACTOR}] schain audit failed (non-fatal): {exc}")
+
         opened, total = upsert_findings(findings)
         print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
 
         seen = [(f.publisher_key, f.check_id, f.fingerprint) for f in findings]
         # Only auto-resolve for publishers whose ads.txt actually returned 200.
         # An unreachable file is "I don't know" — don't infer "fixed".
-        # SSP sentinels auto-resolve when the next downstream audit clears them.
+        # SSP + schain sentinels auto-resolve when the next audit clears them.
         reachable_pubs = sorted({
             f.publisher_key for f in fetches
             if f.variant == "ads.txt" and f.http_status == 200
         })
-        resolved = resolve_cleared(reachable_pubs + ssp_sentinel_keys, seen)
+        resolvable = reachable_pubs + ssp_sentinel_keys + schain_sentinel_keys
+        resolved = resolve_cleared(resolvable, seen)
         print(f"[{ACTOR}] auto-resolved {resolved} previously-open findings")
 
         # Phase 3: per-publisher score, AFTER findings have been upserted.

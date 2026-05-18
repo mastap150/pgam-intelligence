@@ -80,9 +80,13 @@ def _load_lowest_scores(as_of: date) -> list[dict]:
 
 
 def _format_pub_key(key: str) -> str:
-    """SSP-sentinel keys render as `SSP rubicon` instead of `_ssp:rubicon`."""
+    """Sentinel keys get readable labels; real publisher keys render as code."""
     if key.startswith("_ssp:"):
         return f"SSP `{key[5:]}`"
+    if key.startswith("_ll_demand:"):
+        return f"demand `{key[len('_ll_demand:'):]}`"
+    if key.startswith("_ll_pub:"):
+        return f"LL pub `{key[len('_ll_pub:'):]}`"
     return f"`{key}`"
 
 

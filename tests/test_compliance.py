@@ -39,6 +39,10 @@ from agents.compliance.validators.sellersjson_downstream import (  # noqa: E402
     validate_downstream_sellersjson,
 )
 from agents.compliance.crawlers.downstream_sellersjson import DownstreamFetch  # noqa: E402
+from agents.compliance.validators.schain_static import (  # noqa: E402
+    audit_demands,
+    audit_publishers,
+)
 from agents.compliance.universe import Publisher, build_universe  # noqa: E402
 from agents.compliance.validators.adstxt_resellers import (  # noqa: E402
     validate_resellers_for_publisher,
@@ -648,6 +652,107 @@ def test_score_mixed_severities() -> None:
            compute_score(1, 2, 1, 2) == 50.0)
 
 
+# ── Phase 4: static schain audit ────────────────────────────────────────────
+
+
+def test_schain_demand_disabled_flagged() -> None:
+    print("\n[schain — demand with supplyChainEnabled=False above threshold]")
+    demands = [
+        {"id": 101, "name": "Big DSP", "status": 1, "supplyChainEnabled": False},
+    ]
+    rev = {101: 500.0}
+    findings = audit_demands(demands, rev)
+    _check("one finding", len(findings) == 1)
+    _check("check_id = demand_supplychain_disabled",
+           findings[0].check_id == "schain.demand_supplychain_disabled")
+    _check("severity critical", findings[0].severity == "critical")
+    _check("sentinel publisher_key",
+           findings[0].publisher_key == "_ll_demand:101")
+    _check("revenue persisted in detail",
+           findings[0].detail["revenue_7d"] == 500.0)
+
+
+def test_schain_demand_below_threshold_skipped() -> None:
+    print("\n[schain — demand below $50 threshold not flagged]")
+    demands = [
+        {"id": 102, "name": "Small DSP", "status": 1, "supplyChainEnabled": False},
+    ]
+    rev = {102: 10.0}
+    findings = audit_demands(demands, rev)
+    _check("no findings (below MIN_REV_7D)", len(findings) == 0)
+
+
+def test_schain_demand_enabled_passes() -> None:
+    print("\n[schain — demand with supplyChainEnabled=True passes]")
+    demands = [
+        {"id": 103, "name": "OK DSP", "status": 1, "supplyChainEnabled": True},
+    ]
+    rev = {103: 500.0}
+    findings = audit_demands(demands, rev)
+    _check("no findings", len(findings) == 0)
+
+
+def test_schain_demand_missing_field_treated_as_enabled() -> None:
+    print("\n[schain — missing supplyChainEnabled treated as True (LL default)]")
+    demands = [
+        {"id": 104, "name": "No Field DSP", "status": 1},
+    ]
+    rev = {104: 500.0}
+    findings = audit_demands(demands, rev)
+    _check("no findings (missing == default True)", len(findings) == 0)
+
+
+def test_schain_demand_archived_skipped() -> None:
+    print("\n[schain — archived/non-active demand skipped]")
+    demands = [
+        {"id": 105, "name": "Archived", "status": 4, "supplyChainEnabled": False},
+    ]
+    rev = {105: 500.0}
+    findings = audit_demands(demands, rev)
+    _check("no findings on archived demand", len(findings) == 0)
+
+
+def test_schain_pub_node_injection_flagged() -> None:
+    print("\n[schain — pub with dontAddSupplyChainNode=False above threshold]")
+    pubs = [
+        {"id": 201, "name": "Pub A", "status": 1, "dontAddSupplyChainNode": False},
+    ]
+    rev = {201: 1000.0}
+    findings = audit_publishers(pubs, rev)
+    _check("one finding", len(findings) == 1)
+    _check("check_id = pub_node_injection_enabled",
+           findings[0].check_id == "schain.pub_node_injection_enabled")
+    _check("severity high", findings[0].severity == "high")
+    _check("sentinel publisher_key",
+           findings[0].publisher_key == "_ll_pub:201")
+
+
+def test_schain_pub_none_field_not_flagged() -> None:
+    print("\n[schain — pub with dontAddSupplyChainNode=None NOT flagged]")
+    # Match auto-fixer behavior: only explicit False triggers.
+    pubs = [
+        {"id": 202, "name": "Pub B", "status": 1, "dontAddSupplyChainNode": None},
+        {"id": 203, "name": "Pub C", "status": 1},  # field absent entirely
+    ]
+    rev = {202: 1000.0, 203: 1000.0}
+    findings = audit_publishers(pubs, rev)
+    _check("no findings on None/absent fields", len(findings) == 0)
+
+
+def test_schain_pub_test_publisher_skipped() -> None:
+    print("\n[schain — TEST / Copy- publishers skipped]")
+    pubs = [
+        {"id": 204, "name": "TEST Pub",   "status": 1, "dontAddSupplyChainNode": False},
+        {"id": 205, "name": "Copy - Foo", "status": 1, "dontAddSupplyChainNode": False},
+        {"id": 206, "name": "Real Pub",   "status": 1, "dontAddSupplyChainNode": False},
+    ]
+    rev = {204: 1000.0, 205: 1000.0, 206: 1000.0}
+    findings = audit_publishers(pubs, rev)
+    _check("only real pub flagged", len(findings) == 1)
+    _check("real pub flagged",
+           findings[0].publisher_key == "_ll_pub:206")
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
@@ -695,6 +800,15 @@ def main() -> int:
         test_score_one_critical,
         test_score_floors_at_zero,
         test_score_mixed_severities,
+        # Phase 4
+        test_schain_demand_disabled_flagged,
+        test_schain_demand_below_threshold_skipped,
+        test_schain_demand_enabled_passes,
+        test_schain_demand_missing_field_treated_as_enabled,
+        test_schain_demand_archived_skipped,
+        test_schain_pub_node_injection_flagged,
+        test_schain_pub_none_field_not_flagged,
+        test_schain_pub_test_publisher_skipped,
     ]
     failures = 0
     for t in tests:
