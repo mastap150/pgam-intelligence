@@ -165,6 +165,17 @@ class PartnerHubClient:
         self._page: Optional[Page] = None
         self._last_refresh_at: Optional[datetime] = None
 
+        # 2026-05-18: api.msn.com auths on the MSAL Bearer JWE token
+        # that the SPA injects via an axios interceptor. Our own
+        # page.evaluate(fetch(...)) bypasses axios so the Bearer
+        # never gets attached → 401.
+        # Fix: listen for the SPA's first authenticated request on
+        # api.msn.com, snapshot its Authorization header, then
+        # replay it on our own paginated calls via the Authorization
+        # header directly.
+        self._captured_bearer: Optional[str] = None
+        self._bearer_captured_at: Optional[datetime] = None
+
     # ------------------------------------------------------------------
     # Lifecycle
     # ------------------------------------------------------------------
@@ -194,8 +205,29 @@ class PartnerHubClient:
             ),
         )
         self._page = self._ctx.new_page()
+        # Attach the Bearer-capture listener BEFORE navigation so we
+        # don't miss the SPA's first authenticated request.
+        self._page.on("request", self._on_request)
         self._open_partner_hub()
         return self
+
+    def _on_request(self, request: Any) -> None:
+        """Network-listener callback. Captures the Authorization Bearer
+        token from any request to api.msn.com that carries one."""
+        try:
+            if not request.url.startswith(API_HOST):
+                return
+            headers = request.headers
+            auth = headers.get("authorization") or headers.get("Authorization")
+            if auth and auth.lower().startswith("bearer "):
+                # Only capture once per session — bearer is good for ~1h
+                # and we'll _maybe_refresh() to get a fresh one.
+                if self._captured_bearer != auth:
+                    self._captured_bearer = auth
+                    self._bearer_captured_at = _now_utc()
+        except Exception:
+            # A listener that throws kills future events; swallow.
+            pass
 
     def close(self) -> None:
         try:
@@ -234,20 +266,57 @@ class PartnerHubClient:
     def _ensure_logged_in(self) -> None:
         """Detect whether MSAL has redirected us to login.microsoftonline.com
         and, if so, drive the username/password form. Persistent context
-        means this typically only runs on the very first call."""
+        means this typically only runs on the very first call.
+
+        2026-05-18 update: MSN's Partner Hub serves a public unauthenticated
+        shell at /en-us/partnerhub/* with a "Sign in" CTA rather than
+        immediately redirecting unauthed users to login.microsoftonline.com.
+        The previous heuristic ("URL contains 'partnerhub' → we're logged
+        in") therefore false-positived on a fresh session, never triggered
+        the login flow, and 401'd on the first API call.
+        New heuristic: explicitly look for the "Sign in" CTA on the page;
+        if present, click it to kick off the MSAL redirect dance. THEN
+        watch for the login URL the same way as before.
+        """
         assert self._page is not None
-        # If the URL after navigation contains login.microsoftonline.com
-        # we need to authenticate.
+
+        # Step 1: trigger the login redirect if we're sitting on the
+        # anonymous Partner Hub shell. Try a few common Sign-in selectors;
+        # any one match is enough.
+        sign_in_selectors = (
+            'a:has-text("Sign in")',
+            'button:has-text("Sign in")',
+            '[aria-label="Sign in"]',
+            '[data-testid="signin-button"]',
+        )
+        for sel in sign_in_selectors:
+            try:
+                btn = self._page.locator(sel).first
+                if btn.is_visible(timeout=1500):
+                    btn.click()
+                    break
+            except PlaywrightTimeout:
+                continue
+            except Exception:
+                # Selector mis-fires shouldn't kill the flow.
+                continue
+
+        # Step 2: poll for the URL to become the Microsoft login surface
+        # (which fires either via the Sign-in click above or via the
+        # SPA's MSAL handshake on mount).
         for _ in range(60):  # up to ~30s polling
             url = self._page.url
             if "login.microsoftonline.com" in url or "login.live.com" in url:
                 break
-            if "partnerhub" in url:
-                # already through the redirect dance
-                return
             self._page.wait_for_timeout(500)
         else:
-            # Neither obvious login nor partnerhub — assume we're already in.
+            # Never reached a login redirect within 30s. Could mean:
+            #   (a) we're genuinely already authenticated (session cookie
+            #       picked up the OAuth dance silently), OR
+            #   (b) the Sign-in element wasn't found and the SPA never
+            #       redirected (likely a UI change on MSN's side).
+            # Caller's _call() will surface a 401 in case (b), so we
+            # return here and let the API speak for itself.
             return
 
         if not self.email or not self.password:
@@ -287,17 +356,30 @@ class PartnerHubClient:
             ) from exc
 
     def _wait_for_app_ready(self) -> None:
-        """The SPA fires its own `realtime` XHR on mount. We don't need to
-        wait for that exact call, but giving the app ~3s to finish setting
-        up MSAL state before our fetches go out is cheap insurance."""
+        """The SPA fires its own `realtime` XHR on mount carrying the
+        Authorization Bearer header — that's what we listen for to
+        confirm auth state. Wait up to ~25s for that capture; on
+        timeout we proceed and let _call() surface the resulting 401."""
         assert self._page is not None
         try:
             self._page.wait_for_load_state("networkidle", timeout=15_000)
         except PlaywrightTimeout:
             # Some Partner Hub pages keep WebSockets open, so networkidle
-            # never fires. That's fine — we can still call fetch().
+            # never fires. That's fine — we'll just poll for the bearer.
             pass
-        self._page.wait_for_timeout(1500)
+        # Poll for up to 25s waiting for the SPA's first authenticated
+        # api.msn.com request (captured by self._on_request).
+        for _ in range(50):
+            if self._captured_bearer is not None:
+                return
+            self._page.wait_for_timeout(500)
+        # No bearer captured. Most likely the page is unauthenticated.
+        # _call() will surface a clearer error on the actual API call.
+        print(
+            "[msn_partner_hub] WARNING: no Bearer captured from SPA traffic "
+            "within 25s. The SPA may be unauthenticated, or the API surface "
+            "changed. Proceeding — first API call will reveal."
+        )
 
     def _maybe_refresh(self) -> None:
         """Reload Partner Hub when the in-page bearer is getting stale."""
@@ -346,29 +428,37 @@ class PartnerHubClient:
         }
 
     def _call(self, path: str, params: dict[str, str]) -> dict[str, Any]:
-        """Run `fetch(url, {credentials:'include'})` inside Partner Hub's
-        page context and return the parsed JSON. Raises PartnerHubError
-        on non-2xx."""
+        """Run `fetch(url, …)` inside Partner Hub's page context, with
+        the SPA's captured Bearer token attached, and return the parsed
+        JSON. Raises PartnerHubError on non-2xx.
+
+        Until 2026-05-18 we relied on the page-context fetch to pick up
+        the SPA's axios interceptor — but the interceptor only catches
+        axios calls, not raw fetch(). So we explicitly attach the
+        captured Authorization header here."""
         self._maybe_refresh()
         assert self._page is not None
         url = f"{API_HOST}{path}?{urlencode(params, safe=',-')}"
-        # `same-origin` would block this — we're on www.msn.com calling
-        # api.msn.com — but the Partner Hub's own requests use the
-        # `include` mode plus MSAL-injected auth header, which the SPA
-        # sets up via an axios interceptor. Replicating the call from
-        # page.evaluate() picks up the interceptor automatically.
+        bearer = self._captured_bearer or ""
         js = """
-        async (url) => {
+        async ({ url, bearer }) => {
+            const headers = {
+                'accept': '*/*',
+                'content-type': 'application/json',
+            };
+            if (bearer) {
+                headers['authorization'] = bearer;
+            }
             const r = await fetch(url, {
                 method: 'GET',
                 credentials: 'include',
-                headers: { 'accept': '*/*', 'content-type': 'application/json' }
+                headers,
             });
             const text = await r.text();
             return { status: r.status, body: text };
         }
         """
-        result = self._page.evaluate(js, url)
+        result = self._page.evaluate(js, {"url": url, "bearer": bearer})
         status = result.get("status")
         body = result.get("body") or ""
         if status == 401:
