@@ -34,12 +34,50 @@ class SspExpectation:
     relationship: str                          # column 3 — always RESELLER for this phase
     cert_authority: str | None                 # column 4 (optional per spec)
     demand_name_patterns: tuple[str, ...] = field(default_factory=tuple)
+    # Phase 3: explicit sellers.json URL override. Most SSPs serve from
+    # https://<ads_txt_domain>/sellers.json (the default at access time);
+    # set this only when an SSP hosts it elsewhere.
+    sellers_json_url: str | None = None
+    # Phase 3: optional override for the expected seller_type the
+    # downstream sellers.json should declare for our seat. Most SSPs use
+    # INTERMEDIARY for reseller paths; leave None to skip type checks
+    # entirely.
+    expected_downstream_seller_type: str | None = "INTERMEDIARY"
+
+    @property
+    def effective_sellers_json_url(self) -> str:
+        return self.sellers_json_url or f"https://{self.ads_txt_domain}/sellers.json"
 
     def matches_demand_name(self, name: str) -> bool:
         if not name:
             return False
         lower = name.lower()
         return any(p in lower for p in self.demand_name_patterns)
+
+
+# Strings that, when found in a downstream sellers.json entry's name or
+# domain, identify the entry as belonging to PGAM. Case-insensitive.
+PGAM_IDENTITY_MARKERS: tuple[str, ...] = (
+    "pgam",          # pgam media, pgammedia, pgamssp, pgamrtb
+    "pgammedia",
+    "pgamssp",
+)
+
+
+def is_pgam_seller_entry(entry: dict) -> bool:
+    """True if a sellers.json `sellers[]` entry looks like a PGAM seat.
+
+    Logic:
+      - is_confidential=true entries pass on the assumption that the
+        SSP redacted the name on purpose. This is spec-compliant
+        behavior and we can't verify name/domain there.
+      - Otherwise either `name` or `domain` must contain a PGAM marker.
+    """
+    if entry.get("is_confidential") in (1, True, "1"):
+        return True
+    name = (entry.get("name") or "").lower()
+    domain = (entry.get("domain") or "").lower()
+    return any(m in name or m in domain for m in PGAM_IDENTITY_MARKERS)
 
 
 PHASE_2_SSP_EXPECTATIONS: tuple[SspExpectation, ...] = (

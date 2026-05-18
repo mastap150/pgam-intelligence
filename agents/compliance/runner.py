@@ -40,6 +40,9 @@ load_dotenv(dotenv_path=str(_REPO_ROOT / ".env"), override=True)
 from core.neon import connect  # noqa: E402
 
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
+from agents.compliance.crawlers.downstream_sellersjson import (  # noqa: E402
+    fetch_downstream_sellers_json,
+)
 from agents.compliance.findings import resolve_cleared, upsert_findings  # noqa: E402
 from agents.compliance.ll_bridge import run_bridge  # noqa: E402
 from agents.compliance.observed_monetization import (  # noqa: E402
@@ -47,6 +50,8 @@ from agents.compliance.observed_monetization import (  # noqa: E402
     refresh_observed_monetization,
 )
 from agents.compliance.reporters.slack_digest import post_digest  # noqa: E402
+from agents.compliance.scoring import refresh_publisher_scores  # noqa: E402
+from agents.compliance.ssp_registry import PHASE_2_SSP_EXPECTATIONS  # noqa: E402
 from agents.compliance.universe import Publisher, build_universe, sync_universe  # noqa: E402
 from agents.compliance.validators.adstxt_resellers import (  # noqa: E402
     validate_resellers_for_publisher,
@@ -55,11 +60,15 @@ from agents.compliance.validators.adstxt_universal import (  # noqa: E402
     Finding,
     validate_universal_direct,
 )
+from agents.compliance.validators.sellersjson_downstream import (  # noqa: E402
+    validate_downstream_sellersjson,
+)
 
 ACTOR = "compliance_runner"
 MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_17_compliance.sql",
     _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase2.sql",
+    _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase3.sql",
 )
 
 
@@ -199,6 +208,70 @@ def _validate_all(
     return findings
 
 
+# ── Downstream sellers.json audit (Phase 3) ──────────────────────────────────
+
+
+_DOWNSTREAM_FETCH_INSERT_SQL = """
+INSERT INTO pgam_direct.compliance_downstream_sellersjson_fetches
+    (ssp_key, url, fetched_at, http_status, body_sha256,
+     seller_count, pgam_seat_found, error)
+VALUES
+    (%(ssp_key)s, %(url)s, now(), %(http_status)s, %(body_sha256)s,
+     %(seller_count)s, %(pgam_seat_found)s, %(error)s);
+"""
+
+
+def _audit_downstream_ssps() -> tuple[list[Finding], list[str]]:
+    """Fetch + validate each SSP's sellers.json. Persists fetch metadata.
+
+    Returns (findings, sentinel_publisher_keys). Sentinel keys are the
+    `_ssp:<key>` strings used for auto-resolve so cleared findings flip
+    to resolved on the next clean run.
+    """
+    all_findings: list[Finding] = []
+    sentinel_keys: list[str] = []
+    fetch_rows: list[dict] = []
+
+    for exp in PHASE_2_SSP_EXPECTATIONS:
+        sentinel_keys.append(f"_ssp:{exp.ssp_key}")
+        try:
+            df = fetch_downstream_sellers_json(exp)
+        except Exception as exc:
+            print(f"[{ACTOR}] downstream sellers.json fetch failed for "
+                  f"{exp.ssp_key}: {exc}")
+            continue
+
+        pgam_seat_found: bool | None = None
+        if df.ok:
+            pgam_seat_found = any(
+                str(s.get("seller_id") or "") == str(exp.account_id)
+                for s in df.sellers
+            )
+
+        fetch_rows.append({
+            "ssp_key":         exp.ssp_key,
+            "url":             df.url,
+            "http_status":     df.http_status,
+            "body_sha256":     df.body_sha256,
+            "seller_count":    df.seller_count,
+            "pgam_seat_found": pgam_seat_found,
+            "error":           df.error,
+        })
+
+        all_findings.extend(validate_downstream_sellersjson(exp, df))
+
+    if fetch_rows:
+        try:
+            with connect() as conn:
+                with conn.cursor() as cur:
+                    cur.executemany(_DOWNSTREAM_FETCH_INSERT_SQL, fetch_rows)
+                conn.commit()
+        except Exception as exc:
+            print(f"[{ACTOR}] downstream fetch persistence failed: {exc}")
+
+    return all_findings, sentinel_keys
+
+
 # ── Run log ──────────────────────────────────────────────────────────────────
 
 
@@ -240,6 +313,10 @@ def run() -> dict:
     # Phase 2 reseller validation defaults ON; flip to "0" to skip if
     # ll_daily_partner_revenue is stale or LL bridge matching is being tuned.
     enable_resellers = os.environ.get("PGAM_COMPLIANCE_RESELLERS", "1") != "0"
+    # Phase 3 downstream sellers.json audit; defaults ON.
+    enable_downstream = os.environ.get("PGAM_COMPLIANCE_DOWNSTREAM", "1") != "0"
+    # Phase 3 publisher scoring; defaults ON.
+    enable_scoring = os.environ.get("PGAM_COMPLIANCE_SCORING", "1") != "0"
 
     summary: dict = {
         "started_at": started_at,
@@ -248,6 +325,9 @@ def run() -> dict:
         "ll_bridge_matched": 0,
         "ll_bridge_unmatched": 0,
         "observed_ssp_rows": 0,
+        "ssps_audited": 0,
+        "scores_written": 0,
+        "avg_score": 0.0,
         "findings_opened": 0,
         "findings_resolved": 0,
         "ok": False,
@@ -300,18 +380,43 @@ def run() -> dict:
         findings = _validate_all(publishers, fetches,
                                  app_ads=app_ads,
                                  enable_resellers=enable_resellers)
+
+        # Phase 3: downstream sellers.json audit. Each SSP-level finding
+        # uses a sentinel publisher_key '_ssp:<key>' so the upsert
+        # pipeline handles them uniformly. Scoring excludes sentinels.
+        ssp_sentinel_keys: list[str] = []
+        if enable_downstream:
+            ssp_findings, ssp_sentinel_keys = _audit_downstream_ssps()
+            findings.extend(ssp_findings)
+            summary["ssps_audited"] = len(ssp_sentinel_keys)
+
         opened, total = upsert_findings(findings)
         print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
 
         seen = [(f.publisher_key, f.check_id, f.fingerprint) for f in findings]
         # Only auto-resolve for publishers whose ads.txt actually returned 200.
         # An unreachable file is "I don't know" — don't infer "fixed".
+        # SSP sentinels auto-resolve when the next downstream audit clears them.
         reachable_pubs = sorted({
             f.publisher_key for f in fetches
             if f.variant == "ads.txt" and f.http_status == 200
         })
-        resolved = resolve_cleared(reachable_pubs, seen)
+        resolved = resolve_cleared(reachable_pubs + ssp_sentinel_keys, seen)
         print(f"[{ACTOR}] auto-resolved {resolved} previously-open findings")
+
+        # Phase 3: per-publisher score, AFTER findings have been upserted.
+        if enable_scoring:
+            try:
+                score_stats = refresh_publisher_scores()
+                summary["scores_written"] = score_stats.rows_written
+                summary["avg_score"]      = score_stats.avg_score
+                print(
+                    f"[{ACTOR}] scores written={score_stats.rows_written} "
+                    f"avg={score_stats.avg_score} "
+                    f"below_75={score_stats.publishers_below_75}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] scoring failed (non-fatal): {exc}")
 
         summary.update({
             "publishers_scanned": len(publishers),

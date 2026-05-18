@@ -28,10 +28,17 @@ from agents.compliance.crawlers.sellersjson import parse_sellers  # noqa: E402
 from agents.compliance.ll_bridge import score_match  # noqa: E402
 from agents.compliance.observed_monetization import classify_rows_for_tests  # noqa: E402
 from agents.compliance.ssp_registry import (  # noqa: E402
+    PGAM_IDENTITY_MARKERS,
     PHASE_2_SSP_EXPECTATIONS,
     classify_demand_name,
     get_expectation,
+    is_pgam_seller_entry,
 )
+from agents.compliance.scoring import compute_score  # noqa: E402
+from agents.compliance.validators.sellersjson_downstream import (  # noqa: E402
+    validate_downstream_sellersjson,
+)
+from agents.compliance.crawlers.downstream_sellersjson import DownstreamFetch  # noqa: E402
 from agents.compliance.universe import Publisher, build_universe  # noqa: E402
 from agents.compliance.validators.adstxt_resellers import (  # noqa: E402
     validate_resellers_for_publisher,
@@ -488,6 +495,159 @@ def test_bridge_short_stem_not_promoted() -> None:
     _check("very-short stem suppressed", m is None or m.method != "domain_substring")
 
 
+# ── Phase 3: SspExpectation extensions ───────────────────────────────────────
+
+
+def test_ssp_expectation_default_sellers_json_url() -> None:
+    print("\n[ssp expectation — default sellers.json URL]")
+    rubicon = get_expectation("rubicon")
+    _check("default sellers.json URL is https://<ads_txt_domain>/sellers.json",
+           rubicon.effective_sellers_json_url == "https://rubiconproject.com/sellers.json")
+
+
+def test_is_pgam_seller_entry_markers() -> None:
+    print("\n[is_pgam_seller_entry — marker matching]")
+    cases = [
+        ({"name": "PGAM Media", "domain": "pgammedia.com"}, True),
+        ({"name": "Acme Co", "domain": "pgamssp.com"}, True),
+        ({"name": "Unrelated", "domain": "other.com"}, False),
+        ({"name": "Unrelated", "domain": "other.com", "is_confidential": 1}, True),
+        ({"name": "", "domain": "", "is_confidential": True}, True),
+        ({}, False),
+    ]
+    for entry, expected in cases:
+        actual = is_pgam_seller_entry(entry)
+        label = f"{entry} → {expected}"
+        _check(label, actual == expected, f"got {actual}")
+
+
+# ── Phase 3: downstream sellers.json validator ───────────────────────────────
+
+
+def _make_downstream(sellers, *, ok=True) -> DownstreamFetch:
+    return DownstreamFetch(
+        ssp_key="rubicon",
+        url="https://rubiconproject.com/sellers.json",
+        http_status=200 if ok else 503,
+        body_sha256="abc",
+        seller_count=len(sellers),
+        sellers=sellers,
+        error=None if ok else "HTTP 503",
+    )
+
+
+def test_downstream_seat_present_passes() -> None:
+    print("\n[downstream sellers.json — seat present + identifies PGAM]")
+    rubicon = get_expectation("rubicon")
+    sellers = [
+        {"seller_id": "12345", "seller_type": "PUBLISHER", "name": "Other Co"},
+        {"seller_id": rubicon.account_id, "seller_type": "INTERMEDIARY",
+         "name": "PGAM Media", "domain": "pgammedia.com"},
+    ]
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream(sellers))
+    _check("no findings when seat is correct", len(findings) == 0,
+           f"got {[f.check_id for f in findings]}")
+
+
+def test_downstream_seat_missing() -> None:
+    print("\n[downstream sellers.json — seat missing]")
+    rubicon = get_expectation("rubicon")
+    sellers = [{"seller_id": "99999", "seller_type": "PUBLISHER", "name": "Else"}]
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream(sellers))
+    _check("one critical finding", len(findings) == 1)
+    _check("check_id = downstream_seat_missing",
+           findings[0].check_id == "sellersjson.downstream_seat_missing")
+    _check("sentinel publisher_key",
+           findings[0].publisher_key == "_ssp:rubicon")
+
+
+def test_downstream_seat_wrong_id() -> None:
+    print("\n[downstream sellers.json — seat present but not PGAM]")
+    rubicon = get_expectation("rubicon")
+    sellers = [
+        {"seller_id": rubicon.account_id, "seller_type": "INTERMEDIARY",
+         "name": "Random Reseller", "domain": "random.com",
+         "is_confidential": 0},
+    ]
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream(sellers))
+    _check("one critical finding", len(findings) == 1)
+    _check("check_id = downstream_seat_wrong_id",
+           findings[0].check_id == "sellersjson.downstream_seat_wrong_id")
+
+
+def test_downstream_seat_confidential_accepted() -> None:
+    print("\n[downstream sellers.json — confidential seat accepted]")
+    rubicon = get_expectation("rubicon")
+    sellers = [
+        {"seller_id": rubicon.account_id, "seller_type": "INTERMEDIARY",
+         "name": "", "domain": "", "is_confidential": 1},
+    ]
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream(sellers))
+    _check("no findings when seat is confidential", len(findings) == 0,
+           f"got {[f.check_id for f in findings]}")
+
+
+def test_downstream_wrong_type() -> None:
+    print("\n[downstream sellers.json — wrong seller_type]")
+    rubicon = get_expectation("rubicon")
+    sellers = [
+        {"seller_id": rubicon.account_id, "seller_type": "PUBLISHER",
+         "name": "PGAM Media", "domain": "pgammedia.com"},
+    ]
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream(sellers))
+    _check("one high finding", len(findings) == 1)
+    _check("check_id = downstream_seat_wrong_type",
+           findings[0].check_id == "sellersjson.downstream_seat_wrong_type")
+    _check("severity = high", findings[0].severity == "high")
+
+
+def test_downstream_type_BOTH_accepted() -> None:
+    print("\n[downstream sellers.json — BOTH counts as ok for INTERMEDIARY expectation]")
+    rubicon = get_expectation("rubicon")
+    sellers = [
+        {"seller_id": rubicon.account_id, "seller_type": "BOTH",
+         "name": "PGAM Media", "domain": "pgammedia.com"},
+    ]
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream(sellers))
+    _check("BOTH satisfies INTERMEDIARY expectation",
+           len(findings) == 0, f"got {[f.check_id for f in findings]}")
+
+
+def test_downstream_unreachable() -> None:
+    print("\n[downstream sellers.json — unreachable]")
+    rubicon = get_expectation("rubicon")
+    findings = validate_downstream_sellersjson(rubicon, _make_downstream([], ok=False))
+    _check("one high finding", len(findings) == 1)
+    _check("check_id = downstream_unreachable",
+           findings[0].check_id == "sellersjson.downstream_unreachable")
+
+
+# ── Phase 3: scoring ─────────────────────────────────────────────────────────
+
+
+def test_score_perfect() -> None:
+    print("\n[score — no findings]")
+    _check("score=100 with no findings", compute_score(0, 0, 0, 0) == 100.0)
+
+
+def test_score_one_critical() -> None:
+    print("\n[score — one critical]")
+    _check("score=75 with 1 critical", compute_score(1, 0, 0, 0) == 75.0)
+
+
+def test_score_floors_at_zero() -> None:
+    print("\n[score — floors at 0]")
+    _check("score=0 with 4 criticals", compute_score(4, 0, 0, 0) == 0.0)
+    _check("score=0 with 10 criticals", compute_score(10, 0, 0, 0) == 0.0)
+
+
+def test_score_mixed_severities() -> None:
+    print("\n[score — mixed severities]")
+    # 1 critical (-25) + 2 high (-20) + 1 medium (-3) + 2 info (-2) = -50 → 50
+    _check("composite score = 50",
+           compute_score(1, 2, 1, 2) == 50.0)
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
@@ -521,6 +681,20 @@ def main() -> int:
         test_bridge_token_overlap,
         test_bridge_no_match,
         test_bridge_short_stem_not_promoted,
+        # Phase 3
+        test_ssp_expectation_default_sellers_json_url,
+        test_is_pgam_seller_entry_markers,
+        test_downstream_seat_present_passes,
+        test_downstream_seat_missing,
+        test_downstream_seat_wrong_id,
+        test_downstream_seat_confidential_accepted,
+        test_downstream_wrong_type,
+        test_downstream_type_BOTH_accepted,
+        test_downstream_unreachable,
+        test_score_perfect,
+        test_score_one_critical,
+        test_score_floors_at_zero,
+        test_score_mixed_severities,
     ]
     failures = 0
     for t in tests:
