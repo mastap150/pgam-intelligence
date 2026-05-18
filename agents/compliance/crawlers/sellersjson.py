@@ -6,7 +6,7 @@ Fetcher + parser for PGAM's own sellers.json (sellers.pgamssp.com).
 This file is the authoritative list of every (publisher, seller_id) tuple
 PGAM authorizes to monetize through us. Every entry where
 seller_type IN (PUBLISHER, BOTH) is a publisher whose ads.txt must contain
-`pgammedia.com, <seller_id>, DIRECT`.
+`pgamssp.com, <seller_id>, DIRECT`.
 
 URL is configurable via PGAM_SELLERS_JSON_URL because the account-scoped
 path component (the long hex after the host) can rotate.

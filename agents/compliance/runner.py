@@ -8,7 +8,7 @@ Daily run:
   2. Ensure schema (idempotent CREATE TABLE IF NOT EXISTS)
   3. For each publisher: fetch ads.txt (+ app-ads.txt if present)
      and persist fetch metadata
-  4. Validate the universal `pgammedia.com, <seller_id>, DIRECT` line
+  4. Validate the universal `pgamssp.com, <seller_id>, DIRECT` line
   5. UPSERT findings; auto-resolve clears
   6. Post a daily Slack digest (deduped per UTC date)
   7. Write a row to compliance_runs

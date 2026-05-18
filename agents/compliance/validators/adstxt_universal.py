@@ -28,8 +28,8 @@ from dataclasses import dataclass
 from agents.compliance.crawlers.adstxt import AdsTxtFetch
 
 # The universal PGAM seller domain. Every partner's ads.txt must contain
-# `pgammedia.com, <their seller_id>, DIRECT`.
-PGAM_SELLER_DOMAIN = "pgammedia.com"
+# `pgamssp.com, <their seller_id>, DIRECT`.
+PGAM_SELLER_DOMAIN = "pgamssp.com"
 
 
 @dataclass(frozen=True)
@@ -97,7 +97,7 @@ def validate_universal_direct(
         )
         return findings
 
-    # Look for any line matching pgammedia.com.
+    # Look for any line matching pgamssp.com.
     pgam_lines = [ln for ln in fetch.lines if ln.domain == PGAM_SELLER_DOMAIN]
 
     if not pgam_lines:
@@ -117,7 +117,7 @@ def validate_universal_direct(
         )
         return findings
 
-    # We have one+ pgammedia.com lines. Check seller_id + relationship.
+    # We have one+ pgamssp.com lines. Check seller_id + relationship.
     matching_id = [ln for ln in pgam_lines if ln.account_id == expected_seller_id]
 
     if not matching_id:

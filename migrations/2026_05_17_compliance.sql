@@ -17,7 +17,7 @@ CREATE SCHEMA IF NOT EXISTS pgam_direct;
 -- Universe: one row per publisher we are responsible for monitoring.
 -- Populated from PGAM's sellers.json (sellers.pgamssp.com). seller_id
 -- is the account_id that must appear in the partner's ads.txt against
--- pgammedia.com as the PGAM DIRECT line.
+-- pgamssp.com as the PGAM DIRECT line.
 -- ---------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS pgam_direct.compliance_publishers (
     publisher_key   TEXT        PRIMARY KEY,           -- normalized: domain (lowercased)
