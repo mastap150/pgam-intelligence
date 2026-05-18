@@ -43,6 +43,7 @@ from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa:
 from agents.compliance.crawlers.downstream_sellersjson import (  # noqa: E402
     fetch_downstream_sellers_json,
 )
+from agents.compliance.entity_audit import run_entity_audit  # noqa: E402
 from agents.compliance.findings import resolve_cleared, upsert_findings  # noqa: E402
 from agents.compliance.ll_bridge import run_bridge  # noqa: E402
 from agents.compliance.observed_monetization import (  # noqa: E402
@@ -70,6 +71,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_17_compliance.sql",
     _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase2.sql",
     _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase3.sql",
+    _REPO_ROOT / "migrations" / "2026_05_18_compliance_phase5.sql",
 )
 
 
@@ -320,6 +322,9 @@ def run() -> dict:
     enable_scoring = os.environ.get("PGAM_COMPLIANCE_SCORING", "1") != "0"
     # Phase 4 schain static audit; defaults ON. Degrades cleanly without LL creds.
     enable_schain = os.environ.get("PGAM_COMPLIANCE_SCHAIN", "1") != "0"
+    # Phase 5 per-entity audit (LL "Suppliers" view granularity). Defaults ON.
+    # Defaults to top 200 entities — override with PGAM_COMPLIANCE_PHASE5_TOP_N.
+    enable_phase5 = os.environ.get("PGAM_COMPLIANCE_PHASE5", "1") != "0"
 
     summary: dict = {
         "started_at": started_at,
@@ -331,6 +336,10 @@ def run() -> dict:
         "ssps_audited": 0,
         "schain_demands_audited": 0,
         "schain_publishers_audited": 0,
+        "phase5_entities_audited": 0,
+        "phase5_domains": 0,
+        "phase5_apps": 0,
+        "phase5_apps_unresolved": 0,
         "scores_written": 0,
         "avg_score": 0.0,
         "findings_opened": 0,
@@ -395,6 +404,30 @@ def run() -> dict:
             findings.extend(ssp_findings)
             summary["ssps_audited"] = len(ssp_sentinel_keys)
 
+        # Phase 5: per-entity audit (LL "Suppliers" view granularity).
+        # Pulls top N apps + domains by 7d revenue from ll_4dim_etl tables
+        # and audits each individually. Independent of Phase 1's sellers.json
+        # universe; runs in parallel with Phases 2-4.
+        phase5_sentinel_keys: list[str] = []
+        if enable_phase5:
+            try:
+                p5 = run_entity_audit(rate_hz=rate_hz)
+                findings.extend(p5.findings)
+                phase5_sentinel_keys = p5.sentinel_keys
+                summary["phase5_entities_audited"] = p5.universe_stats.top_n_selected
+                summary["phase5_domains"]          = p5.universe_stats.domains_in_universe
+                summary["phase5_apps"]             = p5.universe_stats.apps_in_universe
+                summary["phase5_apps_unresolved"]  = p5.universe_stats.apps_unresolved
+                print(
+                    f"[{ACTOR}] phase5 entities={p5.universe_stats.top_n_selected} "
+                    f"domains={p5.universe_stats.domains_in_universe} "
+                    f"apps={p5.universe_stats.apps_in_universe} "
+                    f"apps_unresolved={p5.universe_stats.apps_unresolved} "
+                    f"findings={len(p5.findings)}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] phase5 entity audit failed (non-fatal): {exc}")
+
         # Phase 4: static schain audit on LL demands + publishers. Reports
         # any drift the optimization-side auto-fixer didn't catch (rev-threshold
         # backlog, manual UI toggles, etc). Read-only — does not write to LL.
@@ -428,7 +461,12 @@ def run() -> dict:
             f.publisher_key for f in fetches
             if f.variant == "ads.txt" and f.http_status == 200
         })
-        resolvable = reachable_pubs + ssp_sentinel_keys + schain_sentinel_keys
+        resolvable = (
+            reachable_pubs
+            + ssp_sentinel_keys
+            + schain_sentinel_keys
+            + phase5_sentinel_keys
+        )
         resolved = resolve_cleared(resolvable, seen)
         print(f"[{ACTOR}] auto-resolved {resolved} previously-open findings")
 

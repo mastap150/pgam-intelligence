@@ -43,6 +43,10 @@ from agents.compliance.validators.schain_static import (  # noqa: E402
     audit_demands,
     audit_publishers,
 )
+from agents.compliance.validators.seller_id_tier import (  # noqa: E402
+    build_pgam_seat_registry,
+    validate_universal_direct_tiered,
+)
 from agents.compliance.universe import Publisher, build_universe  # noqa: E402
 from agents.compliance.validators.adstxt_resellers import (  # noqa: E402
     validate_resellers_for_publisher,
@@ -753,6 +757,150 @@ def test_schain_pub_test_publisher_skipped() -> None:
            findings[0].publisher_key == "_ll_pub:206")
 
 
+# ── Phase 5: tiered seller_id check ──────────────────────────────────────────
+
+
+def _registry_with(*seats) -> dict[str, dict]:
+    """Build a PGAM seat registry. seats = list of (sid, type, name, domain)."""
+    return {sid: {"seller_type": t, "name": n, "domain": d}
+            for (sid, t, n, d) in seats}
+
+
+def test_tier_exact_match_passes() -> None:
+    print("\n[tier — exact seller_id match passes]")
+    body = "pgamssp.com, my-seat, DIRECT\n"
+    registry = _registry_with(("my-seat", "PUBLISHER", "Me", "me.com"))
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "my-seat", _make_fetch(body), registry,
+    )
+    _check("no findings", len(findings) == 0)
+
+
+def test_tier_missing_line() -> None:
+    print("\n[tier — missing pgamssp.com line]")
+    body = "rubiconproject.com, 24852, RESELLER\n"
+    registry = _registry_with(("my-seat", "PUBLISHER", "Me", "me.com"))
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "my-seat", _make_fetch(body), registry,
+    )
+    _check("missing critical finding", len(findings) == 1)
+    _check("check_id = universal_direct_missing",
+           findings[0].check_id == "adstxt.universal_direct_missing")
+
+
+def test_tier_wrong_type() -> None:
+    print("\n[tier — exact match, wrong relationship type]")
+    body = "pgamssp.com, my-seat, RESELLER\n"
+    registry = _registry_with(("my-seat", "PUBLISHER", "Me", "me.com"))
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "my-seat", _make_fetch(body), registry,
+    )
+    _check("one finding", len(findings) == 1)
+    _check("check_id = wrong_type",
+           findings[0].check_id == "adstxt.universal_direct_wrong_type")
+    _check("severity = critical", findings[0].severity == "critical")
+
+
+def test_tier_intermediary_seat_known() -> None:
+    print("\n[tier — using Aditude intermediary seat as DIRECT (HIGH)]")
+    # Mirrors live blackenterprise.com case: ads.txt has Aditude's
+    # PGAM seat in DIRECT slot. Expected seat (607187) is absent.
+    body = "pgamssp.com, aditude-seat, DIRECT\n"
+    registry = _registry_with(
+        ("607187",       "PUBLISHER",    "Black Enterprise", "blackenterprise.com"),
+        ("aditude-seat", "INTERMEDIARY", "Aditude",          "aditude.io"),
+    )
+    findings = validate_universal_direct_tiered(
+        "dom:blackenterprise.com", "607187", _make_fetch(body), registry,
+    )
+    _check("one finding (downgraded from critical)", len(findings) == 1)
+    _check("check_id = wrong_seat",
+           findings[0].check_id == "adstxt.universal_direct_wrong_seat")
+    _check("severity = high (not critical)", findings[0].severity == "high")
+    observed = findings[0].detail.get("observed_seats", [])
+    _check("observed seat tier = known",
+           len(observed) == 1 and observed[0]["tier"] == "known")
+    _check("observed seat owner = Aditude",
+           observed[0]["owner_name"] == "Aditude")
+
+
+def test_tier_unknown_seat_critical() -> None:
+    print("\n[tier — seat NOT in PGAM sellers.json (CRITICAL)]")
+    body = "pgamssp.com, totally-unknown-id, DIRECT\n"
+    registry = _registry_with(("my-seat", "PUBLISHER", "Me", "me.com"))
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "my-seat", _make_fetch(body), registry,
+    )
+    _check("one finding", len(findings) == 1)
+    _check("check_id = unknown_seat",
+           findings[0].check_id == "adstxt.universal_direct_unknown_seat")
+    _check("severity = critical", findings[0].severity == "critical")
+
+
+def test_tier_known_and_unknown_seats_mixed() -> None:
+    print("\n[tier — mix of known + unknown seats raises CRITICAL only]")
+    body = (
+        "pgamssp.com, aditude-seat, DIRECT\n"
+        "pgamssp.com, mystery-seat, DIRECT\n"
+    )
+    registry = _registry_with(
+        ("607187",       "PUBLISHER",    "Me",      "me.com"),
+        ("aditude-seat", "INTERMEDIARY", "Aditude", "aditude.io"),
+    )
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "607187", _make_fetch(body), registry,
+    )
+    # Should raise the more-severe critical finding only, with both seats in detail.
+    _check("exactly one finding", len(findings) == 1)
+    _check("most-severe wins (unknown_seat)",
+           findings[0].check_id == "adstxt.universal_direct_unknown_seat")
+    observed = findings[0].detail.get("observed_seats", [])
+    _check("both seats captured in detail", len(observed) == 2)
+
+
+def test_tier_passes_when_own_seat_present_alongside_others() -> None:
+    print("\n[tier — own seat DIRECT alongside other seats still passes]")
+    body = (
+        "pgamssp.com, aditude-seat, DIRECT\n"   # extra seat (e.g. wrapper)
+        "pgamssp.com, my-seat, DIRECT\n"        # our own seat — must be there
+    )
+    registry = _registry_with(
+        ("my-seat",      "PUBLISHER",    "Me",      "me.com"),
+        ("aditude-seat", "INTERMEDIARY", "Aditude", "aditude.io"),
+    )
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "my-seat", _make_fetch(body), registry,
+    )
+    _check("pass when own seat DIRECT is also present",
+           len(findings) == 0, f"got {[f.check_id for f in findings]}")
+
+
+def test_tier_unreachable_passthrough() -> None:
+    print("\n[tier — file_unreachable still flagged]")
+    fetch = _make_fetch(None, status=None, error="connection refused")
+    findings = validate_universal_direct_tiered(
+        "dom:me.com", "my-seat", fetch, pgam_seat_registry={},
+    )
+    _check("one finding", len(findings) == 1)
+    _check("check_id = file_unreachable",
+           findings[0].check_id == "adstxt.file_unreachable")
+
+
+def test_build_pgam_seat_registry() -> None:
+    print("\n[tier — build_pgam_seat_registry]")
+    payload = {"sellers": [
+        {"seller_id": "111", "seller_type": "publisher",   "name": "A", "domain": "a.com"},
+        {"seller_id": "",    "seller_type": "PUBLISHER",   "name": "B", "domain": "b.com"},  # dropped
+        {"seller_id": "222", "seller_type": "INTERMEDIARY", "name": "C", "domain": "c.com"},
+    ]}
+    reg = build_pgam_seat_registry(payload)
+    _check("empty seller_id dropped", "" not in reg)
+    _check("seller_type uppercased",
+           reg["111"]["seller_type"] == "PUBLISHER")
+    _check("intermediary captured",
+           reg["222"]["seller_type"] == "INTERMEDIARY")
+
+
 # ── Main ─────────────────────────────────────────────────────────────────────
 
 
@@ -809,6 +957,16 @@ def main() -> int:
         test_schain_pub_node_injection_flagged,
         test_schain_pub_none_field_not_flagged,
         test_schain_pub_test_publisher_skipped,
+        # Phase 5 — tiered seller check
+        test_tier_exact_match_passes,
+        test_tier_missing_line,
+        test_tier_wrong_type,
+        test_tier_intermediary_seat_known,
+        test_tier_unknown_seat_critical,
+        test_tier_known_and_unknown_seats_mixed,
+        test_tier_passes_when_own_seat_present_alongside_others,
+        test_tier_unreachable_passthrough,
+        test_build_pgam_seat_registry,
     ]
     failures = 0
     for t in tests:
