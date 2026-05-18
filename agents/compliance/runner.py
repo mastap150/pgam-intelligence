@@ -41,30 +41,42 @@ from core.neon import connect  # noqa: E402
 
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.findings import resolve_cleared, upsert_findings  # noqa: E402
+from agents.compliance.ll_bridge import run_bridge  # noqa: E402
+from agents.compliance.observed_monetization import (  # noqa: E402
+    load_observed_for_publishers,
+    refresh_observed_monetization,
+)
 from agents.compliance.reporters.slack_digest import post_digest  # noqa: E402
 from agents.compliance.universe import Publisher, build_universe, sync_universe  # noqa: E402
+from agents.compliance.validators.adstxt_resellers import (  # noqa: E402
+    validate_resellers_for_publisher,
+)
 from agents.compliance.validators.adstxt_universal import (  # noqa: E402
     Finding,
     validate_universal_direct,
 )
 
 ACTOR = "compliance_runner"
-MIGRATION_PATH = _REPO_ROOT / "migrations" / "2026_05_17_compliance.sql"
+MIGRATION_PATHS = (
+    _REPO_ROOT / "migrations" / "2026_05_17_compliance.sql",
+    _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase2.sql",
+)
 
 
 # ── Schema bootstrap ─────────────────────────────────────────────────────────
 
 
 def _ensure_schema() -> None:
-    """Run the migration idempotently. Same pattern as MSN insights ETL."""
-    if not MIGRATION_PATH.exists():
-        print(f"[{ACTOR}] WARNING: migration file missing: {MIGRATION_PATH}")
-        return
-    sql = MIGRATION_PATH.read_text()
-    with connect() as conn:
-        with conn.cursor() as cur:
-            cur.execute(sql)
-        conn.commit()
+    """Run all compliance migrations idempotently, in order."""
+    for path in MIGRATION_PATHS:
+        if not path.exists():
+            print(f"[{ACTOR}] WARNING: migration file missing: {path}")
+            continue
+        sql = path.read_text()
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(sql)
+            conn.commit()
 
 
 # ── Crawl + persist fetch metadata ───────────────────────────────────────────
@@ -151,25 +163,39 @@ def _validate_all(
     fetches: list[AdsTxtFetch],
     *,
     app_ads: bool,
+    enable_resellers: bool,
 ) -> list[Finding]:
     pub_by_key: dict[str, Publisher] = {p.publisher_key: p for p in publishers}
     fetch_by_pub: dict[str, dict[str, AdsTxtFetch]] = {}
     for f in fetches:
         fetch_by_pub.setdefault(f.publisher_key, {})[f.variant] = f
 
+    observed_by_pub: dict = {}
+    if enable_resellers and fetch_by_pub:
+        observed_by_pub = load_observed_for_publishers(list(fetch_by_pub.keys()))
+
     findings: list[Finding] = []
     for pub_key, variants in fetch_by_pub.items():
         pub = pub_by_key.get(pub_key)
         if pub is None:
             continue
-        # Phase 1: validate ads.txt; only attempt app-ads.txt if we got 200.
         ads = variants.get("ads.txt")
         if ads is not None:
             findings.extend(validate_universal_direct(pub_key, pub.seller_id, ads))
+            if enable_resellers:
+                obs = observed_by_pub.get(pub_key, [])
+                if obs:
+                    findings.extend(validate_resellers_for_publisher(pub_key, ads, obs))
         if app_ads:
             aa = variants.get("app-ads.txt")
             if aa is not None and aa.http_status == 200:
                 findings.extend(validate_universal_direct(pub_key, pub.seller_id, aa))
+                # Reseller validation against app-ads.txt mirrors ads.txt;
+                # only run when the file actually carries content.
+                if enable_resellers:
+                    obs = observed_by_pub.get(pub_key, [])
+                    if obs:
+                        findings.extend(validate_resellers_for_publisher(pub_key, aa, obs))
     return findings
 
 
@@ -211,11 +237,17 @@ def run() -> dict:
     limit = int(os.environ.get("PGAM_COMPLIANCE_LIMIT") or 0) or None
     app_ads = os.environ.get("PGAM_COMPLIANCE_APP_ADS_TXT") == "1"
     rate_hz = float(os.environ.get("PGAM_COMPLIANCE_RATE_HZ") or 2.0)
+    # Phase 2 reseller validation defaults ON; flip to "0" to skip if
+    # ll_daily_partner_revenue is stale or LL bridge matching is being tuned.
+    enable_resellers = os.environ.get("PGAM_COMPLIANCE_RESELLERS", "1") != "0"
 
     summary: dict = {
         "started_at": started_at,
         "publishers_scanned": 0,
         "adstxt_fetched": 0,
+        "ll_bridge_matched": 0,
+        "ll_bridge_unmatched": 0,
+        "observed_ssp_rows": 0,
         "findings_opened": 0,
         "findings_resolved": 0,
         "ok": False,
@@ -235,7 +267,39 @@ def run() -> dict:
         _persist_fetches(fetches)
         print(f"[{ACTOR}] crawled {len(fetches)} files across {len(publishers)} pubs")
 
-        findings = _validate_all(publishers, fetches, app_ads=app_ads)
+        # Phase 2: bridge LL publishers → sellers.json domains, then derive
+        # observed (publisher × ssp) monetization. Both feed the conditional
+        # reseller validator. Each block is independently fault-tolerant —
+        # if LL revenue data isn't available, the universal Phase 1 check
+        # still runs.
+        if enable_resellers:
+            try:
+                bridge_stats = run_bridge()
+                summary["ll_bridge_matched"]   = bridge_stats.matched
+                summary["ll_bridge_unmatched"] = bridge_stats.unmatched
+                print(
+                    f"[{ACTOR}] ll_bridge matched={bridge_stats.matched}/"
+                    f"{bridge_stats.ll_publishers_seen} "
+                    f"methods={bridge_stats.method_counts}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] ll_bridge failed (non-fatal): {exc}")
+
+            try:
+                obs_stats = refresh_observed_monetization()
+                summary["observed_ssp_rows"] = obs_stats.observed_rows
+                print(
+                    f"[{ACTOR}] observed_monetization rows={obs_stats.observed_rows} "
+                    f"pubs={obs_stats.unique_publishers} "
+                    f"ssps={obs_stats.unique_ssps} "
+                    f"unclassified_demands={obs_stats.unclassified_demands}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] observed_monetization refresh failed (non-fatal): {exc}")
+
+        findings = _validate_all(publishers, fetches,
+                                 app_ads=app_ads,
+                                 enable_resellers=enable_resellers)
         opened, total = upsert_findings(findings)
         print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
 
