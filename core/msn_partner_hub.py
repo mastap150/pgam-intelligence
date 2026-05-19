@@ -358,27 +358,52 @@ class PartnerHubClient:
     def _wait_for_app_ready(self) -> None:
         """The SPA fires its own `realtime` XHR on mount carrying the
         Authorization Bearer header — that's what we listen for to
-        confirm auth state. Wait up to ~25s for that capture; on
-        timeout we proceed and let _call() surface the resulting 401."""
+        confirm auth state.
+
+        2026-05-19: bumped from 25s → 90s after observing the SPA
+        consistently fails to fire its first authenticated call within
+        25s on cold GH Actions Linux runners. The MSAL bootstrap on a
+        constrained runner is slow; locally on a warm Mac it's ~3-5s,
+        but on a cold runner it can be 30-60s before the SPA decides
+        it's authenticated and pings the API.
+
+        Also added explicit URL polling: if the page navigated away
+        from Partner Hub (e.g. to a login prompt) we surface that with
+        a clearer error than the generic 401-from-API-call."""
         assert self._page is not None
         try:
-            self._page.wait_for_load_state("networkidle", timeout=15_000)
+            self._page.wait_for_load_state("networkidle", timeout=20_000)
         except PlaywrightTimeout:
             # Some Partner Hub pages keep WebSockets open, so networkidle
             # never fires. That's fine — we'll just poll for the bearer.
             pass
-        # Poll for up to 25s waiting for the SPA's first authenticated
+        # Poll for up to 90s waiting for the SPA's first authenticated
         # api.msn.com request (captured by self._on_request).
-        for _ in range(50):
+        max_iterations = 180  # 180 × 500ms = 90s
+        for i in range(max_iterations):
             if self._captured_bearer is not None:
+                if i > 10:
+                    # Helpful telemetry: how long did it actually take?
+                    print(f"[msn_partner_hub] bearer captured after {i*0.5:.1f}s")
                 return
+            # Every 20s, dump the current URL so we can debug what state
+            # the page got stuck in.
+            if i > 0 and i % 40 == 0:
+                try:
+                    print(f"[msn_partner_hub] still waiting for bearer at {i*0.5:.0f}s, page url: {self._page.url}")
+                except Exception:
+                    pass
             self._page.wait_for_timeout(500)
         # No bearer captured. Most likely the page is unauthenticated.
-        # _call() will surface a clearer error on the actual API call.
+        # Surface the final URL so failed runs are easier to debug.
+        try:
+            final_url = self._page.url
+        except Exception:
+            final_url = "<unknown>"
         print(
-            "[msn_partner_hub] WARNING: no Bearer captured from SPA traffic "
-            "within 25s. The SPA may be unauthenticated, or the API surface "
-            "changed. Proceeding — first API call will reveal."
+            f"[msn_partner_hub] WARNING: no Bearer captured from SPA traffic "
+            f"within 90s. Final URL: {final_url}. The SPA may be "
+            f"unauthenticated, or the API surface changed."
         )
 
     def _maybe_refresh(self) -> None:
