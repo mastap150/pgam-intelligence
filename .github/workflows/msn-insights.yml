@@ -1,52 +1,39 @@
 name: msn-insights
 
 # Pulls MSN Partner Hub insights for BoxingNews (partner AA1lKiff) every
-# 15 minutes, paginates the rolling 24h "realtime" window, and lands data
-# into the shared Neon DB that admin.pgammedia.com reads from. Then runs
-# the docID → boxingnews.com resolver to backfill metadata for any new
-# articles MSN has surfaced.
+# 15 minutes via the refresh-token chain — no browser, no Playwright.
+# Reads the rotating refresh_token from pgam_direct.msn_oauth_token,
+# mints a fresh access_token via Microsoft's OAuth endpoint, hits
+# api.msn.com/realtime directly.
 #
-# Operational notes
-# -----------------
-# - The very first run MUST happen on a workstation with a display so
-#   the operator can complete the interactive MSN login (and MFA if
-#   prompted) inside the Chromium window Playwright opens. After that
-#   the persisted user-data-dir at ~/.pgam/msn-session/ keeps the
-#   session valid for ~30 days without re-challenge.
-# - We persist that directory across workflow runs via actions/cache.
-#   Cache keys are date-stamped so a long-stale cache doesn't trap a
-#   broken session; the workflow will fall back to the latest matching
-#   prefix and the agent will fail loudly if login is required (no
-#   silent re-prompt — see PartnerHubClient._ensure_logged_in).
-# - To bootstrap the cache: run `python -m agents.etl.msn_insights_etl --dry-run`
-#   locally with MSN_HEADLESS=0; complete login; then upload the
-#   resulting ~/.pgam/msn-session/ as a one-shot artifact via the
-#   "bootstrap-msn-session" workflow_dispatch job below.
+# 2026-05-19 architecture pivot. Prior versions of this workflow used
+# Playwright + a persisted Chromium profile (stored in Neon as
+# chunked BYTEA). That worked for one run but the session would
+# expire ~16-24h later because MSN's `_C_Auth` cookies are session-
+# only by design. The new approach bypasses the browser entirely:
+#   - One-time interactive bootstrap (scripts/msn_oauth_capture.py)
+#     captures the refresh_token from the SPA's MSAL flow
+#   - This workflow uses refresh-token rotation: each run mints a new
+#     access_token AND a new refresh_token, indefinitely
+#   - Chain breaks only if we miss a >24h refresh window
 #
-# Cost
-# ----
-# At 96 runs/day, ~30 sec wall clock each, that's ~48 minutes/day of
-# Actions runtime. Public repo = free; private repo = well under the
-# 2000 free-min/month tier.
+# Cost: ~15 sec/run × 96 runs/day = ~24 min/day Actions runtime.
 
 on:
   schedule:
     # */15 lands at :00, :15, :30, :45 UTC. GitHub may delay by up to
-    # ~5–10 min during peak load; the agent is idempotent so a late
-    # run just produces a slightly closer-spaced snapshot.
+    # ~5-10 min during peak load; the puller is idempotent.
     - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Skip Neon writes (for debugging)"
+        description: "Skip Neon writes (debug)"
         required: false
         default: "false"
         type: choice
         options: ["true", "false"]
 
 concurrency:
-  # If a run overruns its 15-min window we skip the next one rather than
-  # piling up parallel Chromium processes (and racing the session profile).
   group: msn-insights
   cancel-in-progress: false
 
@@ -56,13 +43,9 @@ permissions:
 jobs:
   pull:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     env:
       PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
-      MSN_EMAIL: ${{ secrets.MSN_EMAIL }}
-      MSN_PASSWORD: ${{ secrets.MSN_PASSWORD }}
-      MSN_HEADLESS: "1"
-      MSN_SESSION_DIR: ${{ github.workspace }}/.msn-session
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -74,48 +57,20 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install Python deps
+      - name: Install Python deps (HTTP-only puller — no Playwright)
+        # The refresh-token puller only needs requests + psycopg, which
+        # are already in requirements.txt. Skipping the full install for
+        # speed; pip install just these two saves ~30 sec/run.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install "requests>=2.31.0" "psycopg[binary]>=3.1.0" "python-dotenv>=1.0.0"
 
-      - name: Cache Playwright browsers
-        # Playwright Chromium is ~300MB; caching saves ~90 sec/run.
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
+      - name: Run MSN refresh-token puller
+        run: python scripts/msn_refresh_puller.py
 
-      - name: Install Chromium for Playwright
-        run: python -m playwright install --with-deps chromium
-
-      - name: Restore MSN session profile
-        id: restore-session
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.MSN_SESSION_DIR }}
-          # Day-keyed primary so we always read the freshest session
-          # while still falling back to anything created in the last
-          # ~week (cache eviction kicks in around day 7).
-          key: msn-session-${{ github.run_id }}
-          restore-keys: |
-            msn-session-
-
-      - name: Run MSN realtime puller
-        run: python -m agents.etl.msn_insights_etl
-
-      - name: Run docID resolver (lazy backfill)
-        # Fast; ~50 docs * 0.7s sleep + fetch = ~1 minute. Independent
-        # of the puller's success — if the puller failed, resolver still
-        # has pending docs from previous runs to chew through.
-        run: python -m agents.enrichment.msn_doc_resolver
+      - name: Run docID resolver (lazy backfill — pure HTTP, no auth)
         if: always()
-
-      - name: Re-save MSN session profile
-        # Always save so a fresh refresh token / cookie bump persists,
-        # even if the puller errored out post-login.
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ env.MSN_SESSION_DIR }}
-          key: msn-session-${{ github.run_id }}
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.31.0" "psycopg[binary]>=3.1.0"
+          python -m agents.enrichment.msn_doc_resolver
