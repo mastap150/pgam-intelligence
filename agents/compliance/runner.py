@@ -77,6 +77,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_17_compliance_phase3.sql",
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_phase5.sql",
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_partner_activity.sql",
+    _REPO_ROOT / "migrations" / "2026_05_18_compliance_adstxt_cache.sql",
 )
 
 
@@ -132,10 +133,10 @@ def _persist_fetches(fetches: list[AdsTxtFetch]) -> None:
 def _crawl_publisher(pub: Publisher, app_ads: bool) -> list[AdsTxtFetch]:
     """Fetch ads.txt (and optionally app-ads.txt) for a single publisher."""
     out: list[AdsTxtFetch] = [
-        fetch_adstxt(pub.publisher_key, pub.domain, variant="ads.txt"),
+        fetch_adstxt(pub.publisher_key, pub.domain, variant="ads.txt", use_cache=True),
     ]
     if app_ads:
-        out.append(fetch_adstxt(pub.publisher_key, pub.domain, variant="app-ads.txt"))
+        out.append(fetch_adstxt(pub.publisher_key, pub.domain, variant="app-ads.txt", use_cache=True))
     return out
 
 

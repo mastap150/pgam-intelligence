@@ -86,6 +86,7 @@ def _crawl(entity: Entity) -> AdsTxtFetch | None:
         entity.entity_key,
         entity.audit_host,
         variant=entity.audit_variant,
+        use_cache=True,
     )
 
 

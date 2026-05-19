@@ -889,6 +889,166 @@ def test_tier_unreachable_passthrough() -> None:
 # ── Activity gate (Phase 1.5) ────────────────────────────────────────────────
 
 
+# ── iTunes sellerUrl → dev_domain extraction ─────────────────────────────────
+
+
+def test_dev_domain_extraction() -> None:
+    print("\n[dev_domain — sellerUrl → bare hostname]")
+    from agents.enrichment.app_name_enrichment import _extract_dev_domain
+    cases = [
+        ("https://www.example.com/games",          "example.com"),
+        ("http://Example.COM",                      "example.com"),
+        ("example.com",                             "example.com"),
+        ("https://dev.example.io",                  "dev.example.io"),
+        ("https://example.com:8080/path",           "example.com"),
+        ("HTTPS://WWW.UPPERCASE.NET/",              "uppercase.net"),
+        ("",                                        None),
+        (None,                                      None),
+        ("   ",                                     None),
+    ]
+    for raw, expected in cases:
+        actual = _extract_dev_domain(raw)
+        _check(f"{raw!r} → {expected!r}", actual == expected, f"got {actual!r}")
+
+
+# ── ads.txt crawler cache toggle ─────────────────────────────────────────────
+
+
+def test_fetch_adstxt_default_does_not_call_cache() -> None:
+    """When use_cache=False (default), no DB I/O should be attempted."""
+    print("\n[adstxt cache — default off, no DB I/O]")
+    import agents.compliance.crawlers.adstxt as ax_mod
+    captured = {"fetch_calls": 0}
+
+    def _fake_fetch_one(url, extra_headers=None):
+        captured["fetch_calls"] += 1
+        return (200, "pgamssp.com, x, DIRECT\n", {"ETag": '"abc"'}, None)
+
+    orig = ax_mod._fetch_one
+    ax_mod._fetch_one = _fake_fetch_one  # type: ignore
+    try:
+        res = ax_mod.fetch_adstxt("pub", "example.com", variant="ads.txt")
+    finally:
+        ax_mod._fetch_one = orig  # type: ignore
+
+    _check("one HTTP fetch was made", captured["fetch_calls"] == 1)
+    _check("fetch succeeded with 200", res.http_status == 200)
+    _check("body parsed into one line", len(res.lines) == 1)
+
+
+def test_fetch_adstxt_304_uses_cached_parse() -> None:
+    """With use_cache=True and a cached entry, 304 should reuse cached lines
+    without calling the parser. Cache module is monkey-patched."""
+    print("\n[adstxt cache — 304 reuses cached parse]")
+    import agents.compliance.crawlers.adstxt as ax_mod
+    import agents.compliance.crawlers.adstxt_cache as cache_mod
+
+    fake_entry = cache_mod.CacheEntry(
+        publisher_key="pub", variant="ads.txt",
+        etag='"abc"', last_modified=None,
+        body_sha256="cachedsha",
+        parsed_lines=[{
+            "domain": "pgamssp.com", "account_id": "X",
+            "relationship": "DIRECT", "cert_authority": None,
+        }],
+        parsed_variables={},
+    )
+
+    calls = {"load": 0, "fetch": 0, "bump": 0, "store": 0}
+    def _load(pk, v):     calls["load"] += 1; return fake_entry
+    def _bump(pk, v):     calls["bump"] += 1
+    def _store(*a, **kw): calls["store"] += 1
+    def _fetch(url, extra_headers=None):
+        calls["fetch"] += 1
+        # Server says "still fresh" — no body.
+        return (304, None, {}, None)
+
+    orig_load  = cache_mod.load_cache_entry
+    orig_bump  = cache_mod.bump_cache_hit
+    orig_store = cache_mod.store_fresh_entry
+    orig_fetch = ax_mod._fetch_one
+    cache_mod.load_cache_entry = _load   # type: ignore
+    cache_mod.bump_cache_hit   = _bump   # type: ignore
+    cache_mod.store_fresh_entry = _store # type: ignore
+    ax_mod._fetch_one = _fetch           # type: ignore
+    try:
+        res = ax_mod.fetch_adstxt("pub", "example.com", variant="ads.txt", use_cache=True)
+    finally:
+        cache_mod.load_cache_entry = orig_load    # type: ignore
+        cache_mod.bump_cache_hit   = orig_bump    # type: ignore
+        cache_mod.store_fresh_entry = orig_store  # type: ignore
+        ax_mod._fetch_one = orig_fetch            # type: ignore
+
+    _check("cache.load was called once", calls["load"] == 1)
+    _check("HTTP fetch was issued once", calls["fetch"] == 1)
+    _check("304 → cache hit bumped", calls["bump"] == 1)
+    _check("304 → no fresh store", calls["store"] == 0)
+    _check("returned status reads as 200 to validators",
+           res.http_status == 200)
+    _check("returned body_sha256 from cache",
+           res.body_sha256 == "cachedsha")
+    _check("returned cached parsed line",
+           len(res.lines) == 1 and res.lines[0].domain == "pgamssp.com")
+
+
+def test_fetch_adstxt_200_stores_fresh_entry() -> None:
+    """With use_cache=True and a 200 response, the freshly-parsed entry
+    should be stored back to the cache with the new ETag."""
+    print("\n[adstxt cache — 200 stores fresh entry]")
+    import agents.compliance.crawlers.adstxt as ax_mod
+    import agents.compliance.crawlers.adstxt_cache as cache_mod
+
+    stored = {}
+    def _load(pk, v): return None
+    def _bump(pk, v): pass
+    def _store(pk, v, *, etag, last_modified, body_sha256,
+               parsed_lines, parsed_variables):
+        stored["etag"] = etag
+        stored["lines"] = parsed_lines
+    def _fetch(url, extra_headers=None):
+        return (200, "pgamssp.com, x, DIRECT\n",
+                {"ETag": '"fresh"', "Last-Modified": "Mon, 18 May 2026 09:00:00 GMT"},
+                None)
+
+    orig_load  = cache_mod.load_cache_entry
+    orig_bump  = cache_mod.bump_cache_hit
+    orig_store = cache_mod.store_fresh_entry
+    orig_fetch = ax_mod._fetch_one
+    cache_mod.load_cache_entry = _load   # type: ignore
+    cache_mod.bump_cache_hit   = _bump   # type: ignore
+    cache_mod.store_fresh_entry = _store # type: ignore
+    ax_mod._fetch_one = _fetch           # type: ignore
+    try:
+        res = ax_mod.fetch_adstxt("pub", "example.com", variant="ads.txt", use_cache=True)
+    finally:
+        cache_mod.load_cache_entry = orig_load    # type: ignore
+        cache_mod.bump_cache_hit   = orig_bump    # type: ignore
+        cache_mod.store_fresh_entry = orig_store  # type: ignore
+        ax_mod._fetch_one = orig_fetch            # type: ignore
+
+    _check("ETag persisted to cache",
+           stored.get("etag") == '"fresh"')
+    _check("parsed lines persisted to cache",
+           len(stored.get("lines", [])) == 1)
+    _check("fetch result has correct status", res.http_status == 200)
+
+
+def test_conditional_headers_helper() -> None:
+    print("\n[adstxt cache — conditional_headers helper]")
+    from agents.compliance.crawlers.adstxt_cache import (
+        CacheEntry, conditional_headers,
+    )
+    _check("None → empty headers",
+           conditional_headers(None) == {})
+    entry = CacheEntry(publisher_key="p", variant="ads.txt",
+                       etag='"abc"', last_modified="Mon, 18 May 2026 09:00:00 GMT",
+                       body_sha256="x", parsed_lines=[], parsed_variables={})
+    headers = conditional_headers(entry)
+    _check("If-None-Match set", headers["If-None-Match"] == '"abc"')
+    _check("If-Modified-Since set",
+           headers["If-Modified-Since"] == "Mon, 18 May 2026 09:00:00 GMT")
+
+
 def test_validate_all_skips_inactive_partners() -> None:
     """Synthetic test of the active_keys gate in runner._validate_all."""
     print("\n[activity gate — _validate_all skips inactive partners]")
@@ -1015,6 +1175,12 @@ def main() -> int:
         test_build_pgam_seat_registry,
         # Activity gate
         test_validate_all_skips_inactive_partners,
+        # Efficiency: ads.txt cache + iTunes dev_domain
+        test_dev_domain_extraction,
+        test_fetch_adstxt_default_does_not_call_cache,
+        test_fetch_adstxt_304_uses_cached_parse,
+        test_fetch_adstxt_200_stores_fresh_entry,
+        test_conditional_headers_helper,
     ]
     failures = 0
     for t in tests:

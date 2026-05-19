@@ -45,17 +45,26 @@ class AdsTxtFetch:
         return self.http_status == 200 and self.body is not None
 
 
-def _fetch_one(url: str) -> tuple[int | None, str | None, str | None]:
+def _fetch_one(
+    url: str,
+    extra_headers: dict[str, str] | None = None,
+) -> tuple[int | None, str | None, dict[str, str], str | None]:
+    """HTTP GET with optional conditional-GET headers. Returns
+    (status, body, response_headers, error)."""
+    headers = {"User-Agent": USER_AGENT, "Accept": "text/plain,*/*"}
+    if extra_headers:
+        headers.update(extra_headers)
     try:
         resp = requests.get(
             url,
-            headers={"User-Agent": USER_AGENT, "Accept": "text/plain,*/*"},
+            headers=headers,
             timeout=HTTP_TIMEOUT_SEC,
             allow_redirects=True,
         )
-        return resp.status_code, resp.text, None
+        body = resp.text if resp.status_code == 200 else None
+        return resp.status_code, body, dict(resp.headers), None
     except requests.RequestException as exc:
-        return None, None, str(exc)
+        return None, None, {}, str(exc)
 
 
 def parse_adstxt(body: str) -> tuple[list[AdsTxtLine], dict[str, list[str]]]:
@@ -100,11 +109,71 @@ def parse_adstxt(body: str) -> tuple[list[AdsTxtLine], dict[str, list[str]]]:
     return lines, variables
 
 
-def fetch_adstxt(publisher_key: str, domain: str, variant: str = "ads.txt") -> AdsTxtFetch:
-    """Fetch and parse a single ads.txt or app-ads.txt file."""
+def _line_from_dict(d: dict) -> AdsTxtLine:
+    return AdsTxtLine(
+        domain=d.get("domain", ""),
+        account_id=d.get("account_id", ""),
+        relationship=d.get("relationship", ""),
+        cert_authority=d.get("cert_authority"),
+    )
+
+
+def _line_to_dict(ln: AdsTxtLine) -> dict:
+    return {
+        "domain": ln.domain,
+        "account_id": ln.account_id,
+        "relationship": ln.relationship,
+        "cert_authority": ln.cert_authority,
+    }
+
+
+def fetch_adstxt(
+    publisher_key: str,
+    domain: str,
+    variant: str = "ads.txt",
+    *,
+    use_cache: bool = False,
+) -> AdsTxtFetch:
+    """Fetch and parse a single ads.txt or app-ads.txt file.
+
+    use_cache=True enables conditional-GET caching against
+    pgam_direct.compliance_adstxt_cache. When the server returns 304
+    Not Modified, we reuse the cached parse without re-downloading.
+    Set False (default) for unit tests or environments without Neon.
+    """
     assert variant in ("ads.txt", "app-ads.txt")
     url = f"https://{domain}/{variant}"
-    status, body, err = _fetch_one(url)
+
+    cache_entry = None
+    extra_headers: dict[str, str] = {}
+    if use_cache:
+        # Lazy import — keeps the unit-test path Neon-free.
+        from agents.compliance.crawlers.adstxt_cache import (
+            bump_cache_hit,
+            conditional_headers,
+            load_cache_entry,
+            store_fresh_entry,
+        )
+        cache_entry = load_cache_entry(publisher_key, variant)
+        extra_headers = conditional_headers(cache_entry)
+
+    status, body, resp_headers, err = _fetch_one(url, extra_headers=extra_headers)
+
+    # 304 Not Modified — reuse cached parse if we have one.
+    if status == 304 and cache_entry is not None:
+        from agents.compliance.crawlers.adstxt_cache import bump_cache_hit
+        bump_cache_hit(publisher_key, variant)
+        return AdsTxtFetch(
+            publisher_key=publisher_key,
+            variant=variant,
+            url=url,
+            http_status=200,                 # treat as fresh — validators don't care
+            body=None,                       # body not stored in cache; lines suffice
+            body_sha256=cache_entry.body_sha256,
+            error=None,
+            lines=[_line_from_dict(d) for d in cache_entry.parsed_lines],
+            variables=cache_entry.parsed_variables or {},
+        )
 
     sha = None
     lines: list[AdsTxtLine] = []
@@ -113,6 +182,16 @@ def fetch_adstxt(publisher_key: str, domain: str, variant: str = "ads.txt") -> A
     if body is not None and status == 200:
         sha = hashlib.sha256(body.encode("utf-8", errors="replace")).hexdigest()[:16]
         lines, variables = parse_adstxt(body)
+        if use_cache:
+            from agents.compliance.crawlers.adstxt_cache import store_fresh_entry
+            store_fresh_entry(
+                publisher_key, variant,
+                etag=resp_headers.get("ETag"),
+                last_modified=resp_headers.get("Last-Modified"),
+                body_sha256=sha,
+                parsed_lines=[_line_to_dict(ln) for ln in lines],
+                parsed_variables=variables,
+            )
 
     return AdsTxtFetch(
         publisher_key=publisher_key,
