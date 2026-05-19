@@ -213,18 +213,36 @@ class PartnerHubClient:
 
     def _on_request(self, request: Any) -> None:
         """Network-listener callback. Captures the Authorization Bearer
-        token from any request to api.msn.com that carries one."""
+        token specifically from Partner Hub UGC-insights requests —
+        which is the SCOPE of token we need to replay against the
+        /realtime endpoint.
+
+        2026-05-19: previously we accepted any Bearer for any api.msn.com
+        request. The SPA fires many api.msn.com calls (homepage feed,
+        weather, telemetry) that carry public/anon bearers — first-to-
+        capture wins, and on a cold GH Actions runner the public bearers
+        often land first. Scoping to API_BASE_PATH (the UGC insights
+        surface) ensures we only ever capture the bearer the Partner
+        Hub SPA uses for its own authenticated insights calls."""
         try:
-            if not request.url.startswith(API_HOST):
+            url = request.url
+            # Match the exact path prefix we're going to call ourselves.
+            # Other api.msn.com endpoints carry different/anon bearers
+            # that 401 against /realtime.
+            if API_BASE_PATH not in url:
                 return
             headers = request.headers
             auth = headers.get("authorization") or headers.get("Authorization")
             if auth and auth.lower().startswith("bearer "):
-                # Only capture once per session — bearer is good for ~1h
-                # and we'll _maybe_refresh() to get a fresh one.
                 if self._captured_bearer != auth:
+                    is_first = self._captured_bearer is None
                     self._captured_bearer = auth
                     self._bearer_captured_at = _now_utc()
+                    if is_first:
+                        # Helpful breadcrumb (only on first capture per
+                        # session — subsequent refreshes are silent).
+                        tail = auth[-12:] if len(auth) > 12 else "<short>"
+                        print(f"[msn_partner_hub] captured Partner Hub bearer (...{tail}) from {url[:80]}")
         except Exception:
             # A listener that throws kills future events; swallow.
             pass
