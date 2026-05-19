@@ -1,51 +1,39 @@
 name: msn-insights
 
 # Pulls MSN Partner Hub insights for BoxingNews (partner AA1lKiff) every
-# 15 minutes, paginates the rolling 24h "realtime" window, and lands
-# data into the shared Neon DB. Then runs the docID resolver to
-# backfill canonical boxingnews.com URLs for new docIDs.
+# 15 minutes via the refresh-token chain — no browser, no Playwright.
+# Reads the rotating refresh_token from pgam_direct.msn_oauth_token,
+# mints a fresh access_token via Microsoft's OAuth endpoint, hits
+# api.msn.com/realtime directly.
 #
-# 2026-05-19 update: the persisted Playwright user-data-dir lives in
-# Neon as chunked BYTEA (pgam_direct.puller_session_chunk) so this
-# workflow can run on GH-hosted runners (Linux) without depending on
-# the user's local Mac being awake. See scripts/session_backup_restore.py.
+# 2026-05-19 architecture pivot. Prior versions of this workflow used
+# Playwright + a persisted Chromium profile (stored in Neon as
+# chunked BYTEA). That worked for one run but the session would
+# expire ~16-24h later because MSN's `_C_Auth` cookies are session-
+# only by design. The new approach bypasses the browser entirely:
+#   - One-time interactive bootstrap (scripts/msn_oauth_capture.py)
+#     captures the refresh_token from the SPA's MSAL flow
+#   - This workflow uses refresh-token rotation: each run mints a new
+#     access_token AND a new refresh_token, indefinitely
+#   - Chain breaks only if we miss a >24h refresh window
 #
-# Bootstrap (one-time, on a workstation with a display):
-#   1. Run msn_insights_etl manually with MSN_HEADLESS=0, complete login
-#   2. Run `python scripts/session_backup_restore.py backup` to upload
-#      the resulting ~/.pgam/msn-session/ to Neon
-#   3. This workflow takes over from there
-#
-# Cost
-# ----
-# At 96 runs/day, ~60-90 sec wall clock each (restore + run + backup),
-# that's ~90-140 minutes/day of Actions runtime. Within the free 2000
-# min/month tier for private repos.
+# Cost: ~15 sec/run × 96 runs/day = ~24 min/day Actions runtime.
 
 on:
   schedule:
     # */15 lands at :00, :15, :30, :45 UTC. GitHub may delay by up to
-    # ~5-10 min during peak load; the agent is idempotent.
+    # ~5-10 min during peak load; the puller is idempotent.
     - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:
-        description: "Skip Neon writes (for debugging)"
-        required: false
-        default: "false"
-        type: choice
-        options: ["true", "false"]
-      skip_backup:
-        description: "Skip writing updated session back to Neon"
+        description: "Skip Neon writes (debug)"
         required: false
         default: "false"
         type: choice
         options: ["true", "false"]
 
 concurrency:
-  # If a run overruns its 15-min window we skip the next one rather
-  # than piling up parallel Chromium processes (and racing the session
-  # blob in Neon).
   group: msn-insights
   cancel-in-progress: false
 
@@ -55,11 +43,9 @@ permissions:
 jobs:
   pull:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     env:
       PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
-      MSN_HEADLESS: "1"
-      MSN_SESSION_DIR: ${{ github.workspace }}/.msn-session
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -71,41 +57,20 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install Python deps
+      - name: Install Python deps (HTTP-only puller — no Playwright)
+        # The refresh-token puller only needs requests + psycopg, which
+        # are already in requirements.txt. Skipping the full install for
+        # speed; pip install just these two saves ~30 sec/run.
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          pip install "requests>=2.31.0" "psycopg[binary]>=3.1.0" "python-dotenv>=1.0.0"
 
-      - name: Cache Playwright browsers
-        # Chromium is ~300MB; caching saves ~90 sec/run.
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('requirements.txt') }}
+      - name: Run MSN refresh-token puller
+        run: python scripts/msn_refresh_puller.py
 
-      - name: Install Chromium for Playwright
-        run: python -m playwright install --with-deps chromium
-
-      - name: Restore MSN session from Neon
-        # Pulls the chunked session blob from pgam_direct.puller_session_chunk
-        # and unpacks into MSN_SESSION_DIR. ~10-15 sec for 22MB / 226 chunks.
-        run: python scripts/session_backup_restore.py restore
-
-      - name: Run MSN realtime puller
-        id: puller
-        run: python -m agents.etl.msn_insights_etl
-
-      - name: Run docID resolver (lazy backfill)
-        # Fast; ~50 docs * 0.7s sleep + fetch = ~1 minute. Independent
-        # of the puller's success — if the puller failed, resolver
-        # still has pending docs from previous runs to work through.
+      - name: Run docID resolver (lazy backfill — pure HTTP, no auth)
         if: always()
-        run: python -m agents.enrichment.msn_doc_resolver
-
-      - name: Back up updated session to Neon
-        # Only runs on puller success — we don't want to overwrite a
-        # known-good session with one from a failed/corrupted run.
-        # The `skip_backup` workflow_dispatch input lets us test
-        # without touching the canonical session in Neon.
-        if: success() && inputs.skip_backup != 'true'
-        run: python scripts/session_backup_restore.py backup
+        run: |
+          python -m pip install --upgrade pip
+          pip install "requests>=2.31.0" "psycopg[binary]>=3.1.0"
+          python -m agents.enrichment.msn_doc_resolver
