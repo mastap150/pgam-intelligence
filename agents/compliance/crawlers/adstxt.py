@@ -127,6 +127,32 @@ def _line_to_dict(ln: AdsTxtLine) -> dict:
     }
 
 
+def fetch_adstxt_with_fallback(
+    publisher_key: str, domain: str, *, use_cache: bool = False,
+) -> AdsTxtFetch:
+    """Fetch app-ads.txt; if it 404s, fall back to /ads.txt.
+
+    Some publishers serve a single ads.txt that covers both their site
+    and their app inventory, even though IAB spec is `app-ads.txt` for
+    apps. We don't want to false-flag those as "missing app-ads.txt"
+    when the data is actually present on the sibling endpoint.
+
+    Returns the app-ads.txt fetch if it's 200; else the ads.txt fetch
+    (tagging variant='ads.txt' so downstream validators don't double-flag).
+    """
+    primary = fetch_adstxt(publisher_key, domain, variant="app-ads.txt",
+                            use_cache=use_cache)
+    if primary.http_status == 200 and primary.lines:
+        return primary
+    secondary = fetch_adstxt(publisher_key, domain, variant="ads.txt",
+                              use_cache=use_cache)
+    # Prefer secondary if it succeeded, else return the more informative
+    # primary error.
+    if secondary.http_status == 200:
+        return secondary
+    return primary
+
+
 def fetch_adstxt(
     publisher_key: str,
     domain: str,
