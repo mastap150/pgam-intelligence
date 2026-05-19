@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!-- Slack-alerts hourly if no successful pull in 45 min -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.pgam.msn-health</string>
+  <key>ProgramArguments</key>
+  <array><string>/Users/priyeshpatel/.pgam/run-msn-health.sh</string></array>
+  <key>StartInterval</key>
+  <integer>3600</integer>
+  <key>RunAtLoad</key>
+  <false/>
+  <key>KeepAlive</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/priyeshpatel/.pgam/msn-health-stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/priyeshpatel/.pgam/msn-health-stderr.log</string>
+  <key>WorkingDirectory</key>
+  <string>/Users/priyeshpatel/Desktop/pgam-intelligence</string>
+</dict>
+</plist>
