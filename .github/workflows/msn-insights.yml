@@ -1,39 +1,31 @@
 name: msn-insights
 
 # Pulls MSN Partner Hub insights for BoxingNews (partner AA1lKiff) every
-# 15 minutes, paginates the rolling 24h "realtime" window, and lands data
-# into the shared Neon DB that admin.pgammedia.com reads from. Then runs
-# the docID → boxingnews.com resolver to backfill metadata for any new
-# articles MSN has surfaced.
+# 15 minutes, paginates the rolling 24h "realtime" window, and lands
+# data into the shared Neon DB. Then runs the docID resolver to
+# backfill canonical boxingnews.com URLs for new docIDs.
 #
-# Operational notes
-# -----------------
-# - The very first run MUST happen on a workstation with a display so
-#   the operator can complete the interactive MSN login (and MFA if
-#   prompted) inside the Chromium window Playwright opens. After that
-#   the persisted user-data-dir at ~/.pgam/msn-session/ keeps the
-#   session valid for ~30 days without re-challenge.
-# - We persist that directory across workflow runs via actions/cache.
-#   Cache keys are date-stamped so a long-stale cache doesn't trap a
-#   broken session; the workflow will fall back to the latest matching
-#   prefix and the agent will fail loudly if login is required (no
-#   silent re-prompt — see PartnerHubClient._ensure_logged_in).
-# - To bootstrap the cache: run `python -m agents.etl.msn_insights_etl --dry-run`
-#   locally with MSN_HEADLESS=0; complete login; then upload the
-#   resulting ~/.pgam/msn-session/ as a one-shot artifact via the
-#   "bootstrap-msn-session" workflow_dispatch job below.
+# 2026-05-19 update: the persisted Playwright user-data-dir lives in
+# Neon as chunked BYTEA (pgam_direct.puller_session_chunk) so this
+# workflow can run on GH-hosted runners (Linux) without depending on
+# the user's local Mac being awake. See scripts/session_backup_restore.py.
+#
+# Bootstrap (one-time, on a workstation with a display):
+#   1. Run msn_insights_etl manually with MSN_HEADLESS=0, complete login
+#   2. Run `python scripts/session_backup_restore.py backup` to upload
+#      the resulting ~/.pgam/msn-session/ to Neon
+#   3. This workflow takes over from there
 #
 # Cost
 # ----
-# At 96 runs/day, ~30 sec wall clock each, that's ~48 minutes/day of
-# Actions runtime. Public repo = free; private repo = well under the
-# 2000 free-min/month tier.
+# At 96 runs/day, ~60-90 sec wall clock each (restore + run + backup),
+# that's ~90-140 minutes/day of Actions runtime. Within the free 2000
+# min/month tier for private repos.
 
 on:
   schedule:
     # */15 lands at :00, :15, :30, :45 UTC. GitHub may delay by up to
-    # ~5–10 min during peak load; the agent is idempotent so a late
-    # run just produces a slightly closer-spaced snapshot.
+    # ~5-10 min during peak load; the agent is idempotent.
     - cron: "*/15 * * * *"
   workflow_dispatch:
     inputs:
@@ -43,10 +35,17 @@ on:
         default: "false"
         type: choice
         options: ["true", "false"]
+      skip_backup:
+        description: "Skip writing updated session back to Neon"
+        required: false
+        default: "false"
+        type: choice
+        options: ["true", "false"]
 
 concurrency:
-  # If a run overruns its 15-min window we skip the next one rather than
-  # piling up parallel Chromium processes (and racing the session profile).
+  # If a run overruns its 15-min window we skip the next one rather
+  # than piling up parallel Chromium processes (and racing the session
+  # blob in Neon).
   group: msn-insights
   cancel-in-progress: false
 
@@ -59,8 +58,6 @@ jobs:
     timeout-minutes: 12
     env:
       PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
-      MSN_EMAIL: ${{ secrets.MSN_EMAIL }}
-      MSN_PASSWORD: ${{ secrets.MSN_PASSWORD }}
       MSN_HEADLESS: "1"
       MSN_SESSION_DIR: ${{ github.workspace }}/.msn-session
       PYTHONUNBUFFERED: "1"
@@ -80,7 +77,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Cache Playwright browsers
-        # Playwright Chromium is ~300MB; caching saves ~90 sec/run.
+        # Chromium is ~300MB; caching saves ~90 sec/run.
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
@@ -89,33 +86,26 @@ jobs:
       - name: Install Chromium for Playwright
         run: python -m playwright install --with-deps chromium
 
-      - name: Restore MSN session profile
-        id: restore-session
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.MSN_SESSION_DIR }}
-          # Day-keyed primary so we always read the freshest session
-          # while still falling back to anything created in the last
-          # ~week (cache eviction kicks in around day 7).
-          key: msn-session-${{ github.run_id }}
-          restore-keys: |
-            msn-session-
+      - name: Restore MSN session from Neon
+        # Pulls the chunked session blob from pgam_direct.puller_session_chunk
+        # and unpacks into MSN_SESSION_DIR. ~10-15 sec for 22MB / 226 chunks.
+        run: python scripts/session_backup_restore.py restore
 
       - name: Run MSN realtime puller
+        id: puller
         run: python -m agents.etl.msn_insights_etl
 
       - name: Run docID resolver (lazy backfill)
         # Fast; ~50 docs * 0.7s sleep + fetch = ~1 minute. Independent
-        # of the puller's success — if the puller failed, resolver still
-        # has pending docs from previous runs to chew through.
+        # of the puller's success — if the puller failed, resolver
+        # still has pending docs from previous runs to work through.
+        if: always()
         run: python -m agents.enrichment.msn_doc_resolver
-        if: always()
 
-      - name: Re-save MSN session profile
-        # Always save so a fresh refresh token / cookie bump persists,
-        # even if the puller errored out post-login.
-        if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: ${{ env.MSN_SESSION_DIR }}
-          key: msn-session-${{ github.run_id }}
+      - name: Back up updated session to Neon
+        # Only runs on puller success — we don't want to overwrite a
+        # known-good session with one from a failed/corrupted run.
+        # The `skip_backup` workflow_dispatch input lets us test
+        # without touching the canonical session in Neon.
+        if: success() && inputs.skip_backup != 'true'
+        run: python scripts/session_backup_restore.py backup
