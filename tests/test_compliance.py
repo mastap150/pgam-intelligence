@@ -889,6 +889,146 @@ def test_tier_unreachable_passthrough() -> None:
 # ── Activity gate (Phase 1.5) ────────────────────────────────────────────────
 
 
+# ── Dynamic schain audit ─────────────────────────────────────────────────────
+
+
+def test_dynamic_schain_skip_when_no_table() -> None:
+    """When the emissions view doesn't exist (pre-migration / empty Neon),
+    the audit skips cleanly without raising."""
+    print("\n[dynamic schain — skips cleanly when source unavailable]")
+    import agents.compliance.dynamic_schain as mod
+    import agents.compliance.dynamic_schain as ds_mod
+    # Monkey-patch connect() to raise — simulates missing table.
+    orig = ds_mod.connect
+    def _broken():
+        class _Cm:
+            def __enter__(self): raise RuntimeError("relation does not exist")
+            def __exit__(self, *a): return False
+        return _Cm()
+    ds_mod.connect = _broken  # type: ignore
+    try:
+        stats, findings, keys = mod.run_dynamic_schain_audit()
+    finally:
+        ds_mod.connect = orig  # type: ignore
+    _check("skipped_reason populated",
+           stats.skipped_reason is not None and "does not exist" in stats.skipped_reason)
+    _check("no findings", len(findings) == 0)
+    _check("no sentinel keys", len(keys) == 0)
+
+
+def test_dynamic_schain_critical_when_high_rate() -> None:
+    """≥ 5 % schain.complete=0 → critical finding."""
+    print("\n[dynamic schain — critical at high incomplete rate]")
+    import agents.compliance.dynamic_schain as ds_mod
+    # Synthesise rows by patching connect() to return a fake cursor.
+    class _FakeCol:
+        def __init__(self, name): self.name = name
+    class _FakeCur:
+        description = [_FakeCol(c) for c in (
+            "publisher_id","supply_partner","emissions","complete","incomplete",
+            "hops_2","hops_gt_2","hops_max_seen","incomplete_rate","hop_violation_rate",
+        )]
+        _rows = [
+            # High incomplete rate (8 %), no hop violations.
+            (101, None, 10000, 9200, 800, 9700, 0, 2, 0.08, 0.0),
+        ]
+        def execute(self, *a, **kw): pass
+        def fetchall(self): return self._rows
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    class _FakeConn:
+        def cursor(self): return _FakeCur()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    orig = ds_mod.connect
+    ds_mod.connect = lambda: _FakeConn()  # type: ignore
+    try:
+        stats, findings, keys = ds_mod.run_dynamic_schain_audit()
+    finally:
+        ds_mod.connect = orig  # type: ignore
+
+    _check("one critical incomplete-rate finding", len(findings) == 1)
+    _check("check_id is high_rate critical",
+           findings[0].check_id == "schain.dynamic_incomplete_high_rate")
+    _check("severity critical", findings[0].severity == "critical")
+    _check("sentinel key shape",
+           keys == ["_dynamic_schain_pub:101"])
+    _check("detail carries incomplete count",
+           findings[0].detail["incomplete_emissions"] == 800)
+
+
+def test_dynamic_schain_high_when_low_rate() -> None:
+    """Any non-zero incomplete or hop-violation below threshold → high."""
+    print("\n[dynamic schain — high at low observed rate]")
+    import agents.compliance.dynamic_schain as ds_mod
+    class _FakeCol:
+        def __init__(self, name): self.name = name
+    class _FakeCur:
+        description = [_FakeCol(c) for c in (
+            "publisher_id","supply_partner","emissions","complete","incomplete",
+            "hops_2","hops_gt_2","hops_max_seen","incomplete_rate","hop_violation_rate",
+        )]
+        _rows = [
+            # 1 % incomplete (below 5 % threshold), 1 % hop violation.
+            (202, None, 10000, 9800, 100, 9900, 100, 3, 0.01, 0.01),
+        ]
+        def execute(self, *a, **kw): pass
+        def fetchall(self): return self._rows
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    class _FakeConn:
+        def cursor(self): return _FakeCur()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    orig = ds_mod.connect
+    ds_mod.connect = lambda: _FakeConn()  # type: ignore
+    try:
+        stats, findings, keys = ds_mod.run_dynamic_schain_audit()
+    finally:
+        ds_mod.connect = orig  # type: ignore
+
+    check_ids = sorted(f.check_id for f in findings)
+    _check("two findings (one for each anomaly type)", len(findings) == 2)
+    _check("incomplete observed (HIGH)",
+           "schain.dynamic_incomplete_observed" in check_ids)
+    _check("hop violation observed (HIGH)",
+           "schain.dynamic_hop_violation_observed" in check_ids)
+    _check("all high severity",
+           all(f.severity == "high" for f in findings))
+
+
+def test_dynamic_schain_clean_no_findings() -> None:
+    """Healthy publisher → no findings."""
+    print("\n[dynamic schain — healthy publisher emits no findings]")
+    import agents.compliance.dynamic_schain as ds_mod
+    class _FakeCol:
+        def __init__(self, name): self.name = name
+    class _FakeCur:
+        description = [_FakeCol(c) for c in (
+            "publisher_id","supply_partner","emissions","complete","incomplete",
+            "hops_2","hops_gt_2","hops_max_seen","incomplete_rate","hop_violation_rate",
+        )]
+        _rows = [(303, None, 10000, 10000, 0, 10000, 0, 2, 0.0, 0.0)]
+        def execute(self, *a, **kw): pass
+        def fetchall(self): return self._rows
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    class _FakeConn:
+        def cursor(self): return _FakeCur()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+    orig = ds_mod.connect
+    ds_mod.connect = lambda: _FakeConn()  # type: ignore
+    try:
+        stats, findings, keys = ds_mod.run_dynamic_schain_audit()
+    finally:
+        ds_mod.connect = orig  # type: ignore
+
+    _check("no findings on healthy publisher", len(findings) == 0)
+    _check("publisher still tracked in sentinel keys (for auto-resolve)",
+           "_dynamic_schain_pub:303" in keys)
+
+
 # ── iTunes sellerUrl → dev_domain extraction ─────────────────────────────────
 
 
@@ -1181,6 +1321,11 @@ def main() -> int:
         test_fetch_adstxt_304_uses_cached_parse,
         test_fetch_adstxt_200_stores_fresh_entry,
         test_conditional_headers_helper,
+        # Dynamic schain
+        test_dynamic_schain_skip_when_no_table,
+        test_dynamic_schain_critical_when_high_rate,
+        test_dynamic_schain_high_when_low_rate,
+        test_dynamic_schain_clean_no_findings,
     ]
     failures = 0
     for t in tests:

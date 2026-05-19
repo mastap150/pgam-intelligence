@@ -44,6 +44,7 @@ from agents.compliance.activity_filter import (  # noqa: E402
     refresh_partner_activity,
 )
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
+from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
 from agents.compliance.crawlers.downstream_sellersjson import (  # noqa: E402
     fetch_downstream_sellers_json,
 )
@@ -341,6 +342,10 @@ def run() -> dict:
     enable_scoring = os.environ.get("PGAM_COMPLIANCE_SCORING", "1") != "0"
     # Phase 4 schain static audit; defaults ON. Degrades cleanly without LL creds.
     enable_schain = os.environ.get("PGAM_COMPLIANCE_SCHAIN", "1") != "0"
+    # Phase 4 dynamic schain audit (reads pgam_direct.compliance_schain_emissions_24h
+    # populated by pgam-direct/web's /api/cron/schain-rollup). Defaults ON;
+    # cleanly skips if the source table/view doesn't exist yet.
+    enable_schain_dynamic = os.environ.get("PGAM_COMPLIANCE_SCHAIN_DYNAMIC", "1") != "0"
     # Phase 5 per-entity audit (LL "Suppliers" view granularity). Defaults ON.
     # Defaults to top 200 entities — override with PGAM_COMPLIANCE_PHASE5_TOP_N.
     enable_phase5 = os.environ.get("PGAM_COMPLIANCE_PHASE5", "1") != "0"
@@ -358,6 +363,8 @@ def run() -> dict:
         "partners_unbridged": 0,
         "schain_demands_audited": 0,
         "schain_publishers_audited": 0,
+        "dynamic_schain_publishers": 0,
+        "dynamic_schain_findings": 0,
         "phase5_entities_audited": 0,
         "phase5_domains": 0,
         "phase5_apps": 0,
@@ -500,6 +507,31 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] schain audit failed (non-fatal): {exc}")
 
+        # Phase 4 — DYNAMIC schain audit. Reads
+        # pgam_direct.compliance_schain_emissions_24h, populated hourly
+        # by pgam-direct/web's /api/cron/schain-rollup
+        # (ClickHouse auction_events → Postgres). Complements the static
+        # audit by flagging real emitted-schain anomalies, not just
+        # misconfigured demand flags.
+        dynamic_schain_sentinel_keys: list[str] = []
+        if enable_schain_dynamic:
+            try:
+                d_stats, d_findings, d_keys = run_dynamic_schain_audit()
+                if d_stats.skipped_reason:
+                    print(f"[{ACTOR}] dynamic schain skipped: {d_stats.skipped_reason}")
+                else:
+                    findings.extend(d_findings)
+                    dynamic_schain_sentinel_keys = d_keys
+                    summary["dynamic_schain_publishers"] = d_stats.publishers_seen
+                    summary["dynamic_schain_findings"]   = d_stats.findings_count
+                    print(
+                        f"[{ACTOR}] dynamic schain "
+                        f"publishers={d_stats.publishers_seen} "
+                        f"findings={d_stats.findings_count}"
+                    )
+            except Exception as exc:
+                print(f"[{ACTOR}] dynamic schain failed (non-fatal): {exc}")
+
         opened, total = upsert_findings(findings)
         print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
 
@@ -515,6 +547,7 @@ def run() -> dict:
             reachable_pubs
             + ssp_sentinel_keys
             + schain_sentinel_keys
+            + dynamic_schain_sentinel_keys
             + phase5_sentinel_keys
         )
         resolved = resolve_cleared(resolvable, seen)

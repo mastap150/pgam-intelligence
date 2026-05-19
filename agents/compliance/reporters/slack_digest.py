@@ -142,6 +142,8 @@ def _format_pub_key(key: str) -> str:
         return f"demand `{key[len('_ll_demand:'):]}`"
     if key.startswith("_ll_pub:"):
         return f"LL pub `{key[len('_ll_pub:'):]}`"
+    if key.startswith("_dynamic_schain_pub:"):
+        return f"emitted schain pub `{key[len('_dynamic_schain_pub:'):]}`"
     if key.startswith("dom:"):
         return f"`{key[4:]}`"
     if key.startswith("app:"):
