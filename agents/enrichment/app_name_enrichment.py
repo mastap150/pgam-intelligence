@@ -131,9 +131,11 @@ def _fetch_top_bundles(conn, top_n: int, fresh_days: int) -> list[str]:
 _UPSERT = """
 INSERT INTO pgam_direct.app_metadata
     (bundle_id, app_name, developer, platform, genre, icon_url, store_url,
-     source, last_fetched, last_resolved, fetch_attempts, updated_at)
+     source, last_fetched, last_resolved, fetch_attempts, updated_at,
+     dev_domain, dev_url_resolved_at)
 VALUES (%(bundle_id)s, %(app_name)s, %(developer)s, %(platform)s, %(genre)s,
-        %(icon_url)s, %(store_url)s, %(source)s, now(), %(last_resolved)s, 1, now())
+        %(icon_url)s, %(store_url)s, %(source)s, now(), %(last_resolved)s, 1, now(),
+        %(dev_domain)s, %(dev_url_resolved_at)s)
 ON CONFLICT (bundle_id) DO UPDATE
    SET app_name      = COALESCE(EXCLUDED.app_name,      pgam_direct.app_metadata.app_name),
        developer     = COALESCE(EXCLUDED.developer,     pgam_direct.app_metadata.developer),
@@ -145,12 +147,49 @@ ON CONFLICT (bundle_id) DO UPDATE
        last_fetched  = now(),
        last_resolved = COALESCE(EXCLUDED.last_resolved, pgam_direct.app_metadata.last_resolved),
        fetch_attempts = pgam_direct.app_metadata.fetch_attempts + 1,
-       updated_at    = now()
+       updated_at    = now(),
+       dev_domain          = COALESCE(EXCLUDED.dev_domain,
+                                      pgam_direct.app_metadata.dev_domain),
+       dev_url_resolved_at = COALESCE(EXCLUDED.dev_url_resolved_at,
+                                      pgam_direct.app_metadata.dev_url_resolved_at)
 """
 
 
+def _extract_dev_domain(seller_url: str | None) -> str | None:
+    """iTunes 'sellerUrl' → bare hostname (lowercased, www stripped).
+
+    Examples:
+      'https://www.example.com/games'  → 'example.com'
+      'http://Example.COM'              → 'example.com'
+      'example.com'                     → 'example.com'
+      ''                                → None
+      None                              → None
+    """
+    if not seller_url:
+        return None
+    s = seller_url.strip().lower()
+    if not s:
+        return None
+    if s.startswith("http://"):
+        s = s[7:]
+    elif s.startswith("https://"):
+        s = s[8:]
+    s = s.split("/", 1)[0]
+    if s.startswith("www."):
+        s = s[4:]
+    # Strip port if present.
+    s = s.split(":", 1)[0]
+    return s or None
+
+
 def _normalise_itunes(bundle: str, result: dict) -> dict:
-    """Pull the fields we care about out of an iTunes Search result."""
+    """Pull the fields we care about out of an iTunes Search result.
+
+    sellerUrl → dev_domain unlocks Phase 5 app-ads.txt validation:
+    the compliance agent reads app_metadata.dev_domain to resolve a
+    bundle's app-ads.txt host.
+    """
+    dev_domain = _extract_dev_domain(result.get("sellerUrl"))
     return {
         "bundle_id": bundle,
         "app_name":  (result.get("trackName") or "").strip() or None,
@@ -161,6 +200,8 @@ def _normalise_itunes(bundle: str, result: dict) -> dict:
         "store_url": result.get("trackViewUrl"),
         "source":    "itunes",
         "last_resolved": "now()",  # set via SQL literal below
+        "dev_domain":         dev_domain,
+        "dev_url_resolved_at": "now()" if dev_domain else None,
     }
 
 
@@ -176,6 +217,8 @@ def _miss(bundle: str, kind: str) -> dict:
         "store_url": None,
         "source":    "unknown",
         "last_resolved": None,
+        "dev_domain":         None,
+        "dev_url_resolved_at": None,
     }
 
 
@@ -197,6 +240,16 @@ def _flush(records: list[dict]) -> None:
                 if rec["source"] == "itunes" and rec["app_name"]:
                     cur.execute(
                         "UPDATE pgam_direct.app_metadata SET last_resolved = now() WHERE bundle_id = %s",
+                        (rec["bundle_id"],),
+                    )
+                # Mirror the same SQL-literal trick for dev_url_resolved_at:
+                # the placeholder in _UPSERT receives the string "now()" which
+                # PostgreSQL can't cast to timestamptz, so we follow up with
+                # an explicit UPDATE when we actually captured a domain.
+                if rec.get("dev_domain"):
+                    cur.execute(
+                        "UPDATE pgam_direct.app_metadata "
+                        "SET dev_url_resolved_at = now() WHERE bundle_id = %s",
                         (rec["bundle_id"],),
                     )
         conn.commit()
