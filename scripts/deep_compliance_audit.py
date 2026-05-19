@@ -56,7 +56,7 @@ import requests  # noqa: E402
 
 from core.api import fetch, n_days_ago, sf, today  # noqa: E402
 from agents.compliance.crawlers.adstxt import (  # noqa: E402
-    fetch_adstxt, fetch_adstxt_with_fallback,
+    fetch_adstxt, fetch_adstxt_merged, fetch_adstxt_with_fallback,
 )
 from agents.compliance.crawlers.sellersjson import (  # noqa: E402
     fetch_pgam_sellers_json,
@@ -208,22 +208,26 @@ def audit_entity(
     fetch_status = None
     pgam_lines: list = []
     all_lines: list = []
+    files_seen: list[str] = []
     if audit_host:
-        af = (fetch_adstxt_with_fallback(key, audit_host)
-              if use_app_ads
-              else fetch_adstxt(key, audit_host, variant="ads.txt"))
+        # Use the production crawler's merged fetcher — same logic as the
+        # daily agent. Tries ads.txt + app-ads.txt, falls back through
+        # HTTP / browser-UA / parent-domain. A publisher counts as
+        # reachable if ANY combination of those succeeds.
+        af = fetch_adstxt_merged(key, audit_host)
         fetch_status = af.http_status
         all_lines = af.lines
         pgam_lines = [ln for ln in af.lines if ln.domain == "pgamssp.com"]
+        files_seen = [v.strip() for v in (af.variant or "").split("+") if v.strip()]
         if af.http_status != 200:
             findings.append({
                 "severity": "high",
                 "check": "adstxt.file_unreachable",
                 "detail": {
                     "audit_host": audit_host,
-                    "variant": af.variant,
                     "http_status": af.http_status,
                     "error": af.error,
+                    "tried": "ads.txt + app-ads.txt × HTTPS/HTTP/browser-UA/parent",
                 },
             })
 
@@ -375,6 +379,7 @@ def audit_entity(
         "audit_host":       audit_host,
         "audit_method":     audit_method,
         "fetch_status":     fetch_status,
+        "files_seen":       files_seen,
         "total_rev":        round(entity["total_rev"], 2),
         "imps":             entity["imps"],
         "ssps_observed":    {k: round(v, 2) for k, v in ssp_revenues.items()},

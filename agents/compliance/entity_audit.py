@@ -28,7 +28,9 @@ from dataclasses import dataclass
 
 from core import ll_mgmt
 
-from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt
+from agents.compliance.crawlers.adstxt import (
+    AdsTxtFetch, fetch_adstxt, fetch_adstxt_merged,
+)
 from agents.compliance.crawlers.sellersjson import fetch_pgam_sellers_json
 from agents.compliance.entity_universe import (
     DEFAULT_TOP_N,
@@ -79,13 +81,19 @@ def _resolve_supply_partners() -> list[dict]:
 
 
 def _crawl(entity: Entity) -> AdsTxtFetch | None:
-    """Fetch the ads.txt or app-ads.txt for one entity. None if unresolvable."""
+    """Fetch ads.txt + app-ads.txt for one entity; return merged AdsTxtFetch.
+
+    Uses fetch_adstxt_merged so an entity whose ads.txt is empty but
+    app-ads.txt has 8000 lines (typical LL-classified-as-domain app
+    publisher like aigames.ae) still gets validated against the lines
+    declared in the right file. Cascade includes HTTP-fallback +
+    browser-UA + parent-domain retries.
+    """
     if not entity.audit_host:
         return None
-    return fetch_adstxt(
+    return fetch_adstxt_merged(
         entity.entity_key,
         entity.audit_host,
-        variant=entity.audit_variant,
         use_cache=True,
     )
 
