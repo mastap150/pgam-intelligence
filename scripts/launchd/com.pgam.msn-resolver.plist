@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!-- Resolves new docIDs to boxingnews.com canonical URLs every 30 min -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.pgam.msn-resolver</string>
+  <key>ProgramArguments</key>
+  <array><string>/Users/priyeshpatel/.pgam/run-msn-resolver.sh</string></array>
+  <key>StartInterval</key>
+  <integer>1800</integer>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <false/>
+  <key>StandardOutPath</key>
+  <string>/Users/priyeshpatel/.pgam/msn-resolver-stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/Users/priyeshpatel/.pgam/msn-resolver-stderr.log</string>
+  <key>WorkingDirectory</key>
+  <string>/Users/priyeshpatel/Desktop/pgam-intelligence</string>
+</dict>
+</plist>

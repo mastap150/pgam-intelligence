@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTD/PropertyList-1.0.dtd">
+<!--
+~/Library/LaunchAgents/com.pgam.msn-puller.plist
+
+Runs the MSN Partner Hub puller every 15 minutes, using the wrapper
+script at ~/.pgam/run-msn-puller.sh which sources credentials from
+pgam-intelligence's .env and invokes
+   python3 -m agents.etl.msn_insights_etl
+
+Why a LaunchAgent (vs nohup, vs Vercel cron, vs Render):
+  - nohup: dies on terminal close / sleep / reboot. Not durable.
+  - Vercel cron: can't run Playwright (~300MB Chromium).
+  - Render: same — can't host Chromium on the free Python tier.
+  - LaunchAgent: starts at login, survives reboot, auto-restarts on
+    crash (via KeepAlive), runs while the Mac is awake. The Mac will
+    sleep at night; that's fine — the puller's job is just to keep
+    MSN data fresh, missing 7-8 hours of overnight pulls is fine
+    given MSN's own rolling 24h window covers it.
+
+Load this with:
+   launchctl load -w ~/Library/LaunchAgents/com.pgam.msn-puller.plist
+
+Unload (disable) with:
+   launchctl unload -w ~/Library/LaunchAgents/com.pgam.msn-puller.plist
+
+Check status:
+   launchctl list | grep com.pgam.msn-puller
+   tail -f ~/.pgam/msn-puller.log
+-->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.pgam.msn-puller</string>
+
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/priyeshpatel/.pgam/run-msn-puller.sh</string>
+  </array>
+
+  <!-- Every 900 seconds = 15 minutes -->
+  <key>StartInterval</key>
+  <integer>900</integer>
+
+  <!-- Fire immediately on load so we don't wait 15 min for the first run -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- Do NOT auto-restart on completion; this is a periodic one-shot,
+       not a daemon. KeepAlive=true would respawn it in a tight loop. -->
+  <key>KeepAlive</key>
+  <false/>
+
+  <key>StandardOutPath</key>
+  <string>/Users/priyeshpatel/.pgam/msn-puller-stdout.log</string>
+
+  <key>StandardErrorPath</key>
+  <string>/Users/priyeshpatel/.pgam/msn-puller-stderr.log</string>
+
+  <!-- Don't run if the Mac is on battery and below 50% — be polite
+       about energy. Comment out if you want it to run regardless. -->
+  <key>WorkingDirectory</key>
+  <string>/Users/priyeshpatel/Desktop/pgam-intelligence</string>
+</dict>
+</plist>
