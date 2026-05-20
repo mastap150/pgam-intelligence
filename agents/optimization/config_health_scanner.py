@@ -15,8 +15,9 @@ AUTO-FIX (safe, idempotent, well-understood):
   3. qpsLimit utilization >= 90% on a revenue-earning demand
      → double the qpsLimit. Throttled bids = lost revenue.
   4. dontAddSupplyChainNode=False on a reseller publisher
-     → set True. Avoids 3-node schain violations that get filtered/blocked
-        by SSPs (Magnite Q3 enforcement).
+     → DISABLED 2026-05-18. Pubmatic requires PGAM to APPEAR in chain for
+        seller-of-record disclosure; auto-flipping to True hid us. Field is
+        now a human decision per pub. See check_pub_dont_add_supplychain_node.
 
 ALERT (requires human judgment, posts to Slack):
   4. Demand margin < 10% on revenue-earning demand (renegotiation candidate)
@@ -162,57 +163,29 @@ def check_pub_lurl(all_pubs_summary: list[dict], pub_rev: dict, actor: str) -> d
 
 
 def check_pub_dont_add_supplychain_node(all_pubs_summary: list[dict], pub_rev: dict, actor: str) -> dict:
-    """AUTO-FIX: set dontAddSupplyChainNode=True on revenue-earning publishers.
+    """DISABLED 2026-05-18 per Priyesh: do NOT auto-flip dontAddSupplyChainNode.
 
-    When False, LL appends pgamrtb.com to the upstream supply chain — turning a
-    2-node chain into a 3-node chain that Magnite (and other SSPs as of Q3)
-    filter or block. Only flips pubs explicitly set to False (not None, which
-    indicates field absent / use-default).
+    Previously this auto-fix flipped False→True on revenue-earning pubs to
+    satisfy Magnite's max-2-node policy. But Pubmatic (and likely other SSPs)
+    require PGAM to APPEAR in the schain for proper seller-of-record disclosure
+    — setting True hides us from the chain, which Pubmatic flags as missing.
+
+    Pubmatic's 5/18 schain report showed 99.9% of their complaints are actually
+    ads.txt / sellers.json validation, not chain length. Only 31 of 25k flags
+    were "more than 2 node". So the Magnite-driven auto-flip was solving the
+    wrong problem at Pubmatic's expense.
+
+    Policy now: dontAddSupplyChainNode is a HUMAN decision per publisher. The
+    auto-fixer stays inert. Function preserved (vs deleted) to keep the
+    scheduler call site stable and to leave a clear audit trail of WHY this
+    was disabled.
+
+    To re-enable, restore the body from git history and document the rationale
+    in a follow-up commit.
     """
-    candidates = []
-    revenue_pubs = sorted(
-        [p for p in all_pubs_summary if pub_rev.get(p["id"], 0) >= MIN_PUB_REV_7D],
-        key=lambda p: -pub_rev.get(p["id"], 0)
-    )
-    for p_summary in revenue_pubs[:30]:
-        pid = p_summary["id"]
-        name = p_summary.get("name", "") or ""
-        if "TEST" in name.upper() or name.startswith("Copy -"):
-            continue
-        try:
-            p = ll_mgmt.get_publisher(pid)
-        except Exception:
-            continue
-        if p.get("dontAddSupplyChainNode") is False:
-            candidates.append((pid, p, pub_rev.get(pid, 0)))
-
-    fixed = []
-    for pid, p_obj, rev in candidates[:MAX_AUTOFIX_PER_CATEGORY]:
-        try:
-            p_modified = dict(p_obj)
-            p_modified["dontAddSupplyChainNode"] = True
-            ll_mgmt._put(f"/v1/publishers/{pid}", p_modified)
-            after = ll_mgmt.get_publisher(pid)
-            if after.get("dontAddSupplyChainNode") is True:
-                floor_ledger.record(
-                    publisher_id=pid, publisher_name=p_obj.get("name", ""),
-                    demand_id=0, demand_name="[schain-node-suppress]",
-                    old_floor=None, new_floor=None,
-                    actor=actor,
-                    reason=("Magnite/IAB schain compliance: dontAddSupplyChainNode "
-                            "False→True. Was causing pgamrtb.com to be appended as "
-                            "3rd node, violating max-2-node SSP policy."),
-                    dry_run=False, applied=True,
-                )
-                fixed.append({"pub_id": pid, "name": p_obj.get("name", ""),
-                              "rev_7d": rev})
-                print(f"[{actor}] dontAddSupplyChainNode=True on pub {pid}: {p_obj.get('name','')[:45]}")
-            else:
-                print(f"[{actor}] dontAddSupplyChainNode PUT didn't stick on pub {pid}")
-        except Exception as e:
-            print(f"[{actor}] dontAddSupplyChainNode FAILED on pub {pid}: {e}")
-    return {"category": "pub_schain_node_suppress", "candidates": len(candidates),
-            "fixed": fixed}
+    return {"category": "pub_schain_node_suppress", "candidates": 0,
+            "fixed": [], "disabled": True,
+            "disabled_reason": "Pubmatic schain compliance requires PGAM to appear in chain — do not auto-suppress."}
 
 
 def check_demand_qps(demands: list[dict], demand_rev: dict, actor: str) -> dict:
