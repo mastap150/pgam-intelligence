@@ -889,6 +889,133 @@ def test_tier_unreachable_passthrough() -> None:
 # ── Activity gate (Phase 1.5) ────────────────────────────────────────────────
 
 
+# ── publisher_config schain ASI audit (Phase 4 Tier A) ──────────────────────
+
+
+def _patch_pc_connect(rows: list[tuple]):
+    """Helper: monkey-patch agents.compliance.publisher_config_audit.connect
+    to return a fake cursor that yields `rows`. Returns (restore_fn, mod)."""
+    import agents.compliance.publisher_config_audit as mod
+
+    class _FakeCol:
+        def __init__(self, name): self.name = name
+
+    class _FakeCur:
+        description = [_FakeCol(c) for c in
+                        ("id", "name", "status", "tenant_id", "schain_asi")]
+        _rows = rows
+        def execute(self, *a, **kw): pass
+        def fetchall(self): return self._rows
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    class _FakeConn:
+        def cursor(self): return _FakeCur()
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+
+    orig = mod.connect
+    mod.connect = lambda: _FakeConn()
+    return orig, mod
+
+
+def test_publisher_config_audit_all_correct() -> None:
+    print("\n[publisher_config — all correct ASI passes]")
+    rows = [
+        ("pub-1", "Test A", "active", 1, "pgamssp.com"),
+        ("pub-2", "Test B", "active", 1, "pgamssp.com"),
+    ]
+    orig, mod = _patch_pc_connect(rows)
+    try:
+        stats, findings, keys = mod.run_publisher_config_schain_audit()
+    finally:
+        mod.connect = orig
+
+    _check("no findings", len(findings) == 0)
+    _check("2 publishers seen", stats.total_active == 2)
+    _check("all 2 marked correct", stats.correct_asi == 2)
+    _check("sentinel keys for both", len(keys) == 2)
+
+
+def test_publisher_config_audit_mismatch_flagged() -> None:
+    print("\n[publisher_config — wrong ASI flagged critical]")
+    rows = [
+        ("pub-3", "Mis-config", "active", 1, "wrong.example.com"),
+    ]
+    orig, mod = _patch_pc_connect(rows)
+    try:
+        stats, findings, keys = mod.run_publisher_config_schain_audit()
+    finally:
+        mod.connect = orig
+
+    _check("one finding", len(findings) == 1)
+    _check("check_id = asi_mismatch",
+           findings[0].check_id == "schain.publisher_config_asi_mismatch")
+    _check("severity critical", findings[0].severity == "critical")
+    _check("observed surfaced in detail",
+           findings[0].detail["observed_asi"] == "wrong.example.com")
+    _check("fix SQL included in detail",
+           "UPDATE pgam_direct.publisher_configs" in findings[0].detail["fix"])
+    _check("sentinel publisher_key shape",
+           findings[0].publisher_key == "_pub_config:pub-3")
+
+
+def test_publisher_config_audit_null_flagged() -> None:
+    print("\n[publisher_config — NULL ASI flagged critical]")
+    rows = [
+        ("pub-4", "Null ASI", "active", 1, None),
+        ("pub-5", "Empty ASI", "active", 1, ""),
+    ]
+    orig, mod = _patch_pc_connect(rows)
+    try:
+        stats, findings, keys = mod.run_publisher_config_schain_audit()
+    finally:
+        mod.connect = orig
+
+    _check("two findings (null + empty both flagged)", len(findings) == 2)
+    for f in findings:
+        _check(f"  {f.publisher_key}: check_id = asi_null",
+               f.check_id == "schain.publisher_config_asi_null")
+    _check("stats null_asi = 2", stats.null_asi == 2)
+
+
+def test_publisher_config_audit_case_insensitive() -> None:
+    print("\n[publisher_config — case + whitespace normalised]")
+    rows = [
+        ("pub-6", "Mixed case", "active", 1, "PgamSSP.com"),
+        ("pub-7", "Trailing whitespace", "active", 1, "  pgamssp.com  "),
+    ]
+    orig, mod = _patch_pc_connect(rows)
+    try:
+        stats, findings, keys = mod.run_publisher_config_schain_audit()
+    finally:
+        mod.connect = orig
+
+    _check("no findings — both normalise to pgamssp.com",
+           len(findings) == 0, f"got {[f.check_id for f in findings]}")
+
+
+def test_publisher_config_audit_table_missing() -> None:
+    print("\n[publisher_config — skips cleanly when table missing]")
+    import agents.compliance.publisher_config_audit as mod
+    def _broken():
+        class _Cm:
+            def __enter__(self): raise RuntimeError("relation does not exist")
+            def __exit__(self, *a): return False
+        return _Cm()
+    orig = mod.connect
+    mod.connect = _broken
+    try:
+        stats, findings, keys = mod.run_publisher_config_schain_audit()
+    finally:
+        mod.connect = orig
+
+    _check("skipped_reason populated",
+           stats.skipped_reason is not None and
+           "does not exist" in stats.skipped_reason)
+    _check("no findings", len(findings) == 0)
+
+
 # ── Dynamic schain audit ─────────────────────────────────────────────────────
 
 
@@ -1321,6 +1448,12 @@ def main() -> int:
         test_fetch_adstxt_304_uses_cached_parse,
         test_fetch_adstxt_200_stores_fresh_entry,
         test_conditional_headers_helper,
+        # publisher_config schain (Phase 4 Tier A)
+        test_publisher_config_audit_all_correct,
+        test_publisher_config_audit_mismatch_flagged,
+        test_publisher_config_audit_null_flagged,
+        test_publisher_config_audit_case_insensitive,
+        test_publisher_config_audit_table_missing,
         # Dynamic schain
         test_dynamic_schain_skip_when_no_table,
         test_dynamic_schain_critical_when_high_rate,

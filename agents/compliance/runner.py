@@ -45,6 +45,9 @@ from agents.compliance.activity_filter import (  # noqa: E402
 )
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
+from agents.compliance.publisher_config_audit import (  # noqa: E402
+    run_publisher_config_schain_audit,
+)
 from agents.compliance.crawlers.downstream_sellersjson import (  # noqa: E402
     fetch_downstream_sellers_json,
 )
@@ -365,6 +368,9 @@ def run() -> dict:
         "schain_publishers_audited": 0,
         "dynamic_schain_publishers": 0,
         "dynamic_schain_findings": 0,
+        "publisher_config_total": 0,
+        "publisher_config_correct": 0,
+        "publisher_config_findings": 0,
         "phase5_entities_audited": 0,
         "phase5_domains": 0,
         "phase5_apps": 0,
@@ -532,6 +538,35 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] dynamic schain failed (non-fatal): {exc}")
 
+        # Phase 4 — Tier A: verify every active publisher_config has
+        # schain_asi = 'pgamssp.com' so the bidder-edge injects our
+        # canonical node ASI on every emitted bid. Catches misconfig at
+        # the source-of-truth layer (the bidder polls publisher_configs
+        # ~60s); complements the LL-side static audit which validates
+        # supplyChainEnabled on demands.
+        pub_config_sentinel_keys: list[str] = []
+        if enable_schain:
+            try:
+                pc_stats, pc_findings, pc_keys = run_publisher_config_schain_audit()
+                if pc_stats.skipped_reason:
+                    print(f"[{ACTOR}] publisher_config schain skipped: "
+                          f"{pc_stats.skipped_reason}")
+                else:
+                    findings.extend(pc_findings)
+                    pub_config_sentinel_keys = pc_keys
+                    summary["publisher_config_total"]    = pc_stats.total_active
+                    summary["publisher_config_correct"]  = pc_stats.correct_asi
+                    summary["publisher_config_findings"] = pc_stats.findings_count
+                    print(
+                        f"[{ACTOR}] publisher_config schain "
+                        f"total={pc_stats.total_active} "
+                        f"correct={pc_stats.correct_asi} "
+                        f"null={pc_stats.null_asi} "
+                        f"mismatch={pc_stats.mismatch_asi}"
+                    )
+            except Exception as exc:
+                print(f"[{ACTOR}] publisher_config schain failed (non-fatal): {exc}")
+
         opened, total = upsert_findings(findings)
         print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
 
@@ -548,6 +583,7 @@ def run() -> dict:
             + ssp_sentinel_keys
             + schain_sentinel_keys
             + dynamic_schain_sentinel_keys
+            + pub_config_sentinel_keys
             + phase5_sentinel_keys
         )
         resolved = resolve_cleared(resolvable, seen)
