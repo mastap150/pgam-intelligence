@@ -391,24 +391,93 @@ def audit_entity(
     }
 
 
+# ─── Pattern clustering ─────────────────────────────────────────────────────
+
+
+def _cluster_wrong_seller_patterns(results: list[dict]) -> list[dict]:
+    """Group entities by (ssp, observed_account_id) to surface shared-template
+    misconfigurations.
+
+    Example: 22 entities all declare zeta at seat=503 instead of our seat=748.
+    Almost certainly one upstream operator distributing a stale ads.txt
+    template. Surfacing the cluster lets one outreach fix all N publishers.
+
+    Returns a list of cluster dicts, each:
+      {"ssp": ssp_key, "observed_account_id": "503",
+       "expected_account_id": "748", "entities": [{"value": ..., "rev_7d": ...}],
+       "total_rev_7d": float}
+    Sorted by total_rev_7d desc; only clusters with ≥3 entities are returned.
+    """
+    from collections import defaultdict
+    by_key: dict[tuple[str, str], dict] = defaultdict(
+        lambda: {"entities": [], "expected": None}
+    )
+    for r in results:
+        for f in r["findings"]:
+            if not f["check"].startswith("ssp.") or "wrong_seller" not in f["check"]:
+                continue
+            ssp = f["check"].split(".")[1]
+            d = f.get("detail", {})
+            expected = d.get("expected_account_id")
+            observed_list = d.get("observed_account_ids", []) or []
+            for observed in observed_list:
+                key = (ssp, str(observed))
+                by_key[key]["entities"].append({
+                    "entity":     r["value"],
+                    "kind":       r["kind"],
+                    "rev_7d":     r["total_rev"],
+                    "ssp_rev_7d": r["ssps_observed"].get(ssp, 0),
+                })
+                by_key[key]["expected"] = expected
+
+    clusters: list[dict] = []
+    for (ssp, observed), payload in by_key.items():
+        ents = payload["entities"]
+        if len(ents) < 3:
+            continue
+        clusters.append({
+            "ssp": ssp,
+            "observed_account_id": observed,
+            "expected_account_id": payload["expected"],
+            "entity_count": len(ents),
+            "total_rev_7d": sum(e["rev_7d"] for e in ents),
+            "ssp_rev_7d":   sum(e["ssp_rev_7d"] for e in ents),
+            "entities":     sorted(ents, key=lambda x: -x["rev_7d"])[:10],
+        })
+    clusters.sort(key=lambda c: (-c["entity_count"], -c["total_rev_7d"]))
+    return clusters
+
+
 # ─── Slack render ───────────────────────────────────────────────────────────
 
 
-def _slack_blocks(results: list[dict], summary: dict) -> list[dict]:
-    """Block Kit payload — header, partner rollup, top criticals, top revenue."""
+def _slack_blocks(
+    results: list[dict],
+    summary: dict,
+    *,
+    ssp_scorecards: dict[str, list[dict]] | None = None,
+    pattern_clusters: list[dict] | None = None,
+) -> list[dict]:
+    """Block Kit payload — header, partner rollup, top criticals, per-SSP
+    scorecards, pattern clusters."""
     today_iso = date.today().isoformat()
+    ssp_scorecards = ssp_scorecards or {}
+    pattern_clusters = pattern_clusters or []
 
     header_line = (
-        f":mag_right: *Deep supply-path audit — {today_iso}*\n"
-        f"_Revenue-priority compliance audit of top {summary['top_n']} "
-        f"inventory across all 10 active SSPs._"
+        f":mag_right: *Compliance daily — {today_iso}*\n"
+        f"_Revenue-priority audit of top {summary['top_n']} inventory across "
+        f"all 10 active SSPs._"
     )
     stats = (
         f"• {summary['top_n']} entities scanned "
         f"({summary['domains']} domains · {summary['apps']} apps; "
         f"{summary['apps_resolved']} resolved, "
         f"{summary['apps_unresolved']} unresolved)\n"
-        f"• ${summary['total_rev']:,.0f} combined trailing-7d revenue\n"
+        f"• ${summary['total_rev']:,.0f} combined trailing-7d revenue "
+        f"({summary.get('audited_rev_coverage_pct', 0):.0f}% of "
+        f"${summary.get('universe_total_rev_through_registered_ssps', 0):,.0f} "
+        f"flowing through the 10 registered SSPs)\n"
         f"• {summary['critical_count']} critical · "
         f"{summary['high_count']} high · "
         f"avg score *{summary['avg_score']:.0f}/100*"
@@ -502,12 +571,76 @@ def _slack_blocks(results: list[dict], summary: dict) -> list[dict]:
                              + "\n".join(lines)},
         })
 
+    # Pattern clusters — likely shared-template misconfigurations.
+    # Single outreach fixes N publishers, so this is the highest-leverage section.
+    if pattern_clusters:
+        cluster_lines = []
+        for c in pattern_clusters[:5]:
+            ents = c["entities"][:3]
+            ent_preview = ", ".join(f"`{e['entity'][:24]}`" for e in ents)
+            extra = (f" +{c['entity_count']-3}"
+                      if c["entity_count"] > 3 else "")
+            cluster_lines.append(
+                f"• *{c['ssp']}* — {c['entity_count']} entities share seat "
+                f"`{c['observed_account_id']}` (expected `{c['expected_account_id']}`)  ·  "
+                f"${c['total_rev_7d']:,.0f}/7d in affected inventory\n"
+                f"     {ent_preview}{extra}"
+            )
+        blocks.append({"type": "divider"})
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn",
+                     "text": ":dna: *Shared-template clusters* "
+                             "(one outreach fixes N publishers)\n"
+                             + "\n".join(cluster_lines)},
+        })
+
+    # Per-SSP scorecard sections (one section per SSP that has ≥3 entities).
+    active_ssps = [(k, v) for k, v in ssp_scorecards.items() if len(v) >= 3]
+    active_ssps.sort(key=lambda kv: -sum(e["ssp_rev_7d"] for e in kv[1]))
+    if active_ssps:
+        blocks.append({"type": "divider"})
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn",
+                     "text": f":bookmark_tabs: *Per-SSP scorecards* "
+                             f"(top {len(active_ssps[0][1])} entities per SSP)"},
+        })
+        for ssp_key, entries in active_ssps[:8]:  # cap to 8 SSPs to keep digest scannable
+            total_ssp_rev = sum(e["ssp_rev_7d"] for e in entries)
+            problem_entries = sum(1 for e in entries if e["verdict"] != "ok")
+            verdict_emoji = {
+                "ok": ":white_check_mark:",
+                "missing": ":x:",
+                "wrong_seller": ":warning:",
+                "wrong_type": ":small_orange_diamond:",
+            }
+            top_lines = []
+            for e in entries[:8]:
+                head = f"app `{e['entity'][:28]}`" if e["kind"] == "app" else f"`{e['entity'][:28]}`"
+                top_lines.append(
+                    f"  {verdict_emoji.get(e['verdict'], '·')} "
+                    f"{head} — ${e['ssp_rev_7d']:,.0f}/7d  _{e['verdict']}_"
+                )
+            blocks.append({
+                "type": "section",
+                "text": {"type": "mrkdwn",
+                         "text": (
+                             f"*{ssp_key.upper()}*  ·  {len(entries)} entities  ·  "
+                             f"${total_ssp_rev:,.0f}/7d  ·  "
+                             f"{problem_entries} non-compliant\n"
+                             + "\n".join(top_lines)
+                         )},
+            })
+
     blocks.append({"type": "context", "elements": [
         {"type": "mrkdwn",
-         "text": (":robot_face: One-shot deep audit via "
-                  "`scripts/deep_compliance_audit.py`. Daily systematic "
-                  "version runs via the compliance agent (Phase 1-5.1) "
-                  "once `PGAM_COMPLIANCE_ENABLED=1` is flipped in Render.")}
+         "text": (":robot_face: Daily deep audit via "
+                  "`scripts/deep_compliance_audit.py`. Full JSON archived "
+                  "as a GH Actions artifact. To switch to the "
+                  "persistence-backed daily agent (Neon-backed history, "
+                  "/admin/compliance dashboard, auto-resolve), flip "
+                  "`PGAM_COMPLIANCE_ENABLED=1` in Render.")}
     ]})
     return blocks
 
@@ -540,10 +673,12 @@ def post_to_slack(blocks: list[dict], fallback: str) -> bool:
 
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--top", type=int, default=30,
-                        help="Top N entities by combined revenue (default 30)")
+    parser.add_argument("--top", type=int, default=200,
+                        help="Top N entities by combined revenue (default 200)")
     parser.add_argument("--no-slack", action="store_true",
                         help="Skip the Slack post; just print + save JSON")
+    parser.add_argument("--per-ssp-top", type=int, default=15,
+                        help="Top N entities per SSP scorecard (default 15)")
     parser.add_argument("--out", default="/tmp/deep_compliance_audit.json")
     args = parser.parse_args(argv)
 
@@ -554,8 +689,15 @@ def main(argv=None) -> int:
     def _entity_score(e: dict) -> float:
         return sum(e["ssps"].values())
     ranked = sorted(universe.values(), key=lambda e: -_entity_score(e))
-    top = [e for e in ranked if _entity_score(e) > 0][: args.top]
-    print(f"[audit] universe={len(universe)} top={len(top)}", flush=True)
+    audited_entities = [e for e in ranked if _entity_score(e) > 0]
+    top = audited_entities[: args.top]
+    universe_total_ssp_rev = sum(_entity_score(e) for e in audited_entities)
+    audited_total_ssp_rev  = sum(_entity_score(e) for e in top)
+    coverage_pct = (audited_total_ssp_rev / universe_total_ssp_rev * 100
+                     if universe_total_ssp_rev > 0 else 0)
+    print(f"[audit] universe={len(universe)} top={len(top)} "
+          f"coverage={coverage_pct:.1f}% (${audited_total_ssp_rev:,.0f} / "
+          f"${universe_total_ssp_rev:,.0f})", flush=True)
 
     print("[audit] fetching PGAM sellers.json", flush=True)
     payload = fetch_pgam_sellers_json()
@@ -601,6 +743,9 @@ def main(argv=None) -> int:
         "apps_resolved":   apps_resolved,
         "apps_unresolved": apps_unresolved,
         "total_rev":       sum(r["total_rev"] for r in results),
+        "universe_size":   len(audited_entities),
+        "universe_total_rev_through_registered_ssps": round(universe_total_ssp_rev, 2),
+        "audited_rev_coverage_pct": round(coverage_pct, 1),
         "critical_count":  critical_count,
         "high_count":      high_count,
         "avg_score":       (sum(r["score"] for r in results) / len(results))
@@ -608,9 +753,51 @@ def main(argv=None) -> int:
         "ran_at":          datetime.now(timezone.utc).isoformat(),
     }
 
-    # Save JSON
-    Path(args.out).write_text(json.dumps(
-        {"summary": summary, "results": results}, indent=2, default=str))
+    # Build per-SSP scorecards: for each SSP in the registry, the top N entities
+    # by THAT SSP's revenue + their compliance status against the SSP's required line.
+    ssp_scorecards: dict[str, list[dict]] = {}
+    for exp in PHASE_2_SSP_EXPECTATIONS:
+        entries = []
+        for r in results:
+            ssp_rev = r["ssps_observed"].get(exp.ssp_key, 0.0)
+            if ssp_rev <= 0:
+                continue
+            verdict = "ok"
+            for f in r["findings"]:
+                if f["check"] == f"ssp.{exp.ssp_key}.reseller_missing":
+                    verdict = "missing";  break
+                if f["check"] == f"ssp.{exp.ssp_key}.wrong_seller":
+                    verdict = "wrong_seller"; break
+                if f["check"] == f"ssp.{exp.ssp_key}.wrong_type":
+                    verdict = "wrong_type"; break
+            entries.append({
+                "entity": r["value"], "kind": r["kind"],
+                "ssp_rev_7d": round(ssp_rev, 2),
+                "entity_rev_7d": r["total_rev"],
+                "verdict": verdict, "score": r["score"],
+            })
+        entries.sort(key=lambda e: -e["ssp_rev_7d"])
+        ssp_scorecards[exp.ssp_key] = entries[: args.per_ssp_top]
+
+    # Pattern clustering — detect shared-template misconfigurations. For each
+    # SSP wrong_seller finding, capture the OBSERVED account_ids on each
+    # entity, then group entities by the modal observed account_id. Clusters
+    # of size ≥ 3 are very likely an upstream-template issue (one outreach
+    # fixes N publishers).
+    pattern_clusters = _cluster_wrong_seller_patterns(results)
+
+    summary["ssp_scorecard_counts"] = {
+        k: len(v) for k, v in ssp_scorecards.items()
+    }
+    summary["pattern_clusters"] = len(pattern_clusters)
+
+    # Save JSON (full payload including scorecards + clusters)
+    Path(args.out).write_text(json.dumps({
+        "summary":          summary,
+        "results":          results,
+        "ssp_scorecards":   ssp_scorecards,
+        "pattern_clusters": pattern_clusters,
+    }, indent=2, default=str))
     print(f"[audit] saved → {args.out}", flush=True)
 
     # Print summary
@@ -629,10 +816,15 @@ def main(argv=None) -> int:
 
     # Slack post
     if not args.no_slack:
-        blocks = _slack_blocks(results, summary)
-        fallback = (f"Deep compliance audit: {critical_count} critical, "
+        blocks = _slack_blocks(
+            results, summary,
+            ssp_scorecards=ssp_scorecards,
+            pattern_clusters=pattern_clusters,
+        )
+        fallback = (f"Compliance daily: {critical_count} critical, "
                     f"{high_count} high across {len(results)} top entities "
-                    f"(avg {summary['avg_score']:.0f}/100).")
+                    f"(avg {summary['avg_score']:.0f}/100, "
+                    f"{summary.get('audited_rev_coverage_pct', 0):.0f}% rev coverage).")
         post_to_slack(blocks, fallback)
 
     return 0

@@ -1,0 +1,68 @@
+name: Compliance Daily Audit
+
+# Runs scripts/deep_compliance_audit.py every morning and posts the
+# comprehensive digest (executive summary + per-SSP scorecards + shared-
+# template clusters) to Slack. Independent of the Render-side daily
+# compliance agent — this gives operational visibility today without
+# needing the Neon-persisted version deployed.
+
+on:
+  schedule:
+    # 12:30 UTC = 08:30 ET (matches the Render compliance_runner slot,
+    # so both fire on the same cadence when the agent is deployed).
+    - cron: "30 12 * * *"
+  workflow_dispatch:
+    inputs:
+      top_n:
+        description: "Top N entities to audit (default 200)"
+        required: false
+        default: "200"
+      per_ssp_top:
+        description: "Top N entities per SSP scorecard (default 15)"
+        required: false
+        default: "15"
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: write   # for artifact upload
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run deep compliance audit
+        env:
+          LL_API_BASE_URL:          ${{ secrets.LL_API_BASE_URL }}
+          LL_CLIENT_KEY:            ${{ secrets.LL_CLIENT_KEY }}
+          LL_SECRET_KEY:            ${{ secrets.LL_SECRET_KEY }}
+          SLACK_WEBHOOK:            ${{ secrets.SLACK_WEBHOOK }}
+          COMPLIANCE_SLACK_WEBHOOK: ${{ secrets.COMPLIANCE_SLACK_WEBHOOK }}
+          PGAM_SELLERS_JSON_URL:    ${{ secrets.PGAM_SELLERS_JSON_URL }}
+        run: |
+          TOP_N="${{ github.event.inputs.top_n }}"
+          PER_SSP="${{ github.event.inputs.per_ssp_top }}"
+          python3 scripts/deep_compliance_audit.py \
+            --top   "${TOP_N:-200}" \
+            --per-ssp-top "${PER_SSP:-15}" \
+            --out   compliance-audit-$(date -u +%Y-%m-%d).json
+
+      - name: Archive audit JSON artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compliance-audit-${{ github.run_id }}
+          path: compliance-audit-*.json
+          retention-days: 90
