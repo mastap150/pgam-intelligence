@@ -257,7 +257,15 @@ def run() -> dict:
     print(f"[{actor}] starting — {len(demands)} demands, {len(pubs_summary)} pubs")
 
     schain_result = check_demand_supplychain(demands, demand_rev, actor)
-    pub_schain_node_result = check_pub_dont_add_supplychain_node(pubs_summary, pub_rev, actor)
+    # Belt-and-suspenders: the function below is disabled (returns 0 candidates),
+    # but we also short-circuit at the caller in case a stale Render deploy
+    # serves an older version of check_pub_dont_add_supplychain_node. This
+    # call site explicitly returns an empty result so no flips can happen
+    # regardless of what the inner function does.
+    pub_schain_node_result = {"category": "pub_schain_node_suppress",
+                              "candidates": 0, "fixed": [],
+                              "disabled_at_caller": True,
+                              "disabled_reason": "Per Priyesh 2026-05-18 — never auto-flip dontAddSupplyChainNode."}
     lurl_result = check_pub_lurl(pubs_summary, pub_rev, actor)
     qps_result = check_demand_qps(demands, demand_rev, actor)
     low_margin = check_low_margin_demands(demands, demand_rev)

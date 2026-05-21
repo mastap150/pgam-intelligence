@@ -59,6 +59,24 @@ MAX_WIRINGS_PER_RUN = 5       # daily cap on new activations
 STRIP_FIELDS = {"qpsYesterday", "qpsPreviousHour"}
 ACTOR_PREFIX = "auto_wire_gaps"
 
+# Demand-name blocklist (case-insensitive substring match).
+# Demands here will NEVER be auto-wired regardless of demand_gap estimate.
+# Reason: these demand partners have per-publisher running rules (allowlists,
+# direct-deal constraints, brand-safety zones) that we can't model from the
+# gap report — wiring them generically will violate the partner's terms.
+#
+# Verve added 2026-05-21 per Priyesh: Verve has specific rules where they
+# can run; auto-wiring violates those rules.
+DEMAND_NAME_BLOCKLIST = (
+    "verve",
+)
+
+
+def _demand_name_blocked(name: str) -> bool:
+    """True if a demand name matches the blocklist — should never be auto-wired."""
+    nl = (name or "").lower()
+    return any(tok in nl for tok in DEMAND_NAME_BLOCKLIST)
+
 
 def _find_template_item(all_pubs_list: list[dict], demand_id: int,
                         exclude_pid: int) -> dict | None:
@@ -79,11 +97,22 @@ def _find_template_item(all_pubs_list: list[dict], demand_id: int,
 
 
 def _qualifying_gaps(gaps_data: dict) -> list[dict]:
-    """Filter gaps on threshold criteria, sort by est_lift descending."""
+    """Filter gaps on threshold criteria + blocklist, sort by est_lift descending."""
     gaps = gaps_data.get("gaps", [])
-    ok = [g for g in gaps
-          if float(g.get("est_lift_30d", 0) or 0) >= MIN_LIFT_30D
-          and float(g.get("peer_median_win_rate", 0) or 0) >= MIN_PEER_WIN_RATE]
+    ok = []
+    blocked = 0
+    for g in gaps:
+        # Blocklist gate — never wire restricted demand partners
+        if _demand_name_blocked(g.get("demand_name", "")):
+            blocked += 1
+            continue
+        if float(g.get("est_lift_30d", 0) or 0) < MIN_LIFT_30D:
+            continue
+        if float(g.get("peer_median_win_rate", 0) or 0) < MIN_PEER_WIN_RATE:
+            continue
+        ok.append(g)
+    if blocked:
+        print(f"[auto_wire_gaps] blocked {blocked} gap(s) by DEMAND_NAME_BLOCKLIST: {DEMAND_NAME_BLOCKLIST}")
     ok.sort(key=lambda g: -float(g.get("est_lift_30d", 0) or 0))
     return ok
 
@@ -141,6 +170,15 @@ def run() -> dict:
             template = _find_template_item(all_pubs, did, pid)
             if template is None:
                 print(f"[{actor}] demand {did}: no template — skip")
+                continue
+            # Belt-and-suspenders: re-check blocklist on the TEMPLATE's demand
+            # name. _qualifying_gaps should already filter, but the gap report
+            # might lack demand_name on some rows, so we re-check at the
+            # last possible moment using LL's own name.
+            template_name = (template.get("name") or "")
+            if _demand_name_blocked(template_name):
+                print(f"[{actor}] BLOCKED demand {did} ({template_name}): "
+                      f"matches DEMAND_NAME_BLOCKLIST — refusing to wire")
                 continue
             for f in STRIP_FIELDS:
                 if f in template:
