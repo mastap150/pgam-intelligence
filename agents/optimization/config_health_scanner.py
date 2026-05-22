@@ -57,6 +57,25 @@ MAX_AUTOFIX_PER_CATEGORY = 5
 QPS_UTIL_THRESHOLD = 0.90
 QPS_BUMP_MULTIPLIER = 2.0
 
+# Demand-name blocklist for QPS auto-raise (case-insensitive substring match).
+# Demands matching these tokens will NEVER have qpsLimit auto-raised, regardless
+# of utilization. Use this for partners where:
+#   - We're in active testing and need to hold caps stable (Basis 2026-05-22)
+#   - The partner has explicit rate-limit rules we must respect
+#   - Commercial terms cap our QPS at a contracted level
+#
+# Basis added 2026-05-22 per Priyesh: testing with Basis, hold all Basis demands
+# at the current QPS caps; do not auto-raise.
+QPS_DEMAND_NAME_BLOCKLIST = (
+    "basis",
+)
+
+
+def _qps_demand_blocked(name: str) -> bool:
+    """True if a demand's QPS should not be auto-raised."""
+    nl = (name or "").lower()
+    return any(tok in nl for tok in QPS_DEMAND_NAME_BLOCKLIST)
+
 # Margin alert threshold
 LOW_MARGIN_THRESHOLD = 0.10  # alert if margin <= 10%
 LOW_MARGIN_MIN_REV = 500.0   # ...and demand earning >= $500/wk
@@ -189,16 +208,27 @@ def check_pub_dont_add_supplychain_node(all_pubs_summary: list[dict], pub_rev: d
 
 
 def check_demand_qps(demands: list[dict], demand_rev: dict, actor: str) -> dict:
-    """AUTO-FIX: double qpsLimit on demands hitting >=90% utilization."""
+    """AUTO-FIX: double qpsLimit on demands hitting >=90% utilization.
+
+    Skips demands matching QPS_DEMAND_NAME_BLOCKLIST (e.g., Basis — under
+    active partner testing, must hold caps stable).
+    """
     candidates = []
+    blocked = 0
     for d in demands:
         rev = demand_rev.get(d.get("id"), 0)
         if rev < MIN_DEMAND_REV_7D:
+            continue
+        # Blocklist gate — never raise QPS on testing/restricted partners
+        if _qps_demand_blocked(d.get("name", "")):
+            blocked += 1
             continue
         qps = d.get("qpsLimit") or 0
         qps_yest = d.get("qpsYesterday") or 0
         if qps > 0 and qps_yest >= qps * QPS_UTIL_THRESHOLD:
             candidates.append((d, rev, qps, qps_yest))
+    if blocked:
+        print(f"[{actor}] qps auto-raise: skipped {blocked} demand(s) per QPS_DEMAND_NAME_BLOCKLIST {QPS_DEMAND_NAME_BLOCKLIST}")
     candidates.sort(key=lambda c: -c[1])
 
     fixed = []
