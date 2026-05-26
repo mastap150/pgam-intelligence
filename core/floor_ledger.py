@@ -65,8 +65,17 @@ def record(
     applied: bool = True,
     source_log: str = "",
     ts_utc: str | None = None,
+    evaluated_from: str | None = None,
+    reverted_from: str | None = None,
 ) -> dict[str, Any]:
-    """Append one entry. Returns the written row."""
+    """Append one entry. Returns the written row.
+
+    `evaluated_from` / `reverted_from` link an evaluation or revert back to the
+    original ledger entry's id. A/B watchdogs (intervention_journal,
+    margin_experiment_monitor, auto_revert_harmful) use these to enforce
+    one-shot semantics — without persisting them, the "already processed?"
+    check never matches and the agent re-fires every run.
+    """
     _ensure_dir()
     row = {
         "id": _new_id(),
@@ -83,6 +92,11 @@ def record(
         "applied": bool(applied),
         "source_log": source_log,
     }
+    # Only include linkage keys when set — keeps existing entries clean
+    if evaluated_from is not None:
+        row["evaluated_from"] = evaluated_from
+    if reverted_from is not None:
+        row["reverted_from"] = reverted_from
     # append-only gzip JSONL
     mode = "at" if LEDGER_PATH.exists() else "wt"
     with gzip.open(LEDGER_PATH, mode) as f:

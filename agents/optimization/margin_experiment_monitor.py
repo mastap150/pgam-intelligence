@@ -80,12 +80,26 @@ def _is_margin_experiment(entry: dict) -> bool:
 
 
 def _already_evaluated(ledger_id: str, all_rows: list[dict]) -> bool:
-    """Has this margin entry been evaluated (logged or reverted) in a prior run?"""
+    """Has this margin entry been evaluated (logged or reverted) in a prior run?
+
+    Primary check: structured linkage fields (evaluated_from / reverted_from),
+    now persisted by floor_ledger.record(). Fallback: scan the reason text for
+    the ledger_id, which covers historical entries written before the linkage
+    fields existed.
+    """
+    if not ledger_id:
+        return False
     for r in all_rows:
         if r.get("evaluated_from") == ledger_id:
             return True
         if r.get("reverted_from") == ledger_id:
             return True
+        # Fallback for pre-linkage entries: our eval/revert entries embed the
+        # source ledger_id in the reason text ("Evaluated margin <id>" / "Auto-revert margin <id>")
+        actor = (r.get("actor", "") or "")
+        if actor.startswith(ACTOR_PREFIX) and ("_eval" in actor or "_revert" in actor):
+            if ledger_id in (r.get("reason", "") or ""):
+                return True
     return False
 
 
@@ -232,6 +246,7 @@ def _record_evaluation(d: dict) -> None:
                 f"net/d ${d['pre_net_per_day']}→${d['post_net_per_day']}, "
                 f"ratio={d['net_ratio']:.2f}, vol_ratio={d['vol_ratio']:.2f})"),
         dry_run=False, applied=True,
+        evaluated_from=d["ledger_id"],
     )
 
 
@@ -262,6 +277,7 @@ def _execute_revert(d: dict) -> bool:
                     f"(ratio {d['net_ratio']:.2f}). "
                     f"Restored {d['new_margin_pct']}%→{d['old_margin_pct']}%."),
             dry_run=False, applied=True,
+            reverted_from=d["ledger_id"],
         )
         return True
     except Exception as e:

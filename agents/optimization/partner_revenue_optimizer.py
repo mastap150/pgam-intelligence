@@ -148,14 +148,20 @@ def _load_pub_demand_7d() -> tuple[dict, dict]:
 
 
 def _changes_today_per_partner() -> dict[int, int]:
-    """Count partner_revenue_optimizer ledger entries per partner pub today."""
+    """Count partner_revenue_optimizer ledger entries per partner pub today.
+
+    Counts BOTH applied and dry-run entries. The daily cap exists to stop us
+    re-proposing the same lift repeatedly — and in dry-run mode (the kill-switch
+    default) that repetition is exactly the spam we want to suppress. Excluding
+    dry-run entries here let the agent re-simulate + re-Slack the same lift
+    every 4h run (observed: 6×/day on d=776 while in dry-run). Counting them
+    means one simulation per partner per day regardless of apply/dry-run mode.
+    """
     cutoff = datetime.now(timezone.utc) - timedelta(days=LOOKBACK_DAYS_FOR_DAILY_CAP)
     cutoff_iso = cutoff.isoformat().replace("+00:00", "Z")
     counts: dict[int, int] = defaultdict(int)
     for row in floor_ledger.read_all():
         if not (row.get("actor", "") or "").startswith(ACTOR_PREFIX):
-            continue
-        if row.get("dry_run") or not row.get("applied"):
             continue
         if row.get("ts_utc", "") < cutoff_iso:
             continue
