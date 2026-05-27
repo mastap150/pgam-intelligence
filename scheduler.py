@@ -430,6 +430,15 @@ def setup_schedule():
     # on unfamiliar PGAM-domain DIRECT entries.
     adstxt_monitor = _import("agents.alerts.adstxt_monitor")
     schedule.every().day.at("09:00").do(_run("adstxt_monitor",       adstxt_monitor))
+    # Supply Compliance & Quality Intelligence — Phase 1. Daily 08:30 ET.
+    # Fetches PGAM sellers.json, builds the publisher universe, crawls each
+    # partner's ads.txt, validates the universal `pgammedia.com, <seller_id>,
+    # DIRECT` line, persists findings to pgam_direct.compliance_findings, and
+    # posts a daily Slack digest. Gated at registration time so it costs nothing
+    # until you flip PGAM_COMPLIANCE_ENABLED=1 in Render.
+    if _os.getenv("PGAM_COMPLIANCE_ENABLED") == "1":
+        compliance_runner = _import("agents.compliance.runner")
+        schedule.every().day.at("08:30").do(_run("compliance_runner", compliance_runner))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
