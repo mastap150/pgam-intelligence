@@ -144,6 +144,8 @@ def _format_pub_key(key: str) -> str:
         return f"LL pub `{key[len('_ll_pub:'):]}`"
     if key.startswith("_dynamic_schain_pub:"):
         return f"emitted schain pub `{key[len('_dynamic_schain_pub:'):]}`"
+    if key.startswith("_ll_publisher:"):
+        return f"LL supply partner `{key[len('_ll_publisher:'):]}`"
     if key.startswith("_pub_config:"):
         return f"publisher_config `{key[len('_pub_config:'):]}`"
     if key.startswith("dom:"):
