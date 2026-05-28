@@ -44,6 +44,7 @@ from agents.compliance.activity_filter import (  # noqa: E402
     refresh_partner_activity,
 )
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
+from agents.compliance.demand_detector import run_demand_detector  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
 from agents.compliance.inventory_roundtrip_audit import (  # noqa: E402
     run_inventory_roundtrip_audit,
@@ -88,6 +89,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_partner_activity.sql",
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_adstxt_cache.sql",
     _REPO_ROOT / "migrations" / "2026_05_28_compliance_ll_bridge_many_to_one.sql",
+    _REPO_ROOT / "migrations" / "2026_05_28_compliance_observed_demands.sql",
 )
 
 
@@ -383,6 +385,9 @@ def run() -> dict:
         "roundtrip_unbridged": 0,
         "roundtrip_undeclared": 0,
         "roundtrip_rev_at_risk_7d": 0.0,
+        "demand_total_seen": 0,
+        "demand_new": 0,
+        "demand_unmapped": 0,
         "phase5_entities_audited": 0,
         "phase5_domains": 0,
         "phase5_apps": 0,
@@ -589,6 +594,33 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] publisher_config schain failed (non-fatal): {exc}")
 
+        # Phase 7 — new-demand + unmapped-SSP detection. Tracks every
+        # LL demand_partner name observed; flags ones never seen before
+        # and ones that don't classify to any SSP in ssp_registry
+        # (i.e. silent gaps in the per-SSP reseller-line check). Auto-
+        # resolves as the registry is updated to cover them.
+        demand_sentinel_keys: list[str] = []
+        if os.environ.get("PGAM_COMPLIANCE_DEMAND_DETECTOR", "1") != "0":
+            try:
+                d_stats, d_findings, d_keys = run_demand_detector()
+                if d_stats.skipped_reason:
+                    print(f"[{ACTOR}] demand_detector skipped: "
+                          f"{d_stats.skipped_reason}")
+                else:
+                    findings.extend(d_findings)
+                    demand_sentinel_keys = d_keys
+                    summary["demand_total_seen"]    = d_stats.total_demands_seen
+                    summary["demand_new"]           = d_stats.new_demands
+                    summary["demand_unmapped"]      = d_stats.unmapped_demands
+                    print(
+                        f"[{ACTOR}] demand_detector seen={d_stats.total_demands_seen} "
+                        f"new={d_stats.new_demands} "
+                        f"unmapped={d_stats.unmapped_demands} "
+                        f"findings={d_stats.findings_count}"
+                    )
+            except Exception as exc:
+                print(f"[{ACTOR}] demand_detector failed (non-fatal): {exc}")
+
         # Phase 6 — sellers.json revenue round-trip. For every entity
         # earning trailing-7d revenue, verify it's covered by either a
         # direct PUBLISHER entry in PGAM sellers.json (entity's domain
@@ -640,6 +672,7 @@ def run() -> dict:
             + pub_config_sentinel_keys
             + phase5_sentinel_keys
             + roundtrip_sentinel_keys
+            + demand_sentinel_keys
         )
         resolved = resolve_cleared(resolvable, seen)
         print(f"[{ACTOR}] auto-resolved {resolved} previously-open findings")
