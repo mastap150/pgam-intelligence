@@ -22,7 +22,9 @@ from core.neon import connect
 
 from agents.compliance.crawlers.sellersjson import (
     SellerEntry,
+    fetch_pgam_sellers_json,
     fetch_publisher_entries,
+    parse_sellers,
 )
 
 
@@ -76,15 +78,40 @@ WHERE is_active = TRUE
 
 
 def build_universe(url: str | None = None) -> list[Publisher]:
-    """Fetch sellers.json and return the publisher list (deduped on key)."""
+    """The PUBLISHER + BOTH set — entities whose ads.txt Phase 1 actually crawls."""
     entries = fetch_publisher_entries(url=url)
+    return _dedup_by_key(entries)
+
+
+def build_full_registry(url: str | None = None) -> list[Publisher]:
+    """ALL sellers.json entries (PUBLISHER + BOTH + INTERMEDIARY).
+
+    Phase 1's ads.txt crawl operates on build_universe() (publisher-like
+    only). compliance_publishers, however, doubles as the ll_bridge
+    matching pool — and the bridge needs INTERMEDIARY entries (Start.io,
+    Smaato, BidMachine, …) too, otherwise it can't map LL supply
+    partners to sellers.json at all, which silently fails Phase 6's
+    round-trip check (the failure mode that flooded the first prod
+    run with 6,224 "earning via unbridged partner" entities).
+
+    Use this builder for compliance_publishers UPSERT; use
+    build_universe() for the Phase 1 crawl loop.
+    """
+    payload = fetch_pgam_sellers_json(url=url)
+    entries = parse_sellers(payload)
+    # Drop entries with no usable domain (the bridge needs domain stems).
+    entries = [e for e in entries if e.normalized_domain]
+    return _dedup_by_key(entries)
+
+
+def _dedup_by_key(entries: list[SellerEntry]) -> list[Publisher]:
     by_key: dict[str, Publisher] = {}
     for e in entries:
         pub = Publisher.from_entry(e)
         if pub is None:
             continue
-        # If two entries share a domain (rare), prefer PUBLISHER over BOTH
-        # over INTERMEDIARY for stability; otherwise the first wins.
+        # If two entries share a domain (rare), prefer PUBLISHER over
+        # BOTH over INTERMEDIARY for stability; otherwise the first wins.
         existing = by_key.get(pub.publisher_key)
         if existing is None:
             by_key[pub.publisher_key] = pub

@@ -65,7 +65,9 @@ from agents.compliance.reporters.slack_digest import post_digest  # noqa: E402
 from agents.compliance.schain_audit import run_schain_audit  # noqa: E402
 from agents.compliance.scoring import refresh_publisher_scores  # noqa: E402
 from agents.compliance.ssp_registry import PHASE_2_SSP_EXPECTATIONS  # noqa: E402
-from agents.compliance.universe import Publisher, build_universe, sync_universe  # noqa: E402
+from agents.compliance.universe import (  # noqa: E402
+    Publisher, build_full_registry, build_universe, sync_universe,
+)
 from agents.compliance.validators.adstxt_resellers import (  # noqa: E402
     validate_resellers_for_publisher,
 )
@@ -85,6 +87,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_phase5.sql",
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_partner_activity.sql",
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_adstxt_cache.sql",
+    _REPO_ROOT / "migrations" / "2026_05_28_compliance_ll_bridge_many_to_one.sql",
 )
 
 
@@ -395,11 +398,21 @@ def run() -> dict:
     try:
         _ensure_schema()
 
-        publishers = build_universe()
+        # Sync the FULL sellers.json registry (PUBLISHER + BOTH +
+        # INTERMEDIARY) into compliance_publishers — INTERMEDIARY rows
+        # are what the ll_bridge needs to map LL supply partners
+        # (Start.io, Smaato, BidMachine, …) for Phase 6's round-trip.
+        full_registry = build_full_registry()
+        upserted, deactivated = sync_universe(full_registry)
+        print(f"[{ACTOR}] sellers.json registry upserted={upserted} "
+              f"deactivated={deactivated} (full set incl. INTERMEDIARY)")
+
+        # Phase 1's ads.txt crawl loop operates on the publisher-like
+        # subset only — we don't crawl Start.io / Smaato / etc.'s
+        # ads.txt; we crawl the apps + domains flowing through them.
+        publishers = [p for p in full_registry if p.seller_type in ("PUBLISHER","BOTH")]
         if limit:
             publishers = publishers[:limit]
-        upserted, deactivated = sync_universe(publishers)
-        print(f"[{ACTOR}] universe upserted={upserted} deactivated={deactivated}")
 
         fetches = _crawl_all(publishers, app_ads=app_ads, rate_hz=rate_hz)
         _persist_fetches(fetches)

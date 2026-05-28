@@ -38,10 +38,8 @@ _LL_BUNDLE_BREAKDOWN = "BUNDLE,PUBLISHER,DEMAND_PARTNER"
 
 
 _BRIDGE_SQL = """
-SELECT cp.ll_publisher_id, cp.seller_type, cp.domain, cp.seller_id
-FROM pgam_direct.compliance_publishers cp
-WHERE cp.is_active = TRUE
-  AND cp.ll_publisher_id IS NOT NULL;
+SELECT ll_publisher_id, seller_type, seller_id
+FROM pgam_direct.compliance_ll_partner_bridge;
 """
 
 _APP_METADATA_SQL = """
@@ -132,7 +130,7 @@ def _build_lookups() -> tuple[dict[str, str], set[str], set[str], dict[str, str]
     with connect() as conn:
         with conn.cursor() as cur:
             cur.execute(_BRIDGE_SQL)
-            for ll_pid, stype, _dom, _sid in cur.fetchall():
+            for ll_pid, stype, _sid in cur.fetchall():
                 if not ll_pid:
                     continue
                 stype_u = (stype or "").upper()
