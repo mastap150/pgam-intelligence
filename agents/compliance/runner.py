@@ -45,6 +45,9 @@ from agents.compliance.activity_filter import (  # noqa: E402
 )
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
+from agents.compliance.inventory_roundtrip_audit import (  # noqa: E402
+    run_inventory_roundtrip_audit,
+)
 from agents.compliance.publisher_config_audit import (  # noqa: E402
     run_publisher_config_schain_audit,
 )
@@ -371,6 +374,12 @@ def run() -> dict:
         "publisher_config_total": 0,
         "publisher_config_correct": 0,
         "publisher_config_findings": 0,
+        "roundtrip_entities": 0,
+        "roundtrip_declared_direct": 0,
+        "roundtrip_declared_via_ssp": 0,
+        "roundtrip_unbridged": 0,
+        "roundtrip_undeclared": 0,
+        "roundtrip_rev_at_risk_7d": 0.0,
         "phase5_entities_audited": 0,
         "phase5_domains": 0,
         "phase5_apps": 0,
@@ -567,6 +576,38 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] publisher_config schain failed (non-fatal): {exc}")
 
+        # Phase 6 — sellers.json revenue round-trip. For every entity
+        # earning trailing-7d revenue, verify it's covered by either a
+        # direct PUBLISHER entry in PGAM sellers.json (entity's domain
+        # is declared) or an INTERMEDIARY supply partner that IS
+        # declared (Start.IO, Smaato, etc.). Flags revenue earned on
+        # inventory we haven't declared — the gap DSPs catch when
+        # auditing our supply paths. Vivek-inspired port.
+        roundtrip_sentinel_keys: list[str] = []
+        if os.environ.get("PGAM_COMPLIANCE_ROUNDTRIP", "1") != "0":
+            try:
+                rt = run_inventory_roundtrip_audit()
+                if rt.skipped_reason:
+                    print(f"[{ACTOR}] roundtrip skipped: {rt.skipped_reason}")
+                elif rt.stats is not None:
+                    findings.extend(rt.findings)
+                    roundtrip_sentinel_keys = rt.sentinel_keys
+                    summary["roundtrip_entities"]         = rt.stats.entities_seen
+                    summary["roundtrip_declared_direct"]  = rt.stats.declared_direct
+                    summary["roundtrip_declared_via_ssp"] = rt.stats.declared_intermediary
+                    summary["roundtrip_unbridged"]        = rt.stats.unbridged_partner
+                    summary["roundtrip_undeclared"]       = rt.stats.undeclared
+                    summary["roundtrip_rev_at_risk_7d"]   = rt.stats.revenue_at_risk_7d
+                    print(
+                        f"[{ACTOR}] roundtrip "
+                        f"declared={rt.stats.declared_direct}+{rt.stats.declared_intermediary} "
+                        f"unbridged={rt.stats.unbridged_partner} "
+                        f"undeclared={rt.stats.undeclared} "
+                        f"at_risk=${rt.stats.revenue_at_risk_7d:,.0f}/7d"
+                    )
+            except Exception as exc:
+                print(f"[{ACTOR}] roundtrip failed (non-fatal): {exc}")
+
         opened, total = upsert_findings(findings)
         print(f"[{ACTOR}] findings: total={total} newly_opened={opened}")
 
@@ -585,6 +626,7 @@ def run() -> dict:
             + dynamic_schain_sentinel_keys
             + pub_config_sentinel_keys
             + phase5_sentinel_keys
+            + roundtrip_sentinel_keys
         )
         resolved = resolve_cleared(resolvable, seen)
         print(f"[{ACTOR}] auto-resolved {resolved} previously-open findings")
