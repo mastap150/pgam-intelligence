@@ -4,8 +4,13 @@ agents/compliance/entity_universe.py
 Phase 5 universe builder: top-N (publisher × domain) and (publisher ×
 bundle) entities by trailing 7d gross revenue.
 
-Data source: pgam_direct.ll_daily_publisher_{domain,bundle}_demand
-(populated hourly by agents/etl/ll_4dim_etl.py). No external API calls.
+Data source: the LL stats API (stats.ortb.net) — live, pulled directly
+per run. Previously read from pgam_direct.ll_daily_publisher_
+{domain,bundle}_demand, but that ETL went stale (last report_date
+2026-05-12, agent's first prod run flagged it 2026-05-28) which
+silently zeroed out Phase 5. Hitting the LL stats API directly removes
+the ETL dependency entirely; the operational price is one extra LL
+API call per run (~5-15s vs <1s on the Neon read).
 
 For each entity row we also compute:
   - active_ssps[]  : the SSP keys (Rubicon/PubMatic/etc) observed
@@ -14,9 +19,11 @@ For each entity row we also compute:
                      reseller-line check
   - expected_seller_id : the publisher's PGAM seller_id from sellers.json
                          via compliance_publishers.ll_publisher_id
+                         (Neon — populated by Phase 2 ll_bridge, fresh)
   - audit_host    : the hostname we'll fetch ads.txt from
                      (domain entity → the domain itself;
-                      app entity   → app_metadata.dev_domain)
+                      app entity   → app_metadata.dev_domain via Neon,
+                      populated by app_name_enrichment, fresh)
 
 Truncate-and-rebuild semantics: an entity that stops earning for >7d
 drops out of the universe entirely, so we never raise findings on dead
@@ -27,6 +34,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field
 
+from core.api import fetch as ll_fetch, n_days_ago, sf, today
 from core.neon import connect
 
 from agents.compliance.ssp_registry import classify_demand_name
@@ -41,35 +49,61 @@ DEFAULT_TOP_N: int | None = None
 DEFAULT_LOOKBACK_DAYS = 7
 
 
-_PULL_DOMAIN_SQL = """
-SELECT
-    r.publisher_id,
-    MAX(r.publisher_name)            AS publisher_name,
-    r.domain                          AS entity_value,
-    r.demand_name,
-    SUM(r.gross_revenue)::numeric    AS revenue,
-    SUM(r.impressions)::bigint       AS impressions
-FROM pgam_direct.ll_daily_publisher_domain_demand r
-WHERE r.report_date >= (current_date - %(lookback)s::int)
-  AND r.gross_revenue > 0
-  AND COALESCE(r.domain, '') <> ''
-GROUP BY r.publisher_id, r.domain, r.demand_name;
-"""
+# LL stats API breakdowns. Always include PUBLISHER in the breakdown
+# so we can attribute per-entity revenue back to its supply partner
+# (Phase 5 filters to active LL Suppliers — needs publisher_id per row).
+_LL_DOMAIN_BREAKDOWN = "DOMAIN,PUBLISHER,DEMAND_PARTNER"
+_LL_BUNDLE_BREAKDOWN = "BUNDLE,PUBLISHER,DEMAND_PARTNER"
 
-_PULL_BUNDLE_SQL = """
-SELECT
-    r.publisher_id,
-    MAX(r.publisher_name)            AS publisher_name,
-    r.bundle                          AS entity_value,
-    r.demand_name,
-    SUM(r.gross_revenue)::numeric    AS revenue,
-    SUM(r.impressions)::bigint       AS impressions
-FROM pgam_direct.ll_daily_publisher_bundle_demand r
-WHERE r.report_date >= (current_date - %(lookback)s::int)
-  AND r.gross_revenue > 0
-  AND COALESCE(r.bundle, '') <> ''
-GROUP BY r.publisher_id, r.bundle, r.demand_name;
-"""
+# Field-name aliases — LL has been observed returning either casing /
+# underscore variant depending on the dimension combination, so we
+# probe in order of likelihood.
+_DOMAIN_KEYS    = ("DOMAIN", "domain")
+_BUNDLE_KEYS    = ("BUNDLE", "bundle", "BUNDLE_NAME")
+_PUB_ID_KEYS    = ("PUBLISHER_ID", "PUBLISHER", "publisher_id", "publisher")
+_PUB_NAME_KEYS  = ("PUBLISHER_NAME", "publisher_name")
+_DEMAND_KEYS    = ("DEMAND_PARTNER_NAME", "DEMAND_PARTNER", "demand_partner",
+                   "demand_partner_name", "DEMAND_NAME", "demand_name")
+
+
+def _first(row: dict, keys: tuple[str, ...]) -> str:
+    for k in keys:
+        v = row.get(k)
+        if v not in (None, ""):
+            return str(v)
+    return ""
+
+
+def _pull_ll_breakdown(breakdown: str, value_keys: tuple[str, ...],
+                        lookback_days: int) -> list[dict]:
+    """Pull (entity × publisher × demand) from LL stats API. Returns dict
+    rows shaped like the previous Neon SQL output so the rest of the
+    builder is unchanged."""
+    end = today()
+    start = n_days_ago(max(lookback_days - 1, 0))
+    try:
+        rows = ll_fetch(breakdown, ["GROSS_REVENUE", "IMPRESSIONS"], start, end)
+    except Exception as exc:
+        print(f"[entity_universe] LL fetch failed for {breakdown}: {exc}")
+        return []
+    out: list[dict] = []
+    for r in rows:
+        value = _first(r, value_keys)
+        if not value:
+            continue
+        rev = sf(r.get("GROSS_REVENUE"))
+        if rev <= 0:
+            continue
+        out.append({
+            "publisher_id":   _first(r, _PUB_ID_KEYS),
+            "publisher_name": _first(r, _PUB_NAME_KEYS),
+            "entity_value":   value.strip(),
+            "demand_name":    _first(r, _DEMAND_KEYS),
+            "revenue":        rev,
+            "impressions":    int(sf(r.get("IMPRESSIONS"))),
+        })
+    return out
+
 
 _LL_PUB_TO_SELLER_SQL = """
 SELECT ll_publisher_id, seller_id, domain
@@ -153,28 +187,16 @@ def build_entity_universe(
                          the LL "Suppliers" view, not unrelated publishers.
                          If None, no partner filter is applied.
     """
+    # Per-entity revenue pulled LIVE from LL stats API — replaces the
+    # previously-used Neon ll_4dim_etl tables which were prone to ETL
+    # staleness silently zeroing out Phase 5. See module docstring.
+    dom_rows = _pull_ll_breakdown(_LL_DOMAIN_BREAKDOWN, _DOMAIN_KEYS, lookback_days)
+    bun_rows = _pull_ll_breakdown(_LL_BUNDLE_BREAKDOWN, _BUNDLE_KEYS, lookback_days)
+
+    # Neon-side lookup maps (these tables ARE fresh — populated by the
+    # Phase 2 ll_bridge and the app_name_enrichment ETL).
     with connect() as conn:
         with conn.cursor() as cur:
-            cur.execute(_PULL_DOMAIN_SQL, {"lookback": lookback_days})
-            dom_rows = [
-                {"publisher_id":   str(r[0]),
-                 "publisher_name": r[1],
-                 "entity_value":   r[2],
-                 "demand_name":    r[3],
-                 "revenue":        float(r[4] or 0),
-                 "impressions":    int(r[5] or 0)}
-                for r in cur.fetchall()
-            ]
-            cur.execute(_PULL_BUNDLE_SQL, {"lookback": lookback_days})
-            bun_rows = [
-                {"publisher_id":   str(r[0]),
-                 "publisher_name": r[1],
-                 "entity_value":   r[2],
-                 "demand_name":    r[3],
-                 "revenue":        float(r[4] or 0),
-                 "impressions":    int(r[5] or 0)}
-                for r in cur.fetchall()
-            ]
             cur.execute(_LL_PUB_TO_SELLER_SQL)
             seller_map = {
                 str(r[0]): {"seller_id": r[1], "domain": r[2]}
