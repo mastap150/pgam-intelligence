@@ -42,9 +42,26 @@ ORDER BY revenue DESC;
 """
 
 _COMPLIANCE_PUBLISHERS_SQL = """
-SELECT publisher_key, domain, seller_name
+SELECT publisher_key, domain, seller_name, seller_type, seller_id
 FROM pgam_direct.compliance_publishers
 WHERE is_active = TRUE;
+"""
+
+_UPSERT_PARTNER_BRIDGE_SQL = """
+INSERT INTO pgam_direct.compliance_ll_partner_bridge
+    (ll_publisher_id, publisher_key, seller_type, seller_id,
+     ll_publisher_name, bridge_method, bridge_score, bridged_at)
+VALUES (%(ll_publisher_id)s, %(publisher_key)s, %(seller_type)s,
+        %(seller_id)s, %(ll_publisher_name)s, %(bridge_method)s,
+        %(bridge_score)s, now())
+ON CONFLICT (ll_publisher_id) DO UPDATE SET
+    publisher_key     = EXCLUDED.publisher_key,
+    seller_type       = EXCLUDED.seller_type,
+    seller_id         = EXCLUDED.seller_id,
+    ll_publisher_name = EXCLUDED.ll_publisher_name,
+    bridge_method     = EXCLUDED.bridge_method,
+    bridge_score      = EXCLUDED.bridge_score,
+    bridged_at        = now()
 """
 
 _UPDATE_BRIDGE_SQL = """
@@ -109,7 +126,21 @@ def _score(ll_name: str, compliance_pub: dict) -> MatchCandidate | None:
     if seller_name and ll_norm == seller_name:
         return MatchCandidate(compliance_pub["publisher_key"], "exact_name", 1.0)
 
-    # 2. domain_substring (domain or stem appears in LL name)
+    # 2. name_substring — the sellers.json seller_name appears verbatim
+    # inside the LL publisher name. Catches the dominant LL naming
+    # convention: "<Partner> - <Channel/Region/Modifier>" /
+    # "<Partner> <Channel> <without|with Node>" etc.
+    #   "BidMachine - In App Display & Video"     → "Bidmachine" ✓
+    #   "zMaticoo In App US Reseller"             → "zMaticoo"   ✓
+    #   "Start.IO Display without Node"           → "Start.io"   ✓
+    #   "Smaato - In App"                         → "Smaato"     ✓
+    #   "Illumin Display & Video"                 → "Illumin"    ✓
+    # Length floor of 4 chars to avoid spurious matches on tiny brand
+    # names ("Ezo" inside "Ezoic" etc would be too aggressive at 3).
+    if seller_name and len(seller_name) >= 4 and seller_name in ll_norm:
+        return MatchCandidate(compliance_pub["publisher_key"], "name_substring", 0.95)
+
+    # 3. domain_substring (domain or stem appears in LL name)
     if domain and domain in ll_norm:
         return MatchCandidate(compliance_pub["publisher_key"], "domain_substring", 0.95)
     if stem and len(stem) >= 3 and stem in ll_norm:
@@ -151,40 +182,58 @@ def run_bridge(lookback_days: int = _LOOKBACK_DAYS) -> BridgeStats:
             ]
             cur.execute(_COMPLIANCE_PUBLISHERS_SQL)
             compliance_rows = [
-                {"publisher_key": r[0], "domain": r[1], "seller_name": r[2]}
+                {"publisher_key": r[0], "domain": r[1], "seller_name": r[2],
+                 "seller_type":   r[3], "seller_id": r[4]}
                 for r in cur.fetchall()
             ]
 
-    # Greedy assignment: for each LL pub, find the best-scoring compliance row.
-    # Multiple LL pubs can map to the same compliance row (rare — e.g. a
-    # publisher with several LL accounts) — that's fine, we keep the highest
-    # score in the bridge column. _UPDATE_BRIDGE_SQL guards via score.
+    # Greedy assignment: for each LL pub, find its best-scoring compliance
+    # row. EVERY LL pub gets its own bridge row in
+    # compliance_ll_partner_bridge (many-to-one — 4 Start.IO variants all
+    # bridge to start.io). The legacy single-column UPDATE on
+    # compliance_publishers also runs so the highest-scoring match per
+    # row stays visible to anything still reading that column.
     method_counts: dict[str, int] = {}
     matched = 0
-    updates: list[dict] = []
+    legacy_updates: list[dict] = []
+    bridge_inserts: list[dict] = []
 
     for ll in ll_rows:
         best: MatchCandidate | None = None
+        best_row: dict | None = None
         for pub in compliance_rows:
             cand = _score(ll["publisher_name"], pub)
             if cand and (best is None or cand.score > best.score):
                 best = cand
-        if best is None or best.score < _MIN_SCORE:
+                best_row = pub
+        if best is None or best.score < _MIN_SCORE or best_row is None:
             continue
         matched += 1
         method_counts[best.method] = method_counts.get(best.method, 0) + 1
-        updates.append({
+        legacy_updates.append({
             "publisher_key":     best.publisher_key,
             "ll_publisher_id":   str(ll["publisher_id"]),
             "ll_publisher_name": ll["publisher_name"],
             "ll_match_method":   best.method,
             "ll_match_score":    round(best.score, 3),
         })
+        bridge_inserts.append({
+            "ll_publisher_id":   str(ll["publisher_id"]),
+            "publisher_key":     best.publisher_key,
+            "seller_type":       best_row.get("seller_type"),
+            "seller_id":         best_row.get("seller_id"),
+            "ll_publisher_name": ll["publisher_name"],
+            "bridge_method":     best.method,
+            "bridge_score":      round(best.score, 3),
+        })
 
-    if updates:
+    if legacy_updates or bridge_inserts:
         with connect() as conn:
             with conn.cursor() as cur:
-                cur.executemany(_UPDATE_BRIDGE_SQL, updates)
+                if legacy_updates:
+                    cur.executemany(_UPDATE_BRIDGE_SQL, legacy_updates)
+                if bridge_inserts:
+                    cur.executemany(_UPSERT_PARTNER_BRIDGE_SQL, bridge_inserts)
             conn.commit()
 
     return BridgeStats(
