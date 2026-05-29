@@ -683,10 +683,18 @@ def run() -> dict:
                 score_stats = refresh_publisher_scores()
                 summary["scores_written"] = score_stats.rows_written
                 summary["avg_score"]      = score_stats.avg_score
+                summary["avg_score_active"] = score_stats.avg_score_active
+                summary["active_publishers"] = score_stats.active_count
+                summary["publishers_below_75"] = score_stats.publishers_below_75
+                summary["publishers_below_75_active"] = (
+                    score_stats.publishers_below_75_active
+                )
                 print(
                     f"[{ACTOR}] scores written={score_stats.rows_written} "
-                    f"avg={score_stats.avg_score} "
-                    f"below_75={score_stats.publishers_below_75}"
+                    f"avg_all={score_stats.avg_score} "
+                    f"avg_active={score_stats.avg_score_active} "
+                    f"(active n={score_stats.active_count}) "
+                    f"below_75_active={score_stats.publishers_below_75_active}"
                 )
             except Exception as exc:
                 print(f"[{ACTOR}] scoring failed (non-fatal): {exc}")
