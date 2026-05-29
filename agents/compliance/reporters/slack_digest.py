@@ -648,12 +648,108 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     return {
         "type": "section",
         "text": {"type": "mrkdwn",
-                 "text": (f":bar_chart: *Per-SSP scorecard ({len(rows)} SSPs)*\n"
-                          "_For each SSP across ALL audited entities: total $ "
-                          "flowing through it, % of entity-paths fully clean. "
-                          "C/W/H = critical/warning/healthy paths._\n"
+                 "text": (f":bar_chart: *Demand SSP visibility "
+                          f"({len(rows)} SSPs — who's buying through us)*\n"
+                          "_For each demand SSP, total $ they paid us and "
+                          "which entities they bought across. Demand SSPs "
+                          "don't need to appear in publisher ads.txt — see "
+                          "Supply-path audit above for the right compliance "
+                          "check. C/W/H = demand-side audit (legacy)._\n"
                           + table)},
     }
+
+
+_SUPPLY_PATH_QUERY = """
+-- Top supply-path audit rows for the digest. One row per entity (the
+-- audit is per-entity, not per-SSP).
+SELECT
+    entity_value, kind, audit_host, revenue_7d,
+    path_kind, ll_publisher_name,
+    supply_partner_key, supply_partner_domain, supply_partner_pgam_seat,
+    supply_partner_line_present, pgam_line_present_for_path,
+    sellers_json_partner_declared, status, expected_pgam_line
+FROM pgam_direct.compliance_entity_supply_path_audit
+WHERE as_of = %(as_of)s
+ORDER BY revenue_7d DESC
+LIMIT %(limit)s;
+"""
+
+
+def _load_supply_path(as_of: date, limit: int = 12) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_SUPPLY_PATH_QUERY, {"as_of": as_of, "limit": limit})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] supply-path query failed (non-fatal): {exc}")
+        return []
+
+
+def _supply_path_block(rows: list[dict], summary: dict) -> dict | None:
+    """Per-entity supply-path audit — the right compliance question.
+
+    For each top-revenue entity: which LL supply partner brings it (or
+    'PGAM direct'), is its domain on the entity ads.txt, is PGAM
+    correctly declared (DIRECT for pgam-direct path, RESELLER with
+    the partner's specific PGAM seat for via-partner path).
+    """
+    if not rows:
+        return None
+    table_rows = []
+    for r in rows:
+        ent = (r.get("entity_value") or "")[:24]
+        rev = float(r.get("revenue_7d") or 0)
+        path = r.get("path_kind") or "unknown"
+        partner = (r.get("supply_partner_key") or "?")[:16]
+        if path == "pgam_direct":
+            partner = "PGAM direct"
+        elif path == "unknown":
+            partner = (r.get("ll_publisher_name") or "?")[:16] + " (unbridged)"
+        sp_ok = "✓" if r.get("supply_partner_line_present") else (
+            "—" if path == "pgam_direct" else "✗")
+        pg_ok = "✓" if r.get("pgam_line_present_for_path") else "✗"
+        sj_ok = "✓" if r.get("sellers_json_partner_declared") else "✗"
+        status = r.get("status") or "?"
+        sym = {"critical": "🚨", "warning": "⚠️", "healthy": "✅"}.get(status, "·")
+        table_rows.append([
+            sym, ent, f"${rev:,.0f}", partner, sp_ok, pg_ok, sj_ok,
+        ])
+    table = _render_table(
+        rows=table_rows,
+        headers=["", "Entity", "Rev/7d", "Via supply partner",
+                 "Partner✓", "PGAM✓", "json✓"],
+        aligns=["l", "l", "r", "l", "l", "l", "l"],
+    )
+
+    pct = summary.get("supply_path_compliance_pct")
+    audited = summary.get("supply_path_revenue_audited") or 0
+    at_risk = summary.get("supply_path_revenue_at_risk") or 0
+    via_partner = summary.get("supply_path_via_partner") or 0
+    pgam_direct = summary.get("supply_path_pgam_direct") or 0
+    unknown = summary.get("supply_path_unknown") or 0
+
+    summary_line = ""
+    if pct is not None:
+        summary_line = (
+            f"_{pct:.0f}% of ${audited:,.0f}/7d compliant. "
+            f"${at_risk:,.0f}/7d at risk. "
+            f"{pgam_direct} pgam-direct · {via_partner} via supply partner · "
+            f"{unknown} unbridged._\n"
+        )
+
+    body = (
+        f":electric_plug: *Supply-path audit "
+        f"(top {len(rows)} entities — the right compliance question)*\n"
+        + summary_line +
+        "_For each entity: partner = LL supply source bringing inventory; "
+        "Partner✓ = partner's domain on publisher ads.txt; "
+        "PGAM✓ = correct pgamssp.com line for the path (DIRECT if pgam-direct, "
+        "RESELLER with partner's PGAM seat if via-partner)._\n"
+        + table
+    )
+    return {"type": "section", "text": {"type": "mrkdwn", "text": body}}
 
 
 def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
@@ -713,7 +809,8 @@ def _build_blocks(findings: list[dict], summary: dict,
                   lowest_scores: list[dict],
                   partner_rollup: list[dict] | None = None,
                   ssp_scorecard: list[dict] | None = None,
-                  new_demands: list[dict] | None = None) -> list[dict]:
+                  new_demands: list[dict] | None = None,
+                  supply_path_rows: list[dict] | None = None) -> list[dict]:
     by_sev: dict[str, list[dict]] = defaultdict(list)
     for f in findings:
         by_sev[f["severity"]].append(f)
@@ -799,6 +896,14 @@ def _build_blocks(findings: list[dict], summary: dict,
     action_cards = _action_card_blocks(findings, max_entities=5)
     if action_cards:
         blocks.extend(action_cards)
+        blocks.append({"type": "divider"})
+
+    # Supply-path audit — the right compliance question — sits directly
+    # after the action queue so it's visible above the demand-side
+    # visibility sections below.
+    sp_block = _supply_path_block(supply_path_rows or [], summary)
+    if sp_block is not None:
+        blocks.append(sp_block)
         blocks.append({"type": "divider"})
 
     # New demand variants — surfaces the case where a new SSP variant
@@ -988,8 +1093,10 @@ def post_digest(summary: dict, force: bool = False) -> bool:
     partner_rollup = _load_partner_rollup()
     ssp_scorecard = _load_ssp_scorecard(date.today())
     new_demands = _load_new_demands()
+    supply_path_rows = _load_supply_path(date.today())
     blocks = _build_blocks(findings, summary, lowest_scores,
-                           partner_rollup, ssp_scorecard, new_demands)
+                           partner_rollup, ssp_scorecard, new_demands,
+                           supply_path_rows)
     fallback = (
         f"Supply compliance: "
         f"{summary.get('findings_opened', 0)} opened, "

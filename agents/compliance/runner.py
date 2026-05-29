@@ -48,6 +48,10 @@ from agents.compliance.audit_matrix import (  # noqa: E402
     persist_matrix,
     rows_to_csv,
 )
+from agents.compliance.supply_path_audit import (  # noqa: E402
+    build_supply_path_audit,
+    persist_supply_path,
+)
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.demand_detector import run_demand_detector  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
@@ -96,6 +100,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_28_compliance_ll_bridge_many_to_one.sql",
     _REPO_ROOT / "migrations" / "2026_05_28_compliance_observed_demands.sql",
     _REPO_ROOT / "migrations" / "2026_05_29_compliance_entity_ssp_audit.sql",
+    _REPO_ROOT / "migrations" / "2026_05_29_compliance_supply_path_audit.sql",
 )
 
 
@@ -600,6 +605,41 @@ def run() -> dict:
                 summary["audit_matrix_healthy"]  = mtx_summary.healthy_rows
                 summary["audit_matrix_ssps"]     = mtx_summary.ssps_audited
                 summary["audit_matrix_csv_path"] = str(csv_path)
+
+                # ── Supply-path audit (the COMPLIANCE half) ──────────
+                # Per-entity check of the supply chain
+                # (publisher → supply partner → PGAM). Demand-side
+                # SSPs live in audit_matrix above as VISIBILITY only —
+                # they don't need lines in publisher ads.txt files.
+                try:
+                    sp_rows, sp_summary = build_supply_path_audit(
+                        entities=p5_for_matrix.entities,
+                        fetches_by_entity=p5_for_matrix.fetches_by_entity,
+                        pgam_seat_registry=p5_for_matrix.pgam_seat_registry,
+                    )
+                    persist_supply_path(sp_rows)
+                    summary["supply_path_rows"]              = sp_summary.total_rows
+                    summary["supply_path_pgam_direct"]       = sp_summary.pgam_direct_rows
+                    summary["supply_path_via_partner"]       = sp_summary.via_partner_rows
+                    summary["supply_path_unknown"]           = sp_summary.unknown_rows
+                    summary["supply_path_revenue_audited"]   = sp_summary.revenue_audited_usd
+                    summary["supply_path_revenue_compliant"] = sp_summary.revenue_compliant_usd
+                    summary["supply_path_revenue_at_risk"]   = sp_summary.revenue_at_risk_usd
+                    summary["supply_path_compliance_pct"]    = sp_summary.compliance_pct
+                    summary["supply_path_critical"]          = sp_summary.critical_rows
+                    summary["supply_path_warning"]           = sp_summary.warning_rows
+                    summary["supply_path_healthy"]           = sp_summary.healthy_rows
+                    print(
+                        f"[{ACTOR}] supply_path rows={sp_summary.total_rows} "
+                        f"compliant={sp_summary.compliance_pct}% "
+                        f"$compliant={sp_summary.revenue_compliant_usd:,.0f} "
+                        f"$at_risk={sp_summary.revenue_at_risk_usd:,.0f} "
+                        f"pgam_direct={sp_summary.pgam_direct_rows} "
+                        f"via_partner={sp_summary.via_partner_rows} "
+                        f"unknown={sp_summary.unknown_rows}"
+                    )
+                except Exception as exc:
+                    print(f"[{ACTOR}] supply_path audit failed (non-fatal): {exc}")
                 # Per-entity verdicts (separate from per-row): needed by the
                 # digest for honest "X of Y entities need attention" headers.
                 _entities_with_issues: set[str] = set()
