@@ -42,8 +42,28 @@
   - `probe/content-page.png` + `probe/content-elements.txt`
   - `probe/content-issues-xhr-20260529T163617Z.jsonl`
 
-## Next step (recommended)
+## Update — 2026-05-29 — autonomous path exhausted
 
-Visual driving. Either:
-1. Open Partner Hub manually, take a fresh full-page screenshot, identify the exact CSS for the Download link inside the "Resolve content issues" card, then encode that into the script.
-2. Click the "Resolve content issues" card *itself* (not the Download word inside it) to see if it routes to a Moderation/Issues SPA page that fires the per-doc XHR we need.
+After 7 script iterations (`msn_moderation_capture.py`,
+`_auto.py`, `msn_partnerhub_dom_probe.py`,
+`msn_content_issues_download.py`, `msn_visual_step.py`,
+`msn_fetch_rejected_csv.py`), I can confirm:
+
+- The per-doc rejected endpoint is gated behind the SPA's MSA auth
+  interceptor. Direct `fetch()` via `page.evaluate` returns HTTP 401
+  with `errorCode 13` ("User should sign in with MSA...").
+- Toggling `isExportingCsv=true` does not produce a CSV — at least
+  not from the param alone. The download must be initiated by the SPA
+  itself with its in-page tokens.
+- The SPA does not appear to have a per-doc "Rejected articles"
+  table view reachable from Home / Analytics / Monetization /
+  Settings / Resources. The "Resolve content issues" card on Home
+  exposes a Download control whose click target I could not reliably
+  identify with role/text selectors.
+
+**Recommended next step**: Priyesh manually clicks Download on the
+"Resolve content issues" card once, saves the resulting CSV. We parse
+that real schema once and build the migration + ETL + feed exclusion
+against it. Subsequent automation can either replay the exact XHR the
+SPA fires (now that we know what to look for) or schedule a weekly
+manual export.
