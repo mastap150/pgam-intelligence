@@ -52,6 +52,9 @@ from agents.compliance.supply_path_audit import (  # noqa: E402
     build_supply_path_audit,
     persist_supply_path,
 )
+from agents.compliance.supply_partner_audit import (  # noqa: E402
+    run_supply_partner_audit,
+)
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.demand_detector import run_demand_detector  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
@@ -499,6 +502,27 @@ def run() -> dict:
             findings.extend(ssp_findings)
             summary["ssps_audited"] = len(ssp_sentinel_keys)
 
+        # Supply-partner sellers.json audit — mirror of Phase 3 but
+        # pointed at the LL supply partners (Smaato, BidMachine, etc.)
+        # instead of the demand SSPs. Verifies each partner declares
+        # our PGAM seat correctly in their own sellers.json — without
+        # this, demand-side audit chains break and DSPs reject bids.
+        supply_partner_sentinel_keys: list[str] = []
+        if os.environ.get("PGAM_COMPLIANCE_SUPPLY_PARTNER_AUDIT", "1") != "0":
+            try:
+                sp_audit = run_supply_partner_audit()
+                findings.extend(sp_audit.findings)
+                supply_partner_sentinel_keys = sp_audit.sentinel_keys
+                summary["supply_partners_audited"] = sp_audit.partners_audited
+                summary["supply_partner_findings"] = len(sp_audit.findings)
+                print(
+                    f"[{ACTOR}] supply_partner_audit partners="
+                    f"{sp_audit.partners_audited} "
+                    f"findings={len(sp_audit.findings)}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] supply_partner audit failed (non-fatal): {exc}")
+
         # Phase 5: per-entity audit, scoped to the LL "Suppliers" view.
         # Universe = every (app, domain) flowing through each ACTIVE supply
         # partner in LL (Start.IO, Smaato, BidMachine, ...). For each entity:
@@ -815,6 +839,7 @@ def run() -> dict:
         resolvable = (
             reachable_pubs
             + ssp_sentinel_keys
+            + supply_partner_sentinel_keys
             + schain_sentinel_keys
             + dynamic_schain_sentinel_keys
             + pub_config_sentinel_keys
