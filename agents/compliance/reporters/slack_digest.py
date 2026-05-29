@@ -188,6 +188,8 @@ def _format_pub_key(key: str) -> str:
     """Sentinel keys get readable labels; real publisher keys render as code."""
     if key.startswith("_ssp:"):
         return f"SSP `{key[5:]}`"
+    if key.startswith("_supply:"):
+        return f"supply partner `{key[len('_supply:'):]}`"
     if key.startswith("_ll_demand:"):
         return f"demand `{key[len('_ll_demand:'):]}`"
     if key.startswith("_ll_pub:"):
@@ -648,13 +650,14 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     return {
         "type": "section",
         "text": {"type": "mrkdwn",
-                 "text": (f":bar_chart: *Demand SSP visibility "
-                          f"({len(rows)} SSPs — who's buying through us)*\n"
+                 "text": (f":bar_chart: *Demand SSP audit "
+                          f"({len(rows)} SSPs — who's buying + their authorization)*\n"
                           "_For each demand SSP, total $ they paid us and "
-                          "which entities they bought across. Demand SSPs "
-                          "don't need to appear in publisher ads.txt — see "
-                          "Supply-path audit above for the right compliance "
-                          "check. C/W/H = demand-side audit (legacy)._\n"
+                          "the per-entity audit: is the SSP's reseller line "
+                          "on the publisher's ads.txt, is PGAM declared as "
+                          "DIRECT, is the seat in our sellers.json. Schain "
+                          "compliance shown in the per-pair table below. "
+                          "C/W/H = critical/warning/healthy paths._\n"
                           + table)},
     }
 
