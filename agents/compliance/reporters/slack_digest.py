@@ -386,6 +386,71 @@ def _action_card_blocks(findings: list[dict],
     return out
 
 
+_SSP_SCORECARD_QUERY = """
+SELECT
+    ssp_partner_name,
+    SUM(revenue_7d)                                  AS revenue,
+    COUNT(*)                                         AS entities,
+    COUNT(*) FILTER (WHERE status = 'critical')      AS critical_n,
+    COUNT(*) FILTER (WHERE status = 'warning')       AS warning_n,
+    COUNT(*) FILTER (WHERE status = 'healthy')       AS healthy_n
+FROM pgam_direct.compliance_entity_ssp_audit
+WHERE as_of = %(as_of)s
+GROUP BY ssp_partner_name
+HAVING SUM(revenue_7d) > 0
+ORDER BY revenue DESC
+LIMIT 15;
+"""
+
+
+def _load_ssp_scorecard(as_of: date) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_SSP_SCORECARD_QUERY, {"as_of": as_of})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] ssp scorecard query failed (non-fatal): {exc}")
+        return []
+
+
+def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
+    """Per-SSP compliance scorecard from the audit matrix.
+
+    Tells the operator at a glance which SSP is the source of the most
+    revenue-at-risk. Sorted by revenue desc — biggest dollar exposure
+    first. Verdict emoji follows the per-partner rollup convention.
+    """
+    if not rows:
+        return None
+    lines: list[str] = []
+    for r in rows:
+        name = (r.get("ssp_partner_name") or "?")[:24]
+        rev = float(r.get("revenue") or 0)
+        ents = int(r.get("entities") or 0)
+        c = int(r.get("critical_n") or 0)
+        w = int(r.get("warning_n") or 0)
+        h = int(r.get("healthy_n") or 0)
+        if c > 0:
+            verdict = ":rotating_light:"
+        elif w > 0:
+            verdict = ":warning:"
+        else:
+            verdict = ":white_check_mark:"
+        compliant_pct = (100.0 * h / ents) if ents else 0.0
+        lines.append(
+            f"{verdict} *{name}*  ·  ${rev:,.0f}/7d  ·  "
+            f"{ents} entities  ·  {compliant_pct:.0f}% healthy  ·  "
+            f"{c}c / {w}w / {h}h"
+        )
+    return {
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": ":bar_chart: *Per-SSP scorecard*\n" + "\n".join(lines)},
+    }
+
+
 def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
     """Dedicated section for ssp_registry hygiene — separates 'fix the
     config' work from 'fix a publisher' work. The two are routinely
@@ -436,7 +501,8 @@ def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
 
 def _build_blocks(findings: list[dict], summary: dict,
                   lowest_scores: list[dict],
-                  partner_rollup: list[dict] | None = None) -> list[dict]:
+                  partner_rollup: list[dict] | None = None,
+                  ssp_scorecard: list[dict] | None = None) -> list[dict]:
     by_sev: dict[str, list[dict]] = defaultdict(list)
     for f in findings:
         by_sev[f["severity"]].append(f)
@@ -445,32 +511,58 @@ def _build_blocks(findings: list[dict], summary: dict,
     high = _sort_by_revenue(by_sev.get("high", []))
     med  = _sort_by_revenue(by_sev.get("medium", []))
 
-    # Active publishers count is the meaningful denominator (the 150
-    # number includes a long tail of inactive sellers.json entries).
-    active_n = summary.get("active_publishers") or 0
-    scanned_n = summary.get("publishers_scanned", 0)
-    header = (
-        f":shield: *Supply compliance — {date.today().isoformat()}*  "
-        f"·  {active_n}/{scanned_n} active  "
-        f"·  open: {len(crit)} crit / {len(high)} high / {len(med)} med"
-    )
-    context_bits = []
-    if "avg_score_active" in summary and active_n:
-        context_bits.append(
-            f"avg score (active) {summary['avg_score_active']:.0f}  ·  "
-            f"{summary.get('publishers_below_75_active', 0)} below 75"
+    # Matrix-driven KPIs — the operationally meaningful denominator
+    # is "what % of revenue is flowing through a fully compliant path",
+    # not "what's the average compliance score across 150 sellers.json
+    # entries". Falls back to legacy active-publisher math if the
+    # matrix hasn't run yet.
+    pct = summary.get("audit_matrix_compliant_pct")
+    audited = summary.get("audit_matrix_revenue_audited")
+    at_risk = summary.get("audit_matrix_revenue_at_risk")
+    crit_n = summary.get("audit_matrix_critical")
+    warn_n = summary.get("audit_matrix_warning")
+    healthy_n = summary.get("audit_matrix_healthy")
+    ssps_n = summary.get("audit_matrix_ssps")
+    if pct is not None and audited is not None:
+        header = (
+            f":shield: *Supply compliance — {date.today().isoformat()}*  ·  "
+            f"*{pct:.1f}%* of *${audited:,.0f}/7d* compliant  ·  "
+            f"*${at_risk or 0:,.0f}/7d at risk*"
         )
-    if "roundtrip_rev_at_risk_7d" in summary:
-        rev_risk = float(summary.get("roundtrip_rev_at_risk_7d") or 0)
-        if rev_risk > 0:
-            context_bits.append(f"${rev_risk:,.0f}/7d at risk (undeclared)")
-    if "ll_bridge_matched" in summary:
-        context_bits.append(
-            f"LL bridge {summary['ll_bridge_matched']}↔"
-            f"{summary['ll_bridge_matched'] + summary.get('ll_bridge_unmatched', 0)}"
+        context_bits = [
+            f"{summary.get('audit_matrix_rows', 0)} (entity × SSP) audited "
+            f"across {summary.get('phase5_domains', 0)} domains + "
+            f"{summary.get('phase5_apps', 0)} apps × {ssps_n} SSPs",
+            f":rotating_light: {crit_n} critical  ·  "
+            f":warning: {warn_n} warning  ·  "
+            f":white_check_mark: {healthy_n} healthy",
+        ]
+    else:
+        # Legacy header (matrix not yet computed).
+        active_n = summary.get("active_publishers") or 0
+        scanned_n = summary.get("publishers_scanned", 0)
+        header = (
+            f":shield: *Supply compliance — {date.today().isoformat()}*  "
+            f"·  {active_n}/{scanned_n} active  "
+            f"·  open: {len(crit)} crit / {len(high)} high / {len(med)} med"
         )
-    if "observed_ssp_rows" in summary:
-        context_bits.append(f"{summary['observed_ssp_rows']} ssp×pub active")
+        context_bits = []
+        if "avg_score_active" in summary and active_n:
+            context_bits.append(
+                f"avg score (active) {summary['avg_score_active']:.0f}  ·  "
+                f"{summary.get('publishers_below_75_active', 0)} below 75"
+            )
+        if "roundtrip_rev_at_risk_7d" in summary:
+            rev_risk = float(summary.get("roundtrip_rev_at_risk_7d") or 0)
+            if rev_risk > 0:
+                context_bits.append(f"${rev_risk:,.0f}/7d at risk (undeclared)")
+        if "ll_bridge_matched" in summary:
+            context_bits.append(
+                f"LL bridge {summary['ll_bridge_matched']}↔"
+                f"{summary['ll_bridge_matched'] + summary.get('ll_bridge_unmatched', 0)}"
+            )
+        if "observed_ssp_rows" in summary:
+            context_bits.append(f"{summary['observed_ssp_rows']} ssp×pub active")
 
     blocks: list[dict] = [
         {"type": "section", "text": {"type": "mrkdwn", "text": header}},
@@ -586,6 +678,13 @@ def _build_blocks(findings: list[dict], summary: dict,
                      "text": ":small_orange_diamond: *Medium*\n" + "\n".join(lines)},
         })
 
+    # Per-SSP scorecard sits between the action queue and the partner
+    # rollup: action queue tells you what to fix first, scorecard tells
+    # you which SSP is bleeding the most revenue across all entities.
+    scorecard_block = _ssp_scorecard_block(ssp_scorecard or [])
+    if scorecard_block is not None:
+        blocks.append(scorecard_block)
+
     if partner_rollup:
         partner_lines = [_format_partner_row(r) for r in partner_rollup]
         blocks.append({
@@ -640,7 +739,9 @@ def post_digest(summary: dict, force: bool = False) -> bool:
     findings = _load_open_findings()
     lowest_scores = _load_lowest_scores(date.today())
     partner_rollup = _load_partner_rollup()
-    blocks = _build_blocks(findings, summary, lowest_scores, partner_rollup)
+    ssp_scorecard = _load_ssp_scorecard(date.today())
+    blocks = _build_blocks(findings, summary, lowest_scores,
+                           partner_rollup, ssp_scorecard)
     fallback = (
         f"Supply compliance: "
         f"{summary.get('findings_opened', 0)} opened, "
