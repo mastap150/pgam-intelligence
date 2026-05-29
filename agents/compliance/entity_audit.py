@@ -54,6 +54,25 @@ from agents.compliance.validators.seller_id_tier import (
 DEFAULT_RATE_HZ = 2.0
 DEFAULT_WORKERS = 6
 
+# Materiality tiers — entity revenue drives severity calibration.
+# Without this, every missing-RESELLER line on a $0.30/7d app fires
+# CRITICAL and floods the digest. Tiers are deliberately wide because
+# the operational difference between "$2/7d" and "$8/7d" is noise; the
+# real signal is "is this material revenue or pocket change?".
+TIER_MATERIAL_USD  = 500.0   # critical: real money flowing through unauthorized path
+TIER_HIGH_USD      = 50.0    # high:     non-trivial revenue
+TIER_MEDIUM_USD    = 1.0     # medium:   above-noise floor
+# Below TIER_MEDIUM_USD: info-only (audit log; doesn't surface in digest body).
+
+# Per-entity reseller-line check is skipped entirely below this floor —
+# the per-(entity × SSP) combinatorics produce more noise than signal
+# for pennies of revenue. Universal-DIRECT check still runs because
+# missing the PGAM seat is structural (it's about the path itself, not
+# this run's revenue).
+PHASE5_RESELLER_MIN_REV_7D = float(
+    os.environ.get("PGAM_COMPLIANCE_PHASE5_RESELLER_MIN_REV", "1.0")
+)
+
 
 @dataclass(frozen=True)
 class EntityAuditResult:
@@ -63,6 +82,42 @@ class EntityAuditResult:
     fetches: list[AdsTxtFetch]
     skipped_reason: str | None = None
     supply_partners: list[dict] | None = None        # [{id, name}]
+
+
+def _revenue_tier(rev_7d: float) -> str:
+    """Map entity revenue → materiality tier name. Drives severity downgrade."""
+    if rev_7d >= TIER_MATERIAL_USD:
+        return "material"
+    if rev_7d >= TIER_HIGH_USD:
+        return "high"
+    if rev_7d >= TIER_MEDIUM_USD:
+        return "medium"
+    return "trace"
+
+
+def _calibrate_severity(base: str, rev_7d: float) -> str:
+    """Downgrade a finding's severity for low-revenue entities.
+
+    Rule: a CRITICAL finding on a $0.30/7d app isn't critical — it's
+    hygiene. We keep the same check_id (so the dashboard still tracks
+    it) but flag it at a severity that matches its impact.
+
+    Mapping:
+        base=critical → material:critical, high:high, medium:medium, trace:info
+        base=high     → material:high,     high:high, medium:medium, trace:info
+        base=medium   → material:medium,   high:medium, medium:medium, trace:info
+        base=info     → info (untouched)
+    """
+    tier = _revenue_tier(rev_7d)
+    if base == "info":
+        return "info"
+    if tier == "trace":
+        return "info"
+    if tier == "medium":
+        return "medium" if base in ("critical", "high", "medium") else "info"
+    if tier == "high":
+        return "high" if base == "critical" else base
+    return base  # material → keep base
 
 
 def _resolve_supply_partners() -> list[dict]:
@@ -98,6 +153,36 @@ def _crawl(entity: Entity) -> AdsTxtFetch | None:
     )
 
 
+def _enrich_and_calibrate(
+    findings: list[Finding],
+    entity: Entity,
+) -> list[Finding]:
+    """Downgrade severities by entity revenue tier + embed revenue/tier in detail.
+
+    Returns NEW Finding objects (frozen dataclass) so callers can pass them
+    through unchanged. Adds `revenue_7d` and `materiality_tier` keys so the
+    digest can revenue-rank without rejoining to the universe table.
+    """
+    out: list[Finding] = []
+    tier = _revenue_tier(entity.revenue_7d)
+    for f in findings:
+        new_sev = _calibrate_severity(f.severity, entity.revenue_7d)
+        new_detail = dict(f.detail)
+        new_detail.setdefault("revenue_7d", round(entity.revenue_7d, 2))
+        new_detail.setdefault("materiality_tier", tier)
+        if entity.ll_publisher_name:
+            new_detail.setdefault("ll_publisher_name", entity.ll_publisher_name)
+        out.append(Finding(
+            publisher_key=f.publisher_key,
+            category=f.category,
+            check_id=f.check_id,
+            severity=new_sev,
+            fingerprint=f.fingerprint,
+            detail=new_detail,
+        ))
+    return out
+
+
 def _validate_entity(
     entity: Entity,
     fetch: AdsTxtFetch | None,
@@ -115,7 +200,8 @@ def _validate_entity(
             detail={
                 "bundle":     entity.entity_value,
                 "publisher":  entity.ll_publisher_name,
-                "revenue_7d": entity.revenue_7d,
+                "revenue_7d": round(entity.revenue_7d, 2),
+                "materiality_tier": _revenue_tier(entity.revenue_7d),
                 "consequence": ("app-ads.txt host unknown — extend "
                                 "agents/enrichment/app_name_enrichment to "
                                 "capture iTunes sellerUrl into "
@@ -133,7 +219,14 @@ def _validate_entity(
     ))
 
     # Conditional reseller-line check — per-entity, not per-partner.
-    if fetch.http_status == 200 and entity.active_ssps:
+    # Skip below the materiality floor: a missing reseller line on a
+    # $0.30/7d app earns one finding per active SSP (~10 SSPs = 10
+    # findings) and contributes nothing actionable. We still log the
+    # universal-DIRECT check above because that's about the path itself,
+    # not this window's revenue.
+    if (fetch.http_status == 200
+            and entity.active_ssps
+            and entity.revenue_7d >= PHASE5_RESELLER_MIN_REV_7D):
         obs_rows: list[ObservedRow] = []
         for ssp_key in entity.active_ssps:
             exp = get_expectation(ssp_key)
@@ -152,7 +245,7 @@ def _validate_entity(
             entity.entity_key, fetch, obs_rows,
         ))
 
-    return findings
+    return _enrich_and_calibrate(findings, entity)
 
 
 def run_entity_audit(

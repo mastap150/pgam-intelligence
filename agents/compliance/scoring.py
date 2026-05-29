@@ -37,6 +37,9 @@ SEVERITY_WEIGHTS: dict[str, int] = {
 
 # Pull open finding counts per active publisher; LEFT JOIN so publishers
 # with zero findings still get a 100 score row written for the day.
+# is_active_recent surfaces alongside the score so the digest can report
+# avg over ACTIVE publishers (the meaningful number) instead of all 150
+# (which is mostly inactive sellers.json entries defaulting to 100).
 _SCORE_SQL = """
 WITH agg AS (
     SELECT
@@ -55,7 +58,8 @@ SELECT
     COALESCE(a.open_critical, 0) AS open_critical,
     COALESCE(a.open_high,     0) AS open_high,
     COALESCE(a.open_medium,   0) AS open_medium,
-    COALESCE(a.open_info,     0) AS open_info
+    COALESCE(a.open_info,     0) AS open_info,
+    COALESCE(cp.is_active_recent, FALSE) AS is_active_recent
 FROM pgam_direct.compliance_publishers cp
 LEFT JOIN agg a ON a.publisher_key = cp.publisher_key
 WHERE cp.is_active = TRUE;
@@ -87,6 +91,7 @@ class ScoreRow:
     open_high: int
     open_medium: int
     open_info: int
+    is_active_recent: bool = False
 
 
 def compute_score(critical: int, high: int, medium: int, info: int) -> float:
@@ -102,8 +107,11 @@ def compute_score(critical: int, high: int, medium: int, info: int) -> float:
 @dataclass(frozen=True)
 class ScoreSummary:
     rows_written: int
-    avg_score: float
+    avg_score: float                        # over ALL publishers (legacy)
+    avg_score_active: float                 # over publishers with trailing-7d LL revenue
+    active_count: int                       # how many were considered active
     publishers_below_75: int
+    publishers_below_75_active: int
 
 
 def refresh_publisher_scores(as_of: date | None = None) -> ScoreSummary:
@@ -123,12 +131,20 @@ def refresh_publisher_scores(as_of: date | None = None) -> ScoreSummary:
                     compliance_score=compute_score(
                         int(r[1] or 0), int(r[2] or 0), int(r[3] or 0), int(r[4] or 0),
                     ),
+                    is_active_recent=bool(r[5]) if len(r) > 5 else False,
                 )
                 for r in cur.fetchall()
             ]
 
     if not rows:
-        return ScoreSummary(rows_written=0, avg_score=0.0, publishers_below_75=0)
+        return ScoreSummary(
+            rows_written=0,
+            avg_score=0.0,
+            avg_score_active=0.0,
+            active_count=0,
+            publishers_below_75=0,
+            publishers_below_75_active=0,
+        )
 
     payload = [
         {
@@ -149,8 +165,21 @@ def refresh_publisher_scores(as_of: date | None = None) -> ScoreSummary:
 
     avg = sum(r.compliance_score for r in rows) / len(rows)
     below_75 = sum(1 for r in rows if r.compliance_score < 75)
+    active_rows = [r for r in rows if r.is_active_recent]
+    if active_rows:
+        avg_active = sum(r.compliance_score for r in active_rows) / len(active_rows)
+        below_75_active = sum(1 for r in active_rows if r.compliance_score < 75)
+    else:
+        # No activity gate signal — fall back to all-rows avg so the
+        # digest still shows something rather than 0.0. Happens when
+        # activity_filter hasn't run yet (cold start).
+        avg_active = avg
+        below_75_active = below_75
     return ScoreSummary(
         rows_written=len(rows),
         avg_score=round(avg, 2),
+        avg_score_active=round(avg_active, 2),
+        active_count=len(active_rows),
         publishers_below_75=below_75,
+        publishers_below_75_active=below_75_active,
     )

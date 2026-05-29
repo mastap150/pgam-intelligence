@@ -50,11 +50,19 @@ ORDER BY
 """
 
 _SCORE_QUERY = """
-SELECT publisher_key, compliance_score, open_critical, open_high
-FROM pgam_direct.compliance_publisher_scores_daily
-WHERE as_of = %(as_of)s
-  AND compliance_score < 100
-ORDER BY compliance_score ASC, open_critical DESC
+-- Lowest scores among publishers that ACTUALLY earned revenue in the
+-- trailing window — without this gate the section is dominated by
+-- stale sellers.json entries that are inactive but happen to have a
+-- single info finding. Falls back to all-publishers if the activity
+-- table hasn't been populated yet.
+SELECT s.publisher_key, s.compliance_score, s.open_critical, s.open_high
+FROM pgam_direct.compliance_publisher_scores_daily s
+JOIN pgam_direct.compliance_publishers cp
+  ON cp.publisher_key = s.publisher_key
+WHERE s.as_of = %(as_of)s
+  AND s.compliance_score < 100
+  AND (cp.is_active_recent = TRUE OR cp.is_active_recent IS NULL)
+ORDER BY s.compliance_score ASC, s.open_critical DESC
 LIMIT 5;
 """
 
@@ -157,11 +165,42 @@ def _format_pub_key(key: str) -> str:
     return f"`{key}`"
 
 
+def _detail_rev(f: dict) -> float:
+    """Pull revenue_7d out of the finding detail jsonb; 0 if missing."""
+    det = f.get("detail") or {}
+    if isinstance(det, dict):
+        try:
+            return float(det.get("revenue_7d") or 0)
+        except (TypeError, ValueError):
+            return 0.0
+    return 0.0
+
+
 def _format_line(f: dict) -> str:
     pub = _format_pub_key(f["publisher_key"])
     age_days = max((date.today() - f["first_observed_at"].date()).days, 0)
     age_tag = f"·{age_days}d" if age_days > 0 else "·new"
-    return f"• {pub} {f['check_id']} {age_tag}"
+    rev = _detail_rev(f)
+    rev_tag = f" ·${rev:,.0f}/7d" if rev >= 1.0 else ""
+    # If the finding carries an SSP key (per-entity reseller checks
+    # always do), surface it inline so 4 findings against the same
+    # domain don't look like 4 duplicate lines.
+    det = f.get("detail") or {}
+    ssp = det.get("ssp") if isinstance(det, dict) else None
+    check = f["check_id"]
+    if ssp:
+        # Compress the check_id since the SSP tells the whole story.
+        short_check = check.replace("adstxt.reseller_", "reseller_")
+        return f"• {pub} *{ssp}* `{short_check}` {age_tag}{rev_tag}"
+    return f"• {pub} `{check}` {age_tag}{rev_tag}"
+
+
+def _sort_by_revenue(findings: list[dict]) -> list[dict]:
+    """Highest revenue first, then newest. Drives 'actionable first' ordering."""
+    return sorted(
+        findings,
+        key=lambda f: (-_detail_rev(f), -f["last_observed_at"].timestamp()),
+    )
 
 
 def _format_score_line(row: dict) -> str:
@@ -171,6 +210,54 @@ def _format_score_line(row: dict) -> str:
     return f"• {pub} *{score:.0f}* ({sev})"
 
 
+def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
+    """Dedicated section for ssp_registry hygiene — separates 'fix the
+    config' work from 'fix a publisher' work. The two are routinely
+    confused; surfacing them apart makes triage cleaner.
+    """
+    unmapped = [
+        f for f in findings
+        if f["check_id"] == "compliance.demand_unmapped_to_ssp"
+    ]
+    unmapped.sort(key=lambda f: -_detail_rev(f))
+    new_demand = [
+        f for f in findings
+        if f["check_id"] == "compliance.new_demand_observed"
+    ]
+    if not unmapped and not new_demand:
+        return None
+
+    lines: list[str] = []
+    if unmapped:
+        lines.append(f"*Unmapped demand → SSP* ({len(unmapped)})  ·  add to "
+                     "`ssp_registry.PHASE_2_SSP_EXPECTATIONS`:")
+        for f in unmapped[:6]:
+            det = f.get("detail") or {}
+            name = (det.get("demand_name") or "?")[:32]
+            rev = _detail_rev(f)
+            lines.append(f"  • `{name}`  ${rev:,.0f}/7d")
+        if len(unmapped) > 6:
+            lines.append(f"  …+{len(unmapped) - 6} more")
+    if new_demand:
+        lines.append("")
+        lines.append(f"*New demand observed* ({len(new_demand)})  ·  "
+                     "verify expected:")
+        for f in new_demand[:4]:
+            det = f.get("detail") or {}
+            name = (det.get("demand_name") or "?")[:32]
+            rev = _detail_rev(f)
+            ssp = det.get("classified_ssp") or "unmapped"
+            lines.append(f"  • `{name}`  ${rev:,.0f}/7d  → {ssp}")
+        if len(new_demand) > 4:
+            lines.append(f"  …+{len(new_demand) - 4} more")
+
+    return {
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": ":wrench: *Registry gaps*\n" + "\n".join(lines)},
+    }
+
+
 def _build_blocks(findings: list[dict], summary: dict,
                   lowest_scores: list[dict],
                   partner_rollup: list[dict] | None = None) -> list[dict]:
@@ -178,16 +265,29 @@ def _build_blocks(findings: list[dict], summary: dict,
     for f in findings:
         by_sev[f["severity"]].append(f)
 
-    crit = by_sev.get("critical", [])
-    high = by_sev.get("high", [])
-    med = by_sev.get("medium", [])
+    crit = _sort_by_revenue(by_sev.get("critical", []))
+    high = _sort_by_revenue(by_sev.get("high", []))
+    med  = _sort_by_revenue(by_sev.get("medium", []))
 
+    # Active publishers count is the meaningful denominator (the 150
+    # number includes a long tail of inactive sellers.json entries).
+    active_n = summary.get("active_publishers") or 0
+    scanned_n = summary.get("publishers_scanned", 0)
     header = (
         f":shield: *Supply compliance — {date.today().isoformat()}*  "
-        f"·  scanned {summary.get('publishers_scanned', 0)} publishers  "
+        f"·  {active_n}/{scanned_n} active  "
         f"·  open: {len(crit)} crit / {len(high)} high / {len(med)} med"
     )
     context_bits = []
+    if "avg_score_active" in summary and active_n:
+        context_bits.append(
+            f"avg score (active) {summary['avg_score_active']:.0f}  ·  "
+            f"{summary.get('publishers_below_75_active', 0)} below 75"
+        )
+    if "roundtrip_rev_at_risk_7d" in summary:
+        rev_risk = float(summary.get("roundtrip_rev_at_risk_7d") or 0)
+        if rev_risk > 0:
+            context_bits.append(f"${rev_risk:,.0f}/7d at risk (undeclared)")
     if "ll_bridge_matched" in summary:
         context_bits.append(
             f"LL bridge {summary['ll_bridge_matched']}↔"
@@ -195,8 +295,6 @@ def _build_blocks(findings: list[dict], summary: dict,
         )
     if "observed_ssp_rows" in summary:
         context_bits.append(f"{summary['observed_ssp_rows']} ssp×pub active")
-    if "ssps_audited" in summary:
-        context_bits.append(f"{summary['ssps_audited']} ssps audited")
 
     blocks: list[dict] = [
         {"type": "section", "text": {"type": "mrkdwn", "text": header}},
@@ -208,6 +306,8 @@ def _build_blocks(findings: list[dict], summary: dict,
         })
     blocks.append({"type": "divider"})
 
+    # Critical and high lead the digest — these are the "fix this now"
+    # findings, revenue-ranked so the biggest-$ ones surface first.
     if crit:
         lines = [_format_line(f) for f in crit[:MAX_LINES_PER_SECTION]]
         if len(crit) > MAX_LINES_PER_SECTION:
@@ -215,7 +315,8 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":rotating_light: *Critical*\n" + "\n".join(lines)},
+                     "text": ":rotating_light: *Critical* (revenue-ranked)\n"
+                             + "\n".join(lines)},
         })
 
     if high:
@@ -228,10 +329,14 @@ def _build_blocks(findings: list[dict], summary: dict,
                      "text": ":warning: *High*\n" + "\n".join(lines)},
         })
 
+    # Medium gets a tight cap — by definition these aren't urgent. We
+    # show the top 3 (revenue-ranked) and a count so the digest stays
+    # under Slack's 50-block limit even on noisy days.
+    med_cap = max(MAX_LINES_PER_SECTION // 3, 3)
     if med:
-        lines = [_format_line(f) for f in med[: MAX_LINES_PER_SECTION // 2]]
-        if len(med) > MAX_LINES_PER_SECTION // 2:
-            lines.append(f"…+{len(med) - MAX_LINES_PER_SECTION // 2} more medium")
+        lines = [_format_line(f) for f in med[:med_cap]]
+        if len(med) > med_cap:
+            lines.append(f"…+{len(med) - med_cap} more medium")
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
@@ -247,12 +352,17 @@ def _build_blocks(findings: list[dict], summary: dict,
                              + "\n".join(partner_lines)},
         })
 
+    gap_block = _registry_gap_block(findings, summary)
+    if gap_block is not None:
+        blocks.append(gap_block)
+
     if lowest_scores:
         score_lines = [_format_score_line(r) for r in lowest_scores]
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":chart_with_downwards_trend: *Lowest compliance scores*\n"
+                     "text": ":chart_with_downwards_trend: "
+                             "*Lowest compliance scores* (active publishers)\n"
                              + "\n".join(score_lines)},
         })
 
