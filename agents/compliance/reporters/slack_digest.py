@@ -125,21 +125,63 @@ def _load_partner_rollup() -> list[dict]:
         return []
 
 
-def _format_partner_row(r: dict) -> str:
-    name = (r.get("ll_publisher_name") or "?")[:24]
+def _render_table(rows: list[list], headers: list[str],
+                  aligns: list[str] | None = None) -> str:
+    """Render rows as a monospace code-block table for Slack.
+
+    Slack renders triple-backtick blocks in a fixed-width font so the
+    columns align consistently across web + mobile. We pad each cell
+    to the column's max width (header or longest cell), with optional
+    per-column alignment ('l'=left default, 'r'=right for numerics).
+
+    Cell values are truncated to MAX_CELL_W (28 chars) so a long
+    entity name doesn't blow out the whole table on mobile.
+    """
+    MAX_CELL_W = 28
+    aligns = aligns or ["l"] * len(headers)
+
+    norm: list[list[str]] = []
+    for r in rows:
+        norm.append([
+            (str(c) if c is not None else "")[:MAX_CELL_W]
+            for c in r
+        ])
+
+    widths = [len(h) for h in headers]
+    for r in norm:
+        for i, c in enumerate(r):
+            widths[i] = max(widths[i], len(c))
+
+    def _fmt(row: list[str]) -> str:
+        cells = []
+        for i, c in enumerate(row):
+            w = widths[i]
+            if aligns[i] == "r":
+                cells.append(c.rjust(w))
+            else:
+                cells.append(c.ljust(w))
+        return "  ".join(cells).rstrip()
+
+    sep = "  ".join("─" * w for w in widths)
+    out = [_fmt(headers), sep]
+    for r in norm:
+        out.append(_fmt(r))
+    return "```\n" + "\n".join(out) + "\n```"
+
+
+def _partner_table_row(r: dict) -> list:
+    """Render one LL supply partner as a table row (status, name, …)."""
+    name = (r.get("ll_publisher_name") or "?")[:22]
     entities = int(r.get("entities") or 0)
     crit = int(r.get("findings_crit") or 0)
     high = int(r.get("findings_high") or 0)
     if crit == 0 and high == 0:
-        verdict = ":white_check_mark:"
+        status = "✅"
     elif crit > 0:
-        verdict = ":rotating_light:"
+        status = "🚨"
     else:
-        verdict = ":warning:"
-    return (
-        f"{verdict} *{name}*  ·  {entities} entities  ·  "
-        f"{crit} critical / {high} high"
-    )
+        status = "⚠️"
+    return [status, name, str(entities), str(crit), str(high)]
 
 
 def _format_pub_key(key: str) -> str:
@@ -506,32 +548,39 @@ def _new_demand_variants_blocks(new_demands: list[dict],
             hrs = int(delta.total_seconds() / 3600)
             hours_ago = f" ·  first seen {hrs}h ago"
 
-        card_lines = [
+        header_line = (
             f"*`{name}`*  →  *{ssp}*  ·  ${rev:,.0f}/7d{hours_ago}"
-        ]
+        )
         sample = _load_demand_entity_sample(as_of, ssp)
         if not sample:
-            card_lines.append("  _(no per-entity audit available yet — check tomorrow)_")
+            body = (header_line +
+                    "\n_(no per-entity audit available yet — check tomorrow)_")
         else:
+            # Per-entity drill-down as a monospace table.
+            # ✓/✗ glyphs align cleanly in Slack's fixed-width font.
+            # ads.txt source links live below the table because hyperlinks
+            # don't render inside code blocks.
+            table_rows = []
+            link_lines = []
             for s in sample:
-                pgam = ":white_check_mark:" if s["pgam_direct_present"] else ":x:"
-                ssp_y = ":white_check_mark:" if s["ssp_line_present"] else ":x:"
-                json_y = ":white_check_mark:" if s["sellers_json_match"] else ":x:"
-                ent = (s.get("entity_value") or "")[:34]
+                pgam = "✓" if s["pgam_direct_present"] else "✗"
+                ssp_y = "✓" if s["ssp_line_present"] else "✗"
+                json_y = "✓" if s["sellers_json_match"] else "✗"
+                ent = (s.get("entity_value") or "")[:26]
                 erev = float(s.get("revenue_7d") or 0)
+                table_rows.append([ent, f"${erev:,.0f}", pgam, ssp_y, json_y])
                 host = s.get("audit_host")
-                # Apps live in app-ads.txt on their developer domain;
-                # domains live in ads.txt on the domain itself.
                 variant = "app-ads.txt" if s.get("kind") == "app" else "ads.txt"
                 if host:
-                    link = f"<https://{host}/{variant}|{variant}>"
-                else:
-                    link = "_no audit host_"
-                card_lines.append(
-                    f"   • `{ent}` ${erev:>5,.0f}/7d  ·  "
-                    f"PGAM {pgam}  SSP {ssp_y}  json {json_y}  ·  {link}"
-                )
-        body = "\n".join(card_lines)
+                    link_lines.append(
+                        f"• `{ent}` → <https://{host}/{variant}|{variant}>"
+                    )
+            table = _render_table(
+                rows=table_rows,
+                headers=["Entity", "Rev/7d", "PGAM", "SSP", "json"],
+                aligns=["l", "r", "l", "l", "l"],
+            )
+            body = f"{header_line}\n{table}\n" + "\n".join(link_lines)
         if len(body) > 2900:
             body = body[:2880] + "\n_…see CSV for full list._"
         out.append({
@@ -579,33 +628,31 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     """
     if not rows:
         return None
-    lines: list[str] = []
+    table_rows = []
     for r in rows:
-        name = (r.get("ssp_partner_name") or "?")[:24]
+        name = (r.get("ssp_partner_name") or "?")[:18]
         rev = float(r.get("revenue") or 0)
         ents = int(r.get("entities") or 0)
         c = int(r.get("critical_n") or 0)
         w = int(r.get("warning_n") or 0)
         h = int(r.get("healthy_n") or 0)
-        if c > 0:
-            verdict = ":rotating_light:"
-        elif w > 0:
-            verdict = ":warning:"
-        else:
-            verdict = ":white_check_mark:"
-        compliant_pct = (100.0 * h / ents) if ents else 0.0
-        lines.append(
-            f"{verdict} *{name}*  ·  ${rev:,.0f}/7d  ·  "
-            f"{ents} entities  ·  {compliant_pct:.0f}% healthy  ·  "
-            f"{c}c / {w}w / {h}h"
-        )
+        status = "🚨" if c > 0 else ("⚠️" if w > 0 else "✅")
+        pct = (100.0 * h / ents) if ents else 0.0
+        table_rows.append([status, name, f"${rev:,.0f}",
+                           str(ents), f"{pct:.0f}%", str(c), str(w), str(h)])
+    table = _render_table(
+        rows=table_rows,
+        headers=["", "SSP", "Rev/7d", "Ents", "Heal%", "C", "W", "H"],
+        aligns=["l", "l", "r", "r", "r", "r", "r", "r"],
+    )
     return {
         "type": "section",
         "text": {"type": "mrkdwn",
                  "text": (f":bar_chart: *Per-SSP scorecard ({len(rows)} SSPs)*\n"
                           "_For each SSP across ALL audited entities: total $ "
-                          "flowing through it, % of entity-paths fully clean._\n"
-                          + "\n".join(lines))},
+                          "flowing through it, % of entity-paths fully clean. "
+                          "C/W/H = critical/warning/healthy paths._\n"
+                          + table)},
     }
 
 
@@ -832,18 +879,20 @@ def _build_blocks(findings: list[dict], summary: dict,
             es["rev"] = max(es["rev"], _detail_rev(f))
         ordered = sorted(entity_summary.items(), key=lambda kv: -kv[1]["rev"])
         cap = 10
-        lines = []
+        table_rows = []
         for pk, s in ordered[:cap]:
-            pub = _format_pub_key(pk)
-            rev_tag = f" ·${s['rev']:,.0f}/7d" if s["rev"] >= 1 else ""
-            tags = []
-            if s["crit"]:
-                tags.append(f"{s['crit']} crit")
-            if s["high"]:
-                tags.append(f"{s['high']} high")
-            lines.append(f"• {pub}  {' · '.join(tags)}{rev_tag}")
-        if len(ordered) > cap:
-            lines.append(f"…+{len(ordered) - cap} more entities")
+            # Drop the dom:/app: prefix in the table — keeps the
+            # entity column narrow on mobile.
+            ent = pk.split(":", 1)[1] if pk.startswith(("dom:", "app:")) else pk
+            table_rows.append([ent[:30], f"${s['rev']:,.0f}",
+                               str(s["crit"]), str(s["high"])])
+        more = (f"\n_…+{len(ordered) - cap} more entities (see CSV)_"
+                if len(ordered) > cap else "")
+        table = _render_table(
+            rows=table_rows,
+            headers=["Entity", "Rev/7d", "Crit", "High"],
+            aligns=["l", "r", "r", "r"],
+        )
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
@@ -851,7 +900,7 @@ def _build_blocks(findings: list[dict], summary: dict,
                               f"({min(cap, len(ordered))} of {len(ordered)})*\n"
                               "_Same fix pattern as the action queue above. "
                               "Full per-SSP breakdown in today's CSV._\n"
-                              + "\n".join(lines))},
+                              + table + more)},
         })
 
     med_cap = max(MAX_LINES_PER_SECTION // 3, 3)
@@ -873,7 +922,11 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append(scorecard_block)
 
     if partner_rollup:
-        partner_lines = [_format_partner_row(r) for r in partner_rollup]
+        partner_table = _render_table(
+            rows=[_partner_table_row(r) for r in partner_rollup],
+            headers=["", "Supply Partner", "Ents", "Crit", "High"],
+            aligns=["l", "l", "r", "r", "r"],
+        )
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
@@ -882,7 +935,7 @@ def _build_blocks(findings: list[dict], summary: dict,
                               "_LL supply partners (Smaato, BidMachine, "
                               "Start.IO, …) and how many of their entities "
                               "have critical/high findings._\n"
-                              + "\n".join(partner_lines))},
+                              + partner_table)},
         })
 
     gap_block = _registry_gap_block(findings, summary)
