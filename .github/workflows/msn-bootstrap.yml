@@ -52,6 +52,12 @@ jobs:
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       MSN_SESSION_BOOTSTRAP_KEY: ${{ secrets.MSN_SESSION_BOOTSTRAP_KEY }}
+      # MUST match the path string used by msn-insights.yml's
+      # actions/cache step exactly — actions/cache@v4 hashes the path
+      # string into a per-cache "version" and a mismatch (e.g. relative
+      # vs absolute, even for the same resolved dir) means the restore
+      # in the puller workflow won't find this cache.
+      MSN_SESSION_DIR: ${{ github.workspace }}/.msn-session
 
     steps:
       - uses: actions/checkout@v4
@@ -76,11 +82,10 @@ jobs:
           mkdir -p .msn-session-staging
           tar --use-compress-program=unzstd -xf msn-session.tar.zst -C .msn-session-staging
           # Tarball root is `msn-session/` (from the local ~/.pgam layout).
-          # Hoist its contents up to `.msn-session/` to match the path the
-          # scheduled workflow uses.
-          mv .msn-session-staging/msn-session .msn-session
+          # Hoist its contents up to the path the scheduled workflow uses.
+          mv .msn-session-staging/msn-session "$MSN_SESSION_DIR"
           rm -rf .msn-session-staging msn-session.tar.zst
-          ls .msn-session | head -10
+          ls "$MSN_SESSION_DIR" | head -10
 
       - name: Save to actions cache
         # Key uses the same `msn-session-` prefix the scheduled job's
@@ -88,5 +93,5 @@ jobs:
         # the most-recent-wins behavior picks this entry.
         uses: actions/cache/save@v4
         with:
-          path: .msn-session
+          path: ${{ env.MSN_SESSION_DIR }}
           key: msn-session-bootstrap-${{ github.run_id }}
