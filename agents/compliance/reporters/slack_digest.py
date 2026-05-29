@@ -471,19 +471,29 @@ def _load_demand_entity_sample(as_of: date, ssp_key: str) -> list[dict]:
         return []
 
 
-def _new_demand_variants_block(new_demands: list[dict],
-                               as_of: date) -> dict | None:
+def _new_demand_variants_blocks(new_demands: list[dict],
+                                as_of: date) -> list[dict]:
     """Flag demands first observed in last 48h with material revenue.
 
-    For each, show the classified SSP, current revenue, AND a mini
-    table of the top entities running that SSP with their three Y/N
-    flags. This is the section that would have surfaced TripleLift -
-    Blitz overnight without anyone having to notice it manually.
+    Returns a LIST of blocks (header + N variant cards) so each card
+    stays under Slack's 3000-char-per-section limit. With 6 entities
+    per card × ~80 chars/line × extra labels, a single section can
+    blow past 3000 chars when there are many active variants.
     """
     if not new_demands:
-        return None
+        return []
 
-    lines: list[str] = []
+    out: list[dict] = [{
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": (f":new: *New demand variants "
+                          f"({len(new_demands)}, last 48h)*\n"
+                          "_Demands first observed recently with ≥ "
+                          f"${NEW_DEMAND_MIN_REV_7D:.0f}/7d. They auto-fold "
+                          "into their SSP's row, but the variant is new — "
+                          "verify it's expected and that the entities below "
+                          "have authorized ads.txt lines._")},
+    }]
     for d in new_demands:
         name = d.get("demand_name") or "?"
         ssp = d.get("ssp_key") or "?"
@@ -496,12 +506,12 @@ def _new_demand_variants_block(new_demands: list[dict],
             hrs = int(delta.total_seconds() / 3600)
             hours_ago = f" ·  first seen {hrs}h ago"
 
-        lines.append(f"*`{name}`*  →  *{ssp}*  ·  ${rev:,.0f}/7d{hours_ago}")
-
-        # Top entities running this SSP today + their Y/N flags.
+        card_lines = [
+            f"*`{name}`*  →  *{ssp}*  ·  ${rev:,.0f}/7d{hours_ago}"
+        ]
         sample = _load_demand_entity_sample(as_of, ssp)
         if not sample:
-            lines.append("  _(no per-entity audit available yet — check tomorrow)_")
+            card_lines.append("  _(no per-entity audit available yet — check tomorrow)_")
         else:
             for s in sample:
                 pgam = ":white_check_mark:" if s["pgam_direct_present"] else ":x:"
@@ -517,24 +527,18 @@ def _new_demand_variants_block(new_demands: list[dict],
                     link = f"<https://{host}/{variant}|{variant}>"
                 else:
                     link = "_no audit host_"
-                lines.append(
+                card_lines.append(
                     f"   • `{ent}` ${erev:>5,.0f}/7d  ·  "
                     f"PGAM {pgam}  SSP {ssp_y}  json {json_y}  ·  {link}"
                 )
-        lines.append("")  # spacer
-
-    return {
-        "type": "section",
-        "text": {"type": "mrkdwn",
-                 "text": (f":new: *New demand variants "
-                          f"({len(new_demands)}, last 48h)*\n"
-                          "_Demands first observed recently with ≥ "
-                          f"${NEW_DEMAND_MIN_REV_7D:.0f}/7d. They auto-fold "
-                          "into their SSP's row, but the variant is new — "
-                          "verify it's expected and that the entities below "
-                          "have authorized ads.txt lines._\n"
-                          + "\n".join(lines))},
-    }
+        body = "\n".join(card_lines)
+        if len(body) > 2900:
+            body = body[:2880] + "\n_…see CSV for full list._"
+        out.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": body},
+        })
+    return out
 
 
 _SSP_SCORECARD_QUERY = """
@@ -754,9 +758,9 @@ def _build_blocks(findings: list[dict], summary: dict,
     # (TripleLift - Blitz, Sharethrough - Blitz, etc.) spins up
     # overnight. Auto-folds into its SSP's row in the matrix but the
     # operational signal is "this is new and earning meaningful $".
-    new_demand_block = _new_demand_variants_block(new_demands or [], date.today())
-    if new_demand_block is not None:
-        blocks.append(new_demand_block)
+    new_demand_blocks = _new_demand_variants_blocks(new_demands or [], date.today())
+    if new_demand_blocks:
+        blocks.extend(new_demand_blocks)
         blocks.append({"type": "divider"})
 
     # Sentinel findings (demand, supply partner, schain) live OUTSIDE
