@@ -1,16 +1,20 @@
-name: Compliance Daily Audit
+name: Compliance Daily Audit (manual)
 
-# Runs scripts/deep_compliance_audit.py every morning and posts the
-# comprehensive digest (executive summary + per-SSP scorecards + shared-
-# template clusters) to Slack. Independent of the Render-side daily
-# compliance agent — this gives operational visibility today without
-# needing the Neon-persisted version deployed.
+# Manual-only fallback runner for scripts/deep_compliance_audit.py.
+#
+# The DAILY cadence runs on Render via scheduler.py (calls
+# agents.compliance.runner.run() at 08:30 ET when PGAM_COMPLIANCE_ENABLED=1)
+# which has full Neon persistence + the tuned revenue-calibrated digest.
+#
+# We keep this workflow available for one-off operational audits via
+# `gh workflow run compliance-daily.yml`, but the scheduled trigger is
+# disabled to prevent duplicate digests landing in #compliance.
+#
+# To re-enable the daily schedule, restore the `schedule:` block with
+# `- cron: "30 12 * * *"` AND populate these repo secrets:
+#   LL_CLIENT_KEY, LL_SECRET_KEY, COMPLIANCE_SLACK_WEBHOOK
 
 on:
-  schedule:
-    # 12:30 UTC = 08:30 ET (matches the Render compliance_runner slot,
-    # so both fire on the same cadence when the agent is deployed).
-    - cron: "30 12 * * *"
   workflow_dispatch:
     inputs:
       top_n:
