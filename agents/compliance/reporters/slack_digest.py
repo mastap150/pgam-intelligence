@@ -392,6 +392,151 @@ def _action_card_blocks(findings: list[dict],
     return out
 
 
+_NEW_DEMAND_QUERY = """
+-- Demands first observed recently AND whose name is more specific than
+-- the bare SSP — i.e. an actual variant (e.g. "TripleLift - Blitz") not
+-- the canonical demand name (e.g. "TripleLift" itself). Variant names
+-- typically contain a hyphen/colon/parenthesis tagging the campaign or
+-- product line. This filter is what isolates "new variants we should
+-- look at" from "the existing SSP's main demand".
+--
+-- Until the table accumulates ≥2 days of history, EVERY demand's
+-- first_seen_at falls inside the 48h window (the seed run wrote them
+-- all at once). The variant-name filter is what saves the signal in
+-- that case.
+SELECT
+    demand_name,
+    ssp_key,
+    revenue_7d_latest,
+    first_seen_at,
+    seen_count
+FROM pgam_direct.compliance_observed_demands
+WHERE first_seen_at >= now() - interval '48 hours'
+  AND revenue_7d_latest >= %(min_rev)s
+  AND ssp_key IS NOT NULL
+  AND (
+      -- Hyphen-, colon-, parenthesis-, or slash-separated variant
+      -- name. Catches "TripleLift - Blitz", "Sharethrough: CTV",
+      -- "PubMatic (Test)", "Magnite/SpotX", etc.
+      demand_name ~ '[ ]*[-:/(][ ]+'
+      -- OR: never seen before this run AND not an exact-SSP-name match.
+      OR seen_count <= 1
+  )
+ORDER BY revenue_7d_latest DESC
+LIMIT 10;
+"""
+
+_DEMAND_ENTITY_SAMPLE_QUERY = """
+-- Per-entity audit for one SSP — pulled when surfacing a new demand
+-- variant so the digest shows WHERE the new revenue is landing and
+-- whether those entities' ads.txt files are correctly authorized.
+-- Skip numeric pseudo-entities (publisher_id leaked into entity_value)
+-- and entities without a resolvable audit_host (can't link the file).
+SELECT
+    entity_value, kind, audit_host, revenue_7d,
+    pgam_direct_present, ssp_line_present, sellers_json_match,
+    status
+FROM pgam_direct.compliance_entity_ssp_audit
+WHERE as_of = %(as_of)s AND ssp_key = %(ssp_key)s
+  AND audit_host IS NOT NULL
+  AND entity_value !~ '^[0-9]+$'
+ORDER BY revenue_7d DESC
+LIMIT 6;
+"""
+
+NEW_DEMAND_MIN_REV_7D = 100.0
+
+
+def _load_new_demands(min_rev: float = NEW_DEMAND_MIN_REV_7D) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_NEW_DEMAND_QUERY, {"min_rev": min_rev})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] new-demand query failed (non-fatal): {exc}")
+        return []
+
+
+def _load_demand_entity_sample(as_of: date, ssp_key: str) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_DEMAND_ENTITY_SAMPLE_QUERY,
+                            {"as_of": as_of, "ssp_key": ssp_key})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception:
+        return []
+
+
+def _new_demand_variants_block(new_demands: list[dict],
+                               as_of: date) -> dict | None:
+    """Flag demands first observed in last 48h with material revenue.
+
+    For each, show the classified SSP, current revenue, AND a mini
+    table of the top entities running that SSP with their three Y/N
+    flags. This is the section that would have surfaced TripleLift -
+    Blitz overnight without anyone having to notice it manually.
+    """
+    if not new_demands:
+        return None
+
+    lines: list[str] = []
+    for d in new_demands:
+        name = d.get("demand_name") or "?"
+        ssp = d.get("ssp_key") or "?"
+        rev = float(d.get("revenue_7d_latest") or 0)
+        first = d.get("first_seen_at")
+        hours_ago = ""
+        if first is not None:
+            from datetime import datetime, timezone
+            delta = datetime.now(timezone.utc) - first
+            hrs = int(delta.total_seconds() / 3600)
+            hours_ago = f" ·  first seen {hrs}h ago"
+
+        lines.append(f"*`{name}`*  →  *{ssp}*  ·  ${rev:,.0f}/7d{hours_ago}")
+
+        # Top entities running this SSP today + their Y/N flags.
+        sample = _load_demand_entity_sample(as_of, ssp)
+        if not sample:
+            lines.append("  _(no per-entity audit available yet — check tomorrow)_")
+        else:
+            for s in sample:
+                pgam = ":white_check_mark:" if s["pgam_direct_present"] else ":x:"
+                ssp_y = ":white_check_mark:" if s["ssp_line_present"] else ":x:"
+                json_y = ":white_check_mark:" if s["sellers_json_match"] else ":x:"
+                ent = (s.get("entity_value") or "")[:34]
+                erev = float(s.get("revenue_7d") or 0)
+                host = s.get("audit_host")
+                # Apps live in app-ads.txt on their developer domain;
+                # domains live in ads.txt on the domain itself.
+                variant = "app-ads.txt" if s.get("kind") == "app" else "ads.txt"
+                if host:
+                    link = f"<https://{host}/{variant}|{variant}>"
+                else:
+                    link = "_no audit host_"
+                lines.append(
+                    f"   • `{ent}` ${erev:>5,.0f}/7d  ·  "
+                    f"PGAM {pgam}  SSP {ssp_y}  json {json_y}  ·  {link}"
+                )
+        lines.append("")  # spacer
+
+    return {
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": (f":new: *New demand variants "
+                          f"({len(new_demands)}, last 48h)*\n"
+                          "_Demands first observed recently with ≥ "
+                          f"${NEW_DEMAND_MIN_REV_7D:.0f}/7d. They auto-fold "
+                          "into their SSP's row, but the variant is new — "
+                          "verify it's expected and that the entities below "
+                          "have authorized ads.txt lines._\n"
+                          + "\n".join(lines))},
+    }
+
+
 _SSP_SCORECARD_QUERY = """
 SELECT
     ssp_partner_name,
@@ -516,7 +661,8 @@ def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
 def _build_blocks(findings: list[dict], summary: dict,
                   lowest_scores: list[dict],
                   partner_rollup: list[dict] | None = None,
-                  ssp_scorecard: list[dict] | None = None) -> list[dict]:
+                  ssp_scorecard: list[dict] | None = None,
+                  new_demands: list[dict] | None = None) -> list[dict]:
     by_sev: dict[str, list[dict]] = defaultdict(list)
     for f in findings:
         by_sev[f["severity"]].append(f)
@@ -602,6 +748,15 @@ def _build_blocks(findings: list[dict], summary: dict,
     action_cards = _action_card_blocks(findings, max_entities=5)
     if action_cards:
         blocks.extend(action_cards)
+        blocks.append({"type": "divider"})
+
+    # New demand variants — surfaces the case where a new SSP variant
+    # (TripleLift - Blitz, Sharethrough - Blitz, etc.) spins up
+    # overnight. Auto-folds into its SSP's row in the matrix but the
+    # operational signal is "this is new and earning meaningful $".
+    new_demand_block = _new_demand_variants_block(new_demands or [], date.today())
+    if new_demand_block is not None:
+        blocks.append(new_demand_block)
         blocks.append({"type": "divider"})
 
     # Sentinel findings (demand, supply partner, schain) live OUTSIDE
@@ -775,8 +930,9 @@ def post_digest(summary: dict, force: bool = False) -> bool:
     lowest_scores = _load_lowest_scores(date.today())
     partner_rollup = _load_partner_rollup()
     ssp_scorecard = _load_ssp_scorecard(date.today())
+    new_demands = _load_new_demands()
     blocks = _build_blocks(findings, summary, lowest_scores,
-                           partner_rollup, ssp_scorecard)
+                           partner_rollup, ssp_scorecard, new_demands)
     fallback = (
         f"Supply compliance: "
         f"{summary.get('findings_opened', 0)} opened, "
