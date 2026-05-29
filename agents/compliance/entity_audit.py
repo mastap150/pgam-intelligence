@@ -24,7 +24,7 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from core import ll_mgmt
 
@@ -82,6 +82,12 @@ class EntityAuditResult:
     fetches: list[AdsTxtFetch]
     skipped_reason: str | None = None
     supply_partners: list[dict] | None = None        # [{id, name}]
+    # The full entity universe + parsed ads.txt fetches keyed by entity_key,
+    # exposed so the runner can build the per-(entity × SSP) audit matrix
+    # without re-crawling. Empty dict if Phase 5 was skipped.
+    entities: list[Entity] = field(default_factory=list)
+    fetches_by_entity: dict[str, AdsTxtFetch | None] = field(default_factory=dict)
+    pgam_seat_registry: dict[str, dict] = field(default_factory=dict)
 
 
 def _revenue_tier(rev_7d: float) -> str:
@@ -334,6 +340,12 @@ def run_entity_audit(
         findings.extend(_validate_entity(entity, fetch, registry))
 
     sentinel_keys = [e.entity_key for e in entities]
+    # fetches_by_entity needs an entry for EVERY entity (None for the
+    # ones we couldn't crawl, e.g. unresolvable bundles) so the matrix
+    # builder can emit `pgam_direct_present=False` rows for them.
+    fetches_by_entity: dict[str, AdsTxtFetch | None] = {
+        e.entity_key: fetches.get(e.entity_key) for e in entities
+    }
     return EntityAuditResult(
         universe_stats=stats,
         findings=findings,
@@ -341,4 +353,7 @@ def run_entity_audit(
         fetches=list(fetches.values()),
         skipped_reason=None,
         supply_partners=partners,
+        entities=entities,
+        fetches_by_entity=fetches_by_entity,
+        pgam_seat_registry=registry,
     )

@@ -43,6 +43,11 @@ from agents.compliance.activity_filter import (  # noqa: E402
     load_active_publisher_keys,
     refresh_partner_activity,
 )
+from agents.compliance.audit_matrix import (  # noqa: E402
+    build_audit_matrix,
+    persist_matrix,
+    rows_to_csv,
+)
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.demand_detector import run_demand_detector  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
@@ -90,6 +95,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_18_compliance_adstxt_cache.sql",
     _REPO_ROOT / "migrations" / "2026_05_28_compliance_ll_bridge_many_to_one.sql",
     _REPO_ROOT / "migrations" / "2026_05_28_compliance_observed_demands.sql",
+    _REPO_ROOT / "migrations" / "2026_05_29_compliance_entity_ssp_audit.sql",
 )
 
 
@@ -494,6 +500,7 @@ def run() -> dict:
         # tiered universal-DIRECT-line check + per-entity conditional reseller
         # lines. Read-only — no writes to LL.
         phase5_sentinel_keys: list[str] = []
+        p5_for_matrix = None   # held for the audit matrix step below
         if enable_phase5:
             try:
                 p5 = run_entity_audit(rate_hz=rate_hz)
@@ -502,6 +509,7 @@ def run() -> dict:
                 else:
                     findings.extend(p5.findings)
                     phase5_sentinel_keys = p5.sentinel_keys
+                    p5_for_matrix = p5
                     summary["phase5_entities_audited"] = p5.universe_stats.top_n_selected
                     summary["phase5_domains"]          = p5.universe_stats.domains_in_universe
                     summary["phase5_apps"]             = p5.universe_stats.apps_in_universe
@@ -517,6 +525,93 @@ def run() -> dict:
                     )
             except Exception as exc:
                 print(f"[{ACTOR}] phase5 entity audit failed (non-fatal): {exc}")
+
+        # ── Audit matrix — per-(entity × SSP) compliance grid ─────────
+        # Source of truth for "what was audited and is it compliant",
+        # complementing compliance_findings (which only carries failures).
+        # Persists to pgam_direct.compliance_entity_ssp_audit and writes
+        # the daily CSV under data/compliance_matrix_<date>.csv. The
+        # digest pulls the daily KPI row from
+        # compliance_audit_summary_daily.
+        if p5_for_matrix is not None:
+            try:
+                rows, mtx_summary = build_audit_matrix(
+                    entities=p5_for_matrix.entities,
+                    fetches_by_entity=p5_for_matrix.fetches_by_entity,
+                    pgam_seat_registry=p5_for_matrix.pgam_seat_registry,
+                )
+                persisted = persist_matrix(rows)
+                # Daily aggregate row for the digest + dashboard.
+                from datetime import date as _date
+                with connect() as conn:
+                    with conn.cursor() as cur:
+                        cur.execute(
+                            """
+                            INSERT INTO pgam_direct.compliance_audit_summary_daily
+                                (as_of, total_rows, domains_audited, apps_audited,
+                                 ssps_audited, revenue_audited_usd,
+                                 revenue_compliant_usd, revenue_non_compliant_usd,
+                                 compliance_pct, critical_rows, warning_rows,
+                                 healthy_rows, below_threshold_rows)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (as_of) DO UPDATE SET
+                                total_rows=EXCLUDED.total_rows,
+                                domains_audited=EXCLUDED.domains_audited,
+                                apps_audited=EXCLUDED.apps_audited,
+                                ssps_audited=EXCLUDED.ssps_audited,
+                                revenue_audited_usd=EXCLUDED.revenue_audited_usd,
+                                revenue_compliant_usd=EXCLUDED.revenue_compliant_usd,
+                                revenue_non_compliant_usd=EXCLUDED.revenue_non_compliant_usd,
+                                compliance_pct=EXCLUDED.compliance_pct,
+                                critical_rows=EXCLUDED.critical_rows,
+                                warning_rows=EXCLUDED.warning_rows,
+                                healthy_rows=EXCLUDED.healthy_rows,
+                                below_threshold_rows=EXCLUDED.below_threshold_rows,
+                                computed_at=now();
+                            """,
+                            (
+                                _date.today(),
+                                mtx_summary.total_rows,
+                                mtx_summary.domains_audited,
+                                mtx_summary.apps_audited,
+                                mtx_summary.ssps_audited,
+                                mtx_summary.revenue_audited_usd,
+                                mtx_summary.revenue_compliant_usd,
+                                mtx_summary.revenue_non_compliant_usd,
+                                mtx_summary.compliance_pct,
+                                mtx_summary.critical_rows,
+                                mtx_summary.warning_rows,
+                                mtx_summary.healthy_rows,
+                                mtx_summary.below_threshold_rows,
+                            ),
+                        )
+                    conn.commit()
+                # Daily CSV next to the agent's other data files.
+                csv_path = _REPO_ROOT / "data" / f"compliance_matrix_{_date.today().isoformat()}.csv"
+                csv_path.parent.mkdir(parents=True, exist_ok=True)
+                csv_path.write_text(rows_to_csv(rows))
+                summary["audit_matrix_rows"]        = mtx_summary.total_rows
+                summary["audit_matrix_compliant_pct"] = mtx_summary.compliance_pct
+                summary["audit_matrix_revenue_audited"]   = mtx_summary.revenue_audited_usd
+                summary["audit_matrix_revenue_compliant"] = mtx_summary.revenue_compliant_usd
+                summary["audit_matrix_revenue_at_risk"]   = mtx_summary.revenue_non_compliant_usd
+                summary["audit_matrix_critical"] = mtx_summary.critical_rows
+                summary["audit_matrix_warning"]  = mtx_summary.warning_rows
+                summary["audit_matrix_healthy"]  = mtx_summary.healthy_rows
+                summary["audit_matrix_ssps"]     = mtx_summary.ssps_audited
+                summary["audit_matrix_csv_path"] = str(csv_path)
+                print(
+                    f"[{ACTOR}] audit_matrix rows={mtx_summary.total_rows} "
+                    f"compliant={mtx_summary.compliance_pct}% "
+                    f"$compliant={mtx_summary.revenue_compliant_usd:,.0f} "
+                    f"$at_risk={mtx_summary.revenue_non_compliant_usd:,.0f} "
+                    f"crit={mtx_summary.critical_rows} "
+                    f"warn={mtx_summary.warning_rows} "
+                    f"healthy={mtx_summary.healthy_rows} "
+                    f"csv={csv_path.name}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] audit_matrix failed (non-fatal): {exc}")
 
         # Phase 4: static schain audit on LL demands + publishers. Reports
         # any drift the optimization-side auto-fixer didn't catch (rev-threshold
