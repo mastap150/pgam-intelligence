@@ -210,6 +210,182 @@ def _format_score_line(row: dict) -> str:
     return f"• {pub} *{score:.0f}* ({sev})"
 
 
+def _humanize_check(check_id: str) -> str:
+    """Map check_id → operator-facing label (no `code_format`, no namespaces)."""
+    return {
+        "adstxt.universal_direct_missing":      "PGAM DIRECT line missing",
+        "adstxt.universal_direct_wrong_seller": "PGAM seller_id wrong",
+        "adstxt.universal_direct_wrong_type":   "PGAM line marked RESELLER (should be DIRECT)",
+        "adstxt.universal_direct_wrong_seat":   "Wrong PGAM seat",
+        "adstxt.reseller_missing":              "RESELLER line missing",
+        "adstxt.reseller_wrong_seller":         "RESELLER line wrong account",
+        "adstxt.reseller_wrong_type":           "RESELLER line marked DIRECT",
+        "adstxt.reseller_cert_mismatch":        "Cert authority mismatch",
+        "adstxt.file_unreachable":              "ads.txt not reachable",
+        "adstxt.file_empty":                    "ads.txt is empty",
+    }.get(check_id, check_id)
+
+
+def _trunc_list(items: list, cap: int = 4) -> str:
+    """Render a list as `a, b, c, …+N more`. Keeps sections under
+    Slack's 3000-char-per-section ceiling when a publisher's ads.txt
+    has 100+ sub-publisher account_ids for the same SSP."""
+    items = [str(x) for x in items if x not in (None, "")]
+    if not items:
+        return "(none)"
+    if len(items) <= cap:
+        return ", ".join(items)
+    return ", ".join(items[:cap]) + f", …+{len(items) - cap} more"
+
+
+def _fix_lines_for(f: dict) -> list[str]:
+    """Render the literal copy-paste fix lines for one finding.
+
+    The detail jsonb carries `expected_line` (what should be in ads.txt)
+    and observed values where applicable. We surface both so the operator
+    can grep-and-replace without round-tripping back to the validator.
+    """
+    det = f.get("detail") or {}
+    if not isinstance(det, dict):
+        return []
+    check = f["check_id"]
+    ssp = det.get("ssp")
+    expected_line = det.get("expected_line")
+    out: list[str] = []
+
+    # Universal-DIRECT family
+    if check == "adstxt.universal_direct_missing":
+        if expected_line and "<unknown>" not in expected_line:
+            out.append(f"  Add to ads.txt: `{expected_line}`")
+        else:
+            out.append("  Add to ads.txt: `pgamssp.com, <publisher's PGAM seller_id>, DIRECT`")
+    elif check == "adstxt.universal_direct_wrong_seller":
+        obs = det.get("observed_seller_ids") or []
+        exp = det.get("expected_seller_id")
+        out.append(f"  Found PGAM seat(s): `{_trunc_list(obs)}`  →  expect `{exp}`")
+        out.append(f"  Replace with: `pgamssp.com, {exp}, DIRECT`")
+    elif check == "adstxt.universal_direct_wrong_type":
+        sid = det.get("seller_id")
+        rels = det.get("observed_relationships") or []
+        out.append(f"  PGAM line says {'/'.join(rels)} — must be DIRECT")
+        out.append(f"  Replace with: `pgamssp.com, {sid}, DIRECT`")
+    elif check == "adstxt.universal_direct_wrong_seat":
+        seats = det.get("observed_seats") or []
+        if seats:
+            sample = ", ".join(
+                f"{s.get('seller_id')} ({s.get('owner_name','?')})"
+                for s in seats[:2] if isinstance(s, dict)
+            )
+            out.append(f"  PGAM seat in ads.txt: `{sample}`  →  not a PGAM-owned seat")
+            out.append("  Replace with the publisher's PGAM-issued seller_id; "
+                       "look it up in `https://www.pgamssp.com/sellers.json`")
+
+    # RESELLER family
+    elif check == "adstxt.reseller_missing":
+        if expected_line:
+            out.append(f"  Add to ads.txt: `{expected_line}`  ({ssp})")
+    elif check == "adstxt.reseller_wrong_seller":
+        obs = det.get("observed_account_ids") or []
+        exp = det.get("expected_account_id")
+        out.append(f"  Found in ads.txt: `{_trunc_list(obs)}`  →  expect `{exp}`")
+        if expected_line:
+            out.append(f"  Replace with: `{expected_line}`")
+    elif check == "adstxt.reseller_wrong_type":
+        rels = det.get("observed_relationships") or []
+        out.append(f"  {ssp}: line marked {'/'.join(rels)} — must be RESELLER")
+        if expected_line:
+            out.append(f"  Replace with: `{expected_line}`")
+    elif check == "adstxt.reseller_cert_mismatch":
+        if expected_line:
+            out.append(f"  {ssp}: cert authority on line doesn't match")
+            out.append(f"  Canonical line: `{expected_line}`")
+    elif check == "adstxt.file_unreachable":
+        st = det.get("http_status")
+        out.append(f"  ads.txt fetch returned {st} — verify the URL is public")
+    elif check == "adstxt.file_empty":
+        out.append("  ads.txt returned 200 but has no parsable lines")
+    return out
+
+
+def _action_card_blocks(findings: list[dict],
+                        max_entities: int = 5) -> list[dict]:
+    """Group findings by entity, render top-N as separate Slack section
+    blocks (one per entity).
+
+    Each card lists the entity, revenue, ads.txt URL, and the literal
+    'Add this line / Replace this line' fixes — the section a human can
+    act on without opening the validator code or rejoining ssp_registry.
+
+    Returns a list of blocks (header + N cards + divider). Empty list
+    if no real-entity findings to surface.
+    """
+    entity_findings: dict[str, list[dict]] = defaultdict(list)
+    for f in findings:
+        pk = f["publisher_key"]
+        if pk.startswith(("dom:", "app:")) and f["severity"] in ("critical", "high"):
+            entity_findings[pk].append(f)
+    if not entity_findings:
+        return []
+
+    entities_ranked = sorted(
+        entity_findings.items(),
+        key=lambda kv: -max((_detail_rev(f) for f in kv[1]), default=0.0),
+    )[:max_entities]
+    total_at_risk = sum(
+        max((_detail_rev(f) for f in fs), default=0.0)
+        for _, fs in entities_ranked
+    )
+
+    out: list[dict] = [{
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": (":dart: *Action queue — fix these first*\n"
+                          f"_${total_at_risk:,.0f}/7d across the top "
+                          f"{len(entities_ranked)} entities. "
+                          "Literal lines to add or replace below._")},
+    }]
+
+    sev_rank = {"critical": 0, "high": 1, "medium": 2, "info": 3}
+    for i, (pk, fs) in enumerate(entities_ranked, start=1):
+        pub = _format_pub_key(pk)
+        entity_rev = max((_detail_rev(f) for f in fs), default=0.0)
+        urls = sorted({(f.get("detail") or {}).get("url") for f in fs
+                       if isinstance(f.get("detail"), dict)
+                       and (f.get("detail") or {}).get("url")})
+        ll_pub = next(
+            ((f.get("detail") or {}).get("ll_publisher_name") for f in fs
+             if isinstance(f.get("detail"), dict)
+             and (f.get("detail") or {}).get("ll_publisher_name")),
+            None,
+        )
+        ll_tag = f"  ·  via {ll_pub}" if ll_pub else ""
+        lines = [
+            f"*{i}. {pub}*  ·  ${entity_rev:,.0f}/7d  ·  "
+            f"{len(fs)} issue{'s' if len(fs) > 1 else ''}{ll_tag}",
+        ]
+        for u in urls[:2]:
+            lines.append(f"source: {u}")
+        fs_sorted = sorted(fs, key=lambda f: (sev_rank.get(f["severity"], 9),
+                                              f["check_id"]))
+        for f in fs_sorted:
+            label = _humanize_check(f["check_id"])
+            ssp = (f.get("detail") or {}).get("ssp") if isinstance(f.get("detail"), dict) else None
+            ssp_tag = f" — {ssp}" if ssp else ""
+            lines.append(f"• *{label}*{ssp_tag}")
+            for fix in _fix_lines_for(f):
+                lines.append(fix)
+
+        body = "\n".join(lines)
+        # Slack section cap = 3000 chars; one card stays well under.
+        if len(body) > 2900:
+            body = body[:2880] + "\n_…see dashboard for full list._"
+        out.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": body},
+        })
+    return out
+
+
 def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
     """Dedicated section for ssp_registry hygiene — separates 'fix the
     config' work from 'fix a publisher' work. The two are routinely
@@ -306,32 +482,99 @@ def _build_blocks(findings: list[dict], summary: dict,
         })
     blocks.append({"type": "divider"})
 
-    # Critical and high lead the digest — these are the "fix this now"
-    # findings, revenue-ranked so the biggest-$ ones surface first.
-    if crit:
-        lines = [_format_line(f) for f in crit[:MAX_LINES_PER_SECTION]]
-        if len(crit) > MAX_LINES_PER_SECTION:
-            lines.append(f"…+{len(crit) - MAX_LINES_PER_SECTION} more critical")
+    # ── Action queue — what to fix today, grouped by entity ────────────
+    # This is the section we read first thing in the morning. Each card
+    # shows the literal "Add this line" / "Replace with this line"
+    # guidance so it's actionable without opening the validator code or
+    # rejoining ssp_registry by hand. One Slack section per card so
+    # we stay under the 3000-char-per-section ceiling.
+    action_cards = _action_card_blocks(findings, max_entities=5)
+    if action_cards:
+        blocks.extend(action_cards)
+        blocks.append({"type": "divider"})
+
+    # Sentinel findings (demand, supply partner, schain) live OUTSIDE
+    # the action queue — they need separate workflows (registry edits,
+    # bridge updates) so we surface them in a compact "Other critical /
+    # high" tail rather than mixed with the entity action cards.
+    def _is_sentinel(f: dict) -> bool:
+        return f["publisher_key"].startswith("_")
+
+    crit_sentinel = _sort_by_revenue([f for f in crit if _is_sentinel(f)])
+    high_sentinel = _sort_by_revenue([f for f in high if _is_sentinel(f)])
+
+    if crit_sentinel:
+        lines = [_format_line(f) for f in crit_sentinel[:6]]
+        if len(crit_sentinel) > 6:
+            lines.append(f"…+{len(crit_sentinel) - 6} more")
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":rotating_light: *Critical* (revenue-ranked)\n"
+                     "text": ":rotating_light: *Critical — config/registry*\n"
                              + "\n".join(lines)},
         })
 
-    if high:
-        lines = [_format_line(f) for f in high[:MAX_LINES_PER_SECTION]]
-        if len(high) > MAX_LINES_PER_SECTION:
-            lines.append(f"…+{len(high) - MAX_LINES_PER_SECTION} more high")
+    if high_sentinel:
+        lines = [_format_line(f) for f in high_sentinel[:6]]
+        if len(high_sentinel) > 6:
+            lines.append(f"…+{len(high_sentinel) - 6} more")
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":warning: *High*\n" + "\n".join(lines)},
+                     "text": ":warning: *High — config/registry*\n"
+                             + "\n".join(lines)},
         })
 
-    # Medium gets a tight cap — by definition these aren't urgent. We
-    # show the top 3 (revenue-ranked) and a count so the digest stays
-    # under Slack's 50-block limit even on noisy days.
+    # Tail summary for entity findings NOT in the action queue.
+    queued_pubs = set()
+    if action_cards:
+        # Re-derive which entities the action card covered.
+        ent_groups: dict[str, list[dict]] = defaultdict(list)
+        for f in findings:
+            if f["publisher_key"].startswith(("dom:", "app:")) and f["severity"] in ("critical", "high"):
+                ent_groups[f["publisher_key"]].append(f)
+        queued_pubs = set(sorted(
+            ent_groups.keys(),
+            key=lambda k: -max((_detail_rev(f) for f in ent_groups[k]), default=0.0),
+        )[:5])
+
+    tail_crit = [f for f in crit if not _is_sentinel(f) and f["publisher_key"] not in queued_pubs]
+    tail_high = [f for f in high if not _is_sentinel(f) and f["publisher_key"] not in queued_pubs]
+    if tail_crit or tail_high:
+        # Group by entity, show one line per entity with issue count + revenue.
+        entity_summary: dict[str, dict] = defaultdict(
+            lambda: {"crit": 0, "high": 0, "rev": 0.0}
+        )
+        for f in tail_crit:
+            es = entity_summary[f["publisher_key"]]
+            es["crit"] += 1
+            es["rev"] = max(es["rev"], _detail_rev(f))
+        for f in tail_high:
+            es = entity_summary[f["publisher_key"]]
+            es["high"] += 1
+            es["rev"] = max(es["rev"], _detail_rev(f))
+        ordered = sorted(entity_summary.items(), key=lambda kv: -kv[1]["rev"])
+        cap = 10
+        lines = []
+        for pk, s in ordered[:cap]:
+            pub = _format_pub_key(pk)
+            rev_tag = f" ·${s['rev']:,.0f}/7d" if s["rev"] >= 1 else ""
+            tags = []
+            if s["crit"]:
+                tags.append(f"{s['crit']} crit")
+            if s["high"]:
+                tags.append(f"{s['high']} high")
+            lines.append(f"• {pub}  {' · '.join(tags)}{rev_tag}")
+        if len(ordered) > cap:
+            lines.append(f"…+{len(ordered) - cap} more entities")
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn",
+                     "text": ":clipboard: *Other affected entities* "
+                             "(same fix pattern — see dashboard for line-by-line)\n"
+                             + "\n".join(lines)},
+        })
+
     med_cap = max(MAX_LINES_PER_SECTION // 3, 3)
     if med:
         lines = [_format_line(f) for f in med[:med_cap]]
