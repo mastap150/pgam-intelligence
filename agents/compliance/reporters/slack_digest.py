@@ -662,6 +662,202 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     }
 
 
+_DEMAND_PARTNER_TOP_QUERY = """
+-- Top demand SSPs by trailing-7d revenue across all audited entities.
+-- Anchors the per-demand-partner cards in the digest.
+SELECT
+    ssp_key,
+    ssp_partner_name,
+    SUM(revenue_7d)                                AS revenue,
+    COUNT(*)                                       AS rows,
+    COUNT(*) FILTER (WHERE status = 'critical')    AS critical_n,
+    COUNT(*) FILTER (WHERE status = 'warning')     AS warning_n,
+    COUNT(*) FILTER (WHERE status = 'healthy')     AS healthy_n
+FROM pgam_direct.compliance_entity_ssp_audit
+WHERE as_of = %(as_of)s
+GROUP BY ssp_key, ssp_partner_name
+HAVING SUM(revenue_7d) > 0
+ORDER BY revenue DESC
+LIMIT %(limit)s;
+"""
+
+_DEMAND_PARTNER_ENTITIES_QUERY = """
+-- Entities buying through one demand SSP, joined to the supply-path
+-- audit so we have the entity's LL supply partner alongside each row.
+-- Ordered by revenue so the card surfaces the dollar-impactful gaps.
+SELECT
+    m.entity_value,
+    m.kind,
+    m.audit_host,
+    m.revenue_7d,
+    m.pgam_direct_present,
+    m.ssp_line_present,
+    m.sellers_json_match,
+    m.status,
+    sp.ll_publisher_id,
+    sp.ll_publisher_name,
+    sp.supply_partner_key,
+    sp.supply_partner_pgam_seat
+FROM pgam_direct.compliance_entity_ssp_audit m
+LEFT JOIN pgam_direct.compliance_entity_supply_path_audit sp
+       ON sp.entity_key = m.entity_key AND sp.as_of = m.as_of
+WHERE m.as_of = %(as_of)s AND m.ssp_key = %(ssp_key)s
+ORDER BY m.revenue_7d DESC
+LIMIT %(limit)s;
+"""
+
+_SCHAIN_BAD_LL_PUBS_QUERY = """
+-- LL supply partners with an open schain.* finding. Used to mark
+-- schain ✗ per entity in the per-demand-partner cards.
+SELECT publisher_key
+FROM pgam_direct.compliance_findings
+WHERE status = 'open' AND check_id LIKE 'schain.%%'
+  AND publisher_key LIKE '_ll_pub:%%';
+"""
+
+
+def _load_demand_partner_top(as_of: date, limit: int = 6) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_DEMAND_PARTNER_TOP_QUERY,
+                            {"as_of": as_of, "limit": limit})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] demand top query failed: {exc}")
+        return []
+
+
+def _load_demand_partner_entities(as_of: date, ssp_key: str,
+                                  limit: int = 6) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_DEMAND_PARTNER_ENTITIES_QUERY,
+                            {"as_of": as_of, "ssp_key": ssp_key, "limit": limit})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception:
+        return []
+
+
+def _load_schain_bad_ll_pubs() -> set[str]:
+    """Return the set of `_ll_pub:<id>` sentinels with open schain
+    findings. Used per-entity to render schain ✗ in the cards.
+    """
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_SCHAIN_BAD_LL_PUBS_QUERY)
+                return {r[0] for r in cur.fetchall()}
+    except Exception:
+        return set()
+
+
+def _demand_partner_card_blocks(as_of: date,
+                                max_partners: int = 6,
+                                max_entities_per_card: int = 6) -> list[dict]:
+    """One Slack section per demand partner, showing entities + flags.
+
+    Renders the user's requested view: a clear table for each demand
+    partner showing where they're running and whether the supply
+    chain is compliant on every leg (PGAM line / demand SSP line /
+    sellers.json / schain).
+    """
+    tops = _load_demand_partner_top(as_of, max_partners)
+    if not tops:
+        return []
+
+    schain_bad_ll_pubs = _load_schain_bad_ll_pubs()
+    out: list[dict] = []
+
+    # Header section.
+    out.append({
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": (f":receipt: *Demand partner audit — top "
+                          f"{len(tops)} by revenue*\n"
+                          "_For each demand partner: which entities they're "
+                          "buying through us + the four compliance flags. "
+                          "PGAM ✓ = publisher's ads.txt declares us; SSP ✓ = "
+                          "demand partner's reseller line on publisher ads.txt; "
+                          "json ✓ = demand partner declares our seat; "
+                          "schain ✓ = no open schain.* finding for the "
+                          "publisher's supply partner._")},
+    })
+
+    for d in tops:
+        ssp_key = d.get("ssp_key") or ""
+        name = d.get("ssp_partner_name") or ssp_key
+        rev = float(d.get("revenue") or 0)
+        c = int(d.get("critical_n") or 0)
+        w = int(d.get("warning_n") or 0)
+        h = int(d.get("healthy_n") or 0)
+        total = c + w + h
+        pct = (100.0 * h / total) if total else 0.0
+        head_status = ":rotating_light:" if c else (":warning:" if w else ":white_check_mark:")
+        header_line = (
+            f"{head_status} *{name}*  ·  ${rev:,.0f}/7d  ·  "
+            f"{total} entities  ·  {pct:.0f}% healthy "
+            f"({c}c / {w}w / {h}h)"
+        )
+
+        entities = _load_demand_partner_entities(
+            as_of, ssp_key, limit=max_entities_per_card,
+        )
+        if not entities:
+            out.append({
+                "type": "section",
+                "text": {"type": "mrkdwn", "text": header_line},
+            })
+            continue
+
+        # Build the per-entity table for this demand partner.
+        table_rows = []
+        for e in entities:
+            ent = (e.get("entity_value") or "")[:24]
+            erev = float(e.get("revenue_7d") or 0)
+            pgam = "✓" if e.get("pgam_direct_present") else "✗"
+            ssp_y = "✓" if e.get("ssp_line_present") else "✗"
+            jsn = "✓" if e.get("sellers_json_match") else "✗"
+            # Schain per entity — flag ✗ when the entity's LL supply
+            # partner has any open `schain.*` finding (keyed
+            # `_ll_pub:<id>`). On Render the Phase 4 schain audit
+            # populates these; locally we usually get ✓ across the
+            # board because the static audit needs the revenue
+            # snapshot to fire.
+            ll_pub_id = e.get("ll_publisher_id")
+            schain_ok = True
+            if ll_pub_id:
+                schain_ok = f"_ll_pub:{ll_pub_id}" not in schain_bad_ll_pubs
+            sch = "✓" if schain_ok else "✗"
+            status = e.get("status") or "?"
+            sym = {"critical": "🚨", "warning": "⚠️", "healthy": "✅"}.get(status, "·")
+            partner = (e.get("supply_partner_key") or e.get("ll_publisher_name") or "?")[:14]
+            table_rows.append([
+                sym, ent, f"${erev:,.0f}", partner, pgam, ssp_y, jsn, sch,
+            ])
+        table = _render_table(
+            rows=table_rows,
+            headers=["", "Entity", "Rev/7d", "Via partner",
+                     "PGAM", "SSP", "json", "schain"],
+            aligns=["l", "l", "r", "l", "l", "l", "l", "l"],
+        )
+        more = ""
+        if total > max_entities_per_card:
+            more = f"\n_…+{total - max_entities_per_card} more entities (see CSV)_"
+
+        body = f"{header_line}\n{table}{more}"
+        if len(body) > 2900:
+            body = body[:2880] + "\n_…see CSV for full list._"
+        out.append({
+            "type": "section",
+            "text": {"type": "mrkdwn", "text": body},
+        })
+    return out
+
+
 _SUPPLY_PATH_QUERY = """
 -- Top supply-path audit rows for the digest. One row per entity (the
 -- audit is per-entity, not per-SSP).
@@ -1025,6 +1221,16 @@ def _build_blocks(findings: list[dict], summary: dict,
     # Per-SSP scorecard sits between the action queue and the partner
     # rollup: action queue tells you what to fix first, scorecard tells
     # you which SSP is bleeding the most revenue across all entities.
+    # Per-demand-partner cards — the user's requested "everything by
+    # demand partner" view. Sits between supply-path audit (per-entity)
+    # and the demand SSP rollup scorecard.
+    partner_card_blocks = _demand_partner_card_blocks(
+        date.today(), max_partners=6, max_entities_per_card=6,
+    )
+    if partner_card_blocks:
+        blocks.extend(partner_card_blocks)
+        blocks.append({"type": "divider"})
+
     scorecard_block = _ssp_scorecard_block(ssp_scorecard or [])
     if scorecard_block is not None:
         blocks.append(scorecard_block)
