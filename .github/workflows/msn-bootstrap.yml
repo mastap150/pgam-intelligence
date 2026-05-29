@@ -41,7 +41,9 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  # write is needed to read draft releases via the GITHUB_TOKEN — gh
+  # returns "release not found" for drafts with read-only scope.
+  contents: write
 
 jobs:
   bootstrap:
