@@ -336,13 +336,19 @@ def _action_card_blocks(findings: list[dict],
         for _, fs in entities_ranked
     )
 
+    # Header reveals the FULL volume so the operator knows what's NOT
+    # in the action queue. The CSV is the complete record.
+    total_entities_with_issues = len(entity_findings)
     out: list[dict] = [{
         "type": "section",
         "text": {"type": "mrkdwn",
-                 "text": (":dart: *Action queue — fix these first*\n"
-                          f"_${total_at_risk:,.0f}/7d across the top "
-                          f"{len(entities_ranked)} entities. "
-                          "Literal lines to add or replace below._")},
+                 "text": (
+                     f":dart: *Action queue — top {len(entities_ranked)} of "
+                     f"{total_entities_with_issues} entities with issues "
+                     f"(${total_at_risk:,.0f}/7d shown)*\n"
+                     "_Every line below is copy-paste ready. "
+                     "Full list (all entities × SSP paths) in today's CSV: "
+                     "`data/compliance_matrix_<today>.csv` on Render._")},
     }]
 
     sev_rank = {"critical": 0, "high": 1, "medium": 2, "info": 3}
@@ -447,7 +453,10 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     return {
         "type": "section",
         "text": {"type": "mrkdwn",
-                 "text": ":bar_chart: *Per-SSP scorecard*\n" + "\n".join(lines)},
+                 "text": (f":bar_chart: *Per-SSP scorecard ({len(rows)} SSPs)*\n"
+                          "_For each SSP across ALL audited entities: total $ "
+                          "flowing through it, % of entity-paths fully clean._\n"
+                          + "\n".join(lines))},
     }
 
 
@@ -495,7 +504,12 @@ def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
     return {
         "type": "section",
         "text": {"type": "mrkdwn",
-                 "text": ":wrench: *Registry gaps*\n" + "\n".join(lines)},
+                 "text": (":wrench: *Registry gaps*\n"
+                          "_Demand partners earning revenue that aren't mapped "
+                          "to any SSP in our `ssp_registry.py`. Each one "
+                          "needs a name-pattern added so we can audit its "
+                          "reseller line going forward._\n"
+                          + "\n".join(lines))},
     }
 
 
@@ -524,16 +538,21 @@ def _build_blocks(findings: list[dict], summary: dict,
     healthy_n = summary.get("audit_matrix_healthy")
     ssps_n = summary.get("audit_matrix_ssps")
     if pct is not None and audited is not None:
+        ent_total = summary.get("audit_entities_total") or 0
+        ent_clean = summary.get("audit_entities_fully_clean") or 0
+        ent_issue = summary.get("audit_entities_with_issues") or 0
         header = (
             f":shield: *Supply compliance — {date.today().isoformat()}*  ·  "
             f"*{pct:.1f}%* of *${audited:,.0f}/7d* compliant  ·  "
             f"*${at_risk or 0:,.0f}/7d at risk*"
         )
         context_bits = [
-            f"{summary.get('audit_matrix_rows', 0)} (entity × SSP) audited "
-            f"across {summary.get('phase5_domains', 0)} domains + "
+            f"{ent_issue} of {ent_total} entities need attention  ·  "
+            f"{ent_clean} fully clean",
+            f"{summary.get('audit_matrix_rows', 0)} (entity × SSP) paths "
+            f"audited across {summary.get('phase5_domains', 0)} domains + "
             f"{summary.get('phase5_apps', 0)} apps × {ssps_n} SSPs",
-            f":rotating_light: {crit_n} critical  ·  "
+            f":rotating_light: {crit_n} critical paths  ·  "
             f":warning: {warn_n} warning  ·  "
             f":white_check_mark: {healthy_n} healthy",
         ]
@@ -602,8 +621,11 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":rotating_light: *Critical — config/registry*\n"
-                             + "\n".join(lines)},
+                     "text": (f":rotating_light: *Critical — config/registry "
+                              f"({len(crit_sentinel)})*\n"
+                              "_Problems in OUR configs or in OTHER SSPs' "
+                              "sellers.json — not in publisher ads.txt files._\n"
+                              + "\n".join(lines))},
         })
 
     if high_sentinel:
@@ -613,8 +635,12 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":warning: *High — config/registry*\n"
-                             + "\n".join(lines)},
+                     "text": (f":warning: *High — config/registry "
+                              f"({len(high_sentinel)})*\n"
+                              "_Demands earning revenue but unmapped in our "
+                              "`ssp_registry.py`, or LL supply partners not "
+                              "yet bridged to a sellers.json entry._\n"
+                              + "\n".join(lines))},
         })
 
     # Tail summary for entity findings NOT in the action queue.
@@ -662,9 +688,11 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":clipboard: *Other affected entities* "
-                             "(same fix pattern — see dashboard for line-by-line)\n"
-                             + "\n".join(lines)},
+                     "text": (f":clipboard: *Other affected entities "
+                              f"({min(cap, len(ordered))} of {len(ordered)})*\n"
+                              "_Same fix pattern as the action queue above. "
+                              "Full per-SSP breakdown in today's CSV._\n"
+                              + "\n".join(lines))},
         })
 
     med_cap = max(MAX_LINES_PER_SECTION // 3, 3)
@@ -690,8 +718,12 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":busts_in_silhouette: *Per supply partner*\n"
-                             + "\n".join(partner_lines)},
+                     "text": (f":busts_in_silhouette: *Per supply partner "
+                              f"({len(partner_rollup)})*\n"
+                              "_LL supply partners (Smaato, BidMachine, "
+                              "Start.IO, …) and how many of their entities "
+                              "have critical/high findings._\n"
+                              + "\n".join(partner_lines))},
         })
 
     gap_block = _registry_gap_block(findings, summary)
@@ -703,9 +735,12 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":chart_with_downwards_trend: "
-                             "*Lowest compliance scores* (active publishers)\n"
-                             + "\n".join(score_lines)},
+                     "text": (f":chart_with_downwards_trend: "
+                              f"*Lowest compliance scores "
+                              f"({len(lowest_scores)} of active publishers)*\n"
+                              "_Score = 100 minus severity-weighted findings. "
+                              "Filtered to publishers earning revenue./_\n"
+                              + "\n".join(score_lines))},
         })
 
     if not crit and not high and not med:

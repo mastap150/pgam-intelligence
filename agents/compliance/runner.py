@@ -600,6 +600,19 @@ def run() -> dict:
                 summary["audit_matrix_healthy"]  = mtx_summary.healthy_rows
                 summary["audit_matrix_ssps"]     = mtx_summary.ssps_audited
                 summary["audit_matrix_csv_path"] = str(csv_path)
+                # Per-entity verdicts (separate from per-row): needed by the
+                # digest for honest "X of Y entities need attention" headers.
+                _entities_with_issues: set[str] = set()
+                _entities_all_clean: set[str] = set()
+                _all_entities: set[str] = set()
+                for r in rows:
+                    _all_entities.add(r.entity_key)
+                    if r.status != "healthy":
+                        _entities_with_issues.add(r.entity_key)
+                _entities_all_clean = _all_entities - _entities_with_issues
+                summary["audit_entities_total"]        = len(_all_entities)
+                summary["audit_entities_with_issues"]  = len(_entities_with_issues)
+                summary["audit_entities_fully_clean"]  = len(_entities_all_clean)
                 print(
                     f"[{ACTOR}] audit_matrix rows={mtx_summary.total_rows} "
                     f"compliant={mtx_summary.compliance_pct}% "
