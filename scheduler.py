@@ -568,6 +568,48 @@ def main():
         if job.job_func.__name__ in ("ll_revenue", "tb_revenue"):
             job.run()
 
+    # Restart-resilient compliance run: if Render killed mid-run earlier
+    # in the day (OOM, instance restart, etc.), the daily 08:30 ET tick
+    # is one-shot per day so it won't refire. On boot, check whether
+    # today's run completed successfully — if not, fire it now.
+    # See agents/compliance/runner.py for the canonical run logic.
+    import os as _os  # main()-scope import; setup_schedule() has its own
+    try:
+        if _os.getenv("PGAM_COMPLIANCE_ENABLED") == "1":
+            from datetime import date as _date
+            now_et = datetime.now(ET)
+            # Only catch up if it's past today's 08:30 ET tick AND the run
+            # hasn't already completed today. Avoids firing twice when the
+            # service comes up before the tick.
+            if (now_et.hour, now_et.minute) >= (8, 30):
+                _ran_today = False
+                try:
+                    from core.neon import connect as _connect
+                    with _connect() as _c:
+                        with _c.cursor() as _cur:
+                            _cur.execute("""
+                                SELECT 1 FROM pgam_direct.compliance_runs
+                                WHERE ok = TRUE
+                                  AND started_at::date = %s
+                                LIMIT 1;
+                            """, (_date.today(),))
+                            _ran_today = _cur.fetchone() is not None
+                except Exception as _e:
+                    print(f"[scheduler] compliance run-log check failed "
+                          f"(non-fatal): {_e}")
+                if not _ran_today:
+                    print("\n[scheduler] No successful compliance run today "
+                          "yet — firing catch-up now.")
+                    for _job in schedule.get_jobs():
+                        if _job.job_func.__name__ == "compliance_runner":
+                            _job.run()
+                            break
+                else:
+                    print("[scheduler] Compliance run already completed "
+                          "today — skipping catch-up.")
+    except Exception as _exc:
+        print(f"[scheduler] compliance catch-up failed (non-fatal): {_exc}")
+
     print("\n[scheduler] Entering main loop. Press Ctrl+C to stop.\n")
     while True:
         schedule.run_pending()
