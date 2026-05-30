@@ -528,6 +528,28 @@ def run() -> dict:
         # partner in LL (Start.IO, Smaato, BidMachine, ...). For each entity:
         # tiered universal-DIRECT-line check + per-entity conditional reseller
         # lines. Read-only — no writes to LL.
+        # Pre-Phase-5 dev_domain backfill — resolves any unknown
+        # bundle-to-developer-domain mappings so Phase 5 can fetch
+        # their app-ads.txt this run (instead of skipping them as
+        # unresolved). Uses the full play_store_resolver cascade
+        # (heuristic → iTunes → Play Store scrape → fallback).
+        if os.environ.get("PGAM_COMPLIANCE_DEV_DOMAIN_BACKFILL", "1") != "0":
+            try:
+                from agents.enrichment.dev_domain_backfill import (
+                    resolve_top_unresolved_bundles,
+                )
+                bf = resolve_top_unresolved_bundles(top_n=30)
+                summary["dev_domain_candidates"] = bf.candidates_seen
+                summary["dev_domain_resolved"]   = bf.resolved
+                summary["dev_domain_unresolved"] = bf.unresolved
+                print(
+                    f"[{ACTOR}] dev_domain_backfill candidates="
+                    f"{bf.candidates_seen} attempted={bf.attempted} "
+                    f"resolved={bf.resolved} unresolved={bf.unresolved}"
+                )
+            except Exception as exc:
+                print(f"[{ACTOR}] dev_domain_backfill failed (non-fatal): {exc}")
+
         phase5_sentinel_keys: list[str] = []
         p5_for_matrix = None   # held for the audit matrix step below
         if enable_phase5:
