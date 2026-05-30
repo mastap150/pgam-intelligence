@@ -690,6 +690,34 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] audit_matrix failed (non-fatal): {exc}")
 
+            # ── Memory hygiene ────────────────────────────────────────
+            # Phase 5 + audit_matrix + supply_path together hold ~50
+            # entities × parsed ads.txt content (some files have 10K+
+            # lines) AND the in-flight row lists. The 512MB Render
+            # budget gets tight by this point. Worst-case OOM kills
+            # happen during the heavier inventory_roundtrip pull that
+            # comes next (73K LL stats rows). Drop the Phase 5 holdings
+            # here so roundtrip has a clean working set.
+            try:
+                import gc as _gc
+                # EntityAuditResult is frozen but its list/dict attrs
+                # are mutable — clear in-place to drop refs to the
+                # parsed ads.txt content without rebinding the frozen
+                # attribute.
+                if p5_for_matrix is not None:
+                    p5_for_matrix.fetches_by_entity.clear()
+                    p5_for_matrix.fetches.clear()
+                    p5_for_matrix.entities.clear()
+                if "rows" in locals():
+                    rows = None
+                if "sp_rows" in locals():
+                    sp_rows = None
+                _gc.collect()
+                print(f"[{ACTOR}] mem hygiene: released Phase 5 fetches "
+                      f"+ matrix/sp rows before roundtrip")
+            except Exception as _exc:
+                print(f"[{ACTOR}] mem hygiene cleanup (non-fatal): {_exc}")
+
         # Phase 4: static schain audit on LL demands + publishers. Reports
         # any drift the optimization-side auto-fixer didn't catch (rev-threshold
         # backlog, manual UI toggles, etc). Read-only — does not write to LL.

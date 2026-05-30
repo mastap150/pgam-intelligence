@@ -97,11 +97,20 @@ def _aggregate_per_entity(
             bucket["publisher_name"] = (
                 r.get("PUBLISHER_NAME") or r.get("publisher_name") or ""
             )
-    return [
+    out = [
         {"publisher_id": k[0], "entity_value": k[1],
          "publisher_name": v["publisher_name"], "revenue": v["revenue"]}
         for k, v in agg.items()
     ]
+    # 50K+ raw LL stats rows are now redundant with the smaller `out`
+    # aggregation. Drop the reference + force a GC pass — on the 512MB
+    # Render box this often saves 30–50MB and prevents OOM during the
+    # bundle-breakdown second pass.
+    del rows
+    del agg
+    import gc as _gc
+    _gc.collect()
+    return out
 
 
 def _build_lookups() -> tuple[dict[str, str], set[str], set[str], dict[str, str]]:

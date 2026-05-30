@@ -102,6 +102,12 @@ def _pull_ll_breakdown(breakdown: str, value_keys: tuple[str, ...],
             "revenue":        rev,
             "impressions":    int(sf(r.get("IMPRESSIONS"))),
         })
+    # Drop the raw LL stats payload — it's typically 30–50MB on a
+    # 7-day window and we don't need it after aggregation. Cuts peak
+    # memory during the second-pass bundle breakdown.
+    del rows
+    import gc as _gc
+    _gc.collect()
     return out
 
 
