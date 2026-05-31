@@ -350,10 +350,70 @@ def _write_run_log(payload: dict) -> int | None:
 # ── Entry point ──────────────────────────────────────────────────────────────
 
 
+_RUN_START_INSERT_SQL = """
+-- Insert a tombstone row at the BEGINNING of the run so even an
+-- OOM-killed worker leaves evidence in compliance_runs. The
+-- scheduler's catch-up cooldown reads from started_at — without this
+-- start-row, a process killed mid-run looks identical to "no run
+-- attempted today" and the catch-up restart-loops forever.
+INSERT INTO pgam_direct.compliance_runs
+    (started_at, finished_at, publishers_scanned, adstxt_fetched,
+     findings_opened, findings_resolved, ok, error)
+VALUES
+    (%(started_at)s, NULL, 0, 0, 0, 0, NULL, NULL)
+RETURNING run_id;
+"""
+
+_RUN_FINALIZE_SQL = """
+UPDATE pgam_direct.compliance_runs
+SET finished_at        = now(),
+    publishers_scanned = %(publishers_scanned)s,
+    adstxt_fetched     = %(adstxt_fetched)s,
+    findings_opened    = %(findings_opened)s,
+    findings_resolved  = %(findings_resolved)s,
+    ok                 = %(ok)s,
+    error              = %(error)s
+WHERE run_id = %(run_id)s;
+"""
+
+
+def _insert_run_start(started_at) -> int | None:
+    """Tombstone row at run start. Defensive — never raises."""
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_RUN_START_INSERT_SQL, {"started_at": started_at})
+                row = cur.fetchone()
+            conn.commit()
+        return row[0] if row else None
+    except Exception as exc:
+        print(f"[{ACTOR}] run-start log failed (non-fatal): {exc}")
+        return None
+
+
+def _finalize_run_log(run_id: int | None, payload: dict) -> None:
+    """Update the tombstone with final summary. Falls back to a fresh
+    INSERT if the start-row write failed (run_id is None)."""
+    if run_id is None:
+        _write_run_log(payload)
+        return
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_RUN_FINALIZE_SQL, {**payload, "run_id": run_id})
+            conn.commit()
+    except Exception as exc:
+        print(f"[{ACTOR}] run-finalize failed (non-fatal): {exc}")
+
+
 def run() -> dict:
     """Scheduler entry. Returns a summary dict."""
     started_at = datetime.now(timezone.utc)
     print(f"[{ACTOR}] start {started_at.isoformat()}")
+    # Tombstone insert — must succeed before heavy phases so the
+    # scheduler's catch-up cooldown can see "attempt happened, wait"
+    # even if the process dies later.
+    _run_id = _insert_run_start(started_at)
 
     limit = int(os.environ.get("PGAM_COMPLIANCE_LIMIT") or 0) or None
     app_ads = os.environ.get("PGAM_COMPLIANCE_APP_ADS_TXT") == "1"
@@ -939,7 +999,7 @@ def run() -> dict:
         summary["error"] = str(exc)
         print(f"[{ACTOR}] FAILED: {exc}")
 
-    _write_run_log(summary)
+    _finalize_run_log(_run_id, summary)
     print(
         f"[{ACTOR}] done ok={summary['ok']} "
         f"pubs={summary['publishers_scanned']} "
