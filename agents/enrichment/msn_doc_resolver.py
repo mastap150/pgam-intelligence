@@ -5,30 +5,38 @@ Lazy resolver for MSN docID → boxingnews.com canonical URL + thumbnail.
 
 The realtime ETL (agents.etl.msn_insights_etl) inserts a row into
 pgam_direct.msn_article_meta with resolve_status='pending' the first
-time it sees a docID. This agent walks the pending queue, fetches the
-public MSN article page, and tries to extract:
+time it sees a docID. This agent walks the pending queue, calls MSN's
+content API, and extracts:
 
-  1. msn_url        — the actual MSN URL we landed on (after redirects)
-  2. canonical_url  — the source boxingnews.com URL the MSN page links
-                      to. MSN syndication pages typically embed this
-                      either as an anchor in the article body, in a
-                      "View original" CTA, or in JSON-LD metadata.
-  3. thumbnail_url  — og:image from the MSN page (works ~always)
-  4. canonical_title — og:title from the MSN page
+  1. msn_url         — the MSN content API URL we hit
+  2. canonical_url   — `sourceHref` from the JSON payload, which is the
+                       boxingnews.com URL the MSN syndication is sourced
+                       from (1:1 with our published article)
+  3. thumbnail_url   — `imageResources[0].url`
+  4. canonical_title — `title`
+
+Previously this resolver scraped MSN's www.msn.com HTML pages for an
+anchor pointing back to boxingnews.com. As of mid-2026 those pages are
+a client-side SPA shell (`<title>MSN</title>`, empty `<div id="root">`,
+no og:* tags) and contain no boxingnews reference at all — so every
+docID was bucketing into resolve_status='failed' with
+"no boxingnews.com link in page body". The fix is to hit MSN's content
+API directly:
+
+    GET https://assets.msn.com/content/view/v2/Detail/en-us/{docID}
+
+which still serves the full article JSON server-side, including
+sourceHref. We dropped the HTML candidates and regex scrapers entirely.
 
 This runs out-of-band on a slower cadence (default: every 30 min,
 batch of up to MAX_BATCH docIDs per run) so we never hammer MSN. New
 docIDs typically have meta resolved within the hour they're discovered.
 
-We try multiple URL patterns because MSN's public URL scheme requires
-a category slug + article slug + `ar-{docID}`; we don't know the slugs
-upfront, so we use the share-URL form which redirects to the canonical.
-
 resolve_status state machine:
   pending  → ok       — got everything we wanted
-  pending  → failed   — fetched the page but couldn't find a boxingnews link
-  pending  → gone     — MSN returned 404; article delisted, don't retry
-  failed   → ok       — retry succeeded (e.g. page now has the canonical link)
+  pending  → failed   — JSON had no sourceHref / wrong host
+  pending  → gone     — MSN returned 404/410; article delisted, don't retry
+  failed   → ok       — retry succeeded (e.g. transient API blip)
 
 We cap resolve_attempts at MAX_ATTEMPTS so a permanently broken docID
 doesn't keep hogging the worker.
@@ -37,7 +45,6 @@ doesn't keep hogging the worker.
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 import time
 import traceback
@@ -51,86 +58,29 @@ from core.neon import connect
 # Constants
 # ---------------------------------------------------------------------------
 
-# MSN public URLs follow the pattern:
-#   https://www.msn.com/{locale}/{vertical}/{subcategory}/{slug}/ar-{docID}
-# We don't know the vertical/subcategory/slug, so we try the "topic"
-# fallback URL which MSN serves and 301s to the canonical article.
-_URL_CANDIDATES = (
-    "https://www.msn.com/en-us/news/other/article/ar-{doc_id}",
-    "https://www.msn.com/en-us/news/article/ar-{doc_id}",
-    "https://www.msn.com/en-us/article/ar-{doc_id}",
-)
+# MSN's content API. Serves the full article JSON for a given docID
+# server-side (the public www.msn.com page is a client-rendered shell
+# as of mid-2026 and contains no usable metadata). Note: this endpoint
+# 404s on HEAD but 200s on GET — always use GET.
+_JSON_API = "https://assets.msn.com/content/view/v2/Detail/en-us/{doc_id}"
+
+# Host substring we expect inside sourceHref. Defensive: if MSN ever
+# syndicates a non-boxingnews article into a docID that landed in our
+# meta table, we'd rather flag it 'failed' than write a foreign URL.
+_EXPECTED_HOST = "boxingnews.com"
 
 MAX_BATCH = 50
 MAX_ATTEMPTS = 5
 REQUEST_TIMEOUT_SEC = 15
 INTER_REQUEST_SLEEP_SEC = 0.7  # gentle on MSN; ~85 docs/min ceiling
 
-# Browser-ish UA. MSN sometimes serves a thin "preview" page to bot UAs
-# that strips the syndication source link.
+# Browser-ish UA. The content API doesn't strictly require this, but
+# it costs nothing and keeps us anonymous-looking in MSN's logs.
 _UA = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
     "Chrome/148.0.0.0 Safari/537.36"
 )
-
-# Permissive boxingnews URL pattern. MSN sometimes encodes the source
-# URL with HTML entities or wraps it in a tracking redirect; matching
-# the host substring catches both.
-_BOXINGNEWS_HREF_RE = re.compile(
-    r'href=["\']([^"\']*boxingnews\.com[^"\']*)["\']',
-    re.IGNORECASE,
-)
-_BOXINGNEWS_PLAIN_RE = re.compile(
-    r'https?://(?:www\.)?boxingnews\.com/[A-Za-z0-9\-/_?=&%.]+',
-    re.IGNORECASE,
-)
-
-# OG / Twitter meta scrape — cheap, regex-based to avoid pulling bs4
-# unless we really need it. MSN's HTML is rendered server-side enough
-# for og:image and og:title to be in the initial response.
-_META_RE_TEMPLATE = (
-    r'<meta\s+(?:property|name)=["\']{key}["\']\s+content=["\']([^"\']+)["\']'
-)
-
-
-def _meta(html: str, key: str) -> Optional[str]:
-    match = re.search(_META_RE_TEMPLATE.format(key=re.escape(key)), html, re.IGNORECASE)
-    return match.group(1) if match else None
-
-
-def _find_canonical_boxingnews_url(html: str) -> Optional[str]:
-    """Find the boxingnews.com URL the MSN page links back to.
-
-    MSN renders syndicated articles with a "View original" anchor and
-    typically a source attribution somewhere in the body. We try the
-    anchor href first (more reliable), fall back to any plain URL match.
-    Returns None if no boxingnews.com reference is in the HTML.
-    """
-    m = _BOXINGNEWS_HREF_RE.search(html)
-    if m:
-        return _clean_url(m.group(1))
-    m = _BOXINGNEWS_PLAIN_RE.search(html)
-    if m:
-        return _clean_url(m.group(0))
-    return None
-
-
-def _clean_url(url: str) -> str:
-    """Strip MSN tracking params and HTML entities."""
-    url = url.replace("&amp;", "&").strip()
-    # Strip MSN's outbound tracking — boxingnews URLs sometimes get
-    # wrapped in a redirector like /redir?to={url}. If we can extract
-    # the inner URL, use it.
-    if "boxingnews.com" not in url:
-        return url
-    # Drop common MSN tracking params (ocid, cvid, ei) but keep meaningful
-    # query strings (article queries, UTMs from BN itself).
-    for param in ("ocid=", "cvid=", "ei=", "rwndsearch="):
-        if param in url:
-            url = re.sub(rf"[?&]{param}[^&]*", "", url)
-    # Drop trailing punctuation that's commonly mis-matched
-    return url.rstrip(").,;'\"")
 
 
 # ---------------------------------------------------------------------------
@@ -172,85 +122,116 @@ UPDATE pgam_direct.msn_article_meta
 """
 
 
+def _first_image_url(payload: dict[str, Any]) -> Optional[str]:
+    """Return the highest-quality image URL from the JSON payload, if any."""
+    images = payload.get("imageResources") or []
+    if not images:
+        return None
+    # MSN typically returns one item; if multiple, prefer the one with
+    # the largest area as the hero thumbnail.
+    def _area(img: dict[str, Any]) -> int:
+        try:
+            return int(img.get("width", 0)) * int(img.get("height", 0))
+        except (TypeError, ValueError):
+            return 0
+    best = max(images, key=_area)
+    url = best.get("url")
+    return url or None
+
+
 def _fetch_doc(doc_id: str, session: requests.Session) -> dict[str, Any]:
-    """Fetch a docID's MSN page, return a dict of what we parsed.
+    """Fetch a docID's metadata from MSN's content API.
 
     Returns:
       {
         "status":         'ok' | 'failed' | 'gone',
-        "msn_url":        str | None,
-        "canonical_url":  str | None,
+        "msn_url":        str | None,   # the API URL we hit
+        "canonical_url":  str | None,   # sourceHref from JSON
         "thumbnail_url":  str | None,
         "canonical_title": str | None,
         "error":          str | None,
       }
     """
-    last_resp: Optional[requests.Response] = None
-    for tmpl in _URL_CANDIDATES:
-        url = tmpl.format(doc_id=doc_id)
-        try:
-            resp = session.get(
-                url,
-                timeout=REQUEST_TIMEOUT_SEC,
-                allow_redirects=True,
-                headers={"User-Agent": _UA, "Accept-Language": "en-US,en;q=0.9"},
-            )
-        except requests.RequestException as exc:
-            return {
-                "status": "failed",
-                "msn_url": None,
-                "canonical_url": None,
-                "thumbnail_url": None,
-                "canonical_title": None,
-                "error": f"request error: {exc}",
-            }
-        last_resp = resp
-        if resp.status_code == 404:
-            continue  # try next candidate
-        if resp.status_code >= 500:
-            return {
-                "status": "failed",
-                "msn_url": resp.url,
-                "canonical_url": None,
-                "thumbnail_url": None,
-                "canonical_title": None,
-                "error": f"HTTP {resp.status_code}",
-            }
-        if 200 <= resp.status_code < 300:
-            break
-    else:
-        # All candidates returned 404 → article is genuinely gone.
+    url = _JSON_API.format(doc_id=doc_id)
+    try:
+        resp = session.get(
+            url,
+            timeout=REQUEST_TIMEOUT_SEC,
+            allow_redirects=True,
+            headers={"User-Agent": _UA, "Accept": "application/json"},
+        )
+    except requests.RequestException as exc:
         return {
-            "status": "gone",
-            "msn_url": last_resp.url if last_resp is not None else None,
+            "status": "failed",
+            "msn_url": url,
             "canonical_url": None,
             "thumbnail_url": None,
             "canonical_title": None,
-            "error": "all url candidates returned 404",
+            "error": f"request error: {exc}",
         }
 
-    assert last_resp is not None
-    html = last_resp.text
-    canonical_url   = _find_canonical_boxingnews_url(html)
-    thumbnail_url   = _meta(html, "og:image")
-    canonical_title = _meta(html, "og:title")
-
-    if canonical_url:
+    # 404 / 410 → article is delisted; don't retry.
+    if resp.status_code in (404, 410):
         return {
-            "status": "ok",
-            "msn_url": last_resp.url,
-            "canonical_url": canonical_url,
+            "status": "gone",
+            "msn_url": url,
+            "canonical_url": None,
+            "thumbnail_url": None,
+            "canonical_title": None,
+            "error": f"HTTP {resp.status_code}",
+        }
+    if resp.status_code >= 400:
+        return {
+            "status": "failed",
+            "msn_url": url,
+            "canonical_url": None,
+            "thumbnail_url": None,
+            "canonical_title": None,
+            "error": f"HTTP {resp.status_code}",
+        }
+
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        return {
+            "status": "failed",
+            "msn_url": url,
+            "canonical_url": None,
+            "thumbnail_url": None,
+            "canonical_title": None,
+            "error": f"json decode error: {exc}",
+        }
+
+    canonical_url = (payload.get("sourceHref") or "").strip() or None
+    canonical_title = payload.get("title")
+    thumbnail_url = _first_image_url(payload)
+
+    if not canonical_url:
+        return {
+            "status": "failed",
+            "msn_url": url,
+            "canonical_url": None,
             "thumbnail_url": thumbnail_url,
             "canonical_title": canonical_title,
-            "error": None,
+            "error": "no sourceHref in MSN payload",
         }
+    if _EXPECTED_HOST not in canonical_url:
+        return {
+            "status": "failed",
+            "msn_url": url,
+            "canonical_url": None,
+            "thumbnail_url": thumbnail_url,
+            "canonical_title": canonical_title,
+            "error": f"sourceHref host mismatch: {canonical_url[:120]}",
+        }
+
     return {
-        "status": "failed",
-        "msn_url": last_resp.url,
-        "canonical_url": None,
+        "status": "ok",
+        "msn_url": url,
+        "canonical_url": canonical_url,
         "thumbnail_url": thumbnail_url,
         "canonical_title": canonical_title,
-        "error": "no boxingnews.com link in page body",
+        "error": None,
     }
 
 

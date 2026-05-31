@@ -27,9 +27,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
 from agents.enrichment.msn_doc_resolver import (
-    _clean_url,
-    _find_canonical_boxingnews_url,
-    _meta,
+    _first_image_url,
 )
 from agents.etl.msn_insights_etl import _normalise_daily_row
 from core.msn_partner_hub import _iso_z
@@ -88,25 +86,33 @@ DAILY_FIXTURE_JSON = """
 }
 """
 
-# A representative MSN article page fragment that mimics what we expect to
-# see when fetching https://www.msn.com/.../ar-{docID}. Includes the
-# OG tags, a "View original" anchor pointing at boxingnews.com, and some
-# MSN tracking params on the URL that the cleaner must strip.
-MSN_HTML_SAMPLE = """
-<html><head>
-<meta property="og:title" content="Francis Ngannou Reveals All On His UFC Departure">
-<meta property="og:image" content="https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AA23khOk.img">
-<meta property="og:url" content="https://www.msn.com/en-us/sports/mma_ufc/francis-ngannou-reveals-all-on-his-ufc-departure/ar-AA23khOk">
-<link rel="canonical" href="https://www.msn.com/en-us/sports/mma_ufc/francis-ngannou-reveals-all-on-his-ufc-departure/ar-AA23khOk">
-</head><body>
-<article>
-  <p>Francis Ngannou has finally opened up...</p>
-  <p>For more boxing analysis, visit
-     <a href="https://www.boxingnews.com/news/francis-ngannou-ufc-departure?ocid=hpmsn&amp;cvid=abc123">
-       the original article on BoxingNews.com</a>.</p>
-</article>
-</body></html>
-"""
+# A representative MSN content-API JSON payload (verbatim shape from
+# https://assets.msn.com/content/view/v2/Detail/en-us/{docID} captured
+# 2026-05-31 for docID AA24kuRO). The resolver now hits this endpoint
+# directly instead of scraping the SPA HTML page — sourceHref is the
+# 1:1 boxingnews.com canonical we need.
+MSN_DETAIL_FIXTURE = {
+    "title": "Cain Velasquez reveals his one condition to fight again",
+    "abstract": "Cain Velasquez has not closed the door on fighting again...",
+    "sourceHref": "https://boxingnews.com/news/cain-velasquez-would-fight-again-on-one-condition/",
+    "imageResources": [
+        {
+            "width": 834,
+            "height": 722,
+            "url": "https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AA24kuRA.img",
+            "title": "Cain Velasquez Reveals His One Condition To Fight Again",
+        }
+    ],
+}
+
+MSN_DETAIL_FIXTURE_MULTI_IMAGE = {
+    "title": "Some Article",
+    "sourceHref": "https://boxingnews.com/news/some-article/",
+    "imageResources": [
+        {"width": 200, "height": 200, "url": "https://img-s-msn-com/small.jpg"},
+        {"width": 1200, "height": 800, "url": "https://img-s-msn-com/big.jpg"},
+    ],
+}
 
 # 15-min traffic buckets fixture — captured 2026-05-16 from the
 # Partner Hub Overview tab. Same /realtime path but called without
@@ -124,14 +130,12 @@ BUCKETS_FIXTURE_JSON = """
 }
 """
 
-MSN_HTML_NO_SOURCE = """
-<html><head>
-<meta property="og:title" content="Some Article">
-<meta property="og:image" content="https://img-s-msn-com.akamaized.net/img.jpg">
-</head><body>
-<p>Article body with no source link.</p>
-</body></html>
-"""
+MSN_DETAIL_FIXTURE_NO_SOURCE = {
+    "title": "Some Article",
+    "imageResources": [
+        {"width": 1, "height": 1, "url": "https://img-s-msn-com/img.jpg"}
+    ],
+}
 
 
 # ---------------------------------------------------------------------------
@@ -220,34 +224,33 @@ def test_revenue_estimate() -> None:
           f"total_reads={total_reads}")
 
 
-def test_canonical_url_parser_finds_anchor() -> None:
-    print("[test] _find_canonical_boxingnews_url finds the source anchor")
-    url = _find_canonical_boxingnews_url(MSN_HTML_SAMPLE)
-    check("returns a URL", url is not None, f"got {url!r}")
-    assert url is not None
-    check("URL is on boxingnews.com", "boxingnews.com" in url, f"got {url!r}")
-    check("MSN tracking params stripped (ocid/cvid)",
-          "ocid=" not in url and "cvid=" not in url,
+def test_detail_fixture_has_sourceHref() -> None:
+    print("[test] MSN content-API payload exposes sourceHref pointing at boxingnews")
+    src = MSN_DETAIL_FIXTURE.get("sourceHref")
+    check("sourceHref present", isinstance(src, str) and bool(src), f"got {src!r}")
+    assert isinstance(src, str)
+    check("sourceHref is boxingnews.com", "boxingnews.com" in src, f"got {src!r}")
+    # Sanity: payload also carries the human title we'll cache as canonical_title
+    title = MSN_DETAIL_FIXTURE.get("title")
+    check("title present", isinstance(title, str) and bool(title))
+
+
+def test_first_image_url_picks_largest() -> None:
+    print("[test] _first_image_url picks the largest imageResources entry")
+    url = _first_image_url(MSN_DETAIL_FIXTURE_MULTI_IMAGE)
+    check("returns the 1200x800 image", url == "https://img-s-msn-com/big.jpg",
           f"got {url!r}")
-    # Sanity: kept the actual article path
-    check("kept article path", "francis-ngannou-ufc-departure" in url, f"got {url!r}")
+    # Single-image payload still works
+    one = _first_image_url(MSN_DETAIL_FIXTURE)
+    check("single-image payload",
+          one == "https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AA24kuRA.img",
+          f"got {one!r}")
 
 
-def test_canonical_url_parser_returns_none() -> None:
-    print("[test] _find_canonical_boxingnews_url returns None when absent")
-    out = _find_canonical_boxingnews_url(MSN_HTML_NO_SOURCE)
-    check("no boxingnews link -> None", out is None, f"got {out!r}")
-
-
-def test_meta_parser() -> None:
-    print("[test] _meta extracts og: tags")
-    title = _meta(MSN_HTML_SAMPLE, "og:title")
-    image = _meta(MSN_HTML_SAMPLE, "og:image")
-    missing = _meta(MSN_HTML_SAMPLE, "og:nonexistent")
-    check("og:title parsed", title == "Francis Ngannou Reveals All On His UFC Departure",
-          f"got {title!r}")
-    check("og:image parsed", image is not None and image.startswith("https://img-s-msn-com"))
-    check("missing -> None", missing is None)
+def test_first_image_url_handles_missing() -> None:
+    print("[test] _first_image_url returns None when imageResources is empty/absent")
+    check("empty list -> None", _first_image_url({"imageResources": []}) is None)
+    check("missing key -> None", _first_image_url({}) is None)
 
 
 def test_bucket_fixture_shape() -> None:
@@ -274,14 +277,6 @@ def test_bucket_fixture_shape() -> None:
           f"got {est}")
 
 
-def test_clean_url_passthrough() -> None:
-    print("[test] _clean_url is a noop for non-boxingnews URLs")
-    # Don't touch unrelated URLs (e.g. raw MSN URLs returned during fallback).
-    url = "https://www.msn.com/en-us/sports/article/ar-AA23khOk?ocid=hpmsn"
-    out = _clean_url(url)
-    check("non-boxingnews URL untouched", out == url, f"got {out!r}")
-
-
 def main() -> int:
     print("\n========== MSN insights — fixture tests ==========\n")
     tests = [
@@ -289,11 +284,10 @@ def main() -> int:
         test_normalise_daily_row,
         test_realtime_shape,
         test_revenue_estimate,
-        test_canonical_url_parser_finds_anchor,
-        test_canonical_url_parser_returns_none,
-        test_meta_parser,
+        test_detail_fixture_has_sourceHref,
+        test_first_image_url_picks_largest,
+        test_first_image_url_handles_missing,
         test_bucket_fixture_shape,
-        test_clean_url_passthrough,
     ]
     for t in tests:
         t()
