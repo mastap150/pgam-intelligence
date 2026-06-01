@@ -331,9 +331,17 @@ def _fix_lines_for(f: dict) -> list[str]:
     elif check == "adstxt.reseller_wrong_seller":
         obs = det.get("observed_account_ids") or []
         exp = det.get("expected_account_id")
-        out.append(f"  Found in ads.txt: `{_trunc_list(obs)}`  →  expect `{exp}`")
+        ssp_domain = (expected_line or "").split(",")[0].strip() if expected_line else ssp
+        # Make it explicit: we searched all entries for this SSP and
+        # our seat wasn't among them. Avoids the "well other IDs exist
+        # so isn't it fine?" misread.
+        out.append(
+            f"  Checked {len(obs)} `{ssp_domain}` line"
+            f"{'s' if len(obs) != 1 else ''} on this ads.txt — "
+            f"our seat `{exp}` not among them."
+        )
         if expected_line:
-            out.append(f"  Replace with: `{expected_line}`")
+            out.append(f"  Add line: `{expected_line}`")
     elif check == "adstxt.reseller_wrong_type":
         rels = det.get("observed_relationships") or []
         out.append(f"  {ssp}: line marked {'/'.join(rels)} — must be RESELLER")

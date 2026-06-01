@@ -103,6 +103,22 @@ def validate_universal_direct_tiered(
             ))
             return findings
 
+    # Via-partner short-circuit: if the publisher has at least one
+    # `pgamssp.com, <known-INTERMEDIARY-seat>, RESELLER` line, treat
+    # this as a valid via-partner setup and defer the per-partner
+    # check to supply_path_audit (which knows WHICH partner is
+    # bringing today's revenue and whether ITS specific seat is
+    # declared). Without this short-circuit, every via_partner
+    # publisher gets a false-positive "Wrong PGAM seat" critical
+    # because they legitimately don't have a DIRECT line — they have
+    # multiple RESELLER lines, one per supply partner.
+    for ln in pgam_lines:
+        seat_meta = pgam_seat_registry.get(ln.account_id)
+        if (seat_meta
+                and (seat_meta.get("seller_type") or "").upper() in ("INTERMEDIARY", "BOTH")
+                and (ln.relationship or "").upper() in ("RESELLER", "BOTH")):
+            return []  # via-partner path; supply_path_audit owns the granular check
+
     # Expected seat not found. Classify each observed seat by tier.
     observed_seats: list[dict] = []
     has_known_seat = False
