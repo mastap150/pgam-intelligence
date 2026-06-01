@@ -670,6 +670,125 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     }
 
 
+_REV_AT_RISK_BY_SSP_QUERY = """
+-- Revenue-at-risk by demand SSP — for every SSP across all audited
+-- entities, sum revenue attributed to compliant vs non-compliant
+-- rows. Drives the 'where's the biggest dollar exposure' question.
+SELECT
+    ssp_partner_name,
+    SUM(revenue_7d)                                     AS revenue,
+    SUM(revenue_7d) FILTER (WHERE status = 'healthy')   AS compliant,
+    SUM(revenue_7d) FILTER (WHERE status != 'healthy')  AS at_risk,
+    COUNT(*) FILTER (WHERE status = 'healthy')          AS healthy_n,
+    COUNT(*)                                             AS total_n
+FROM pgam_direct.compliance_entity_ssp_audit
+WHERE as_of = %(as_of)s
+GROUP BY ssp_partner_name
+HAVING SUM(revenue_7d) > 0
+ORDER BY at_risk DESC NULLS LAST, revenue DESC
+LIMIT 10;
+"""
+
+_REV_AT_RISK_BY_SUPPLY_PARTNER_QUERY = """
+-- Revenue-at-risk by LL supply partner (the one bringing the
+-- inventory). Mirror of the SSP view from the supply-side.
+SELECT
+    supply_partner_key,
+    SUM(revenue_7d)                                     AS revenue,
+    SUM(revenue_7d) FILTER (WHERE status = 'healthy')   AS compliant,
+    SUM(revenue_7d) FILTER (WHERE status != 'healthy')  AS at_risk,
+    COUNT(*) FILTER (WHERE status = 'healthy')          AS healthy_n,
+    COUNT(*)                                             AS total_n
+FROM pgam_direct.compliance_entity_supply_path_audit
+WHERE as_of = %(as_of)s
+  AND supply_partner_key IS NOT NULL
+GROUP BY supply_partner_key
+HAVING SUM(revenue_7d) > 0
+ORDER BY at_risk DESC NULLS LAST, revenue DESC
+LIMIT 10;
+"""
+
+
+def _load_rev_at_risk_by_ssp(as_of: date) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_REV_AT_RISK_BY_SSP_QUERY, {"as_of": as_of})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] rev-at-risk by SSP query failed: {exc}")
+        return []
+
+
+def _load_rev_at_risk_by_supply_partner(as_of: date) -> list[dict]:
+    try:
+        with connect() as conn:
+            with conn.cursor() as cur:
+                cur.execute(_REV_AT_RISK_BY_SUPPLY_PARTNER_QUERY, {"as_of": as_of})
+                cols = [c.name for c in cur.description]
+                return [dict(zip(cols, r)) for r in cur.fetchall()]
+    except Exception as exc:
+        print(f"[compliance.slack_digest] rev-at-risk by partner query failed: {exc}")
+        return []
+
+
+def _rev_at_risk_blocks(rev_by_ssp: list[dict],
+                       rev_by_partner: list[dict]) -> list[dict]:
+    """Two summary tables answering 'where is the most $ exposed':
+    once by demand SSP, once by LL supply partner. Both ordered by
+    $at-risk so the biggest financial gap is on top.
+    """
+    blocks: list[dict] = []
+    if rev_by_ssp:
+        rows = []
+        for r in rev_by_ssp:
+            name = (r.get("ssp_partner_name") or "?")[:14]
+            rev = float(r.get("revenue") or 0)
+            risk = float(r.get("at_risk") or 0)
+            pct_healthy = 100.0 * (float(r.get("compliant") or 0)) / rev if rev else 0
+            rows.append([
+                name, f"${rev:,.0f}", f"${risk:,.0f}", f"{pct_healthy:.0f}%"
+            ])
+        table = _render_table(
+            rows=rows,
+            headers=["Demand SSP", "Rev/7d", "$ at risk", "% healthy"],
+            aligns=["l", "r", "r", "r"],
+        )
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn",
+                     "text": (":moneybag: *Revenue at risk — by demand SSP*\n"
+                              "_Where the biggest $ exposure sits, demand-side. "
+                              "$ at risk = revenue on rows with status != healthy._\n"
+                              + table)},
+        })
+    if rev_by_partner:
+        rows = []
+        for r in rev_by_partner:
+            name = (r.get("supply_partner_key") or "?")[:18]
+            rev = float(r.get("revenue") or 0)
+            risk = float(r.get("at_risk") or 0)
+            pct_healthy = 100.0 * (float(r.get("compliant") or 0)) / rev if rev else 0
+            rows.append([
+                name, f"${rev:,.0f}", f"${risk:,.0f}", f"{pct_healthy:.0f}%"
+            ])
+        table = _render_table(
+            rows=rows,
+            headers=["Supply Partner", "Rev/7d", "$ at risk", "% healthy"],
+            aligns=["l", "r", "r", "r"],
+        )
+        blocks.append({
+            "type": "section",
+            "text": {"type": "mrkdwn",
+                     "text": (":moneybag: *Revenue at risk — by LL supply partner*\n"
+                              "_Same view, supply-side. Tells you which partner "
+                              "relationship needs ads.txt + sellers.json attention._\n"
+                              + table)},
+        })
+    return blocks
+
+
 _DEMAND_PARTNER_TOP_QUERY = """
 -- Top demand SSPs by trailing-7d revenue across all audited entities.
 -- Anchors the per-demand-partner cards in the digest.
@@ -1103,6 +1222,17 @@ def _build_blocks(findings: list[dict], summary: dict,
     action_cards = _action_card_blocks(findings, max_entities=5)
     if action_cards:
         blocks.extend(action_cards)
+        blocks.append({"type": "divider"})
+
+    # Revenue-at-risk summary tables — answer "where is the biggest $
+    # exposure, by demand SSP and by LL supply partner". Operator
+    # reads this first to know which relationship to escalate.
+    rev_at_risk_blocks = _rev_at_risk_blocks(
+        _load_rev_at_risk_by_ssp(date.today()),
+        _load_rev_at_risk_by_supply_partner(date.today()),
+    )
+    if rev_at_risk_blocks:
+        blocks.extend(rev_at_risk_blocks)
         blocks.append({"type": "divider"})
 
     # Supply-path audit — the right compliance question — sits directly
