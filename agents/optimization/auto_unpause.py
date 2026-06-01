@@ -52,7 +52,25 @@ MAX_UNPAUSES_PER_RUN = 5
 # Keywords in ledger entries that indicate a deliberate pause
 PAUSE_KEYWORDS = ("pause", "disable", "quarantine", "holdout", "archive")
 
+# Demand-name blocklist (case-insensitive substring match).
+# Demands matching these tokens will NEVER be auto-unpaused, even if all
+# other criteria are met. Use this when a partner is deliberately paused
+# at the UI level WITHOUT a corresponding ledger entry — the keyword
+# detection above can miss UI-only pauses.
+#
+# Pubmatic added 2026-05-26 per Priyesh: Pubmatic paused on LL, must stay
+# off until further notice. Includes all 307 Pubmatic demands.
+DEMAND_NAME_BLOCKLIST = (
+    "pubmatic",
+)
+
 ACTOR_PREFIX = "auto_unpause"
+
+
+def _demand_name_blocked(name: str) -> bool:
+    """True if a demand's name matches the blocklist — never auto-unpause."""
+    nl = (name or "").lower()
+    return any(tok in nl for tok in DEMAND_NAME_BLOCKLIST)
 
 
 def _recent_pause_ledger(demand_id: int, publisher_id: int) -> bool:
@@ -126,6 +144,9 @@ def run() -> dict:
                     continue  # not paused
                 did = item.get("id")
                 if not did:
+                    continue
+                # Blocklist gate — never auto-unpause restricted partners
+                if _demand_name_blocked(item.get("name", "")):
                     continue
                 key = (pid, did)
                 h = healthy.get(key)

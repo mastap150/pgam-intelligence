@@ -67,8 +67,11 @@ ACTOR_PREFIX = "auto_wire_gaps"
 #
 # Verve added 2026-05-21 per Priyesh: Verve has specific rules where they
 # can run; auto-wiring violates those rules.
+# Pubmatic added 2026-05-26 per Priyesh: Pubmatic paused on LL, must not
+# be wired to any new pubs while paused.
 DEMAND_NAME_BLOCKLIST = (
     "verve",
+    "pubmatic",
 )
 
 
