@@ -381,6 +381,27 @@ def setup_schedule():
     if _os.getenv("PGAM_DAYPARTING_ENABLED") == "1":
         schedule.every().hour.at(":05").do(_run("ml_dayparting", ml_dayparting))
 
+    # ── DSP buyer agent ticks ────────────────────────────────────────────
+    # pgam-intelligence drives the DSP buyer agent's ticks because the
+    # dashboard's Vercel cron set exceeds plan quota (confirmed 2026-06-01:
+    # 4+ hours of expected 5-min ticks produced 0 ledger rows). Two
+    # paths:
+    #   1. margin_watchdog — full PYTHON PORT of the watchdog logic
+    #      (loadActiveCampaigns + compute + decide + write event). Doesn't
+    #      depend on Vercel cron OR the deployed Next.js route (which had
+    #      its own runtime bug). Direct DSP Neon connection.
+    #   2. status_report + auto_rollback — HTTP invokers; the rendering /
+    #      apply orchestration lives in the dashboard's TS code, so we
+    #      just trigger the deployed routes.
+    from agents.dsp_buyer.margin_watchdog import margin_watchdog as dsp_margin_watchdog
+    from agents.dsp_buyer.watchdog_invoker import (
+        run_auto_rollback   as dsp_auto_rollback,
+        run_status_report   as dsp_status_report,
+    )
+    schedule.every(5).minutes.do(_run("dsp_margin_watchdog", dsp_margin_watchdog))
+    schedule.every(6).hours.do(  _run("dsp_auto_rollback",   dsp_auto_rollback))
+    schedule.every().day.at("09:00").do(_run("dsp_status_report", dsp_status_report))
+
     # Weekly — discovery + rep-conversation feeds (Monday mornings)
     schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
     schedule.every().monday.at("09:05").do(_run("ml_demand_gap",       ml_demand_gap))
