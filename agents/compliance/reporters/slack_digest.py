@@ -1039,17 +1039,36 @@ def _demand_partner_card_blocks(as_of: date,
 
 _SUPPLY_PATH_QUERY = """
 -- Top supply-path audit rows for the digest. One row per entity (the
--- audit is per-entity, not per-SSP).
+-- audit is per-entity, not per-SSP). Carries all 5 layers of the
+-- compliance check: partner's domain on publisher ads.txt (A),
+-- pgamssp.com RESELLER line with partner's PGAM seat on publisher
+-- ads.txt (B), our sellers.json declares the partner (C), partner's
+-- sellers.json declares PGAM (D — joined via _supply:<domain> sentinels
+-- in compliance_findings), emitted schain matches (E — schain_emitted_ok).
 SELECT
     entity_value, kind, audit_host, revenue_7d,
     path_kind, ll_publisher_name,
     supply_partner_key, supply_partner_domain, supply_partner_pgam_seat,
     supply_partner_line_present, pgam_line_present_for_path,
-    sellers_json_partner_declared, status, expected_pgam_line
+    sellers_json_partner_declared, status, expected_pgam_line,
+    schain_emitted_ok
 FROM pgam_direct.compliance_entity_supply_path_audit
 WHERE as_of = %(as_of)s
 ORDER BY revenue_7d DESC
 LIMIT %(limit)s;
+"""
+
+_PARTNER_SELLERSJSON_HEALTH_QUERY = """
+-- Layer D resolver: per-supply-partner sellers.json health.
+-- Looks for open `_supply:<domain>` sentinels emitted by supply_partner_audit.
+-- A row with at least one open critical/high finding → unhealthy (✗).
+-- No row → no finding outstanding → healthy (✓).
+SELECT publisher_key, MAX(severity) AS worst
+FROM pgam_direct.compliance_findings
+WHERE status = 'open'
+  AND publisher_key LIKE '_supply:%%'
+  AND check_id LIKE 'sellersjson.supply_partner_%%'
+GROUP BY publisher_key;
 """
 
 
@@ -1065,40 +1084,70 @@ def _load_supply_path(as_of: date, limit: int = 12) -> list[dict]:
         return []
 
 
+def _load_partner_sellersjson_health() -> dict[str, str]:
+    """Returns {partner_domain: 'critical'|'high'|...} for partners with
+    open layer-D findings. Caller treats missing key as 'healthy'."""
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(_PARTNER_SELLERSJSON_HEALTH_QUERY)
+            return {
+                row[0].replace("_supply:", "", 1): row[1]
+                for row in cur.fetchall()
+            }
+    except Exception as exc:
+        print(f"[compliance.slack_digest] partner sellers.json health "
+              f"query failed (non-fatal): {exc}")
+        return {}
+
+
 def _supply_path_block(rows: list[dict], summary: dict) -> dict | None:
     """Per-entity supply-path audit — the right compliance question.
 
-    For each top-revenue entity: which LL supply partner brings it (or
-    'PGAM direct'), is its domain on the entity ads.txt, is PGAM
-    correctly declared (DIRECT for pgam-direct path, RESELLER with
-    the partner's specific PGAM seat for via-partner path).
+    Now surfaces ALL FIVE compliance layers per (entity × supply_partner):
+      A) supply partner's domain line on publisher ads.txt
+      B) `pgamssp.com, <partner_seat>, RESELLER` line on publisher ads.txt
+      C) Our sellers.json declares the supply partner
+      D) Partner's sellers.json declares PGAM (cross-direction)
+      E) Emitted schain validates (24h trailing window)
     """
     if not rows:
         return None
+    partner_d_health = _load_partner_sellersjson_health()
     table_rows = []
     for r in rows:
-        ent = (r.get("entity_value") or "")[:24]
+        ent = (r.get("entity_value") or "")[:22]
         rev = float(r.get("revenue_7d") or 0)
         path = r.get("path_kind") or "unknown"
-        partner = (r.get("supply_partner_key") or "?")[:16]
+        partner = (r.get("supply_partner_key") or "?")[:14]
         if path == "pgam_direct":
             partner = "PGAM direct"
         elif path == "unknown":
-            partner = (r.get("ll_publisher_name") or "?")[:16] + " (unbridged)"
-        sp_ok = "✓" if r.get("supply_partner_line_present") else (
+            partner = (r.get("ll_publisher_name") or "?")[:14] + " (unbridged)"
+        A = "✓" if r.get("supply_partner_line_present") else (
             "—" if path == "pgam_direct" else "✗")
-        pg_ok = "✓" if r.get("pgam_line_present_for_path") else "✗"
-        sj_ok = "✓" if r.get("sellers_json_partner_declared") else "✗"
+        B = "✓" if r.get("pgam_line_present_for_path") else "✗"
+        C = "✓" if r.get("sellers_json_partner_declared") else "✗"
+        # Layer D: cross-direction sellers.json check on the partner.
+        partner_dom = r.get("supply_partner_key") or ""
+        if partner_dom in partner_d_health:
+            D = "✗"
+        elif path == "pgam_direct" or not partner_dom:
+            D = "—"  # not applicable
+        else:
+            D = "✓"
+        # Layer E: emitted schain. NULL today (view not yet built).
+        sch_ok = r.get("schain_emitted_ok")
+        E = "✓" if sch_ok is True else ("✗" if sch_ok is False else "?")
         status = r.get("status") or "?"
         sym = {"critical": "🚨", "warning": "⚠️", "healthy": "✅"}.get(status, "·")
         table_rows.append([
-            sym, ent, f"${rev:,.0f}", partner, sp_ok, pg_ok, sj_ok,
+            sym, ent, f"${rev:,.0f}", partner, A, B, C, D, E,
         ])
     table = _render_table(
         rows=table_rows,
-        headers=["", "Entity", "Rev/7d", "Via supply partner",
-                 "Partner✓", "PGAM✓", "json✓"],
-        aligns=["l", "l", "r", "l", "l", "l", "l"],
+        headers=["", "Entity", "Rev/7d", "Via partner",
+                 "A) part", "B) PGAM", "C) ours", "D) theirs", "E) schain"],
+        aligns=["l", "l", "r", "l", "l", "l", "l", "l", "l"],
     )
 
     pct = summary.get("supply_path_compliance_pct")
@@ -1119,12 +1168,16 @@ def _supply_path_block(rows: list[dict], summary: dict) -> dict | None:
 
     body = (
         f":electric_plug: *Supply-path audit "
-        f"(top {len(rows)} entities — the right compliance question)*\n"
+        f"(top {len(rows)} entities — 5-layer chain validation)*\n"
         + summary_line +
-        "_For each entity: partner = LL supply source bringing inventory; "
-        "Partner✓ = partner's domain on publisher ads.txt; "
-        "PGAM✓ = correct pgamssp.com line for the path (DIRECT if pgam-direct, "
-        "RESELLER with partner's PGAM seat if via-partner)._\n"
+        "_The 5 layers that must ALL be green for a path to be compliant:_\n"
+        "*A)* publisher ads.txt has the supply partner's domain line  ·  "
+        "*B)* publisher ads.txt has `pgamssp.com, <partner's PGAM seat>, RESELLER`  ·  "
+        "*C)* our sellers.json declares the partner with the seat we expect  ·  "
+        "*D)* partner's own sellers.json declares PGAM (cross-direction)  ·  "
+        "*E)* emitted schain on actual bid traffic validates (24h window)\n"
+        "_`?` in column E = no schain emission data yet (ClickHouse rollup "
+        "view in pgam-direct/web not built yet)._\n"
         + table
     )
     return {"type": "section", "text": {"type": "mrkdwn", "text": body}}
