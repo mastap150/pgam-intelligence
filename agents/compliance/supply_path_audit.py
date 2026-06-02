@@ -73,6 +73,15 @@ class SupplyPathRow:
     observed_pgam_seats:       list[str] = field(default_factory=list)
     observed_partner_seats:    list[str] = field(default_factory=list)
 
+    # Layer 5 — emitted schain validation per pair. Populated from the
+    # compliance_schain_emissions_24h ClickHouse rollup (built in
+    # pgam-direct/web; not yet live). When the source view is absent,
+    # all three fields stay None and the rollup is treated as "unknown".
+    schain_emitted_ok:         bool | None = None
+    schain_emissions_24h:      int | None = None
+    schain_incomplete_rate:    float | None = None
+    schain_hop_violation_rate: float | None = None
+
     # Verdict
     status:                    str = "healthy"   # critical | warning | healthy | unknown
     issues:                    list[str] = field(default_factory=list)
@@ -290,6 +299,60 @@ def _build_pgam_direct_publisher_lookup() -> dict[str, dict]:
     return out
 
 
+def _load_schain_emissions_24h() -> dict[tuple[str, str], dict]:
+    """Load per-(publisher_id, supply_partner) emission rollup if the
+    ClickHouse → Postgres view exists. Returns empty dict if absent;
+    caller treats missing as 'unknown'."""
+    from core.neon import connect
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT publisher_id, supply_partner,
+                       emissions, incomplete_rate, hop_violation_rate
+                FROM pgam_direct.compliance_schain_emissions_24h
+                WHERE emissions > 0;
+            """)
+            cols = [c.name for c in cur.description]
+            out = {}
+            for r in cur.fetchall():
+                row = dict(zip(cols, r))
+                key = (str(row.get("publisher_id") or ""),
+                       str(row.get("supply_partner") or "").lower())
+                out[key] = row
+            return out
+    except Exception:
+        # View doesn't exist yet — treat as unknown for every pair.
+        return {}
+
+
+def _evaluate_schain(
+    ll_publisher_id: str | None,
+    supply_partner_key: str | None,
+    emissions_map: dict[tuple[str, str], dict],
+) -> tuple[bool | None, int | None, float | None, float | None]:
+    """Layer 5: per-(entity-LL-pub × partner) schain emission verdict.
+
+    Returns (ok, emissions, incomplete_rate, hop_violation_rate). ok is:
+      TRUE  — emissions seen and complete=1 + hops<=2 across the window
+      FALSE — emissions seen but schain validation failing materially
+      NULL  — no emission data available (ClickHouse view absent or
+              no bid traffic in trailing 24h)
+    """
+    if not ll_publisher_id or not supply_partner_key:
+        return None, None, None, None
+    key = (str(ll_publisher_id), supply_partner_key.lower())
+    row = emissions_map.get(key)
+    if row is None:
+        return None, None, None, None
+    emissions = int(row.get("emissions") or 0)
+    inc_rate = float(row.get("incomplete_rate") or 0)
+    hop_rate = float(row.get("hop_violation_rate") or 0)
+    # Use the same thresholds as the standalone dynamic_schain validator.
+    # Threshold: any incomplete > 0 or hop_violation > 0 counts as not OK.
+    ok = (inc_rate == 0 and hop_rate == 0)
+    return ok, emissions, inc_rate, hop_rate
+
+
 def build_supply_path_audit(
     entities: list[Entity],
     fetches_by_entity: dict[str, AdsTxtFetch | None],
@@ -303,6 +366,10 @@ def build_supply_path_audit(
     """
     ll_lookup = _build_ll_partner_lookup()
     pgam_direct = _build_pgam_direct_publisher_lookup()
+    # Layer 5: pre-load the schain emissions map once. Empty if the
+    # ClickHouse → Postgres rollup view isn't built yet — every row
+    # then gets schain_emitted_ok=NULL (unknown).
+    emissions_map = _load_schain_emissions_24h()
 
     rows: list[SupplyPathRow] = []
     rev_audited = 0.0
@@ -364,6 +431,11 @@ def build_supply_path_audit(
         elif path_kind == "via_partner" and sp_pgam_seat:
             expected_pgam = f"pgamssp.com, {sp_pgam_seat}, RESELLER"
 
+        # Layer 5 lookup — emitted schain validation per pair.
+        schain_ok, schain_em, schain_inc, schain_hop = _evaluate_schain(
+            entity.ll_publisher_id, sp_key, emissions_map,
+        )
+
         row = SupplyPathRow(
             entity_key=entity.entity_key,
             kind=entity.kind,
@@ -382,6 +454,10 @@ def build_supply_path_audit(
             expected_pgam_line=expected_pgam,
             observed_pgam_seats=pgam_obs,
             observed_partner_seats=partner_obs,
+            schain_emitted_ok=schain_ok,
+            schain_emissions_24h=schain_em,
+            schain_incomplete_rate=schain_inc,
+            schain_hop_violation_rate=schain_hop,
         )
         row.status, row.issues, row.recommended_action = _classify(row)
 
@@ -423,6 +499,8 @@ INSERT INTO pgam_direct.compliance_entity_supply_path_audit
      supply_partner_line_present, pgam_line_present_for_path,
      sellers_json_partner_declared,
      expected_pgam_line, observed_pgam_seats, observed_partner_seats,
+     schain_emitted_ok, schain_emissions_24h,
+     schain_incomplete_rate, schain_hop_violation_rate,
      status, issues, recommended_action, audited_at)
 VALUES
     (%(as_of)s, %(entity_key)s, %(kind)s, %(entity_value)s, %(audit_host)s,
@@ -431,6 +509,8 @@ VALUES
      %(supply_partner_line_present)s, %(pgam_line_present_for_path)s,
      %(sellers_json_partner_declared)s,
      %(expected_pgam_line)s, %(observed_pgam_seats)s, %(observed_partner_seats)s,
+     %(schain_emitted_ok)s, %(schain_emissions_24h)s,
+     %(schain_incomplete_rate)s, %(schain_hop_violation_rate)s,
      %(status)s, %(issues)s, %(recommended_action)s, now())
 ON CONFLICT (entity_key, as_of) DO UPDATE SET
     revenue_7d                     = EXCLUDED.revenue_7d,
@@ -446,6 +526,10 @@ ON CONFLICT (entity_key, as_of) DO UPDATE SET
     expected_pgam_line             = EXCLUDED.expected_pgam_line,
     observed_pgam_seats            = EXCLUDED.observed_pgam_seats,
     observed_partner_seats         = EXCLUDED.observed_partner_seats,
+    schain_emitted_ok              = EXCLUDED.schain_emitted_ok,
+    schain_emissions_24h           = EXCLUDED.schain_emissions_24h,
+    schain_incomplete_rate         = EXCLUDED.schain_incomplete_rate,
+    schain_hop_violation_rate      = EXCLUDED.schain_hop_violation_rate,
     status                         = EXCLUDED.status,
     issues                         = EXCLUDED.issues,
     recommended_action             = EXCLUDED.recommended_action,
@@ -480,6 +564,10 @@ def persist_supply_path(rows: list[SupplyPathRow], as_of: date | None = None) ->
             "expected_pgam_line":             r.expected_pgam_line,
             "observed_pgam_seats":            list(r.observed_pgam_seats),
             "observed_partner_seats":         list(r.observed_partner_seats),
+            "schain_emitted_ok":              r.schain_emitted_ok,
+            "schain_emissions_24h":           r.schain_emissions_24h,
+            "schain_incomplete_rate":         r.schain_incomplete_rate,
+            "schain_hop_violation_rate":      r.schain_hop_violation_rate,
             "status":                         r.status,
             "issues":                         list(r.issues),
             "recommended_action":             r.recommended_action,

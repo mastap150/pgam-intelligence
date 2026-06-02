@@ -107,6 +107,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_29_compliance_supply_path_audit.sql",
     _REPO_ROOT / "migrations" / "2026_06_01_compliance_runs_ok_nullable.sql",
     _REPO_ROOT / "migrations" / "2026_06_02_compliance_path_block_list.sql",
+    _REPO_ROOT / "migrations" / "2026_06_02_supply_path_schain_column.sql",
 )
 
 
