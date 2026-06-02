@@ -670,6 +670,58 @@ def _ssp_scorecard_block(rows: list[dict]) -> dict | None:
     }
 
 
+def _block_list_block(rows: list[dict], summary: dict) -> dict | None:
+    """Daily 'paths queued for blocking' section.
+
+    Surfaces compliance_path_block_list rows in 'pending_review' state.
+    Each row is a (entity × supply_partner) path that the auditor
+    flagged as non-compliant + material. No enforcement happens yet
+    (Stage 1 of the block-list build); ops review + approve a row to
+    flip it to 'active', at which point the PGAM bidder edge will
+    actually block the path (Stage 3, in pgam-direct/web).
+    """
+    if not rows:
+        return None
+    table_rows = []
+    total_at_risk = 0.0
+    for r in rows:
+        ent = (r.get("entity_value") or "")[:24]
+        partner = (r.get("supply_partner_key") or "?")[:14]
+        rev = float(r.get("revenue_7d") or 0)
+        total_at_risk += rev
+        flagged = int(r.get("flagged_count") or 1)
+        reason_map = {
+            "both_missing":         "no partner + no PGAM line",
+            "partner_line_missing": "partner line absent",
+            "pgam_line_missing":    "PGAM RESELLER line absent",
+            "unknown_path":         "unknown",
+        }
+        reason = reason_map.get(r.get("reason") or "", r.get("reason") or "?")
+        table_rows.append([
+            ent, partner, f"${rev:,.0f}", reason[:24], f"{flagged}d",
+        ])
+    table = _render_table(
+        rows=table_rows,
+        headers=["Entity", "Via partner", "Rev/7d", "Why", "Flagged"],
+        aligns=["l", "l", "r", "l", "r"],
+    )
+    pending = summary.get("block_list_pending") or len(rows)
+    active = summary.get("block_list_active") or 0
+    return {
+        "type": "section",
+        "text": {"type": "mrkdwn",
+                 "text": (
+                     f":no_entry: *Paths queued for blocking "
+                     f"({pending} pending · {active} active)*\n"
+                     f"_Non-compliant (entity × supply partner) paths above $50/7d. "
+                     f"${total_at_risk:,.0f}/7d in this queue. Stage 1 = surfaced "
+                     f"for review; ops approves to flip to 'active'; Stage 3 "
+                     f"(pgam-direct/web bidder edge) reads active rows and "
+                     f"returns no-bid on matching requests. Auto-releases when "
+                     f"the audit confirms the path is now healthy._\n" + table)},
+    }
+
+
 _REV_AT_RISK_BY_SSP_QUERY = """
 -- Revenue-at-risk by demand SSP — for every SSP across all audited
 -- entities, sum revenue attributed to compliant vs non-compliant
@@ -1234,6 +1286,20 @@ def _build_blocks(findings: list[dict], summary: dict,
     if rev_at_risk_blocks:
         blocks.extend(rev_at_risk_blocks)
         blocks.append({"type": "divider"})
+
+    # Block-list queue — non-compliant paths queued for enforcement.
+    # Imported lazily because the block_list module reads its own
+    # rows from Neon at digest build time.
+    try:
+        from agents.compliance.block_list import load_pending_queue
+        bl_rows = load_pending_queue(limit=15)
+        bl_block = _block_list_block(bl_rows, summary)
+        if bl_block is not None:
+            blocks.append(bl_block)
+            blocks.append({"type": "divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] block_list section failed "
+              f"(non-fatal): {_exc}")
 
     # Supply-path audit — the right compliance question — sits directly
     # after the action queue so it's visible above the demand-side
