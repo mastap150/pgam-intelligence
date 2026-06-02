@@ -1362,6 +1362,20 @@ def _build_blocks(findings: list[dict], summary: dict,
         blocks.append(sp_block)
         blocks.append({"type": "divider"})
 
+    # Pilot-partner compliance check — focused per-(supply partner ×
+    # test demand SSP) report. Configured for Algorix / Smaato /
+    # zMaticoo today; expands as the pilot rolls out. Flagging only;
+    # no enforcement.
+    try:
+        from agents.compliance.pilot_partner_check import build_pilot_blocks
+        pilot_blocks = build_pilot_blocks(date.today())
+        if pilot_blocks:
+            blocks.extend(pilot_blocks)
+            blocks.append({"type": "divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] pilot-partner block failed "
+              f"(non-fatal): {_exc}")
+
     # New demand variants — surfaces the case where a new SSP variant
     # (TripleLift - Blitz, Sharethrough - Blitz, etc.) spins up
     # overnight. Auto-folds into its SSP's row in the matrix but the
