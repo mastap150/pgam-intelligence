@@ -1376,6 +1376,21 @@ def _build_blocks(findings: list[dict], summary: dict,
         print(f"[compliance.slack_digest] pilot-partner block failed "
               f"(non-fatal): {_exc}")
 
+    # Remediation watch — diffs today's audit snapshot vs ~7d ago to
+    # detect lines that publishers / SSPs / supply partners actually
+    # added or removed since we last flagged them. Answers "did the
+    # partner do the thing we asked?" without anyone re-running a
+    # crawl manually.
+    try:
+        from agents.compliance.remediation_tracker import build_remediation_blocks
+        rem_blocks = build_remediation_blocks(date.today(), lookback_days=7)
+        if rem_blocks:
+            blocks.extend(rem_blocks)
+            blocks.append({"type": "divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] remediation-watch block failed "
+              f"(non-fatal): {_exc}")
+
     # New demand variants — surfaces the case where a new SSP variant
     # (TripleLift - Blitz, Sharethrough - Blitz, etc.) spins up
     # overnight. Auto-folds into its SSP's row in the matrix but the
