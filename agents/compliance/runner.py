@@ -55,6 +55,7 @@ from agents.compliance.supply_path_audit import (  # noqa: E402
 from agents.compliance.supply_partner_audit import (  # noqa: E402
     run_supply_partner_audit,
 )
+from agents.compliance.block_list import refresh_block_list  # noqa: E402
 from agents.compliance.crawlers.adstxt import AdsTxtFetch, fetch_adstxt  # noqa: E402
 from agents.compliance.demand_detector import run_demand_detector  # noqa: E402
 from agents.compliance.dynamic_schain import run_dynamic_schain_audit  # noqa: E402
@@ -105,6 +106,7 @@ MIGRATION_PATHS = (
     _REPO_ROOT / "migrations" / "2026_05_29_compliance_entity_ssp_audit.sql",
     _REPO_ROOT / "migrations" / "2026_05_29_compliance_supply_path_audit.sql",
     _REPO_ROOT / "migrations" / "2026_06_01_compliance_runs_ok_nullable.sql",
+    _REPO_ROOT / "migrations" / "2026_06_02_compliance_path_block_list.sql",
 )
 
 
@@ -747,6 +749,31 @@ def run() -> dict:
                     )
                 except Exception as exc:
                     print(f"[{ACTOR}] supply_path audit failed (non-fatal): {exc}")
+
+                # ── Block-list maintenance (Stage 1: queue only) ────
+                # For each non-compliant (entity × supply_partner) path
+                # with revenue ≥ $50/7d, upsert a row into
+                # compliance_path_block_list. Auto-release rows whose
+                # audit is now healthy. Stage 3 (PGAM bidder-edge filter
+                # in pgam-direct/web) reads from this table to apply
+                # per-path enforcement at request time. The flip from
+                # 'pending_review' to 'active' is a manual ops action
+                # (Stage 2, not built yet).
+                try:
+                    bl = refresh_block_list()
+                    summary["block_list_pending"]       = bl.pending_review
+                    summary["block_list_active"]        = bl.active
+                    summary["block_list_inserted"]      = bl.rows_inserted
+                    summary["block_list_auto_released"] = bl.rows_auto_released
+                    summary["block_list_expired"]       = bl.rows_expired
+                    print(
+                        f"[{ACTOR}] block_list pending={bl.pending_review} "
+                        f"active={bl.active} new={bl.rows_inserted} "
+                        f"auto_released={bl.rows_auto_released} "
+                        f"expired={bl.rows_expired}"
+                    )
+                except Exception as exc:
+                    print(f"[{ACTOR}] block_list refresh failed (non-fatal): {exc}")
                 # Per-entity verdicts (separate from per-row): needed by the
                 # digest for honest "X of Y entities need attention" headers.
                 _entities_with_issues: set[str] = set()
