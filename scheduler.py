@@ -394,11 +394,18 @@ def setup_schedule():
     #      apply orchestration lives in the dashboard's TS code, so we
     #      just trigger the deployed routes.
     from agents.dsp_buyer.margin_watchdog import margin_watchdog as dsp_margin_watchdog
+    from agents.dsp_buyer.burn_rate_watchdog import burn_rate_watchdog as dsp_burn_rate_watchdog
     from agents.dsp_buyer.watchdog_invoker import (
         run_auto_rollback   as dsp_auto_rollback,
         run_status_report   as dsp_status_report,
     )
     schedule.every(5).minutes.do(_run("dsp_margin_watchdog", dsp_margin_watchdog))
+    # Burn-rate auto-revert for front_loaded budget_pacing flips. Catches
+    # the "perf looks fine but we're burning too fast" failure mode the
+    # 6h auto-rollback misses (it only watches CTR/VTR degradation, not
+    # spend trajectory). Inspects only campaigns flipped to front_loaded
+    # in the last 96h.
+    schedule.every(5).minutes.do(_run("dsp_burn_rate_watchdog", dsp_burn_rate_watchdog))
     schedule.every(6).hours.do(  _run("dsp_auto_rollback",   dsp_auto_rollback))
     schedule.every().day.at("09:00").do(_run("dsp_status_report", dsp_status_report))
 
