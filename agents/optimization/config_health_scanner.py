@@ -66,11 +66,14 @@ QPS_BUMP_MULTIPLIER = 2.0
 #
 # Basis added 2026-05-22 per Priyesh: testing with Basis, hold all Basis demands
 # at the current QPS caps; do not auto-raise.
-# BidMachine added 2026-06-01 per Priyesh: keep BidMachine QPS caps as-is across
-# all 50 BidMachine demands; do not auto-raise.
+# "bidmachine ron" added 2026-06-03 per Priyesh: hold QPS on d=1324 "BidMachine RON"
+# (currently 5k) + d=1335 "BidMachine RON EU" (currently 500) specifically.
+# Substring is precise — does NOT match Magnite-BidMachine / Sovrn-BidMachine /
+# Xandr-BidMachine / Unruly-BidMachine / Inmobi-BidMachine / etc. — those remain
+# eligible for QPS auto-raise when throttled.
 QPS_DEMAND_NAME_BLOCKLIST = (
     "basis",
-    "bidmachine",
+    "bidmachine ron",
 )
 
 
