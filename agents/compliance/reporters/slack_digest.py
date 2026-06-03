@@ -864,6 +864,12 @@ _DEMAND_PARTNER_ENTITIES_QUERY = """
 -- Entities buying through one demand SSP, joined to the supply-path
 -- audit so we have the entity's LL supply partner alongside each row.
 -- Ordered by revenue so the card surfaces the dollar-impactful gaps.
+--
+-- Note: pgam_line_present_for_path is the *path-aware* B-layer check
+-- (DIRECT for pgam_direct paths, RESELLER for via_partner paths). It's
+-- the right column to render in the per-SSP card's "PGAM" column.
+-- m.pgam_direct_present is direct-only and false for via_partner
+-- entities even when their RESELLER line is correctly in place.
 SELECT
     m.entity_value,
     m.kind,
@@ -876,7 +882,9 @@ SELECT
     sp.ll_publisher_id,
     sp.ll_publisher_name,
     sp.supply_partner_key,
-    sp.supply_partner_pgam_seat
+    sp.supply_partner_pgam_seat,
+    sp.path_kind,
+    sp.pgam_line_present_for_path
 FROM pgam_direct.compliance_entity_ssp_audit m
 LEFT JOIN pgam_direct.compliance_entity_supply_path_audit sp
        ON sp.entity_key = m.entity_key AND sp.as_of = m.as_of
@@ -997,7 +1005,17 @@ def _demand_partner_card_blocks(as_of: date,
         for e in entities:
             ent = (e.get("entity_value") or "")[:24]
             erev = float(e.get("revenue_7d") or 0)
-            pgam = "✓" if e.get("pgam_direct_present") else "✗"
+            # Path-aware PGAM line check: for via_partner entities we
+            # want the RESELLER line for that partner's seat; for
+            # pgam_direct we want the DIRECT line. supply_path_audit
+            # encodes both in pgam_line_present_for_path. Fall back to
+            # the SSP audit's DIRECT-only flag only when the supply
+            # path row is missing (e.g. an entity that's below the
+            # supply-path materiality threshold).
+            sp_pgam = e.get("pgam_line_present_for_path")
+            if sp_pgam is None:
+                sp_pgam = e.get("pgam_direct_present")
+            pgam = "✓" if sp_pgam else "✗"
             ssp_y = "✓" if e.get("ssp_line_present") else "✗"
             jsn = "✓" if e.get("sellers_json_match") else "✗"
             # Schain per entity — flag ✗ when the entity's LL supply
