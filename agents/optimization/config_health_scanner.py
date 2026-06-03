@@ -66,8 +66,11 @@ QPS_BUMP_MULTIPLIER = 2.0
 #
 # Basis added 2026-05-22 per Priyesh: testing with Basis, hold all Basis demands
 # at the current QPS caps; do not auto-raise.
+# BidMachine added 2026-06-01 per Priyesh: keep BidMachine QPS caps as-is across
+# all 50 BidMachine demands; do not auto-raise.
 QPS_DEMAND_NAME_BLOCKLIST = (
     "basis",
+    "bidmachine",
 )
 
 

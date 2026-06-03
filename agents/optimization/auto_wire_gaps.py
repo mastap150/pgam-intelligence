@@ -81,6 +81,29 @@ def _demand_name_blocked(name: str) -> bool:
     return any(tok in nl for tok in DEMAND_NAME_BLOCKLIST)
 
 
+# Pair-specific wiring blocks. Format: list of (pub_id, tuple_of_substrings).
+# A wiring is blocked if pub_id matches AND ALL substrings appear in the
+# demand name (case-insensitive). Use this for narrower "X-shouldn't-route-
+# to-Y" rules where the demand or pub alone isn't enough to identify the
+# bad pair.
+#
+# Smaato In App ← Magnite-BidMachine added 2026-06-01 per Priyesh:
+# Magnite-BidMachine Prebid Server demands (d=607/668/674/843) keep getting
+# auto-wired to Smaato In App (pub 290115372). We don't want this routing.
+BLOCKED_PAIRS = [
+    (290115372, ("magnite", "bidmachine")),
+]
+
+
+def _pair_blocked(pub_id: int, demand_name: str) -> bool:
+    """True if a (pub_id, demand_name) wiring is in BLOCKED_PAIRS."""
+    nl = (demand_name or "").lower()
+    for blocked_pid, tokens in BLOCKED_PAIRS:
+        if pub_id == blocked_pid and all(t in nl for t in tokens):
+            return True
+    return False
+
+
 def _find_template_item(all_pubs_list: list[dict], demand_id: int,
                         exclude_pid: int) -> dict | None:
     """Return the first biddingpref item for this demand from any pub != exclude."""
@@ -100,22 +123,29 @@ def _find_template_item(all_pubs_list: list[dict], demand_id: int,
 
 
 def _qualifying_gaps(gaps_data: dict) -> list[dict]:
-    """Filter gaps on threshold criteria + blocklist, sort by est_lift descending."""
+    """Filter gaps on threshold criteria + blocklists, sort by est_lift descending."""
     gaps = gaps_data.get("gaps", [])
     ok = []
-    blocked = 0
+    blocked_name = 0
+    blocked_pair = 0
     for g in gaps:
-        # Blocklist gate — never wire restricted demand partners
+        # Demand-name blocklist — never wire restricted demand partners
         if _demand_name_blocked(g.get("demand_name", "")):
-            blocked += 1
+            blocked_name += 1
+            continue
+        # Pair-specific blocklist — block specific (pub, demand-pattern) wirings
+        if _pair_blocked(int(g.get("publisher_id", 0) or 0), g.get("demand_name", "")):
+            blocked_pair += 1
             continue
         if float(g.get("est_lift_30d", 0) or 0) < MIN_LIFT_30D:
             continue
         if float(g.get("peer_median_win_rate", 0) or 0) < MIN_PEER_WIN_RATE:
             continue
         ok.append(g)
-    if blocked:
-        print(f"[auto_wire_gaps] blocked {blocked} gap(s) by DEMAND_NAME_BLOCKLIST: {DEMAND_NAME_BLOCKLIST}")
+    if blocked_name:
+        print(f"[auto_wire_gaps] blocked {blocked_name} gap(s) by DEMAND_NAME_BLOCKLIST: {DEMAND_NAME_BLOCKLIST}")
+    if blocked_pair:
+        print(f"[auto_wire_gaps] blocked {blocked_pair} gap(s) by BLOCKED_PAIRS")
     ok.sort(key=lambda g: -float(g.get("est_lift_30d", 0) or 0))
     return ok
 
@@ -182,6 +212,10 @@ def run() -> dict:
             if _demand_name_blocked(template_name):
                 print(f"[{actor}] BLOCKED demand {did} ({template_name}): "
                       f"matches DEMAND_NAME_BLOCKLIST — refusing to wire")
+                continue
+            if _pair_blocked(pid, template_name):
+                print(f"[{actor}] BLOCKED pair pub={pid} demand={did} ({template_name}): "
+                      f"matches BLOCKED_PAIRS — refusing to wire")
                 continue
             for f in STRIP_FIELDS:
                 if f in template:
