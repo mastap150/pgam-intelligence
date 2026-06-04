@@ -1620,15 +1620,25 @@ def _build_blocks(findings: list[dict], summary: dict,
                               + table + more)},
         })
 
-    med_cap = max(MAX_LINES_PER_SECTION // 3, 3)
+    # Medium is now the catch-all for low-revenue hygiene anomalies
+    # (trace-tier findings calibrate to 'medium' rather than the
+    # previous silent 'info' — see entity_audit._calibrate_severity).
+    # Bump the cap so the operator actually sees more than 3 of these;
+    # they're the compliance "long tail" needed for full coverage.
+    med_cap = MAX_LINES_PER_SECTION + 5  # 15 lines max
     if med:
         lines = [_format_line(f) for f in med[:med_cap]]
         if len(med) > med_cap:
-            lines.append(f"…+{len(med) - med_cap} more medium")
+            lines.append(f"…+{len(med) - med_cap} more medium "
+                         "_(full list in today's CSV — see footer)_")
         blocks.append({
             "type": "section",
             "text": {"type": "mrkdwn",
-                     "text": ":small_orange_diamond: *Medium*\n" + "\n".join(lines)},
+                     "text": (":small_orange_diamond: *Medium "
+                              f"({len(med)})*  ·  "
+                              "_low-revenue compliance gaps — same fix pattern "
+                              "as the action queue above_\n"
+                              + "\n".join(lines))},
         })
 
     # Per-SSP scorecard sits between the action queue and the partner
