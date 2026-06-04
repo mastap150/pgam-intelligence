@@ -64,13 +64,13 @@ TIER_HIGH_USD      = 50.0    # high:     non-trivial revenue
 TIER_MEDIUM_USD    = 1.0     # medium:   above-noise floor
 # Below TIER_MEDIUM_USD: info-only (audit log; doesn't surface in digest body).
 
-# Per-entity reseller-line check is skipped entirely below this floor —
-# the per-(entity × SSP) combinatorics produce more noise than signal
-# for pennies of revenue. Universal-DIRECT check still runs because
-# missing the PGAM seat is structural (it's about the path itself, not
-# this run's revenue).
+# Per-entity reseller-line check floor. Default 0.0 = audit every
+# entity in the universe regardless of revenue, so the report fully
+# covers low-revenue inventory and we have a clean compliance posture
+# across the board (not just the top earners). Override the env var if
+# the resulting noise floor becomes a problem.
 PHASE5_RESELLER_MIN_REV_7D = float(
-    os.environ.get("PGAM_COMPLIANCE_PHASE5_RESELLER_MIN_REV", "1.0")
+    os.environ.get("PGAM_COMPLIANCE_PHASE5_RESELLER_MIN_REV", "0.0")
 )
 
 
@@ -108,17 +108,25 @@ def _calibrate_severity(base: str, rev_7d: float) -> str:
     hygiene. We keep the same check_id (so the dashboard still tracks
     it) but flag it at a severity that matches its impact.
 
+    Trace-tier findings used to collapse to 'info', which the digest
+    doesn't render — that silently hid every low-revenue anomaly from
+    the report. We now downgrade trace-tier findings to 'medium'
+    instead so they surface in the digest's Medium section. Their
+    impact is small but visibility is the point: the user wants the
+    audit to cover every entity in the universe, not just the top
+    earners, so we can demonstrate full compliance.
+
     Mapping:
-        base=critical → material:critical, high:high, medium:medium, trace:info
-        base=high     → material:high,     high:high, medium:medium, trace:info
-        base=medium   → material:medium,   high:medium, medium:medium, trace:info
+        base=critical → material:critical, high:high,   medium:medium, trace:medium
+        base=high     → material:high,     high:high,   medium:medium, trace:medium
+        base=medium   → material:medium,   high:medium, medium:medium, trace:medium
         base=info     → info (untouched)
     """
     tier = _revenue_tier(rev_7d)
     if base == "info":
         return "info"
     if tier == "trace":
-        return "info"
+        return "medium"
     if tier == "medium":
         return "medium" if base in ("critical", "high", "medium") else "info"
     if tier == "high":
