@@ -113,20 +113,40 @@ def _normalize_domain(raw: str) -> str:
     d = (raw or "").strip().lower()
     if not d:
         return ""
-    # Strip URL scheme + path. The CSV occasionally has things like
-    # "beostore-552b8.web.app/" which is a path with a trailing slash;
-    # treat as junk later.
     if d.startswith("http://"):
         d = d[7:]
     elif d.startswith("https://"):
         d = d[8:]
-    # Drop www. prefix.
+    # Drop query string before path — some CSV rows look like
+    # `hungrystudio.com?utm_source=googleplay…` and we want the bare
+    # host. Same idea for fragments. Path stripping comes after so
+    # that order doesn't matter.
+    for sep in ("?", "#", "/"):
+        if sep in d:
+            d = d.split(sep, 1)[0]
     if d.startswith("www."):
         d = d[4:]
-    # Drop trailing slash + anything after first / (paths).
-    if "/" in d:
-        d = d.split("/", 1)[0]
     return d
+
+
+def _looks_like_bundle_id(d: str) -> bool:
+    """The CSV occasionally has the bundle_id repeated in the DOMAIN
+    column (LL artifact). e.g. `com.block.juggle,com.block.juggle,0,0`.
+    Drop those — Android bundle IDs have dots but they're not hosts."""
+    if not d:
+        return False
+    # Numeric-only with no dots is iOS App Store ID — definitely not a host.
+    if d.isdigit():
+        return True
+    # Heuristic for Android bundles: starts with com./io./net./org./app./
+    # AND has no slash and at least 3 segments. Real domains rarely fit
+    # all three. (`com.example.com` is technically valid but vanishingly
+    # rare in this data; the picker would still pick the higher-volume
+    # real publisher entry if it exists.)
+    prefixes = ("com.", "io.", "net.", "org.", "app.", "co.", "me.")
+    if d.startswith(prefixes) and d.count(".") >= 2:
+        return True
+    return False
 
 
 def _load_registry_denylist() -> set[str]:
@@ -153,6 +173,16 @@ def _load_registry_denylist() -> set[str]:
     return {d for d in out if d}
 
 
+# Sources we treat as authoritative — those WON'T be overwritten by the
+# CSV import. Anything else (NULL, 'unknown', 'resolver:heuristic') is
+# low-confidence and gets replaced when the CSV has a real mapping with
+# bid-volume signal behind it. The original "preserve everything" rule
+# was too conservative — a stale 'unknown' guess like
+# `com.block.juggle → block.com` (naive bundle-prefix heuristic) was
+# preventing the correct `hungrystudio.com` mapping from landing.
+_AUTHORITATIVE_SOURCES = ("itunes", "resolver:itunes", "ll_supply_csv")
+
+
 _UPSERT_SQL = """
 INSERT INTO pgam_direct.app_metadata
     (bundle_id, dev_domain, source, last_fetched, fetch_attempts,
@@ -161,21 +191,23 @@ VALUES
     (%(bundle_id)s, %(dev_domain)s, %(source)s, now(), 1,
      now(), now())
 ON CONFLICT (bundle_id) DO UPDATE SET
-    -- Only overwrite dev_domain if the existing value is NULL — we
-    -- trust per-bundle resolver work (App Store / Play Store lookups
-    -- by dev_domain_backfill.py) over the bulk CSV import. The CSV
-    -- fills the gap, it doesn't override authoritative resolutions.
-    dev_domain          = COALESCE(pgam_direct.app_metadata.dev_domain,
-                                   EXCLUDED.dev_domain),
+    -- Overwrite dev_domain if the existing row's source is NOT in the
+    -- authoritative list. App Store / Play Store lookups stay; NULL
+    -- and low-confidence guesses get replaced.
+    dev_domain          = CASE
+        WHEN pgam_direct.app_metadata.source = ANY(%(authoritative)s)
+        THEN pgam_direct.app_metadata.dev_domain
+        ELSE EXCLUDED.dev_domain
+    END,
     source              = CASE
-        WHEN pgam_direct.app_metadata.dev_domain IS NULL
-        THEN EXCLUDED.source
-        ELSE pgam_direct.app_metadata.source
+        WHEN pgam_direct.app_metadata.source = ANY(%(authoritative)s)
+        THEN pgam_direct.app_metadata.source
+        ELSE EXCLUDED.source
     END,
     dev_url_resolved_at = CASE
-        WHEN pgam_direct.app_metadata.dev_domain IS NULL
-        THEN EXCLUDED.dev_url_resolved_at
-        ELSE pgam_direct.app_metadata.dev_url_resolved_at
+        WHEN pgam_direct.app_metadata.source = ANY(%(authoritative)s)
+        THEN pgam_direct.app_metadata.dev_url_resolved_at
+        ELSE EXCLUDED.dev_url_resolved_at
     END,
     updated_at          = now();
 """
@@ -198,9 +230,17 @@ def run(csv_path: Path, dry_run: bool) -> dict:
                 counts[dom] += 1
 
     # Pass 2: emit acceptable (bundle, domain) pairs.
-    accepted: dict[str, str] = {}  # bundle → publisher_domain
+    # When multiple non-denylisted domains appear for the same bundle,
+    # pick the one with the highest BID_REQUESTS. This matters because
+    # the CSV often has ~12 rows per bundle (one per attribution path):
+    # ad-network entries get filtered by the denylist, but several real
+    # publisher candidates can survive (e.g. `www.hungrystudio.com` AND
+    # `hungrystudio.com?utm_source=…` for the same bundle). The row
+    # with the most bid volume is overwhelmingly the canonical
+    # publisher — for com.block.juggle, that's www.hungrystudio.com at
+    # 256M bids vs the ad-network noise rows at <1M each.
+    candidates: dict[str, dict[str, int]] = {}  # bundle → {domain: bid_requests}
     reasons = Counter()
-    sample: list[tuple[str, str]] = []
     with csv_path.open() as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -216,21 +256,35 @@ def run(csv_path: Path, dry_run: bool) -> dict:
             if _is_junk_domain(dom):
                 reasons["junk_pattern"] += 1
                 continue
+            if _looks_like_bundle_id(dom):
+                reasons["bundle_id_in_domain_column"] += 1
+                continue
             if dom in full_deny:
                 reasons["denylisted_registry_or_manual"] += 1
                 continue
             if counts[dom] >= MAX_BUNDLES_PER_DOMAIN:
                 reasons["over_bundle_threshold"] += 1
                 continue
-            # First (bundle, domain) wins. If the CSV has duplicate
-            # rows for the same bundle with different domains, log
-            # the conflict but keep the first.
-            if bundle in accepted and accepted[bundle] != dom:
-                reasons["bundle_domain_conflict"] += 1
-                continue
-            accepted[bundle] = dom
-            if len(sample) < 10:
-                sample.append((bundle, dom))
+            try:
+                bid = int(row.get("BID_REQUESTS") or 0)
+            except ValueError:
+                bid = 0
+            candidates.setdefault(bundle, {})
+            # If the same (bundle, normalized-domain) appears twice
+            # (e.g. `www.X` and `X` both normalize to `X`), sum volumes
+            # so the picker doesn't fragment the signal.
+            candidates[bundle][dom] = candidates[bundle].get(dom, 0) + bid
+
+    # For each bundle, pick the domain with the highest summed volume.
+    accepted: dict[str, str] = {}
+    sample: list[tuple[str, str, int]] = []
+    for bundle, doms in candidates.items():
+        if len(doms) > 1:
+            reasons["bundle_domain_conflict_resolved_by_volume"] += 1
+        winner_dom, winner_vol = max(doms.items(), key=lambda kv: kv[1])
+        accepted[bundle] = winner_dom
+        if len(sample) < 10:
+            sample.append((bundle, winner_dom, winner_vol))
 
     print(f"[hints] CSV rows scanned: {sum(reasons.values()) + len(accepted):,}")
     print(f"[hints] Accepted (bundle → publisher domain) pairs: {len(accepted):,}")
@@ -241,9 +295,9 @@ def run(csv_path: Path, dry_run: bool) -> dict:
         print(f"   {k:35s} {v:,}")
     print(f"[hints] Registry denylist size: {len(registry_deny):,} "
           f"+ manual {len(MANUAL_AD_NETWORK_DENYLIST):,}")
-    print(f"[hints] Sample accepted pairs:")
-    for b, d in sample:
-        print(f"   {b:50s} → {d}")
+    print(f"[hints] Sample accepted pairs (with winning-domain bid volume):")
+    for b, d, vol in sample:
+        print(f"   {b:50s} → {d}  ({vol:,} bids)")
 
     if dry_run:
         print("[hints] dry-run: no writes performed.")
@@ -256,9 +310,10 @@ def run(csv_path: Path, dry_run: bool) -> dict:
         for bundle, dom in accepted.items():
             try:
                 cur.execute(_UPSERT_SQL, {
-                    "bundle_id": bundle,
-                    "dev_domain": dom,
-                    "source": "ll_supply_csv",
+                    "bundle_id":     bundle,
+                    "dev_domain":    dom,
+                    "source":        "ll_supply_csv",
+                    "authoritative": list(_AUTHORITATIVE_SOURCES),
                 })
                 written += 1
             except Exception as exc:
