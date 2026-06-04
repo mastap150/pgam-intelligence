@@ -97,7 +97,7 @@ const TOTAL = 11;
 
   // Subtitle
   s.addText(
-    "How PGAM delivered 3.9M premium impressions and a 66.5% video " +
+    "How PGAM delivered 3.94M premium impressions and a 66.5% video " +
     "completion rate for Amazon Business — above the IAB OLV benchmark.",
     {
       x: 0.8, y: 4.5, w: 8.0, h: 1.4,
@@ -123,9 +123,9 @@ const TOTAL = 11;
 
   // Quick fact cards
   const facts = [
-    ["3.9M", "Premium\nimpressions"],
-    ["66.5%", "Video\ncompletion rate"],
-    ["48", "Vetted\npublishers"],
+    ["3.94M", "Premium impressions"],
+    ["66.5%", "Video completion rate"],
+    ["48", "Vetted publishers"],
   ];
   facts.forEach((f, i) => {
     const y = 3.5 + i * 1.05;
@@ -202,20 +202,20 @@ const TOTAL = 11;
     fill: { color: C.gold }, line: { type: "none" },
   });
   s.addText("THE READ", {
-    x: 0.85, y: 4.45, w: 4, h: 0.3,
+    x: 0.85, y: 4.5, w: 4, h: 0.3,
     fontFace: F.body, fontSize: 10, color: C.gold,
-    bold: true, charSpacing: 6,
+    bold: true, charSpacing: 6, margin: 0,
   });
   s.addText(
     "Amazon Business' Q2 OLV campaign is pacing on plan and over-indexing on " +
-    "completion. Completion rate climbed from the low 60s in week one to the " +
+    "completion. Completion rate climbed from the mid 60s in week one to the " +
     "low 70s by week three as PGAM's optimization moved spend toward " +
     "high-attention placements. Forty-eight allowlisted publishers, zero " +
     "MFA leakage, and a full-funnel mid-funnel layer launched on June 3.",
     {
-      x: 0.85, y: 4.8, w: SW - 1.7, h: 1.9,
+      x: 0.85, y: 4.9, w: SW - 1.7, h: 1.8,
       fontFace: F.body, fontSize: 14, color: C.white,
-      lineSpacingMultiple: 1.4,
+      lineSpacingMultiple: 1.4, margin: 0, valign: "top",
     }
   );
 
@@ -366,31 +366,33 @@ const TOTAL = 11;
   s.background = { color: C.bg };
   sectionTitle(s, "PERFORMANCE", "Measured against industry benchmarks");
 
-  // Bar chart: VTR comparison
+  // Focused VTR-only bar comparison (apples-to-apples)
   const chartData = [
     {
       name: "PGAM – Amazon Q2",
-      labels: ["Completion rate", "Attention score (PGAM)", "Allowlisted supply"],
-      values: [66.5, 60.5, 100],
+      labels: ["Week 1", "Full flight to date", "Week 3"],
+      values: [64.6, 66.5, 70.6],
     },
     {
-      name: "IAB OLV benchmark",
-      labels: ["Completion rate", "Attention score (PGAM)", "Allowlisted supply"],
-      values: [64.0, 0, 0],
+      name: "IAB OLV benchmark (avg)",
+      labels: ["Week 1", "Full flight to date", "Week 3"],
+      values: [64.0, 64.0, 64.0],
     },
   ];
 
   s.addChart(pres.charts.BAR, chartData, {
-    x: 0.5, y: 1.9, w: 8.2, h: 4.8,
+    x: 0.5, y: 1.9, w: 8.2, h: 4.5,
     barDir: "col",
     chartColors: [C.gold, C.ice],
     chartArea: { fill: { color: C.white } },
     catAxisLabelColor: C.text,
-    catAxisLabelFontSize: 11,
+    catAxisLabelFontSize: 12,
     valAxisLabelColor: C.muted,
     valAxisLabelFontSize: 9,
     valGridLine: { color: C.divider, size: 0.5 },
     catGridLine: { style: "none" },
+    valAxisMinVal: 55,
+    valAxisMaxVal: 75,
     showValue: true,
     dataLabelPosition: "outEnd",
     dataLabelColor: C.navy,
@@ -400,13 +402,17 @@ const TOTAL = 11;
     legendPos: "b",
     legendColor: C.text,
     legendFontSize: 11,
-    showTitle: false,
-    barGapWidthPct: 80,
+    showTitle: true,
+    title: "Video completion rate (%) — PGAM vs IAB OLV benchmark",
+    titleFontFace: F.body,
+    titleFontSize: 12,
+    titleColor: C.muted,
+    barGapWidthPct: 90,
   });
 
   // Right callout column
   s.addShape(pres.shapes.RECTANGLE, {
-    x: 8.95, y: 1.9, w: 3.85, h: 4.8,
+    x: 8.95, y: 1.9, w: 3.85, h: 4.5,
     fill: { color: C.navy }, line: { type: "none" },
   });
   s.addText("READ THIS WAY", {
@@ -415,25 +421,25 @@ const TOTAL = 11;
   });
 
   const notes = [
-    ["+2.5 pp", "above IAB OLV completion benchmark"],
+    ["+2.5 pp", "above IAB OLV completion benchmark on full-flight average"],
+    ["+6.6 pp", "above benchmark by week 3 as optimization compounded"],
     ["60.5", "average PGAM Attention score (0–100)"],
-    ["100%", "supply on advertiser-approved allowlist"],
   ];
   notes.forEach((n, i) => {
-    const y = 2.55 + i * 1.35;
+    const y = 2.5 + i * 1.25;
     s.addText(n[0], {
-      x: 9.15, y, w: 3.5, h: 0.6,
-      fontFace: F.head, fontSize: 28, color: C.gold, bold: true, margin: 0,
+      x: 9.15, y, w: 3.5, h: 0.55,
+      fontFace: F.head, fontSize: 26, color: C.gold, bold: true, margin: 0,
     });
     s.addText(n[1], {
-      x: 9.15, y: y + 0.65, w: 3.5, h: 0.6,
+      x: 9.15, y: y + 0.6, w: 3.5, h: 0.6,
       fontFace: F.body, fontSize: 11, color: C.white, margin: 0, lineSpacingMultiple: 1.3,
     });
   });
 
   // Source line
-  s.addText("IAB OLV benchmark: industry average 62–68% completion for in-stream desktop+CTV video.", {
-    x: 0.5, y: 6.85, w: SW - 1.0, h: 0.25,
+  s.addText("IAB OLV benchmark: industry average ~64% completion for in-stream desktop+CTV video.", {
+    x: 0.5, y: 6.55, w: SW - 1.0, h: 0.25,
     fontFace: F.body, fontSize: 9, color: C.muted, italic: true,
   });
 
@@ -677,7 +683,7 @@ const TOTAL = 11;
     ["C", "Calibration", "TFN-matched human-response factor"],
   ];
   formula.forEach((f, i) => {
-    const y = 3.4 + i * 1.0;
+    const y = 3.2 + i * 1.05;
     s.addShape(pres.shapes.OVAL, {
       x: 7.8, y, w: 0.6, h: 0.6,
       fill: { color: C.gold }, line: { type: "none" },
@@ -735,16 +741,19 @@ const TOTAL = 11;
     },
   ];
 
+  const cardH = 1.5;
+  const rowGap = 0.18;
+  const statusW = 2.7;
   funnels.forEach((f, i) => {
-    const y = 1.9 + i * 1.55;
+    const y = 1.65 + i * (cardH + rowGap);
     const x = (SW - f.w) / 2;
     s.addShape(pres.shapes.RECTANGLE, {
-      x, y, w: f.w, h: 1.35,
+      x, y, w: f.w, h: cardH,
       fill: { color: C.white }, line: { color: C.divider, width: 0.5 },
       shadow: { type: "outer", color: "000000", blur: 8, offset: 2, angle: 90, opacity: 0.06 },
     });
     s.addShape(pres.shapes.RECTANGLE, {
-      x, y, w: 0.12, h: 1.35,
+      x, y, w: 0.12, h: cardH,
       fill: { color: f.color }, line: { type: "none" },
     });
     s.addText(f.tier, {
@@ -752,27 +761,27 @@ const TOTAL = 11;
       fontFace: F.body, fontSize: 9, color: C.gold, bold: true, charSpacing: 5, margin: 0,
     });
     s.addText(f.title, {
-      x: x + 0.3, y: y + 0.4, w: f.w - 0.5, h: 0.45,
-      fontFace: F.head, fontSize: 17, color: C.navy, bold: true, margin: 0,
+      x: x + 0.3, y: y + 0.4, w: f.w - 0.5, h: 0.4,
+      fontFace: F.head, fontSize: 16, color: C.navy, bold: true, margin: 0,
     });
     s.addText(f.detail, {
-      x: x + 0.3, y: y + 0.82, w: f.w - 4.3, h: 0.5,
-      fontFace: F.body, fontSize: 11, color: C.text, margin: 0, lineSpacingMultiple: 1.3,
+      x: x + 0.3, y: y + 0.85, w: f.w - statusW - 0.5, h: 0.55,
+      fontFace: F.body, fontSize: 11, color: C.text, margin: 0, lineSpacingMultiple: 1.25, valign: "top",
     });
     s.addText(f.status, {
-      x: x + f.w - 4.0, y: y + 0.85, w: 3.7, h: 0.4,
+      x: x + f.w - statusW - 0.2, y: y + 0.95, w: statusW, h: 0.4,
       fontFace: F.body, fontSize: 10, color: C.muted, italic: true,
       margin: 0, align: "right",
     });
   });
 
-  // Bottom note
+  // Bottom note (positioned safely above footer)
   s.addText(
     "Full-funnel architecture means every upper-funnel completion has somewhere to go. " +
     "Mid-funnel launched June 3 to absorb the audience PGAM just paid to reach.",
     {
-      x: 0.5, y: 6.65, w: SW - 1.0, h: 0.4,
-      fontFace: F.body, fontSize: 11, color: C.muted, align: "center", italic: true,
+      x: 0.5, y: 6.75, w: SW - 1.0, h: 0.3,
+      fontFace: F.body, fontSize: 10, color: C.muted, align: "center", italic: true,
     }
   );
 
@@ -880,21 +889,22 @@ const TOTAL = 11;
     }
   );
 
-  // Contact card
+  // Contact card (sized so page number can live outside it)
   s.addShape(pres.shapes.RECTANGLE, {
-    x: 1.0, y: 6.2, w: 11.3, h: 0.85,
+    x: 1.0, y: 6.1, w: 9.5, h: 0.85,
     fill: { color: C.navy }, line: { color: C.gold, width: 0.5 },
   });
   s.addText("Priyesh Patel  ·  PGAM Media", {
-    x: 1.2, y: 6.3, w: 5, h: 0.35,
+    x: 1.2, y: 6.2, w: 6, h: 0.35,
     fontFace: F.body, fontSize: 13, color: C.white, bold: true, margin: 0,
   });
   s.addText("priyesh@pgammedia.com  ·  pgammedia.com", {
-    x: 1.2, y: 6.65, w: 7, h: 0.3,
+    x: 1.2, y: 6.55, w: 8, h: 0.3,
     fontFace: F.body, fontSize: 11, color: C.ice, margin: 0,
   });
+  // Page number outside the card, in slide chrome
   s.addText(`${TOTAL} / ${TOTAL}`, {
-    x: SW - 2.2, y: 6.55, w: 1.0, h: 0.3,
+    x: SW - 1.8, y: SH - 0.36, w: 1.2, h: 0.3,
     fontFace: F.body, fontSize: 10, color: C.ice, align: "right",
   });
 }
