@@ -178,18 +178,45 @@ def _evaluate_sellers_json(
     return str(target_seat) in pgam_seat_registry
 
 
-def _classify(row: AuditRow) -> tuple[str, list[str], str]:
-    """Derive (status, issues, recommended_action) from the flags."""
+def _classify(row: AuditRow,
+              effective_pgam_present: bool | None = None,
+              expected_pgam_line: str | None = None) -> tuple[str, list[str], str]:
+    """Derive (status, issues, recommended_action) from the flags.
+
+    ``effective_pgam_present`` overrides ``row.pgam_direct_present`` for
+    the "is the PGAM line in place" determination. It exists because
+    the matrix's DIRECT-only check is wrong for via_partner entities —
+    those entities should have a partner-specific RESELLER line, not a
+    DIRECT one. supply_path_audit knows the path kind per entity and
+    computes the correct value; we pass it in here so the matrix's
+    critical/warning/healthy bucketing matches reality.
+
+    ``expected_pgam_line`` is the path-correct copy-paste line for the
+    Slack action card ("Add `pgamssp.com, <seat>, RESELLER`" for via
+    partners, "…DIRECT" for pgam_direct). Falls back to the matrix's
+    DIRECT-shaped guess if not provided.
+    """
+    pgam_present = (
+        effective_pgam_present
+        if effective_pgam_present is not None
+        else row.pgam_direct_present
+    )
     issues: list[str] = []
     actions: list[str] = []
 
-    if not row.pgam_direct_present:
-        issues.append("PGAM Direct line missing")
-        seat_placeholder = row.pgam_seller_id_expected or "<publisher's PGAM seller_id>"
-        actions.append(
-            f"Add to {row.audit_host or 'publisher'} ads.txt: "
-            f"`pgamssp.com, {seat_placeholder}, DIRECT`"
-        )
+    if not pgam_present:
+        issues.append("PGAM line missing for this supply path")
+        if expected_pgam_line:
+            actions.append(
+                f"Add to {row.audit_host or 'publisher'} ads.txt: "
+                f"`{expected_pgam_line}`"
+            )
+        else:
+            seat_placeholder = row.pgam_seller_id_expected or "<publisher's PGAM seller_id>"
+            actions.append(
+                f"Add to {row.audit_host or 'publisher'} ads.txt: "
+                f"`pgamssp.com, {seat_placeholder}, DIRECT`"
+            )
     if not row.ssp_line_present:
         if row.ssp_seller_id_in_adstxt:
             issues.append(
@@ -214,7 +241,7 @@ def _classify(row: AuditRow) -> tuple[str, list[str], str]:
             f"https://sellers.pgamssp.com/62ebe78298926f0faf3a822a/sellers.json"
         )
 
-    if not row.pgam_direct_present or not row.sellers_json_match:
+    if not pgam_present or not row.sellers_json_match:
         status = "critical"
     elif not row.ssp_line_present:
         status = "warning"
@@ -229,13 +256,24 @@ def build_audit_matrix(
     fetches_by_entity: dict[str, AdsTxtFetch | None],
     pgam_seat_registry: dict[str, dict],
     threshold_usd: float = DEFAULT_AUDIT_THRESHOLD_USD,
+    supply_path_by_entity: dict[str, object] | None = None,
 ) -> tuple[list[AuditRow], MatrixSummary]:
     """Produce one AuditRow per (entity × active_ssp), plus the summary.
 
     Rows below `threshold_usd` revenue still come back (we want the
     record), but they're tagged 'below_threshold' in the issues list so
     callers can filter them out of the digest.
+
+    ``supply_path_by_entity`` is an optional pre-computed lookup from
+    ``build_supply_path_audit``. When supplied, the per-entity path
+    classification (pgam_direct vs via_partner) drives the matrix's
+    PGAM-line check — fixing a false-positive where via_partner
+    entities with a correct RESELLER line were marked critical because
+    the matrix's DIRECT-only check returned False. The lookup values
+    are ``SupplyPathRow`` dataclasses (declared via ``object`` here to
+    avoid a circular import).
     """
+    supply_path_by_entity = supply_path_by_entity or {}
     rows: list[AuditRow] = []
     below_threshold = 0
     seen_ssps: set[str] = set()
@@ -294,7 +332,17 @@ def build_audit_matrix(
                 ssp_seller_id_in_adstxt=ssp_observed,
                 ssp_seller_id_expected=str(exp.account_id),
             )
-            row.status, row.issues, row.recommended_action = _classify(row)
+            # If supply_path_audit already evaluated this entity, use
+            # its path-aware B-layer verdict instead of the matrix's
+            # DIRECT-only check. Otherwise fall back to the raw flag.
+            sp = supply_path_by_entity.get(entity.entity_key)
+            effective_pgam = getattr(sp, "pgam_line_present_for_path", None) if sp else None
+            expected_line = getattr(sp, "expected_pgam_line", None) if sp else None
+            row.status, row.issues, row.recommended_action = _classify(
+                row,
+                effective_pgam_present=effective_pgam,
+                expected_pgam_line=expected_line,
+            )
 
             if entity.revenue_7d < threshold_usd:
                 below_threshold += 1

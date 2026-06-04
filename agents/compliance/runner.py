@@ -650,10 +650,53 @@ def run() -> dict:
         # compliance_audit_summary_daily.
         if p5_for_matrix is not None:
             try:
+                # Build the supply-path audit FIRST so the per-entity
+                # path classification (pgam_direct vs via_partner) and
+                # the path-aware B-layer verdict are available when
+                # the per-(entity × SSP) matrix gets classified below.
+                # Otherwise the matrix's DIRECT-only PGAM check
+                # mislabels every via_partner entity as critical (it
+                # has a RESELLER line, not a DIRECT line — both are
+                # valid for different paths).
+                sp_rows = []
+                sp_summary = None
+                supply_path_by_entity: dict = {}
+                try:
+                    sp_rows, sp_summary = build_supply_path_audit(
+                        entities=p5_for_matrix.entities,
+                        fetches_by_entity=p5_for_matrix.fetches_by_entity,
+                        pgam_seat_registry=p5_for_matrix.pgam_seat_registry,
+                    )
+                    persist_supply_path(sp_rows)
+                    supply_path_by_entity = {r.entity_key: r for r in sp_rows}
+                    summary["supply_path_rows"]              = sp_summary.total_rows
+                    summary["supply_path_pgam_direct"]       = sp_summary.pgam_direct_rows
+                    summary["supply_path_via_partner"]       = sp_summary.via_partner_rows
+                    summary["supply_path_unknown"]           = sp_summary.unknown_rows
+                    summary["supply_path_revenue_audited"]   = sp_summary.revenue_audited_usd
+                    summary["supply_path_revenue_compliant"] = sp_summary.revenue_compliant_usd
+                    summary["supply_path_revenue_at_risk"]   = sp_summary.revenue_at_risk_usd
+                    summary["supply_path_compliance_pct"]    = sp_summary.compliance_pct
+                    summary["supply_path_critical"]          = sp_summary.critical_rows
+                    summary["supply_path_warning"]           = sp_summary.warning_rows
+                    summary["supply_path_healthy"]           = sp_summary.healthy_rows
+                    print(
+                        f"[{ACTOR}] supply_path rows={sp_summary.total_rows} "
+                        f"compliant={sp_summary.compliance_pct}% "
+                        f"$compliant={sp_summary.revenue_compliant_usd:,.0f} "
+                        f"$at_risk={sp_summary.revenue_at_risk_usd:,.0f} "
+                        f"pgam_direct={sp_summary.pgam_direct_rows} "
+                        f"via_partner={sp_summary.via_partner_rows} "
+                        f"unknown={sp_summary.unknown_rows}"
+                    )
+                except Exception as exc:
+                    print(f"[{ACTOR}] supply_path audit failed (non-fatal): {exc}")
+
                 rows, mtx_summary = build_audit_matrix(
                     entities=p5_for_matrix.entities,
                     fetches_by_entity=p5_for_matrix.fetches_by_entity,
                     pgam_seat_registry=p5_for_matrix.pgam_seat_registry,
+                    supply_path_by_entity=supply_path_by_entity,
                 )
                 persisted = persist_matrix(rows)
                 # Daily aggregate row for the digest + dashboard.
@@ -715,41 +758,6 @@ def run() -> dict:
                 summary["audit_matrix_healthy"]  = mtx_summary.healthy_rows
                 summary["audit_matrix_ssps"]     = mtx_summary.ssps_audited
                 summary["audit_matrix_csv_path"] = str(csv_path)
-
-                # ── Supply-path audit (the COMPLIANCE half) ──────────
-                # Per-entity check of the supply chain
-                # (publisher → supply partner → PGAM). Demand-side
-                # SSPs live in audit_matrix above as VISIBILITY only —
-                # they don't need lines in publisher ads.txt files.
-                try:
-                    sp_rows, sp_summary = build_supply_path_audit(
-                        entities=p5_for_matrix.entities,
-                        fetches_by_entity=p5_for_matrix.fetches_by_entity,
-                        pgam_seat_registry=p5_for_matrix.pgam_seat_registry,
-                    )
-                    persist_supply_path(sp_rows)
-                    summary["supply_path_rows"]              = sp_summary.total_rows
-                    summary["supply_path_pgam_direct"]       = sp_summary.pgam_direct_rows
-                    summary["supply_path_via_partner"]       = sp_summary.via_partner_rows
-                    summary["supply_path_unknown"]           = sp_summary.unknown_rows
-                    summary["supply_path_revenue_audited"]   = sp_summary.revenue_audited_usd
-                    summary["supply_path_revenue_compliant"] = sp_summary.revenue_compliant_usd
-                    summary["supply_path_revenue_at_risk"]   = sp_summary.revenue_at_risk_usd
-                    summary["supply_path_compliance_pct"]    = sp_summary.compliance_pct
-                    summary["supply_path_critical"]          = sp_summary.critical_rows
-                    summary["supply_path_warning"]           = sp_summary.warning_rows
-                    summary["supply_path_healthy"]           = sp_summary.healthy_rows
-                    print(
-                        f"[{ACTOR}] supply_path rows={sp_summary.total_rows} "
-                        f"compliant={sp_summary.compliance_pct}% "
-                        f"$compliant={sp_summary.revenue_compliant_usd:,.0f} "
-                        f"$at_risk={sp_summary.revenue_at_risk_usd:,.0f} "
-                        f"pgam_direct={sp_summary.pgam_direct_rows} "
-                        f"via_partner={sp_summary.via_partner_rows} "
-                        f"unknown={sp_summary.unknown_rows}"
-                    )
-                except Exception as exc:
-                    print(f"[{ACTOR}] supply_path audit failed (non-fatal): {exc}")
 
                 # ── Block-list maintenance (Stage 1: queue only) ────
                 # For each non-compliant (entity × supply_partner) path

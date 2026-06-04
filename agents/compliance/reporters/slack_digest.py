@@ -864,6 +864,12 @@ _DEMAND_PARTNER_ENTITIES_QUERY = """
 -- Entities buying through one demand SSP, joined to the supply-path
 -- audit so we have the entity's LL supply partner alongside each row.
 -- Ordered by revenue so the card surfaces the dollar-impactful gaps.
+--
+-- Note: pgam_line_present_for_path is the *path-aware* B-layer check
+-- (DIRECT for pgam_direct paths, RESELLER for via_partner paths). It's
+-- the right column to render in the per-SSP card's "PGAM" column.
+-- m.pgam_direct_present is direct-only and false for via_partner
+-- entities even when their RESELLER line is correctly in place.
 SELECT
     m.entity_value,
     m.kind,
@@ -876,7 +882,9 @@ SELECT
     sp.ll_publisher_id,
     sp.ll_publisher_name,
     sp.supply_partner_key,
-    sp.supply_partner_pgam_seat
+    sp.supply_partner_pgam_seat,
+    sp.path_kind,
+    sp.pgam_line_present_for_path
 FROM pgam_direct.compliance_entity_ssp_audit m
 LEFT JOIN pgam_direct.compliance_entity_supply_path_audit sp
        ON sp.entity_key = m.entity_key AND sp.as_of = m.as_of
@@ -997,7 +1005,17 @@ def _demand_partner_card_blocks(as_of: date,
         for e in entities:
             ent = (e.get("entity_value") or "")[:24]
             erev = float(e.get("revenue_7d") or 0)
-            pgam = "✓" if e.get("pgam_direct_present") else "✗"
+            # Path-aware PGAM line check: for via_partner entities we
+            # want the RESELLER line for that partner's seat; for
+            # pgam_direct we want the DIRECT line. supply_path_audit
+            # encodes both in pgam_line_present_for_path. Fall back to
+            # the SSP audit's DIRECT-only flag only when the supply
+            # path row is missing (e.g. an entity that's below the
+            # supply-path materiality threshold).
+            sp_pgam = e.get("pgam_line_present_for_path")
+            if sp_pgam is None:
+                sp_pgam = e.get("pgam_direct_present")
+            pgam = "✓" if sp_pgam else "✗"
             ssp_y = "✓" if e.get("ssp_line_present") else "✗"
             jsn = "✓" if e.get("sellers_json_match") else "✗"
             # Schain per entity — flag ✗ when the entity's LL supply
@@ -1236,6 +1254,106 @@ def _registry_gap_block(findings: list[dict], summary: dict) -> dict | None:
     }
 
 
+_TLDR_TOP_FIXES_SQL = """
+-- Top entities by revenue that aren't fully clean. We surface them as
+-- "fix these first" — recovering them moves the most dollars back to
+-- 'healthy'. Joined to entity_ssp_audit so we know how many demand
+-- SSPs are also broken per entity (useful one-glance signal).
+SELECT sp.entity_value, sp.kind, sp.revenue_7d,
+       sp.supply_partner_key,
+       sp.supply_partner_line_present,
+       sp.pgam_line_present_for_path,
+       sp.status,
+       (SELECT COUNT(*) FROM pgam_direct.compliance_entity_ssp_audit m
+        WHERE m.entity_key = sp.entity_key AND m.as_of = sp.as_of
+          AND (m.ssp_line_present IS FALSE
+               OR m.pgam_direct_present IS FALSE)) AS demand_misses
+FROM pgam_direct.compliance_entity_supply_path_audit sp
+WHERE sp.as_of = %(as_of)s AND sp.status <> 'healthy'
+ORDER BY sp.revenue_7d DESC
+LIMIT 3;
+"""
+
+
+def _tldr_block(as_of: date, summary: dict) -> dict | None:
+    """One-block executive summary: headline numbers + top-3 fixes +
+    last-24h movers. Inserted at the very top of the digest so anyone
+    reading the channel knows the day's story before scrolling.
+
+    Returns None if the matrix didn't run (no data to summarize)."""
+    pct      = summary.get("audit_matrix_compliant_pct")
+    at_risk  = summary.get("audit_matrix_revenue_at_risk")
+    audited  = summary.get("audit_matrix_revenue_audited")
+    if pct is None or audited is None:
+        return None
+
+    # Movers vs yesterday — reuse the remediation tracker's diff
+    # (it's already a single-day lookback off the same audit tables).
+    fixes_n = regs_n = 0
+    try:
+        from agents.compliance.remediation_tracker import (
+            _resolve_yday, _SUPPLY_PATH_DIFF_SQL, _SSP_DIFF_SQL,
+            _supply_path_lines, _ssp_lines,
+        )
+        yday = _resolve_yday(as_of)
+        if yday and yday < as_of:
+            with connect() as conn, conn.cursor() as cur:
+                # 1d lookback: prior == yesterday for the stability
+                # check. The query handles the degenerate case fine.
+                cur.execute(_SUPPLY_PATH_DIFF_SQL,
+                            {"today": as_of, "yday": yday, "prior": yday})
+                sp_fix, sp_reg = _supply_path_lines(cur.fetchall())
+                cur.execute(_SSP_DIFF_SQL,
+                            {"today": as_of, "yday": yday, "prior": yday})
+                ssp_fix, ssp_reg = _ssp_lines(cur.fetchall())
+            fixes_n = len(sp_fix) + len(ssp_fix)
+            regs_n  = len(sp_reg) + len(ssp_reg)
+    except Exception as exc:
+        print(f"[compliance.slack_digest] tldr movers query failed "
+              f"(non-fatal): {exc}")
+
+    # Top-3 priority fixes by entity revenue.
+    top_lines: list[str] = []
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(_TLDR_TOP_FIXES_SQL, {"as_of": as_of})
+            for r in cur.fetchall():
+                ev, kind, rev, partner, A, B, st, dm = r
+                rev_f = float(rev or 0)
+                tag = "🚨" if st == "critical" else "⚠️"
+                # The succinct "what's broken" hint — one issue, not all.
+                what = []
+                if A is False: what.append(f"missing {partner} line")
+                if B is False: what.append("missing PGAM line")
+                if not what and dm: what.append(f"{dm} demand-SSP gaps")
+                if not what: what.append(st)
+                top_lines.append(
+                    f"{tag} *{ev}* (${rev_f:,.0f}/7d via `{partner or '?'}`) — "
+                    f"{', '.join(what)}"
+                )
+    except Exception as exc:
+        print(f"[compliance.slack_digest] tldr top-fixes query failed "
+              f"(non-fatal): {exc}")
+
+    head = (
+        f":clipboard: *TL;DR — {as_of.isoformat()}*\n"
+        f"*${at_risk or 0:,.0f}/7d at risk* of ${audited:,.0f}/7d audited  ·  "
+        f"*{pct:.0f}%* compliant"
+    )
+    movers = ""
+    if fixes_n or regs_n:
+        movers = (f"  ·  vs yesterday: :white_check_mark: {fixes_n} fixes / "
+                  f":rotating_light: {regs_n} regressions")
+    elif fixes_n == 0 and regs_n == 0:
+        movers = "  ·  vs yesterday: no line changes"
+
+    body = head + movers
+    if top_lines:
+        body += "\n\n*Top 3 fixes by $ recoverable:*\n" + "\n".join(top_lines)
+    body += ("\n_Full action queue + per-SSP cards below; CSV on Render._")
+    return {"type": "section", "text": {"type": "mrkdwn", "text": body}}
+
+
 def _build_blocks(findings: list[dict], summary: dict,
                   lowest_scores: list[dict],
                   partner_rollup: list[dict] | None = None,
@@ -1308,9 +1426,18 @@ def _build_blocks(findings: list[dict], summary: dict,
         if "observed_ssp_rows" in summary:
             context_bits.append(f"{summary['observed_ssp_rows']} ssp×pub active")
 
-    blocks: list[dict] = [
-        {"type": "section", "text": {"type": "mrkdwn", "text": header}},
-    ]
+    blocks: list[dict] = []
+
+    # TL;DR — one-block executive summary at the very top so anyone
+    # opening the channel knows the day's story before scrolling. Pulls
+    # from the same tables the rest of the digest uses; failure is
+    # silent and the digest continues with the legacy header.
+    tldr = _tldr_block(date.today(), summary)
+    if tldr is not None:
+        blocks.append(tldr)
+        blocks.append({"type": "divider"})
+
+    blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": header}})
     if context_bits:
         blocks.append({
             "type": "context",
@@ -1374,6 +1501,21 @@ def _build_blocks(findings: list[dict], summary: dict,
             blocks.append({"type": "divider"})
     except Exception as _exc:
         print(f"[compliance.slack_digest] pilot-partner block failed "
+              f"(non-fatal): {_exc}")
+
+    # Remediation watch — diffs today's audit snapshot vs ~7d ago to
+    # detect lines that publishers / SSPs / supply partners actually
+    # added or removed since we last flagged them. Answers "did the
+    # partner do the thing we asked?" without anyone re-running a
+    # crawl manually.
+    try:
+        from agents.compliance.remediation_tracker import build_remediation_blocks
+        rem_blocks = build_remediation_blocks(date.today(), lookback_days=7)
+        if rem_blocks:
+            blocks.extend(rem_blocks)
+            blocks.append({"type": "divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] remediation-watch block failed "
               f"(non-fatal): {_exc}")
 
     # New demand variants — surfaces the case where a new SSP variant
