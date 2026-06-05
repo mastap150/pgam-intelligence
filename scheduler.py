@@ -458,15 +458,32 @@ def setup_schedule():
     # on unfamiliar PGAM-domain DIRECT entries.
     adstxt_monitor = _import("agents.alerts.adstxt_monitor")
     schedule.every().day.at("09:00").do(_run("adstxt_monitor",       adstxt_monitor))
-    # Supply Compliance & Quality Intelligence — Phase 1. Daily 08:00 ET.
-    # Fetches PGAM sellers.json, builds the publisher universe, crawls each
-    # partner's ads.txt, validates the universal `pgammedia.com, <seller_id>,
-    # DIRECT` line, persists findings to pgam_direct.compliance_findings, and
-    # posts a daily Slack digest. Gated at registration time so it costs nothing
-    # until you flip PGAM_COMPLIANCE_ENABLED=1 in Render.
+    # Supply Compliance & Quality Intelligence.
+    #
+    # Retry-until-success: the audit runs 5 times in the morning
+    # window (08:00 / 08:30 / 09:00 / 09:30 / 10:00 ET) so a Render
+    # OOM-kill on one attempt doesn't lose the daily delivery.
+    # runner.run() is idempotent — it checks compliance_runs and
+    # no-ops if today already succeeded or another worker is in
+    # flight. Each tick that finds NO success + NO live attempt
+    # starts a fresh run, which means a mid-execution OOM at 08:05
+    # gets retried at 08:30 automatically with fresh memory.
+    #
+    # At 10:30 ET — 30 min after the last retry — a fallback digest
+    # post fires. If today still has no successful audit AND no
+    # digest has been delivered to #compliance, it posts the latest
+    # available snapshot with a banner ("audit failed today, here's
+    # the latest data we have"). Guarantees a daily channel message
+    # even when every audit attempt OOMs.
     if _os.getenv("PGAM_COMPLIANCE_ENABLED") == "1":
         compliance_runner = _import("agents.compliance.runner")
-        schedule.every().day.at("08:00").do(_run("compliance_runner", compliance_runner))
+        for retry_time in ("08:00", "08:30", "09:00", "09:30", "10:00"):
+            schedule.every().day.at(retry_time).do(
+                _run("compliance_runner", compliance_runner))
+        compliance_fallback = _import(
+            "agents.compliance.runner", "run_fallback_digest")
+        schedule.every().day.at("10:30").do(
+            _run("compliance_fallback", compliance_fallback))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
