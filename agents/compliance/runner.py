@@ -410,13 +410,62 @@ def _finalize_run_log(run_id: int | None, payload: dict) -> None:
         print(f"[{ACTOR}] run-finalize failed (non-fatal): {exc}")
 
 
+_IDEMPOTENCE_SQL = """
+-- Decide whether to run *now* based on today's compliance_runs state.
+-- Two skip conditions:
+--   done       = any run today already finished with ok=TRUE → no work
+--   in_flight  = a run started in the last 15 min with ok IS NULL →
+--                another worker is probably still going; let it finish
+-- A NULL row >15 min old is treated as a dead zombie (likely OOM-killed
+-- on Render) and a new attempt is allowed. This is what enables retry-
+-- until-success: the scheduler can fire compliance_runner at multiple
+-- times in the morning (08:00 / 08:30 / 09:00 / …) and each tick that
+-- finds NO live run + NO success will start a fresh attempt.
+SELECT
+    BOOL_OR(ok IS TRUE)                                          AS done,
+    BOOL_OR(ok IS NULL AND started_at >= now() - interval '15 minutes') AS in_flight
+FROM pgam_direct.compliance_runs
+WHERE started_at::date = current_date;
+"""
+
+
+def _should_skip_today() -> str | None:
+    """Return a reason string ('already_succeeded' / 'another_in_flight')
+    or None to proceed. Safe to call from any cron tick — turns repeated
+    firings into a single audited run plus harmless no-ops."""
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute(_IDEMPOTENCE_SQL)
+            row = cur.fetchone() or (False, False)
+        done, in_flight = bool(row[0]), bool(row[1])
+        if done:      return "already_succeeded"
+        if in_flight: return "another_in_flight"
+        return None
+    except Exception as exc:
+        # Don't gate retries on a DB hiccup — let the run try.
+        print(f"[{ACTOR}] idempotence check failed (proceeding): {exc}")
+        return None
+
+
 def run() -> dict:
     """Scheduler entry. Returns a summary dict."""
+    # Multi-fire idempotence: scheduler.py registers this at several
+    # morning times (08:00 / 08:30 / 09:00 / 09:30 / 10:00 ET) so a
+    # mid-run OOM on the first attempt automatically gets retried 30
+    # min later. The runner itself decides whether each tick should do
+    # real work or no-op. See _should_skip_today docstring.
+    skip = _should_skip_today()
+    if skip:
+        print(f"[{ACTOR}] skip ({skip}) — another tick will handle it")
+        return {"ok": True, "skipped": skip,
+                "publishers_scanned": 0, "findings_opened": 0,
+                "findings_resolved": 0}
+
     started_at = datetime.now(timezone.utc)
     print(f"[{ACTOR}] start {started_at.isoformat()}")
-    # Tombstone insert — must succeed before heavy phases so the
-    # scheduler's catch-up cooldown can see "attempt happened, wait"
-    # even if the process dies later.
+    # Tombstone insert — must succeed before heavy phases so concurrent
+    # ticks see "another in flight" and skip cleanly, and so a worker
+    # killed mid-run still leaves evidence in compliance_runs.
     _run_id = _insert_run_start(started_at)
 
     limit = int(os.environ.get("PGAM_COMPLIANCE_LIMIT") or 0) or None
@@ -1044,6 +1093,114 @@ def run() -> dict:
         f"resolved={summary['findings_resolved']}"
     )
     return summary
+
+
+def run_fallback_digest() -> dict:
+    """Last-resort delivery so #compliance always has a daily message.
+
+    Wired into scheduler.py at 10:30 ET (30 min after the last retry
+    window). If by then today's audit hasn't succeeded AND no digest
+    has gone out, this posts the most recent available snapshot with
+    an explicit banner so the operator knows the audit failed but
+    isn't left wondering whether the cron itself fired.
+
+    No-ops if:
+      • today's audit already finished ok=TRUE (the normal digest
+        already posted from inside run()), OR
+      • a digest with today's dedupe key was already sent (covers the
+        case where a previous fallback call already delivered).
+    """
+    from agents.compliance.reporters import slack_digest as _sd
+    from core import slack as _slack
+    print(f"[{ACTOR}] fallback-digest check")
+
+    # 1) Did today's audit succeed? If yes, the normal post happened.
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT BOOL_OR(ok IS TRUE) FROM pgam_direct.compliance_runs
+                WHERE started_at::date = current_date
+            """)
+            done = bool((cur.fetchone() or (False,))[0])
+        if done:
+            print(f"[{ACTOR}] fallback skip: today's audit completed normally")
+            return {"ok": True, "skipped": "audit_succeeded"}
+    except Exception as exc:
+        print(f"[{ACTOR}] fallback DB check failed (proceeding): {exc}")
+
+    # 2) Was a digest already sent today (e.g. earlier fallback)?
+    try:
+        if _slack.already_sent_today(_sd.DEDUPE_KEY):
+            print(f"[{ACTOR}] fallback skip: digest dedupe key already set")
+            return {"ok": True, "skipped": "digest_already_sent"}
+    except Exception as exc:
+        print(f"[{ACTOR}] fallback dedupe check failed (proceeding): {exc}")
+
+    # 3) Find the most recent available snapshot.
+    latest_as_of = None
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT MAX(as_of) FROM pgam_direct.compliance_entity_supply_path_audit
+            """)
+            latest_as_of = cur.fetchone()[0]
+    except Exception as exc:
+        print(f"[{ACTOR}] fallback latest-snapshot query failed: {exc}")
+
+    if latest_as_of is None:
+        print(f"[{ACTOR}] fallback abort: no audit snapshots anywhere in DB")
+        return {"ok": False, "skipped": "no_snapshot"}
+
+    # 4) Build a minimal stale-data digest. We deliberately don't try
+    # to reconstruct the full daily digest (too many tables to query
+    # with a date override) — operator just needs to know the cron
+    # cycle didn't deliver fresh data and where the latest is.
+    from datetime import date as _date
+    days_stale = (_date.today() - latest_as_of).days
+    try:
+        with connect() as conn, conn.cursor() as cur:
+            cur.execute("""
+                SELECT entity_value, kind, revenue_7d, supply_partner_key, status
+                FROM pgam_direct.compliance_entity_supply_path_audit
+                WHERE as_of = %s AND status <> 'healthy'
+                ORDER BY revenue_7d DESC LIMIT 5;
+            """, (latest_as_of,))
+            top_broken = cur.fetchall()
+    except Exception:
+        top_broken = []
+
+    lines = []
+    for r in top_broken:
+        ev, _kind, rev, sp, st = r
+        sym = "🚨" if st == "critical" else "⚠️"
+        lines.append(f"{sym} *{ev}*  ${float(rev or 0):,.0f}/7d  · via `{sp or '?'}` · {st}")
+
+    head = (
+        f":warning: *Compliance digest — fallback (audit failed today)*\n"
+        f"_Today's 08:00 ET audit run didn't complete (likely Render OOM "
+        f"during ads.txt crawl). Latest snapshot we have is *{latest_as_of}* "
+        f"({days_stale}d stale)._\n\n"
+        f"*Top {len(lines)} non-healthy entities from that snapshot:*\n"
+        + ("\n".join(lines) if lines else "_no non-healthy rows in latest snapshot_")
+        + "\n\n_Auto-retry will fire again at the next morning window. "
+        f"Full audit data: `data/compliance_matrix_{latest_as_of.isoformat()}.csv`._"
+    )
+    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": head}}]
+
+    webhook = os.environ.get("COMPLIANCE_SLACK_WEBHOOK", "").strip()
+    try:
+        if webhook:
+            _sd._post_to_compliance_webhook(
+                webhook, blocks, "Compliance fallback digest")
+        else:
+            _slack.send_blocks(blocks, text="Compliance fallback digest")
+        _slack.mark_sent(_sd.DEDUPE_KEY)
+        print(f"[{ACTOR}] fallback digest posted "
+              f"(stale snapshot {latest_as_of}, {days_stale}d behind)")
+        return {"ok": True, "posted_fallback": True, "as_of": str(latest_as_of)}
+    except Exception as exc:
+        print(f"[{ACTOR}] fallback digest post FAILED: {exc}")
+        return {"ok": False, "error": str(exc)}
 
 
 if __name__ == "__main__":
