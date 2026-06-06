@@ -1128,9 +1128,11 @@ def run_fallback_digest() -> dict:
     except Exception as exc:
         print(f"[{ACTOR}] fallback DB check failed (proceeding): {exc}")
 
-    # 2) Was a digest already sent today (e.g. earlier fallback)?
+    # 2) Was a digest already sent today (e.g. earlier fallback / manual fire)?
+    # Uses the Neon-backed shared dedup so manual posts and scheduled fires
+    # observe the same state across hosts.
     try:
-        if _slack.already_sent_today(_sd.DEDUPE_KEY):
+        if _slack.already_sent_today_shared(_sd.DEDUPE_KEY):
             print(f"[{ACTOR}] fallback skip: digest dedupe key already set")
             return {"ok": True, "skipped": "digest_already_sent"}
     except Exception as exc:
@@ -1151,41 +1153,237 @@ def run_fallback_digest() -> dict:
         print(f"[{ACTOR}] fallback abort: no audit snapshots anywhere in DB")
         return {"ok": False, "skipped": "no_snapshot"}
 
-    # 4) Build a minimal stale-data digest. We deliberately don't try
-    # to reconstruct the full daily digest (too many tables to query
-    # with a date override) — operator just needs to know the cron
-    # cycle didn't deliver fresh data and where the latest is.
-    from datetime import date as _date
-    days_stale = (_date.today() - latest_as_of).days
+    # 4) Build the fallback digest. Instead of citing stale snapshot
+    # data (which can be days out of date and may already be wrong —
+    # e.g. com.block.juggle showed as misclassified Smaato/critical
+    # on 2026-06-06 because the 6/2 snapshot was BEFORE the dev_domain
+    # remap to hungrystudio.com), we pull TODAY's LL revenue live and
+    # crawl ads.txt right now for the top earners. The fallback then
+    # surfaces:
+    #   • Yesterday's revenue by default; trailing-7d when fired on a
+    #     Monday (operator's standing preference)
+    #   • Per-entity: which exact pgamssp.com seat is missing for
+    #     that publisher's supply path AND which demand-SSP lines are
+    #     missing, with revenue attribution per (entity × SSP) pair
+    #   • Note on snapshot freshness so the operator knows whether
+    #     they're looking at fresh or fallback data
+    from datetime import date as _date, timedelta as _td
+    today = _date.today()
+    is_monday = today.weekday() == 0
+    period_start = (today - _td(days=7)) if is_monday else (today - _td(days=1))
+    period_end   = today - _td(days=1)
+    period_label = ("trailing-7d (Monday weekly view)" if is_monday
+                    else f"yesterday ({period_end.isoformat()})")
+
+    # Demand SSPs to check + the line on a publisher ads.txt that
+    # authorizes them to resell PGAM inventory. None seat → just
+    # check line presence (PubMatic, Sovrn use per-account seats we
+    # haven't pinned in the registry).
+    DEMAND_CHECKS = {
+        "Rubicon":      ("rubiconproject.com",    "24852"),
+        "Sharethrough": ("sharethrough.com",      "VQlYJeXR"),
+        "Triplelift":   ("triplelift.com",        "14680"),
+        "Loopme":       ("loopme.com",            "19940"),
+        "Zeta":         ("zetaglobal.net",        "748"),
+        "Appnexus":     ("appnexus.com",          "8106"),
+        "Unruly":       ("video.unrulymedia.com", "5921144960123684292"),
+        "Pubmatic":     ("pubmatic.com",          None),
+        "Sovrn":        ("lijit.com",             None),
+    }
+
+    def _norm_host(h):
+        h = (h or "").strip().lower()
+        if h.startswith(("http://","https://")):
+            h = h.split("://",1)[1]
+        for sep in ("?","#","/"):
+            if sep in h: h = h.split(sep,1)[0]
+        if h.startswith("www."):
+            h = h[4:]
+        return h
+
+    def _live_fetch(host):
+        """Crawl both ads.txt and app-ads.txt; return parsed lines."""
+        import urllib.request
+        bodies = []
+        for path in ("app-ads.txt", "ads.txt"):
+            try:
+                req = urllib.request.Request(
+                    f"https://{host}/{path}",
+                    headers={"User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                                          "AppleWebKit/605.1.15"})
+                with urllib.request.urlopen(req, timeout=10) as r:
+                    if r.status == 200:
+                        b = r.read().decode("utf-8", errors="ignore")
+                        if len(b) > 50: bodies.append(b)
+            except Exception:
+                pass
+        if not bodies:
+            return None
+        lines = []
+        for raw in "\n".join(bodies).splitlines():
+            s = raw.split("#",1)[0].strip()
+            if not s or ("=" in s and "," not in s):
+                continue
+            parts = [p.strip() for p in s.split(",")]
+            if len(parts) >= 3:
+                lines.append((parts[0].lower(), parts[1], parts[2].upper()))
+        return lines
+
+    # Pull LL revenue for the period
     try:
-        with connect() as conn, conn.cursor() as cur:
-            cur.execute("""
-                SELECT entity_value, kind, revenue_7d, supply_partner_key, status
-                FROM pgam_direct.compliance_entity_supply_path_audit
-                WHERE as_of = %s AND status <> 'healthy'
-                ORDER BY revenue_7d DESC LIMIT 5;
-            """, (latest_as_of,))
-            top_broken = cur.fetchall()
-    except Exception:
-        top_broken = []
+        from core.api import fetch as _ll_fetch
+        live_rev = []
+        for bd, k in (("DOMAIN,PUBLISHER,DEMAND_PARTNER","DOMAIN"),
+                       ("BUNDLE,PUBLISHER,DEMAND_PARTNER","BUNDLE")):
+            for r in _ll_fetch(bd, ["GROSS_REVENUE","IMPRESSIONS"],
+                               period_start.isoformat(), period_end.isoformat()):
+                val = str(r.get(k) or "").strip()
+                if not val or val == "?": continue
+                rev = float(r.get("GROSS_REVENUE") or 0)
+                if rev <= 0: continue
+                live_rev.append({
+                    "kind": "domain" if k == "DOMAIN" else "app",
+                    "value": val,
+                    "supply_pub_id":   str(r.get("PUBLISHER_ID") or ""),
+                    "supply_pub_name": str(r.get("PUBLISHER_NAME") or ""),
+                    "demand_name":     str(r.get("DEMAND_PARTNER_NAME") or ""),
+                    "rev": rev,
+                })
+    except Exception as exc:
+        print(f"[{ACTOR}] fallback LL pull failed (using stale snapshot): {exc}")
+        live_rev = []
 
-    lines = []
-    for r in top_broken:
-        ev, _kind, rev, sp, st = r
-        sym = "🚨" if st == "critical" else "⚠️"
-        lines.append(f"{sym} *{ev}*  ${float(rev or 0):,.0f}/7d  · via `{sp or '?'}` · {st}")
+    blocks: list[dict] = []
 
-    head = (
-        f":warning: *Compliance digest — fallback (audit failed today)*\n"
-        f"_Today's 08:00 ET audit run didn't complete (likely Render OOM "
-        f"during ads.txt crawl). Latest snapshot we have is *{latest_as_of}* "
-        f"({days_stale}d stale)._\n\n"
-        f"*Top {len(lines)} non-healthy entities from that snapshot:*\n"
-        + ("\n".join(lines) if lines else "_no non-healthy rows in latest snapshot_")
-        + "\n\n_Auto-retry will fire again at the next morning window. "
-        f"Full audit data: `data/compliance_matrix_{latest_as_of.isoformat()}.csv`._"
-    )
-    blocks = [{"type": "section", "text": {"type": "mrkdwn", "text": head}}]
+    if live_rev:
+        # Aggregate by entity + load bridge + crawl ads.txt
+        from collections import defaultdict
+        agg = defaultdict(lambda: {"rev":0.0, "supply": defaultdict(float),
+                                   "demand": defaultdict(float)})
+        for r in live_rev:
+            key = (r["kind"], r["value"])
+            agg[key]["rev"] += r["rev"]
+            agg[key]["supply"][r["supply_pub_id"]] += r["rev"]
+            agg[key]["demand"][r["demand_name"]] += r["rev"]
+        top = sorted(agg.items(), key=lambda kv: -kv[1]["rev"])[:10]
+
+        # Resolve bundles → publisher domain via app_metadata
+        bundles = {k[1] for k,_ in top if k[0]=="app"}
+        bun_to_dom = {}
+        if bundles:
+            try:
+                with connect() as conn, conn.cursor() as cur:
+                    cur.execute("SELECT bundle_id, dev_domain FROM pgam_direct.app_metadata "
+                                "WHERE bundle_id = ANY(%s) AND dev_domain IS NOT NULL",
+                                (list(bundles),))
+                    bun_to_dom = dict(cur.fetchall())
+            except Exception:
+                pass
+
+        # Per-supply-partner expected pgamssp seat
+        partner_seats = {}
+        try:
+            with connect() as conn, conn.cursor() as cur:
+                cur.execute("SELECT ll_publisher_id, seller_id, publisher_key "
+                            "FROM pgam_direct.compliance_ll_partner_bridge")
+                partner_seats = {r[0]: {"seat": r[1], "key": r[2]} for r in cur.fetchall()}
+        except Exception:
+            pass
+
+        period_total = sum(info["rev"] for _, info in top)
+        blocks.append({"type":"section","text":{"type":"mrkdwn","text":
+            f":warning: *Compliance fallback — daily audit failed; live data instead*\n"
+            f"_Today's audit didn't complete (latest snapshot {latest_as_of}, "
+            f"{days_stale}d stale). Pulled fresh LL revenue + crawled ads.txt "
+            f"in real-time for the top 10 earners._\n"
+            f"_Period: *{period_label}*  ·  Top 10 revenue: *${period_total:,.0f}*_"
+        }})
+
+        live_cache = {}
+        for (kind, val), info in top:
+            host = val if kind=="domain" else bun_to_dom.get(val)
+            host = _norm_host(host) if host else None
+            top_pub = max(info["supply"].items(), key=lambda x: x[1])[0]
+            ps = partner_seats.get(top_pub, {})
+            expected_seat = ps.get("seat")
+            partner_key   = ps.get("key", "<unbridged>")
+
+            if host and host not in live_cache:
+                live_cache[host] = _live_fetch(host)
+            lines = live_cache.get(host)
+
+            # PGAM seat line for the supply path
+            if not host:
+                pgam_status = f"❓ no audit_host resolved for `{val}`"
+                sym = "❓"
+            elif lines is None:
+                pgam_status = f"❓ `{host}` ads.txt unreachable"
+                sym = "❓"
+            elif not expected_seat:
+                pgam_status = (f"⚠️ supply path via `{top_pub}` not bridged "
+                               "to a pgamssp seat — can't check Layer B")
+                sym = "⚠️"
+            else:
+                pgam_lines = [l for l in lines if l[0]=="pgamssp.com"]
+                has_seat = any(l[1]==expected_seat for l in pgam_lines)
+                if has_seat:
+                    pgam_status = (f"✅ `pgamssp.com, {expected_seat}, RESELLER` "
+                                   f"present (for {partner_key} path)")
+                    sym = "✅"
+                else:
+                    other = sorted({l[1] for l in pgam_lines})[:3]
+                    extra = (f" — page has {len(pgam_lines)} other pgamssp seats "
+                             f"({', '.join(other)})" if other else
+                             " — no pgamssp lines on this page at all")
+                    pgam_status = (f"🚨 *missing* `pgamssp.com, {expected_seat}, RESELLER` "
+                                   f"for `{partner_key}` path{extra}")
+                    sym = "🚨"
+
+            # Demand SSP misses (only for SSPs that earned revenue this period)
+            demand_gaps = []
+            if lines is not None:
+                for ssp_name, (dom, seat) in DEMAND_CHECKS.items():
+                    earned = sum(rv for nm, rv in info["demand"].items()
+                                 if ssp_name.lower() in (nm or "").lower())
+                    if earned <= 0:
+                        continue
+                    ssp_lines = [l for l in lines if l[0]==dom]
+                    has_line = bool(ssp_lines) and (seat is None or
+                                                     any(l[1]==seat for l in ssp_lines))
+                    if not has_line:
+                        why = ("no line at all" if not ssp_lines else
+                               f"line present but our seat {seat} not among "
+                               f"{len(ssp_lines)} {dom} entries")
+                        demand_gaps.append((ssp_name, earned, why))
+            demand_gaps.sort(key=lambda x: -x[1])
+
+            body = [
+                f"{sym} *{val}* — *${info['rev']:,.0f} {period_label.split()[0]}* "
+                f"via `{partner_key}` ({top_pub})",
+                f"     audit host: `{host or '<unresolved>'}`",
+                f"     PGAM line: {pgam_status}",
+            ]
+            if demand_gaps:
+                body.append(f"     Demand SSP gaps (with attributed $):")
+                for ssp_name, ssp_rev, why in demand_gaps[:6]:
+                    body.append(f"       • `{ssp_name}` — *${ssp_rev:,.0f}* — {why}")
+            elif lines is not None:
+                body.append(f"     Demand SSP gaps: _none among active demands_")
+            blocks.append({"type":"section","text":{"type":"mrkdwn","text":"\n".join(body)}})
+
+        blocks.append({"type":"context","elements":[{"type":"mrkdwn","text":
+            f"_Snapshot table still {days_stale}d stale (latest as_of {latest_as_of}). "
+            f"3/4-node SSP detection needs the `compliance_schain_emissions_24h` "
+            f"rollup view from pgam-direct/web — not built yet. Audit retry will "
+            f"fire at next morning window._"
+        }]})
+    else:
+        # Couldn't pull live LL data — minimal banner
+        blocks.append({"type":"section","text":{"type":"mrkdwn","text":
+            f":warning: *Compliance fallback — audit and LL pull both failed*\n"
+            f"_Latest snapshot: *{latest_as_of}* ({days_stale}d stale). "
+            f"Auto-retry will fire at next morning window._"
+        }})
 
     webhook = os.environ.get("COMPLIANCE_SLACK_WEBHOOK", "").strip()
     try:
@@ -1194,7 +1392,7 @@ def run_fallback_digest() -> dict:
                 webhook, blocks, "Compliance fallback digest")
         else:
             _slack.send_blocks(blocks, text="Compliance fallback digest")
-        _slack.mark_sent(_sd.DEDUPE_KEY)
+        _slack.mark_sent_shared(_sd.DEDUPE_KEY)
         print(f"[{ACTOR}] fallback digest posted "
               f"(stale snapshot {latest_as_of}, {days_stale}d behind)")
         return {"ok": True, "posted_fallback": True, "as_of": str(latest_as_of)}
