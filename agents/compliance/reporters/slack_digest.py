@@ -1715,8 +1715,12 @@ def _post_to_compliance_webhook(webhook_url: str, blocks: list, text: str) -> bo
 
 
 def post_digest(summary: dict, force: bool = False) -> bool:
-    """Post (or skip-if-already-sent) the daily compliance digest."""
-    if not force and slack.already_sent_today(DEDUPE_KEY):
+    """Post (or skip-if-already-sent) the daily compliance digest.
+
+    Uses the Neon-backed shared dedup so a manual ad-hoc post from a dev
+    laptop AND the scheduled Render post observe the same "already sent"
+    state — avoids the duplicate-fire bug seen 2026-06-06."""
+    if not force and slack.already_sent_today_shared(DEDUPE_KEY):
         print("[compliance.slack_digest] already sent today — skipping")
         return False
 
@@ -1748,5 +1752,5 @@ def post_digest(summary: dict, force: bool = False) -> bool:
         print(f"[compliance.slack_digest] Slack post failed: {exc}")
         return False
 
-    slack.mark_sent(DEDUPE_KEY)
+    slack.mark_sent_shared(DEDUPE_KEY)
     return True
