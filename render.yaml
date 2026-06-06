@@ -4,7 +4,13 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python scheduler.py
-    plan: starter          # upgrade to standard if you need more CPU/RAM
+    plan: standard         # 2GB RAM. Was 'starter' (512MB); compliance runner
+                           # was OOM-killed at startup on every daily attempt
+                           # from 2026-06-03 through 2026-06-06 with
+                           # publishers_scanned=0 (couldn't fit imports +
+                           # initial LL pulls in the 512MB budget). Standard
+                           # gives 4× headroom — full audit should complete
+                           # comfortably from 2026-06-07's 08:00 ET tick.
     autoDeploy: true
 
     envVars:
