@@ -331,15 +331,54 @@ def run_entity_audit(
         next_slot[0] = max(time.monotonic(), wait_until) + min_interval
         return entity, _crawl(entity)
 
+    # Wall-clock timeout for the WHOLE Phase 5 crawl. Without it, a
+    # single publisher whose ads.txt server hangs (DNS that resolves
+    # but never SYN-ACKs, TCP keepalive holes, etc.) can block the
+    # ThreadPool's join() forever — observed locally on 2026-06-06
+    # where the runner stayed wedged for 40+ minutes after Phase 4
+    # completed. Per-fetch HTTP timeout already exists in _crawl()
+    # but doesn't protect against a stuck future in the pool.
+    #
+    # Budget: 5 min default; override via env. When the deadline hits
+    # we stop accepting new completions and skip the remaining entities
+    # (they show as audit_host-unreachable in the matrix, same as a
+    # 404 — bad signal but doesn't kill the run).
+    PHASE5_CRAWL_TIMEOUT_SEC = float(
+        os.environ.get("PGAM_COMPLIANCE_PHASE5_TIMEOUT_SEC", "300")
+    )
+    import concurrent.futures as _cf
+    deadline = time.monotonic() + PHASE5_CRAWL_TIMEOUT_SEC
+    completed_n = 0
+    timed_out = False
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(_gated_crawl, e): e for e in entities}
-        for fut in as_completed(futures):
-            try:
-                e, f = fut.result()
-            except Exception:
-                continue
-            if f is not None:
-                fetches[e.entity_key] = f
+        try:
+            for fut in as_completed(futures, timeout=PHASE5_CRAWL_TIMEOUT_SEC):
+                if time.monotonic() > deadline:
+                    timed_out = True
+                    break
+                try:
+                    e, f = fut.result(timeout=15)
+                except (Exception, _cf.TimeoutError):
+                    continue
+                completed_n += 1
+                if f is not None:
+                    fetches[e.entity_key] = f
+        except _cf.TimeoutError:
+            timed_out = True
+        finally:
+            if timed_out:
+                # Cancel pending futures so pool.shutdown returns
+                # promptly instead of waiting for stuck network calls.
+                for pending in futures:
+                    if not pending.done():
+                        pending.cancel()
+                pool.shutdown(wait=False, cancel_futures=True)
+                skipped = len(entities) - completed_n
+                print(f"[entity_audit] Phase 5 crawl timed out after "
+                      f"{PHASE5_CRAWL_TIMEOUT_SEC:.0f}s — completed "
+                      f"{completed_n}/{len(entities)} entities, "
+                      f"skipping {skipped}")
 
     # Validate.
     findings: list[Finding] = []
