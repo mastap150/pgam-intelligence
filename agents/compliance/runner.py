@@ -1153,6 +1153,9 @@ def run_fallback_digest() -> dict:
         print(f"[{ACTOR}] fallback abort: no audit snapshots anywhere in DB")
         return {"ok": False, "skipped": "no_snapshot"}
 
+    from datetime import date as _date
+    days_stale = (_date.today() - latest_as_of).days
+
     # 4) Build the fallback digest. Instead of citing stale snapshot
     # data (which can be days out of date and may already be wrong —
     # e.g. com.block.juggle showed as misclassified Smaato/critical
@@ -1265,7 +1268,38 @@ def run_fallback_digest() -> dict:
             agg[key]["rev"] += r["rev"]
             agg[key]["supply"][r["supply_pub_id"]] += r["rev"]
             agg[key]["demand"][r["demand_name"]] += r["rev"]
-        top = sorted(agg.items(), key=lambda kv: -kv[1]["rev"])[:10]
+
+        # Load partner bridge so we can roll up by supply partner.
+        partner_seats = {}
+        try:
+            with connect() as conn, conn.cursor() as cur:
+                cur.execute("SELECT ll_publisher_id, seller_id, publisher_key "
+                            "FROM pgam_direct.compliance_ll_partner_bridge")
+                partner_seats = {r[0]: {"seat": r[1], "key": r[2]}
+                                 for r in cur.fetchall()}
+        except Exception:
+            pass
+
+        # Partner-first selection: every active partner gets coverage
+        # (top 2 entities by yesterday's revenue). Without this the
+        # top-N-global selection silently skipped smaller partners
+        # like Cas.ai / Algorix / PubRev+ — user's standing ask is to
+        # acknowledge EVERY partner with active revenue, even if its
+        # share is small.
+        ENTITIES_PER_PARTNER = 2
+        partner_total = defaultdict(float)
+        partner_entities = defaultdict(list)  # pk → [((kind,val), rev, info)]
+        for (kind, val), info in agg.items():
+            top_pub = max(info["supply"].items(), key=lambda x: x[1])[0]
+            pk = partner_seats.get(top_pub, {}).get("key") or "<unbridged>"
+            partner_total[pk] += info["rev"]
+            partner_entities[pk].append(((kind, val), info["rev"], info))
+
+        top = []  # flat list of (entity_key, info) cards to render
+        for pk in sorted(partner_total, key=lambda k: -partner_total[k]):
+            ents = sorted(partner_entities[pk], key=lambda x: -x[1])[:ENTITIES_PER_PARTNER]
+            for (k, _rev, info) in ents:
+                top.append((k, info))
 
         # Resolve bundles → publisher domain via app_metadata
         bundles = {k[1] for k,_ in top if k[0]=="app"}
@@ -1280,23 +1314,28 @@ def run_fallback_digest() -> dict:
             except Exception:
                 pass
 
-        # Per-supply-partner expected pgamssp seat
-        partner_seats = {}
-        try:
-            with connect() as conn, conn.cursor() as cur:
-                cur.execute("SELECT ll_publisher_id, seller_id, publisher_key "
-                            "FROM pgam_direct.compliance_ll_partner_bridge")
-                partner_seats = {r[0]: {"seat": r[1], "key": r[2]} for r in cur.fetchall()}
-        except Exception:
-            pass
+        # (partner_seats was already loaded above for the partner-first
+        # entity selection — no need to re-query here.)
 
         period_total = sum(info["rev"] for _, info in top)
+        all_partners_total = sum(partner_total.values())
+        period_short = "7d" if is_monday else "yesterday"
+        # Partner coverage line — explicit acknowledgement of every
+        # active partner so low-revenue ones (Cas.ai, Algorix, PubRev+)
+        # aren't silently dropped from the report.
+        partner_summary = " · ".join(
+            f"`{pk}` ${partner_total[pk]:,.0f}"
+            for pk in sorted(partner_total, key=lambda k: -partner_total[k])
+        )
         blocks.append({"type":"section","text":{"type":"mrkdwn","text":
             f":warning: *Compliance fallback — daily audit failed; live data instead*\n"
             f"_Today's audit didn't complete (latest snapshot {latest_as_of}, "
             f"{days_stale}d stale). Pulled fresh LL revenue + crawled ads.txt "
-            f"in real-time for the top 10 earners._\n"
-            f"_Period: *{period_label}*  ·  Top 10 revenue: *${period_total:,.0f}*_"
+            f"right now for top {ENTITIES_PER_PARTNER}/partner across all "
+            f"{len(partner_total)} active partners._\n"
+            f"_Period: *{period_label}*  ·  Total active revenue: "
+            f"*${all_partners_total:,.0f}*  ·  Entity cards below: {len(top)}_\n\n"
+            f"*Active partners ({period_short} revenue):*  {partner_summary}"
         }})
 
         live_cache = {}
