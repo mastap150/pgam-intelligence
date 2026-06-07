@@ -858,6 +858,75 @@ def run() -> dict:
             except Exception as exc:
                 print(f"[{ACTOR}] audit_matrix failed (non-fatal): {exc}")
 
+            # ── EARLY DIGEST DELIVERY ────────────────────────────────
+            # User-reported incident 2026-06-07: morning digest hadn't
+            # landed in #compliance since 2026-06-02. Forensic showed
+            # supply_path_audit + ssp_audit + audit_summary_daily DID
+            # persist every morning (19K-32K rows), but compliance_runs
+            # rows stayed at ok=NULL because the runner died between
+            # supply_path persist and post_digest. The OOM hotspot is
+            # the inventory_roundtrip phase (73K LL stats rows, comment
+            # right below explicitly flags it).
+            #
+            # Fix: deliver the digest RIGHT NOW with the audit data we
+            # just persisted. We don't yet have today's NEW findings
+            # (compliance_findings populates later) but we DO have:
+            #   • supply_path_audit (Layer A/B/C per entity)
+            #   • compliance_entity_ssp_audit (demand-SSP per entity)
+            #   • compliance_audit_summary_daily (TL;DR header numbers)
+            #   • compliance_findings — yesterday's still-open rows,
+            #     which is what the operator needs to fix anyway
+            #
+            # If subsequent phases (roundtrip, scoring, finalize) all
+            # succeed, the second post_digest call at end of run()
+            # dedup-skips. If they OOM, the digest is already out.
+            try:
+                # Best-effort partial summary — enough for the TL;DR
+                # header + entity cards. Findings_opened gets populated
+                # later (or stays 0 if we die). Setting ok=False so the
+                # late-stage finalize re-runs the post_digest as the
+                # "complete" delivery; dedupe will skip it if this one
+                # succeeded.
+                _early_summary = dict(summary)
+                _early_summary.setdefault("audit_matrix_compliant_pct", None)
+                _early_summary.setdefault("audit_matrix_revenue_audited", None)
+                if "mtx_summary" in locals() and mtx_summary is not None:
+                    _early_summary["audit_matrix_compliant_pct"]   = mtx_summary.compliance_pct
+                    _early_summary["audit_matrix_revenue_audited"] = mtx_summary.revenue_audited_usd
+                    _early_summary["audit_matrix_revenue_at_risk"] = mtx_summary.revenue_non_compliant_usd
+                    _early_summary["audit_matrix_critical"]        = mtx_summary.critical_rows
+                    _early_summary["audit_matrix_warning"]         = mtx_summary.warning_rows
+                    _early_summary["audit_matrix_healthy"]         = mtx_summary.healthy_rows
+                    _early_summary["audit_matrix_rows"]            = mtx_summary.total_rows
+                    _early_summary["audit_matrix_ssps"]            = mtx_summary.ssps_audited
+                _delivered = post_digest(_early_summary)
+                if _delivered and _run_id is not None:
+                    # Mark this run as successful immediately so the
+                    # remaining retry windows (08:30 / 09:00 / 09:30 /
+                    # 10:00 ET) skip via _should_skip_today's "done"
+                    # branch. Without this, every retry re-runs the
+                    # whole audit even though we already delivered.
+                    # We don't have final findings_opened/scanned
+                    # counts yet — set placeholders; the end-of-run
+                    # finalize updates them with the real values if
+                    # we get there.
+                    try:
+                        with connect() as _c, _c.cursor() as _cur:
+                            _cur.execute("""
+                                UPDATE pgam_direct.compliance_runs
+                                SET ok = TRUE,
+                                    error = COALESCE(error,
+                                        'early-digest-delivered; later phases may have failed')
+                                WHERE run_id = %s
+                            """, (_run_id,))
+                            _c.commit()
+                    except Exception as _exc:
+                        print(f"[{ACTOR}] early-success marker failed: {_exc}")
+                print(f"[{ACTOR}] early digest delivered "
+                      "(safety net before OOM-prone phases)")
+            except Exception as exc:
+                print(f"[{ACTOR}] early digest failed (non-fatal): {exc}")
+
             # ── Memory hygiene ────────────────────────────────────────
             # Phase 5 + audit_matrix + supply_path together hold ~50
             # entities × parsed ads.txt content (some files have 10K+
