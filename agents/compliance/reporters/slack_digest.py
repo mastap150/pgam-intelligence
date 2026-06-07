@@ -707,6 +707,20 @@ def _block_list_block(rows: list[dict], summary: dict) -> dict | None:
     )
     pending = summary.get("block_list_pending") or len(rows)
     active = summary.get("block_list_active") or 0
+    # Footer with one-line approval CLI hints (Phase 1 enforcement
+    # workflow). High-rev paths need --confirm-high-value to prevent
+    # a typo from pausing 5-figure paths. Snooze keeps the row in
+    # pending_review but suppresses re-flagging for N days.
+    cli_hints = (
+        "\n_To action items in this queue:_\n"
+        "```\n"
+        "python -m scripts.compliance_approve --list                          # show queue\n"
+        "python -m scripts.compliance_approve --id N                          # approve (auto-pause via LL mgmt)\n"
+        "python -m scripts.compliance_approve --id N --confirm-high-value     # required if ≥ $500/7d\n"
+        "python -m scripts.compliance_approve --id N --reject -m \"<why>\"      # whitelist (never block)\n"
+        "python -m scripts.compliance_approve --id N --snooze 7 -m \"<why>\"   # park for 7 days\n"
+        "```"
+    )
     return {
         "type": "section",
         "text": {"type": "mrkdwn",
@@ -714,11 +728,11 @@ def _block_list_block(rows: list[dict], summary: dict) -> dict | None:
                      f":no_entry: *Paths queued for blocking "
                      f"({pending} pending · {active} active)*\n"
                      f"_Non-compliant (entity × supply partner) paths above $50/7d. "
-                     f"${total_at_risk:,.0f}/7d in this queue. Stage 1 = surfaced "
-                     f"for review; ops approves to flip to 'active'; Stage 3 "
-                     f"(pgam-direct/web bidder edge) reads active rows and "
-                     f"returns no-bid on matching requests. Auto-releases when "
-                     f"the audit confirms the path is now healthy._\n" + table)},
+                     f"${total_at_risk:,.0f}/7d in this queue. Enforcer runs hourly "
+                     f"(dry-run by default; flip "
+                     f"`PGAM_COMPLIANCE_ENFORCE_LIVE=1` to enable LL mgmt calls). "
+                     f"Auto-releases when audit confirms the path is now healthy._\n"
+                     + table + cli_hints)},
     }
 
 

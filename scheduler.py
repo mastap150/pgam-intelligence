@@ -497,6 +497,17 @@ def setup_schedule():
             "agents.compliance.runner", "run_fallback_digest")
         schedule.every().day.at("10:30").do(
             _run("compliance_fallback", compliance_fallback))
+
+        # Compliance enforcer — consumes compliance_path_block_list
+        # rows with status='active' and pauses the corresponding LL
+        # (publisher × demand) pairs. Dry-run by default; flip
+        # PGAM_COMPLIANCE_ENFORCE_LIVE=1 in Render env to enable
+        # actual LL mutations. Runs hourly so a status='active' flip
+        # via scripts/compliance_approve.py lands within an hour.
+        # Bounded at 10 actions per tick — safety against rule misfires.
+        compliance_enforcer = _import("agents.compliance.enforcer")
+        schedule.every().hour.at(":47").do(
+            _run("compliance_enforcer", compliance_enforcer))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
