@@ -477,7 +477,14 @@ def setup_schedule():
     # even when every audit attempt OOMs.
     if _os.getenv("PGAM_COMPLIANCE_ENABLED") == "1":
         compliance_runner = _import("agents.compliance.runner")
-        for retry_time in ("08:00", "08:30", "09:00", "09:30", "10:00"):
+        # User start-of-day is 08:00 ET. The runner takes ~15 min to
+        # reach the early-digest delivery point (Phase 1-5 audit work
+        # before the OOM-prone roundtrip). So we kick off at 07:45 ET
+        # so the Slack message LANDS at ~08:00 ET, not ~08:15 ET. The
+        # later retry windows are safety nets — runner.run() is
+        # idempotent (skips via _should_skip_today if the early attempt
+        # already delivered + marked compliance_runs.ok=TRUE).
+        for retry_time in ("07:45", "08:00", "08:15", "08:30", "09:00", "10:00"):
             schedule.every().day.at(retry_time).do(
                 _run("compliance_runner", compliance_runner))
         compliance_fallback = _import(
