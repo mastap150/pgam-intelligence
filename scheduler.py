@@ -395,6 +395,7 @@ def setup_schedule():
     #      just trigger the deployed routes.
     from agents.dsp_buyer.margin_watchdog import margin_watchdog as dsp_margin_watchdog
     from agents.dsp_buyer.burn_rate_watchdog import burn_rate_watchdog as dsp_burn_rate_watchdog
+    from agents.dsp_buyer.retro_generator import retro_generator as dsp_retro_generator
     from agents.dsp_buyer.watchdog_invoker import (
         run_auto_rollback   as dsp_auto_rollback,
         run_status_report   as dsp_status_report,
@@ -408,6 +409,11 @@ def setup_schedule():
     schedule.every(5).minutes.do(_run("dsp_burn_rate_watchdog", dsp_burn_rate_watchdog))
     schedule.every(6).hours.do(  _run("dsp_auto_rollback",   dsp_auto_rollback))
     schedule.every().day.at("09:00").do(_run("dsp_status_report", dsp_status_report))
+    # Stage-1 learning loop: post-flight retro for every campaign that ends.
+    # Runs daily at 09:30 ET (after midnight-ET campaigns end + after the
+    # daily status digest goes out). Idempotent — UNIQUE on campaign_id
+    # prevents re-running. Foundation for the knowledge base (Stage 2).
+    schedule.every().day.at("09:30").do(_run("dsp_retro_generator", dsp_retro_generator))
 
     # Weekly — discovery + rep-conversation feeds (Monday mornings)
     schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
