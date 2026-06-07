@@ -296,14 +296,39 @@ def _detect_pattern(article: dict[str, Any] | None) -> str:
 
 
 def _detect_lane(tags: list[str]) -> str:
-    """Map a tag set back to the ingest lane that produced the article."""
-    if "breaking-news" in tags:
+    """Map a tag set back to the ingest lane that produced the article.
+
+    Provenance tags (`breaking-news`, `trending-now`) were introduced
+    2026-06-07 by the breaking + trending ingest routes. Historical
+    articles won't carry them, so we ALSO fall back to content-tag
+    fingerprinting (press conference / p4p / on-this-day / weekend
+    roundup / live blog) to attribute the programmatic generators —
+    those have been writing the same content-tag shapes since they
+    launched."""
+    tag_set = {t.lower() for t in tags}
+
+    if "breaking-news" in tag_set:
         return "breaking"
-    if any(t in tags for t in ("trending", "trending-now")):
+    if "trending-now" in tag_set or "trending" in tag_set:
         return "trending"
-    if any(t.startswith("on-this-day") or t.startswith("p4p") or t in ("weekend-roundup", "division-state", "press-conference") for t in tags):
+
+    # Programmatic generators — match by their characteristic content tags.
+    # Both space- and dash-separated variants seen in the wild (press
+    # conference vs press-conference).
+    PROGRAMMATIC = {
+        "press conference", "press-conference",
+        "weekend roundup", "weekend-roundup",
+        "division state", "division-state",
+        "p4p", "pound-for-pound", "pound for pound",
+        "live blog", "live-blog",
+        "on this day", "on-this-day",
+    }
+    if tag_set & PROGRAMMATIC:
         return "programmatic"
-    return "editorial"  # Sanity-authored or AI-extracted from queue
+    if any(t.startswith("on-this-day") or t.startswith("p4p") for t in tag_set):
+        return "programmatic"
+
+    return "editorial"  # Sanity-authored, AI-extracted from queue, or pre-provenance-tagging legacy
 
 
 def _detect_origin_sources(article: dict[str, Any] | None) -> list[str]:
@@ -491,10 +516,13 @@ def _ask_claude(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         f"```json\n{json.dumps(payload, indent=2, default=str)}\n```\n\n"
         "Produce the weekly report and strategy JSON per the system prompt."
     )
+    # Note: temperature is deprecated on claude-sonnet-4-5+/opus-4-7+ —
+    # newer models use their own deterministic decoding tuned for these
+    # judgement-style prompts. Omit it entirely so we work across the
+    # whole 4.x family.
     resp = client.messages.create(
         model=MODEL,
         max_tokens=2000,
-        temperature=0.4,
         system=_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_msg}],
     )
@@ -653,8 +681,13 @@ def _deliver_report(
 ) -> None:
     subject = f"BoxingNews weekly review — {period_start} to {period_end}"
 
+    # Slack's mrkdwn renders **bold** literally; it wants *bold*. Convert
+    # the Markdown source so the message looks right in Slack without
+    # corrupting the persisted report_md (which still has standard MD
+    # for the email path and the admin dashboard).
+    slack_body = _markdown_to_slack_mrkdwn(report_md)
     try:
-        send_text(f"*{subject}*\n\n{report_md}")
+        send_text(f"*{subject}*\n\n{slack_body}")
     except Exception as exc:
         print(f"[boxingnews_weekly_review] Slack delivery failed (non-fatal): {exc}")
 
@@ -665,6 +698,22 @@ def _deliver_report(
         print(f"[boxingnews_weekly_review] Email send ok={ok} → {RECIPIENT}")
     else:
         print("[boxingnews_weekly_review] SendGrid not configured — skipping email")
+
+
+def _markdown_to_slack_mrkdwn(md: str) -> str:
+    """Convert a standard-Markdown report to Slack's mrkdwn dialect.
+    Specifically: **bold** → *bold*, and # / ## headings → *Heading*."""
+    import re
+    out: list[str] = []
+    for line in md.split("\n"):
+        if line.startswith("## "):
+            out.append(f"*{line[3:].strip()}*")
+        elif line.startswith("# "):
+            out.append(f"*{line[2:].strip()}*")
+        else:
+            # **bold** → *bold*
+            out.append(re.sub(r"\*\*(.+?)\*\*", r"*\1*", line))
+    return "\n".join(out)
 
 
 def _markdown_to_html(md: str, subject: str) -> str:
