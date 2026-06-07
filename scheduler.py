@@ -588,6 +588,22 @@ def setup_schedule():
         # in a streak. Read-only against pgam_direct.msn_pull_runs.
         schedule.every().hour.at(":50").do(_run("msn_puller_health", msn_puller_health))
 
+    # ─────────────────────────────────────────────────────────────────
+    # BoxingNews weekly content-strategy review
+    # ─────────────────────────────────────────────────────────────────
+    # Monday 09:30 ET. The agent has its own weekday guard so firing
+    # daily would be safe too, but pinning Monday keeps the scheduler
+    # log honest about cadence. Reads pgam_direct.msn_article_peak +
+    # boxingnews.articles, writes pgam_direct.msn_weekly_review, emails
+    # + Slacks the report. Gated by BOXINGNEWS_REVIEW_ENABLED so the
+    # boxingnews DB DSN is only required where this agent actually
+    # runs.
+    if _os.getenv("BOXINGNEWS_REVIEW_ENABLED", "1") == "1":
+        boxingnews_weekly_review = _import("agents.insights.boxingnews_weekly_review")
+        schedule.every().monday.at("09:30").do(
+            _run("boxingnews_weekly_review", boxingnews_weekly_review)
+        )
+
     print("[scheduler] Schedule registered:")
     for job in schedule.get_jobs():
         print(f"  {job}")
