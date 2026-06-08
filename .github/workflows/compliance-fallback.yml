@@ -1,0 +1,75 @@
+name: Compliance Fallback Digest (Render backup)
+
+# GitHub Actions backup for the daily compliance digest.
+#
+# Why: 2026-06-08 we discovered Render's scheduler can silently stop ticking
+# (no runs since 20:09 ET yesterday → no morning digest). The full audit
+# runner lives on Render and that's the primary path. This workflow is the
+# safety net: regardless of Render's health, GitHub Actions guarantees one
+# Slack delivery per day.
+#
+# Cadence:
+#   • 13:00 UTC  = 09:00 ET (EDT/summer) — fires the fallback digest
+#   • 14:00 UTC  = 09:00 ET (EST/winter) — fires the fallback digest
+#   • 15:30 UTC  = 11:30 ET — last-ditch fallback if both above missed
+#   • workflow_dispatch — fire manually anytime
+#
+# Idempotence: the fallback reads `compliance_alert_state` (Neon-backed
+# shared dedup). If Render's runner already posted today's digest, the
+# fallback no-ops. So firing 2-3 times a day is safe.
+#
+# Secrets required (set in GitHub Settings → Secrets and variables → Actions):
+#   COMPLIANCE_SLACK_WEBHOOK   – #compliance webhook URL
+#   PGAM_DIRECT_DATABASE_URL   – Neon DSN (pgam_direct schema)
+#   LL_CLIENT_KEY, LL_SECRET_KEY, LL_API_BASE_URL – for live LL revenue pull
+
+on:
+  schedule:
+    - cron: "0 13 * * *"   # 09:00 ET (EDT, mid-Mar to early-Nov)
+    - cron: "0 14 * * *"   # 09:00 ET (EST, early-Nov to mid-Mar)
+    - cron: "30 15 * * *"  # 11:30 ET — last ditch
+  workflow_dispatch: {}    # manual trigger for ad-hoc fires
+
+jobs:
+  fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    env:
+      PGAM_COMPLIANCE_ENABLED: "1"
+      COMPLIANCE_SLACK_WEBHOOK: ${{ secrets.COMPLIANCE_SLACK_WEBHOOK }}
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      LL_API_BASE_URL: ${{ secrets.LL_API_BASE_URL }}
+      LL_CLIENT_KEY:  ${{ secrets.LL_CLIENT_KEY }}
+      LL_SECRET_KEY:  ${{ secrets.LL_SECRET_KEY }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: pip install --quiet -r requirements.txt
+
+      - name: Skip if secret missing (let the cron fire silently)
+        if: env.COMPLIANCE_SLACK_WEBHOOK == ''
+        run: |
+          echo "::warning::COMPLIANCE_SLACK_WEBHOOK secret not set — skipping run."
+          echo "skip=true" >> $GITHUB_OUTPUT
+        id: secret_check
+
+      - name: Run fallback digest
+        if: steps.secret_check.outputs.skip != 'true'
+        run: |
+          python -c "
+          from agents.compliance.runner import run_fallback_digest
+          import json
+          print(json.dumps(run_fallback_digest(), indent=2, default=str))
+          "
