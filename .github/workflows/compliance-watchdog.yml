@@ -40,10 +40,10 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install minimal deps
-        # Watchdog only needs: psycopg, tzdata. Skip the full requirements.txt
-        # to keep the watchdog snappy + isolated from any dep breakage.
-        run: pip install --quiet "psycopg[binary]>=3.1" "tzdata>=2024.1"
+      - name: Install deps
+        # Watchdog imports from core.neon which transitively needs python-dotenv.
+        # Easier to install the full requirements.txt than try to enumerate.
+        run: pip install --quiet -r requirements.txt
 
       - name: Check scheduler heartbeat
         if: env.COMPLIANCE_SLACK_WEBHOOK != '' && env.PGAM_DIRECT_DATABASE_URL != ''
