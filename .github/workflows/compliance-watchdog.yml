@@ -1,0 +1,50 @@
+name: Compliance Scheduler Watchdog
+
+# Hourly health check that detects if Render's scheduler has stopped
+# ticking. If both compliance_runs.MAX(started_at) AND
+# compliance_enforcement_log.MAX(created_at) are > 2 hours stale during
+# business hours (09:00–22:00 ET), posts one alert to #compliance with
+# the diagnostic data the operator needs.
+#
+# Runs from GitHub Actions (NOT from Render) — that's deliberate, so it
+# can detect Render being down. If we ran this from Render, the same
+# failure mode would silence the alert.
+#
+# Dedups per day via Neon-backed compliance_alert_state (key:
+# 'render_scheduler_outage'). One alert per day max — won't spam.
+
+on:
+  schedule:
+    # Every hour 13:00–02:00 UTC ≈ 09:00–22:00 ET (covers both DST modes
+    # at the edges — outside-hours check in the Python lives in
+    # scheduler_watchdog.run() so cron just fires more often than needed).
+    - cron: "5 13-23,0-2 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    env:
+      COMPLIANCE_SLACK_WEBHOOK: ${{ secrets.COMPLIANCE_SLACK_WEBHOOK }}
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install minimal deps
+        # Watchdog only needs: psycopg, tzdata. Skip the full requirements.txt
+        # to keep the watchdog snappy + isolated from any dep breakage.
+        run: pip install --quiet "psycopg[binary]>=3.1" "tzdata>=2024.1"
+
+      - name: Check scheduler heartbeat
+        if: env.COMPLIANCE_SLACK_WEBHOOK != '' && env.PGAM_DIRECT_DATABASE_URL != ''
+        run: python -m agents.compliance.scheduler_watchdog
