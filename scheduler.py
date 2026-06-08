@@ -628,6 +628,20 @@ def setup_schedule():
             _run("boxingnews_weekly_review", boxingnews_weekly_review)
         )
 
+    # ─────────────────────────────────────────────────────────────────
+    # Outbound SDR — daily lead loader (Apollo → HubSpot → Instantly)
+    # ─────────────────────────────────────────────────────────────────
+    # Weekday 09:00 ET. The agent itself is dry-run by default
+    # (SDR_DRY_RUN=true) so registering it here is safe even before
+    # the API keys / campaign IDs are filled in. Gated by
+    # SDR_AGENT_ENABLED so we can park it without code changes.
+    if _os.getenv("SDR_AGENT_ENABLED", "1") == "1":
+        sdr_agent = _import("agents.outbound.sdr_agent")
+        for day in ("monday", "tuesday", "wednesday", "thursday", "friday"):
+            getattr(schedule.every(), day).at("09:00").do(
+                _run("sdr_agent", sdr_agent)
+            )
+
     print("[scheduler] Schedule registered:")
     for job in schedule.get_jobs():
         print(f"  {job}")
