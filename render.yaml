@@ -4,13 +4,18 @@ services:
     runtime: python
     buildCommand: pip install -r requirements.txt
     startCommand: python scheduler.py
-    plan: standard         # 2GB RAM. Was 'starter' (512MB); compliance runner
-                           # was OOM-killed at startup on every daily attempt
-                           # from 2026-06-03 through 2026-06-06 with
-                           # publishers_scanned=0 (couldn't fit imports +
-                           # initial LL pulls in the 512MB budget). Standard
-                           # gives 4× headroom — full audit should complete
-                           # comfortably from 2026-06-07's 08:00 ET tick.
+    plan: pro              # 4GB RAM (16GB disk). History:
+                           #   starter   →  standard (2GB) on 2026-06-04
+                           #     Reason: runner OOM-killed at startup,
+                           #     publishers_scanned=0 every day 6/3-6/6
+                           #   standard  →  pro      (4GB) on 2026-06-08
+                           #     Reason: even on Standard, ll_4dim_etl was
+                           #     hitting 2GB and Render OOM-killed the
+                           #     scheduler hourly at xx:08 UTC. The
+                           #     resulting restart loop meant 07:45/08:00
+                           #     ET compliance cron windows were silently
+                           #     dropped on days the crash fell mid-window
+                           #     (the 2026-06-08 morning incident).
     autoDeploy: true
 
     envVars:
