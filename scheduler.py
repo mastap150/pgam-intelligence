@@ -508,6 +508,20 @@ def setup_schedule():
         compliance_enforcer = _import("agents.compliance.enforcer")
         schedule.every().hour.at(":47").do(
             _run("compliance_enforcer", compliance_enforcer))
+
+        # Reactivation monitor — every hour at :57, AFTER the enforcer.
+        # Reads compliance_path_block_list state (which the auditor
+        # auto-flips active→released when audit shows healthy) and
+        # recomputes each row's recommended_action:
+        #   • reactivate / monitor / keep_blocked / whitelist_aging /
+        #     fixed_pre_review
+        # Surfaces "eligible to bring live" inventory in the daily
+        # digest's :sparkles: Reactivation candidates section.
+        # Re-runs idempotently — same state in, same recommendations out.
+        compliance_reactivation = _import(
+            "agents.compliance.reactivation_monitor")
+        schedule.every().hour.at(":57").do(
+            _run("compliance_reactivation", compliance_reactivation))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
