@@ -171,6 +171,121 @@ def reject(ord_id: int, notes: str, dry_run: bool) -> int:
         return 0
 
 
+def list_reactivation_candidates() -> int:
+    """Show paths the reactivation monitor flagged as ready to bring back live."""
+    with connect() as c, c.cursor() as cur:
+        cur.execute("""
+            SELECT ROW_NUMBER() OVER (ORDER BY revenue_7d DESC) AS rid,
+                   entity_key, supply_partner_key, entity_value, audit_host,
+                   revenue_7d, recommended_action, status,
+                   last_recheck_at, ll_publisher_id
+            FROM pgam_direct.compliance_path_block_list
+            WHERE recommended_action IN ('reactivate', 'fixed_pre_review')
+            ORDER BY revenue_7d DESC LIMIT 100
+        """)
+        rows = cur.fetchall()
+    if not rows:
+        print("No reactivation candidates.")
+        return 0
+    print(f"{'ID':>3} {'$/7d':>10} {'Action':<18} {'Entity':<35} {'Partner':<20}")
+    for r in rows:
+        rid, ek, pk, ev, host, rev, action, status, recheck, ll_pub = r
+        print(f"{int(rid):>3} ${float(rev):>9,.0f} {action:<18} "
+              f"{(ev or ek)[:34]:<35} {(pk or '?')[:19]:<20}")
+    print()
+    print("To reactivate: python -m scripts.compliance_approve --reactivate <ID>")
+    return 0
+
+
+def _find_reactivation_by_id(cur, ord_id: int):
+    """Resolve --reactivate <ID> back to the underlying PK."""
+    cur.execute("""
+        SELECT entity_key, supply_partner_key, entity_value, revenue_7d,
+               recommended_action, ll_publisher_id, status
+        FROM (
+            SELECT ROW_NUMBER() OVER (ORDER BY revenue_7d DESC) AS ord,
+                   entity_key, supply_partner_key, entity_value,
+                   revenue_7d, recommended_action, ll_publisher_id, status
+            FROM pgam_direct.compliance_path_block_list
+            WHERE recommended_action IN ('reactivate', 'fixed_pre_review')
+        ) s WHERE s.ord = %s
+    """, (ord_id,))
+    return cur.fetchone()
+
+
+def reactivate(ord_id: int, dry_run: bool, notes: str | None) -> int:
+    """Flip a 'reactivate' candidate to status='whitelisted'(safe state)
+    AND, if PGAM_COMPLIANCE_ENFORCE_LIVE=1, call ll_mgmt to re-enable
+    the previously-disabled (LL publisher × demand) pairs.
+
+    Lookup is by ordinal from --list-reactivate. Refuses high-value
+    paths without --confirm-high-value, same as approve().
+    """
+    with connect() as c, c.cursor() as cur:
+        row = _find_reactivation_by_id(cur, ord_id)
+        if not row:
+            print(f"No reactivation candidate with id={ord_id}. "
+                  "Use --list-reactivate to refresh the queue.")
+            return 1
+        ek, pk, ev, rev, action, ll_pub, status = row
+        rev_f = float(rev)
+        if dry_run:
+            print(f"🔍 [DRY-RUN] Would REACTIVATE entity={ek!r} partner={pk!r} "
+                  f"(${rev_f:,.0f}/7d, currently {status}/{action})")
+            return 0
+        actor = _actor()
+        # Flip status to 'released' so it leaves the active queue. We
+        # don't set 'whitelisted' because that's the "never block again"
+        # state — released is correctly "fixed, no longer enforced".
+        cur.execute("""
+            UPDATE pgam_direct.compliance_path_block_list
+            SET status='released', status_updated_at=now(),
+                status_updated_by=%s, review_notes=%s
+            WHERE entity_key=%s AND supply_partner_key=%s
+        """, (actor, notes or f"reactivated by ops from {action}", ek, pk))
+
+        # Audit-trail entry. Captures that an operator (not the
+        # auditor) confirmed reactivation.
+        cur.execute("""
+            INSERT INTO pgam_direct.compliance_enforcement_log
+                (entity_key, supply_partner_key, ll_publisher_id, entity_value,
+                 revenue_7d_at_action, action, triggered_by, reason, dry_run)
+            VALUES (%s, %s, %s, %s, %s, 'manual_reactivate', %s, %s, FALSE)
+        """, (ek, pk, ll_pub, ev, rev_f, actor,
+              notes or f"reactivated from {action} state"))
+        c.commit()
+
+        # If live mode AND this path was actually paused via LL mgmt
+        # (check enforcement_log for a prior auto_disable), call
+        # enable_publisher_demand to bring the demand back. Otherwise
+        # the status flip is all we needed (Stage 3 bidder-edge wasn't
+        # enforcing yet).
+        live = os.environ.get("PGAM_COMPLIANCE_ENFORCE_LIVE", "0") == "1"
+        if live and ll_pub:
+            cur.execute("""
+                SELECT DISTINCT demand_id FROM pgam_direct.compliance_enforcement_log
+                WHERE entity_key=%s AND supply_partner_key=%s
+                  AND action='auto_disable' AND dry_run=FALSE
+            """, (ek, pk))
+            demand_ids = [r[0] for r in cur.fetchall() if r[0]]
+            if demand_ids:
+                try:
+                    from core import ll_mgmt
+                    for d in demand_ids:
+                        try:
+                            ll_mgmt.enable_publisher_demand(ll_pub, d)
+                            print(f"  ✓ re-enabled LL pub {ll_pub} × demand {d}")
+                        except AttributeError:
+                            print(f"  ⚠️ ll_mgmt.enable_publisher_demand not implemented; "
+                                  f"flip manually for pub={ll_pub} demand={d}")
+                        except Exception as exc:
+                            print(f"  ❌ enable failed pub={ll_pub} demand={d}: {exc}")
+                except Exception as exc:
+                    print(f"  LL re-enable skipped: {exc}")
+        print(f"✅ REACTIVATED entity={ek!r} partner={pk!r} (${rev_f:,.0f}/7d)")
+        return 0
+
+
 def snooze(ord_id: int, days: int, notes: str, dry_run: bool) -> int:
     with connect() as c, c.cursor() as cur:
         row = _find_path_by_id(cur, ord_id)
@@ -206,8 +321,12 @@ def snooze(ord_id: int, days: int, notes: str, dry_run: bool) -> int:
 def main() -> int:
     p = argparse.ArgumentParser(
         description="Approve/reject/snooze compliance block-list items.")
-    p.add_argument("--list", action="store_true", help="List pending items.")
+    p.add_argument("--list", action="store_true", help="List pending block items.")
+    p.add_argument("--list-reactivate", action="store_true",
+                   help="List paths the reactivation monitor flagged as eligible.")
     p.add_argument("--id", type=int, help="Ordinal ID from --list to act on.")
+    p.add_argument("--reactivate", type=int, metavar="ID",
+                   help="Reactivate a previously-blocked path (ID from --list-reactivate).")
     p.add_argument("--reject", action="store_true",
                    help="Whitelist (never auto-block).")
     p.add_argument("--snooze", type=int, metavar="DAYS",
@@ -222,6 +341,10 @@ def main() -> int:
 
     if args.list:
         return list_pending()
+    if args.list_reactivate:
+        return list_reactivation_candidates()
+    if args.reactivate is not None:
+        return reactivate(args.reactivate, args.dry_run, args.notes)
     if not args.id:
         p.print_help()
         return 1

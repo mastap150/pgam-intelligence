@@ -1495,6 +1495,63 @@ def _build_blocks(findings: list[dict], summary: dict,
         print(f"[compliance.slack_digest] block_list section failed "
               f"(non-fatal): {_exc}")
 
+    # Reactivation candidates — paths the reactivation monitor flagged
+    # as 'reactivate' or 'fixed_pre_review'. Publisher added the
+    # missing lines back; supply is eligible to bring live.
+    try:
+        with connect() as _conn, _conn.cursor() as _cur:
+            _cur.execute("""
+                SELECT entity_value, supply_partner_key, revenue_7d,
+                       recommended_action, status, last_recheck_at,
+                       audit_host, current_compliance_state
+                FROM pgam_direct.compliance_path_block_list
+                WHERE recommended_action IN ('reactivate', 'fixed_pre_review')
+                ORDER BY revenue_7d DESC LIMIT 12
+            """)
+            _cols = [d[0] for d in _cur.description]
+            _react_rows = [dict(zip(_cols, r)) for r in _cur.fetchall()]
+            _cur.execute("""
+                SELECT recommended_action, COUNT(*), SUM(revenue_7d)::numeric
+                FROM pgam_direct.compliance_path_block_list
+                WHERE recommended_action IN ('reactivate', 'fixed_pre_review',
+                                              'monitor', 'whitelist_aging')
+                GROUP BY recommended_action
+            """)
+            _totals = {r[0]: (int(r[1] or 0), float(r[2] or 0))
+                       for r in _cur.fetchall()}
+        if _react_rows:
+            _table_rows = []
+            for r in _react_rows:
+                _sym = "🟢" if r["recommended_action"] == "reactivate" else "✨"
+                _table_rows.append([
+                    _sym, (r["entity_value"] or "")[:26],
+                    (r["supply_partner_key"] or "?")[:18],
+                    f"${float(r['revenue_7d'] or 0):,.0f}",
+                    r["recommended_action"],
+                ])
+            _react_table = _render_table(
+                rows=_table_rows,
+                headers=["", "Entity", "Via partner", "Rev/7d", "Action"],
+                aligns=["l","l","l","r","l"],
+            )
+            _n_r, _rev_r = _totals.get("reactivate", (0, 0.0))
+            _n_f, _rev_f = _totals.get("fixed_pre_review", (0, 0.0))
+            _n_m, _rev_m = _totals.get("monitor", (0, 0.0))
+            blocks.append({"type":"section","text":{"type":"mrkdwn","text":
+                f":sparkles: *Reactivation candidates — publishers fixed their ads.txt*\n"
+                f"_Paths previously flagged non-compliant where the publisher has now "
+                f"added the required line. *${(_rev_r+_rev_f):,.0f}/7d ready to bring live* "
+                f"({_n_r} stable-24h + {_n_f} fixed-before-enforcement). Plus {_n_m} more "
+                f"in monitor state (${_rev_m:,.0f}/7d) — still inside the 24h stability window._\n"
+                + _react_table + "\n"
+                "_Action:_ `python -m scripts.compliance_approve --list-reactivate` to see full list, "
+                "`--reactivate <ID>` to confirm + re-enable LL demand."
+            }})
+            blocks.append({"type":"divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] reactivation section failed "
+              f"(non-fatal): {_exc}")
+
     # Supply-path audit — the right compliance question — sits directly
     # after the action queue so it's visible above the demand-side
     # visibility sections below.
