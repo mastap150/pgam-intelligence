@@ -425,7 +425,11 @@ SELECT
     BOOL_OR(ok IS TRUE)                                          AS done,
     BOOL_OR(ok IS NULL AND started_at >= now() - interval '15 minutes') AS in_flight
 FROM pgam_direct.compliance_runs
-WHERE started_at::date = current_date;
+-- Use ET-aware date — without this, a run completing 8 PM ET (= 00:09
+-- UTC next day in Postgres' default cast) looks like "today succeeded"
+-- to the next morning's 07:45 ET tick → fallback skips, no Slack post.
+WHERE (started_at AT TIME ZONE 'America/New_York')::date
+    = (now() AT TIME ZONE 'America/New_York')::date;
 """
 
 
@@ -1184,11 +1188,17 @@ def run_fallback_digest() -> dict:
     print(f"[{ACTOR}] fallback-digest check")
 
     # 1) Did today's audit succeed? If yes, the normal post happened.
+    # Date check is ET-aware: an 8 PM ET run = 00:09 UTC next day, and
+    # Postgres' default `started_at::date` cast in UTC would otherwise
+    # mark "today succeeded" for the next morning's 07:45 ET fallback
+    # call — exactly the bug observed 2026-06-08 that suppressed the
+    # daily Slack post.
     try:
         with connect() as conn, conn.cursor() as cur:
             cur.execute("""
                 SELECT BOOL_OR(ok IS TRUE) FROM pgam_direct.compliance_runs
-                WHERE started_at::date = current_date
+                WHERE (started_at AT TIME ZONE 'America/New_York')::date
+                    = (now() AT TIME ZONE 'America/New_York')::date
             """)
             done = bool((cur.fetchone() or (False,))[0])
         if done:
