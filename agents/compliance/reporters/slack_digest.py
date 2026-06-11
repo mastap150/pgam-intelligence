@@ -1600,6 +1600,68 @@ def _build_blocks(findings: list[dict], summary: dict,
         print(f"[compliance.slack_digest] pubmatic section failed "
               f"(non-fatal): {_exc}")
 
+    # Chain-of-custody breakdown — per-partner check of whether the
+    # supply partner declares each app publisher in their sellers.json
+    # as PUBLISHER (or BOTH). Required for transparency standards;
+    # any "not declared" is a buyer-visible gap. Populated by
+    # publisher_chain_audit daily.
+    try:
+        with connect() as _conn, _conn.cursor() as _cur:
+            _cur.execute("""
+                WITH latest AS (
+                    SELECT DISTINCT ON (entity_key, supply_partner_key)
+                           supply_partner_key, revenue_7d,
+                           publisher_declared_in_partner_sj,
+                           partner_sellers_json_seller_type
+                    FROM pgam_direct.compliance_entity_supply_path_audit
+                    WHERE supply_partner_key IS NOT NULL
+                    ORDER BY entity_key, supply_partner_key, as_of DESC
+                )
+                SELECT supply_partner_key,
+                       COUNT(*) FILTER (WHERE publisher_declared_in_partner_sj IS TRUE)  AS chain_ok,
+                       COUNT(*) FILTER (WHERE publisher_declared_in_partner_sj IS FALSE) AS chain_fail,
+                       COUNT(*) FILTER (WHERE publisher_declared_in_partner_sj IS NULL)  AS chain_unknown,
+                       SUM(revenue_7d) FILTER (WHERE publisher_declared_in_partner_sj IS TRUE)  AS rev_ok,
+                       SUM(revenue_7d) FILTER (WHERE publisher_declared_in_partner_sj IS FALSE) AS rev_fail
+                FROM latest
+                GROUP BY supply_partner_key
+                HAVING SUM(revenue_7d) > 0
+                ORDER BY SUM(revenue_7d) FILTER (WHERE publisher_declared_in_partner_sj IS FALSE) DESC NULLS LAST
+            """)
+            _chain_rows = _cur.fetchall()
+        if _chain_rows:
+            _table_rows = []
+            _tot_ok = _tot_fail = _tot_unk = 0
+            _rev_ok = _rev_fail = 0.0
+            for r in _chain_rows[:15]:
+                pk, ok, fail, unk, rev_ok, rev_fail = r
+                _tot_ok += int(ok or 0); _tot_fail += int(fail or 0); _tot_unk += int(unk or 0)
+                _rev_ok += float(rev_ok or 0); _rev_fail += float(rev_fail or 0)
+                _table_rows.append([
+                    (pk or "?")[:22],
+                    f"{int(ok or 0)}",
+                    f"{int(fail or 0)}",
+                    f"{int(unk or 0)}",
+                    f"${float(rev_fail or 0):,.0f}",
+                ])
+            _table = _render_table(
+                rows=_table_rows,
+                headers=["Supply partner","Chain✓","Chain✗","Unknown","$ at risk"],
+                aligns=["l","r","r","r","r"],
+            )
+            blocks.append({"type":"section","text":{"type":"mrkdwn","text":
+                f":link: *Chain-of-custody — does each partner declare our publishers in their sellers.json?*\n"
+                f"_Chain✓ = publisher is listed as PUBLISHER (or BOTH) by that supply partner. "
+                f"Chain✗ = publisher missing or wrong seller_type — buyers can't verify provenance. "
+                f"Unknown = partner's sellers.json wasn't fetchable today._\n"
+                f"_Totals: ✓ {_tot_ok}  ✗ {_tot_fail}  ? {_tot_unk}  ·  "
+                f"*${_rev_fail:,.0f}/7d at risk* via broken chain._\n" + _table
+            }})
+            blocks.append({"type":"divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] chain-of-custody section failed "
+              f"(non-fatal): {_exc}")
+
     # Supply-path audit — the right compliance question — sits directly
     # after the action queue so it's visible above the demand-side
     # visibility sections below.
