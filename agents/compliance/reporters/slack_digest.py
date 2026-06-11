@@ -1552,6 +1552,54 @@ def _build_blocks(findings: list[dict], summary: dict,
         print(f"[compliance.slack_digest] reactivation section failed "
               f"(non-fatal): {_exc}")
 
+    # PubMatic drift watch summary. Lives in every digest so the
+    # state of the high-stakes-partner WL is always visible at a
+    # glance: how many wirings active, how many disabled today by the
+    # drift watch, what's the current Layer A/B/D failure surface.
+    try:
+        with connect() as _conn, _conn.cursor() as _cur:
+            _cur.execute("""
+                SELECT COUNT(*) FROM pgam_direct.compliance_enforcement_log
+                WHERE triggered_by = 'pubmatic_drift_watch'
+                  AND action = 'auto_disable'
+                  AND (created_at AT TIME ZONE 'America/New_York')::date
+                    = (now() AT TIME ZONE 'America/New_York')::date
+            """)
+            _pm_disabled_today = int(_cur.fetchone()[0] or 0)
+            _cur.execute("""
+                SELECT entity_value, supply_partner_key, demand_id,
+                       reason, revenue_7d_at_action,
+                       created_at AT TIME ZONE 'America/New_York' AS ts_et
+                FROM pgam_direct.compliance_enforcement_log
+                WHERE triggered_by = 'pubmatic_drift_watch'
+                  AND action = 'auto_disable'
+                  AND created_at >= now() - interval '7 days'
+                ORDER BY created_at DESC LIMIT 8
+            """)
+            _pm_recent = _cur.fetchall()
+        _lines = []
+        for r in _pm_recent:
+            _lines.append(f"  🚨 {(r[0] or '?')[:30]} via `{(r[1] or '?')[:14]}` "
+                          f"(demand {r[2]}) — ${float(r[4] or 0):,.0f}/7d "
+                          f"— {r[5].strftime('%m-%d %H:%M')} — "
+                          f"{(r[3] or '')[:80]}")
+        _hdr = (
+            f":no_entry_sign: *PubMatic drift watch* (LIVE — auto-disables on drift)\n"
+            f"_Pauses any (publisher × PubMatic demand) wiring that fails our "
+            f"4-layer check: Layer A (PubMatic seat 165708 on publisher ads.txt), "
+            f"Layer B (PGAM seat for the supply path), Layer D (schain config — "
+            f"`supplyChainEnabled=True` AND `dontAddSupplyChainNode=False`). "
+            f"Whitelist is whatever's wired on LL today._\n\n"
+            f"*Today: {_pm_disabled_today} wirings auto-disabled.*"
+        )
+        if _lines:
+            _hdr += "\n\n*Recent disables (last 7d):*\n" + "\n".join(_lines)
+        blocks.append({"type": "section", "text": {"type": "mrkdwn", "text": _hdr}})
+        blocks.append({"type": "divider"})
+    except Exception as _exc:
+        print(f"[compliance.slack_digest] pubmatic section failed "
+              f"(non-fatal): {_exc}")
+
     # Supply-path audit — the right compliance question — sits directly
     # after the action queue so it's visible above the demand-side
     # visibility sections below.

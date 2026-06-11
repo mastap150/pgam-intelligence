@@ -522,6 +522,25 @@ def setup_schedule():
             "agents.compliance.reactivation_monitor")
         schedule.every().hour.at(":57").do(
             _run("compliance_reactivation", compliance_reactivation))
+
+        # PubMatic drift watch — every hour at :52, between the daily
+        # enforcer (:47) and the reactivation monitor (:57). LIVE mode
+        # from day 1 — PubMatic termination risk justifies acting
+        # immediately rather than the dry-run that gates Phase 1.
+        # For every currently-active (publisher × PubMatic-demand)
+        # wiring on LL, runs Layer A (PubMatic line + our seat 165708),
+        # Layer B (PGAM seat for the supply path), Layer D
+        # (supplyChainEnabled=True, dontAddSupplyChainNode=False on the
+        # demand config). Any failure → immediate disable via
+        # ll_mgmt.disable_publisher_demand + per-action Slack alert +
+        # row in compliance_enforcement_log.
+        # The WL is defined on LL — whatever's wired & active IS the WL.
+        # When PubMatic is fully paused (every demand status=2), this
+        # is a cheap no-op.
+        pubmatic_drift_watch = _import(
+            "agents.compliance.pubmatic_drift_watch")
+        schedule.every().hour.at(":52").do(
+            _run("pubmatic_drift_watch", pubmatic_drift_watch))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
