@@ -541,17 +541,106 @@ def disable_publisher_demand(
     publisher_id: int, demand_id: int, dry_run: bool = False
 ) -> dict:
     """
-    Set status=2 (paused/disabled) on the demand within publisher biddingpreferences.
+    Disable a publisher×demand wiring on LL.
+
+    NOTE on LL semantics (discovered 2026-06-11 against publishers
+    290115331 / 290115339 × PubMatic demand 39):
+    LL's PUT /v1/publishers/{id} silently ignores nested `status`
+    changes inside biddingpreferences[].value[] — the request returns
+    200 but the wiring's status stays 1. The only mutation the PUT
+    actually honors is ARRAY MEMBERSHIP — i.e. if you OMIT a wiring
+    from the array, LL deletes it.
+
+    So "disable" is implemented destructively: we archive the full
+    wiring object to pgam_direct.compliance_ll_wiring_archive
+    (for future restore by enable_publisher_demand), then PUT the
+    publisher back with the wiring removed.
+
+    The `demand_id` parameter is misleadingly named for backwards
+    compat — it's actually the WIRING_ID (the `id` field on the
+    biddingpreferences[].value[] item). The drift watcher already
+    tracks it correctly.
 
     Args:
         publisher_id: The publisher ID.
-        demand_id:    The demand ID to disable.
-        dry_run:      If True (or LL_DRY_RUN=true), logs but does NOT call the API.
+        demand_id:    The WIRING id to remove (NOT the demand partner id).
+        dry_run:      If True (or LL_DRY_RUN=true), archives + logs but
+                      does NOT PUT.
 
     Returns:
         The updated publisher dict (or the current publisher dict on dry-run).
     """
-    return _set_publisher_demand_status(publisher_id, demand_id, 2, dry_run=dry_run)
+    effective_dry_run = dry_run or _GLOBAL_DRY_RUN
+    publisher = get_publisher(publisher_id)
+
+    target = None
+    for pref in publisher.get("biddingpreferences", []):
+        for item in pref.get("value", []):
+            if item.get("id") == demand_id:
+                target = item
+                break
+        if target:
+            break
+
+    if target is None:
+        raise ValueError(
+            f"wiring_id={demand_id} not found in biddingpreferences "
+            f"for publisher_id={publisher_id}"
+        )
+
+    # Archive full wiring spec BEFORE mutation so enable_publisher_demand
+    # has something to restore from. Safe to attempt even on dry-run —
+    # archive table is append-only and a few extra rows don't hurt.
+    try:
+        from core.neon import connect as _neon_connect
+        with _neon_connect() as _c, _c.cursor() as _cur:
+            _cur.execute("""
+                CREATE TABLE IF NOT EXISTS pgam_direct.compliance_ll_wiring_archive (
+                    archived_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+                    publisher_id  BIGINT      NOT NULL,
+                    wiring_id     BIGINT      NOT NULL,
+                    demand_id     BIGINT,
+                    wiring_json   JSONB       NOT NULL,
+                    reason        TEXT,
+                    triggered_by  TEXT,
+                    dry_run       BOOLEAN     NOT NULL DEFAULT FALSE,
+                    PRIMARY KEY (publisher_id, wiring_id, archived_at)
+                );
+            """)
+            _cur.execute("""
+                INSERT INTO pgam_direct.compliance_ll_wiring_archive
+                    (publisher_id, wiring_id, demand_id, wiring_json,
+                     reason, triggered_by, dry_run)
+                VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s)
+            """, (publisher_id, demand_id, target.get("demandPartner"),
+                  json.dumps(target, default=str),
+                  "disable_publisher_demand (destructive remove)",
+                  "ll_mgmt.disable_publisher_demand",
+                  bool(effective_dry_run)))
+            _c.commit()
+    except Exception as _e:
+        # Archive failure should NOT block the disable itself — we still
+        # have LL's enforcement_log row. Log + continue.
+        print(f"[ll_mgmt] WARN: wiring archive failed publisher_id={publisher_id} "
+              f"wiring_id={demand_id}: {_e!r}")
+
+    if effective_dry_run:
+        print(f"[ll_mgmt] DRY_RUN disable_publisher_demand (remove)  "
+              f"publisher_id={publisher_id}  wiring_id={demand_id}  "
+              f"demand_id={target.get('demandPartner')}")
+        return publisher
+
+    # Remove the wiring from the biddingpreferences array
+    for pref in publisher.get("biddingpreferences", []):
+        pref["value"] = [
+            x for x in pref.get("value", [])
+            if x.get("id") != demand_id
+        ]
+
+    print(f"[ll_mgmt] disable_publisher_demand (REMOVE)  "
+          f"publisher_id={publisher_id}  wiring_id={demand_id}  "
+          f"demand_id={target.get('demandPartner')}")
+    return _put(f"/v1/publishers/{publisher_id}", publisher)
 
 
 # ---------------------------------------------------------------------------
