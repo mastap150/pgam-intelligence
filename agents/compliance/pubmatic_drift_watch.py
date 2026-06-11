@@ -390,8 +390,17 @@ def run() -> dict:
             # item.id — so we pass the WIRING_ID, not the demand_id.
             primary_ek = primary_entity[0] if primary_entity else f"unknown:{pub_id}"
             primary_info = primary_entity[1] if primary_entity else {}
+            # 2026-06-11 INCIDENT FIX: forced dry-run.
+            # Priyesh's directive: never auto-route or auto-modify LL
+            # wirings. The drift-watch role is OBSERVE + ALERT only —
+            # operator decides every action. Even after PR #73 made the
+            # disable mechanism actually work, this stays dry-run until
+            # explicit re-authorization is granted in writing.
+            FORCE_DRY_RUN = True
             try:
-                resp = ll_mgmt.disable_publisher_demand(pub_id, wiring_id)
+                resp = ll_mgmt.disable_publisher_demand(
+                    pub_id, wiring_id, dry_run=FORCE_DRY_RUN
+                )
                 disabled += 1
                 cur.execute(_LOG_SQL, {
                     "entity_key": primary_ek,
