@@ -63,13 +63,19 @@ from core import ll_mgmt
 
 ACTOR = "pubmatic_drift_watch"
 
-# PubMatic's canonical reseller line for OUR seat. If a publisher's
-# ads.txt doesn't carry this exact (seller_id, relationship) tuple,
-# the entity fails Layer A.
+# PubMatic's canonical reseller lines for OUR seats. PGAM has TWO
+# active PubMatic seats (165708 + 162623) — Layer A passes if EITHER
+# is present on the publisher's ads.txt. Operator-confirmed list.
 PUBMATIC_DOMAIN       = "pubmatic.com"
-PUBMATIC_OUR_SEAT     = "165708"
+PUBMATIC_OUR_SEATS    = frozenset({"165708", "162623"})
 PUBMATIC_RELATIONSHIP = "RESELLER"
 PUBMATIC_CERT         = "5d62403b186f2ace"
+# Reseller lines we suggest publishers add — both shown so they can
+# pick whichever path they're routing through.
+PUBMATIC_EXPECTED_LINES = tuple(
+    f"{PUBMATIC_DOMAIN}, {s}, {PUBMATIC_RELATIONSHIP}, {PUBMATIC_CERT}"
+    for s in sorted(PUBMATIC_OUR_SEATS)
+)
 
 MAX_ACTIONS_PER_TICK = int(
     os.environ.get("PGAM_PUBMATIC_MAX_ACTIONS", "50")
@@ -179,22 +185,29 @@ def _layer_ab_check(cur, publisher_id: str) -> dict:
         # Stale-data guard — refuse to act if audit data isn't fresh.
         if sp_at and sp_at < cutoff:
             failures.append(f"supply_path audit stale ({sp_at.isoformat()})")
-        # Layer A: PubMatic-specific reseller line with OUR seat.
-        # Decode: was the SSP-audit line check positive for pubmatic?
-        # `ssp_line_present` already encodes "domain match + seat match"
-        # per audit_matrix's _evaluate_ssp_line.
-        layer_a = bool(ssp_present)
+        # Layer A: any of our PubMatic seats present on publisher's
+        # ads.txt? We have 165708 + 162623 active; either passes.
+        # `ssp_seller_id_in_adstxt` is the array of seats observed for
+        # pubmatic.com on this publisher (from the SSP audit). Note
+        # `ssp_present` is set by audit_matrix._evaluate_ssp_line
+        # against ssp_registry.account_id="165708" only — so a
+        # publisher with 162623 (but not 165708) would falsely fail
+        # that flag. We re-evaluate here against the BOTH-seat set.
+        seats_seen = ssp_seats or []
+        layer_a = any(s in PUBMATIC_OUR_SEATS for s in seats_seen)
         if not layer_a:
-            seats_seen = ssp_seats or []
             if seats_seen:
                 failures.append(
-                    f"PubMatic line present but our seat {PUBMATIC_OUR_SEAT} "
-                    f"not among {len(seats_seen)} found")
+                    f"PubMatic line present but none of our seats "
+                    f"{sorted(PUBMATIC_OUR_SEATS)} found among "
+                    f"{len(seats_seen)} entries (saw: "
+                    f"{', '.join(str(s) for s in seats_seen[:3])}"
+                    f"{'…' if len(seats_seen)>3 else ''})")
             else:
-                failures.append(f"No `{PUBMATIC_DOMAIN}` reseller line on "
-                                 f"{host or ev}/ads.txt — needs: "
-                                 f"`{PUBMATIC_DOMAIN}, {PUBMATIC_OUR_SEAT}, "
-                                 f"{PUBMATIC_RELATIONSHIP}, {PUBMATIC_CERT}`")
+                failures.append(
+                    f"No `{PUBMATIC_DOMAIN}` reseller line on "
+                    f"{host or ev}/ads.txt — needs ONE of: "
+                    + " OR ".join(f"`{l}`" for l in PUBMATIC_EXPECTED_LINES))
         # Layer B: PGAM seat for the supply path
         if not layer_b:
             failures.append(
