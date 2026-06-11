@@ -111,8 +111,20 @@ def _resolve_pubmatic_demand_ids() -> list[dict]:
     """Return the LL demand records whose name matches PubMatic.
 
     We don't hardcode demand IDs because PubMatic has 300+ entries in
-    our LL config (per-size, per-supply-partner variants). Each one
-    that's currently active needs to be checked.
+    our LL config (per-size, per-supply-partner variants).
+
+    Returns BOTH active (status=1) AND paused (status=2) PubMatic
+    demands. A wiring whose demand is paused isn't generating bids
+    right now, but a single demand-side toggle in LL flips traffic
+    on instantly — so we MUST validate the chain on those wirings
+    too, ahead of any activation. Audit/report logic downstream
+    distinguishes "active wiring + active demand" (traffic flowing)
+    from "active wiring + paused demand" (configured, not yet live)
+    via the demand_status field.
+
+    Archived demands are still excluded (include_archived=False) —
+    those are decommissioned configs that can't be re-enabled
+    without an explicit un-archive action.
     """
     try:
         demands = ll_mgmt.get_demands(include_archived=False) or []
@@ -121,7 +133,7 @@ def _resolve_pubmatic_demand_ids() -> list[dict]:
         return []
     return [d for d in demands
             if "pubmatic" in (d.get("name") or "").lower()
-            and d.get("status") == 1]  # 1 = active in LL
+            and d.get("status") in (1, 2)]  # 1=active, 2=paused
 
 
 def _layer_d_check(demand: dict) -> tuple[bool, list[str]]:
@@ -264,22 +276,28 @@ def run() -> dict:
           f"max_audit_age_h={MAX_AUDIT_AGE_HOURS}")
 
     pm_demands = _resolve_pubmatic_demand_ids()
-    print(f"[{ACTOR}] active PubMatic demands in LL: {len(pm_demands)}")
+    n_active = sum(1 for d in pm_demands if d.get("status") == 1)
+    n_paused = sum(1 for d in pm_demands if d.get("status") == 2)
+    print(f"[{ACTOR}] PubMatic demands in LL: total={len(pm_demands)} "
+          f"active={n_active} paused={n_paused}")
     if not pm_demands:
-        print(f"[{ACTOR}] no active PubMatic demands — nothing to enforce")
-        return {"ok": True, "skipped": "no_active_pubmatic_demands",
-                "active_demands": 0}
+        print(f"[{ACTOR}] no PubMatic demands found — nothing to evaluate")
+        return {"ok": True, "skipped": "no_pubmatic_demands",
+                "active_demands": 0, "paused_demands": 0}
 
-    # Build a lookup: PubMatic demand_id → (name, layer_d_pass, failures).
+    # Build a lookup: PubMatic demand_id → (name, status, layer_d_pass, failures).
     # Layer D is a per-demand check (config flags on the demand itself),
-    # so do it once per active demand.
+    # so do it once per demand. We include paused demands so wirings to
+    # them get validated — a demand-side toggle could activate traffic
+    # without giving us a chance to re-check.
     pm_demand_index: dict[str, dict] = {}
     for d in pm_demands:
         layer_d, d_failures = _layer_d_check(d)
         pm_demand_index[str(d.get("id"))] = {
-            "name":       d.get("name") or "",
-            "layer_d":    layer_d,
-            "d_failures": d_failures,
+            "name":          d.get("name") or "",
+            "demand_status": d.get("status"),  # 1=active 2=paused
+            "layer_d":       layer_d,
+            "d_failures":    d_failures,
         }
 
     # Now O(P) instead of O(D × P): walk every active publisher ONCE,
@@ -303,7 +321,10 @@ def run() -> dict:
     # WIRING id, not the demand id. Verified against
     # core/ll_mgmt.py:_set_publisher_demand_status. We need to track
     # BOTH and pass the wiring id when disabling.
-    wirings = []  # (publisher_id, wiring_id, demand_id, demand_name, layer_d_pass, d_failures)
+    # Tuple: (pub_id, wiring_id, demand_id, demand_name, demand_status,
+    #         layer_d_pass, d_failures). demand_status lets downstream
+    #         distinguish "traffic flowing" from "configured but paused".
+    wirings = []
     for p in publishers:
         if p.get("status") != 1:
             continue
@@ -325,15 +346,19 @@ def run() -> dict:
                 continue
             wiring_id = w.get("id")  # bidding-preference row id for disable
             if wiring_id is None:
-                continue  # can't disable without a wiring id
+                continue
             info = pm_demand_index[did]
             wirings.append((pub_id, wiring_id, did, info["name"],
+                             info["demand_status"],
                              info["layer_d"], info["d_failures"]))
 
-    print(f"[{ACTOR}] active (publisher × PubMatic demand) wirings: {len(wirings)}")
+    n_traffic    = sum(1 for w in wirings if w[4] == 1)   # demand active
+    n_configured = sum(1 for w in wirings if w[4] == 2)   # demand paused
+    print(f"[{ACTOR}] (publisher × PubMatic) wirings: total={len(wirings)} "
+          f"traffic_flowing={n_traffic} configured_paused={n_configured}")
     if not wirings:
-        return {"ok": True, "skipped": "no_active_wirings",
-                "active_demands": len(pm_demands)}
+        return {"ok": True, "skipped": "no_wirings",
+                "active_demands": n_active, "paused_demands": n_paused}
 
     disabled = 0
     errors = 0
@@ -344,7 +369,7 @@ def run() -> dict:
 
     pubs_seen: dict[str, dict] = {}  # publisher_id → entity-level layer A/B data
     with connect() as conn, conn.cursor() as cur:
-        for pub_id, wiring_id, demand_id, demand_name, layer_d_pass, d_failures in wirings:
+        for pub_id, wiring_id, demand_id, demand_name, demand_status, layer_d_pass, d_failures in wirings:
             if pub_id not in pubs_seen:
                 pubs_seen[pub_id] = _layer_ab_check(cur, pub_id)
             ab_by_entity = pubs_seen[pub_id]
@@ -376,6 +401,23 @@ def run() -> dict:
 
             if not all_failures:
                 # All layers green for this wiring — leave it live.
+                continue
+
+            # PAUSED-DEMAND GUARD (2026-06-11): if the demand itself is
+            # paused (status=2), this wiring isn't generating bids RIGHT
+            # NOW. We still surface its compliance state in the report
+            # so it's ready BEFORE activation, but we never destructively
+            # action a paused-demand wiring — there's no live revenue
+            # at risk, and the operator should fix the chain pre-flight
+            # rather than have us yank it just before they flip the
+            # demand on. This is a second-layer guard independent of
+            # FORCE_DRY_RUN.
+            if demand_status == 2:
+                line = (f"⚠️  pub={pub_id} × demand={demand_id} "
+                        f"({demand_name[:40]}) — configured, demand PAUSED "
+                        f"| reasons: {'; '.join(all_failures[:3])}")
+                violation_lines.append(line)
+                print(f"[{ACTOR}] {line}")
                 continue
 
             if disabled >= MAX_ACTIONS_PER_TICK:
