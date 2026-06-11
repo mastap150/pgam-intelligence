@@ -292,7 +292,18 @@ def run() -> dict:
         print(f"[{ACTOR}] get_publishers failed: {exc}")
         publishers = []
 
-    wirings = []  # (publisher_id, demand_id, demand_name, layer_d_pass, d_failures)
+    # IMPORTANT: each wiring has TWO ids:
+    #   • w["id"]            — the BIDDING-PREFERENCE ROW id (what
+    #                          ll_mgmt.disable_publisher_demand expects)
+    #   • w["demandPartner"] — the actual demand id (what links to the
+    #                          pm_demand_index entry we built above)
+    # The disable_publisher_demand function name is misleading: it
+    # walks publisher.biddingpreferences[].value[] and matches by
+    # item.id == its `demand_id` parameter — which is actually the
+    # WIRING id, not the demand id. Verified against
+    # core/ll_mgmt.py:_set_publisher_demand_status. We need to track
+    # BOTH and pass the wiring id when disabling.
+    wirings = []  # (publisher_id, wiring_id, demand_id, demand_name, layer_d_pass, d_failures)
     for p in publishers:
         if p.get("status") != 1:
             continue
@@ -302,13 +313,21 @@ def run() -> dict:
         except Exception:
             continue
         for w in pwirings:
-            did = str(w.get("demandId") or w.get("demand_id") or "")
+            did = str(
+                w.get("demandPartner")
+                or w.get("demandId")
+                or w.get("demand_id")
+                or ""
+            )
             if did not in pm_demand_index:
                 continue
-            if not (w.get("enabled") or w.get("status") == 1):
+            if w.get("status") != 1 and not w.get("enabled"):
                 continue
+            wiring_id = w.get("id")  # bidding-preference row id for disable
+            if wiring_id is None:
+                continue  # can't disable without a wiring id
             info = pm_demand_index[did]
-            wirings.append((pub_id, did, info["name"],
+            wirings.append((pub_id, wiring_id, did, info["name"],
                              info["layer_d"], info["d_failures"]))
 
     print(f"[{ACTOR}] active (publisher × PubMatic demand) wirings: {len(wirings)}")
@@ -325,7 +344,7 @@ def run() -> dict:
 
     pubs_seen: dict[str, dict] = {}  # publisher_id → entity-level layer A/B data
     with connect() as conn, conn.cursor() as cur:
-        for pub_id, demand_id, demand_name, layer_d_pass, d_failures in wirings:
+        for pub_id, wiring_id, demand_id, demand_name, layer_d_pass, d_failures in wirings:
             if pub_id not in pubs_seen:
                 pubs_seen[pub_id] = _layer_ab_check(cur, pub_id)
             ab_by_entity = pubs_seen[pub_id]
@@ -365,11 +384,14 @@ def run() -> dict:
                       f"({MAX_ACTIONS_PER_TICK}) — pausing")
                 break
 
-            # Disable this (publisher × demand) pair via LL mgmt.
+            # Disable this (publisher × demand) wiring via LL mgmt.
+            # ll_mgmt.disable_publisher_demand walks
+            # publisher.biddingpreferences[].value[] and matches by
+            # item.id — so we pass the WIRING_ID, not the demand_id.
             primary_ek = primary_entity[0] if primary_entity else f"unknown:{pub_id}"
             primary_info = primary_entity[1] if primary_entity else {}
             try:
-                resp = ll_mgmt.disable_publisher_demand(pub_id, demand_id)
+                resp = ll_mgmt.disable_publisher_demand(pub_id, wiring_id)
                 disabled += 1
                 cur.execute(_LOG_SQL, {
                     "entity_key": primary_ek,
