@@ -65,6 +65,8 @@ SELECT bl.entity_key, bl.kind, bl.entity_value, bl.audit_host,
        sp.supply_partner_line_present,
        sp.pgam_line_present_for_path,
        sp.sellers_json_partner_declared,
+       sp.publisher_declared_in_partner_sj,
+       sp.partner_sellers_json_seller_type,
        sp.observed_pgam_seats,
        sp.observed_partner_seats,
        sp.audited_at AS sp_audited_at
@@ -107,21 +109,34 @@ def _classify(row: dict) -> tuple[str, dict]:
     """
     # Path-aware health: every layer must be present for the path
     # to be considered healthy. A partial fix doesn't reactivate.
-    layer_a = bool(row.get("supply_partner_line_present"))     # partner's line
-    layer_b = bool(row.get("pgam_line_present_for_path"))      # our pgamssp seat
-    layer_c = bool(row.get("sellers_json_partner_declared"))   # partner sellers.json
+    # Layer C is the corrected chain-of-custody check (per
+    # publisher_chain_audit): the supply partner must declare the
+    # app publisher in their sellers.json as PUBLISHER or BOTH.
+    # NULL = "we haven't yet fetched that partner's sellers.json"
+    # (e.g. videoelephant.com which 404s on its public sellers.json).
+    # We treat NULL as a soft pass to avoid false-blocking paths
+    # where the data source is broken, not the chain.
+    layer_a = bool(row.get("supply_partner_line_present"))
+    layer_b = bool(row.get("pgam_line_present_for_path"))
+    layer_c_we_declare_partner = bool(
+        row.get("sellers_json_partner_declared"))
+    layer_c_partner_declares_pub = row.get("publisher_declared_in_partner_sj")
+    layer_c_pass = (layer_c_we_declare_partner and
+                    (layer_c_partner_declares_pub is not False))
     sp_audited = row.get("sp_audited_at")
-    healthy = layer_a and layer_b and layer_c
+    healthy = layer_a and layer_b and layer_c_pass
 
     state = {
-        "layer_a_partner_line":        layer_a,
-        "layer_b_pgam_seat_for_path":  layer_b,
-        "layer_c_partner_sellers_json": layer_c,
-        "healthy":                     healthy,
-        "expected_pgam_seat":          row.get("supply_partner_pgam_seat"),
-        "observed_pgam_seats":         row.get("observed_pgam_seats") or [],
-        "observed_partner_seats":      row.get("observed_partner_seats") or [],
-        "sp_audited_at":               sp_audited.isoformat() if sp_audited else None,
+        "layer_a_partner_line":             layer_a,
+        "layer_b_pgam_seat_for_path":       layer_b,
+        "layer_c_we_declare_partner":       layer_c_we_declare_partner,
+        "layer_c_partner_declares_publisher": layer_c_partner_declares_pub,
+        "partner_declared_seller_type":     row.get("partner_sellers_json_seller_type"),
+        "healthy":                          healthy,
+        "expected_pgam_seat":               row.get("supply_partner_pgam_seat"),
+        "observed_pgam_seats":              row.get("observed_pgam_seats") or [],
+        "observed_partner_seats":           row.get("observed_partner_seats") or [],
+        "sp_audited_at":                    sp_audited.isoformat() if sp_audited else None,
     }
 
     status = row.get("status")

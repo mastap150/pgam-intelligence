@@ -523,6 +523,20 @@ def setup_schedule():
         schedule.every().hour.at(":57").do(
             _run("compliance_reactivation", compliance_reactivation))
 
+        # Publisher chain audit — daily 08:25 ET, right after the main
+        # compliance runner finishes. For every active supply partner,
+        # fetches their sellers.json and checks whether each publisher
+        # routing through them is declared as PUBLISHER (or BOTH).
+        # Populates compliance_entity_supply_path_audit.publisher_declared_in_partner_sj
+        # — the corrected chain-of-custody flag. Cheap (~7 sec for all
+        # ~13 partners) so we also re-run hourly :05 to catch within-day
+        # partner-side updates.
+        publisher_chain_audit = _import("agents.compliance.publisher_chain_audit")
+        schedule.every().day.at("08:25").do(
+            _run("publisher_chain_audit", publisher_chain_audit))
+        schedule.every().hour.at(":05").do(
+            _run("publisher_chain_audit", publisher_chain_audit))
+
         # PubMatic drift watch — every hour at :52, between the daily
         # enforcer (:47) and the reactivation monitor (:57). LIVE mode
         # from day 1 — PubMatic termination risk justifies acting

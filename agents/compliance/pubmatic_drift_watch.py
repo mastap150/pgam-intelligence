@@ -155,7 +155,9 @@ def _layer_ab_check(cur, publisher_id: str) -> dict:
         WITH latest_sp AS (
             SELECT DISTINCT ON (entity_key) entity_key, kind, entity_value,
                    audit_host, revenue_7d, supply_partner_key,
-                   pgam_line_present_for_path, audited_at, supply_partner_pgam_seat
+                   pgam_line_present_for_path, audited_at, supply_partner_pgam_seat,
+                   publisher_declared_in_partner_sj,
+                   partner_sellers_json_seller_type
             FROM pgam_direct.compliance_entity_supply_path_audit
             WHERE ll_publisher_id = %s
             ORDER BY entity_key, as_of DESC
@@ -171,6 +173,8 @@ def _layer_ab_check(cur, publisher_id: str) -> dict:
                sp.revenue_7d, sp.supply_partner_key,
                sp.pgam_line_present_for_path, sp.audited_at,
                sp.supply_partner_pgam_seat,
+               sp.publisher_declared_in_partner_sj,
+               sp.partner_sellers_json_seller_type,
                ssp.ssp_line_present, ssp.ssp_seller_id_in_adstxt,
                ssp.audited_at
         FROM latest_sp sp
@@ -180,8 +184,21 @@ def _layer_ab_check(cur, publisher_id: str) -> dict:
     cutoff = datetime.now(timezone.utc) - timedelta(hours=MAX_AUDIT_AGE_HOURS)
     for r in cur.fetchall():
         (ek, kind, ev, host, rev, sp_key, layer_b, sp_at, sp_seat,
+         layer_c_partner_declares_pub, partner_seller_type,
          ssp_present, ssp_seats, ssp_at) = r
         failures = []
+        # Layer C (chain of custody): supply partner must declare this
+        # publisher in their sellers.json as PUBLISHER or BOTH.
+        # NULL = partner's sellers.json not fetchable today (soft pass).
+        if layer_c_partner_declares_pub is False:
+            if (partner_seller_type or "").upper() == "INTERMEDIARY":
+                failures.append(
+                    f"Layer C (chain): `{sp_key}` lists publisher `{host or ev}` "
+                    f"in their sellers.json but as INTERMEDIARY — needs PUBLISHER or BOTH")
+            else:
+                failures.append(
+                    f"Layer C (chain): `{sp_key}` doesn't declare publisher "
+                    f"`{host or ev}` in their sellers.json — broken chain of custody")
         # Stale-data guard — refuse to act if audit data isn't fresh.
         if sp_at and sp_at < cutoff:
             failures.append(f"supply_path audit stale ({sp_at.isoformat()})")
