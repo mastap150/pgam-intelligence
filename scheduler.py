@@ -660,6 +660,16 @@ def setup_schedule():
         schedule.every().monday.at("09:30").do(
             _run("boxingnews_weekly_review", boxingnews_weekly_review)
         )
+        # Daily ingest-health watchdog. Fires once at 08:30 ET — by then
+        # the breaking lane (15-min cron) has had ~96 ticks since
+        # midnight ET and the trending lane (2h cron) has had 4. If
+        # either produced 0 articles, something is wrong (was true for
+        # ~30 days pre-fix and went unnoticed). Self-deduplicates so
+        # a multi-day outage doesn't spam Slack.
+        boxingnews_ingest_health = _import("agents.alerts.boxingnews_ingest_health")
+        schedule.every().day.at("08:30").do(
+            _run("boxingnews_ingest_health", boxingnews_ingest_health)
+        )
 
     # ─────────────────────────────────────────────────────────────────
     # Outbound SDR — daily lead loader (Apollo → HubSpot → Instantly)
