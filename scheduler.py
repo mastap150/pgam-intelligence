@@ -587,6 +587,27 @@ def setup_schedule():
             "agents.compliance.pgam_sellers_validator")
         schedule.every().day.at("08:10").do(
             _run("pgam_sellers_validator", pgam_sellers_validator))
+
+        # Seller-ID consistency cross-check — daily 08:15 ET. The
+        # complement to pgam_sellers_validator (partner-level Layer C
+        # direction-1): this one is host-level. For every (audit_host,
+        # supply_partner) pair in the latest supply_path_audit, checks
+        # whether seat IDs are CONSISTENT across:
+        #   • app-ads.txt observed seats for the partner's domain
+        #   • partner's sellers.json declared seller_id for this publisher
+        #   • app-ads.txt observed pgamssp seats
+        #   • expected pgam seat from compliance_ll_partner_bridge
+        # Surfaces three issue categories: partner_seat_mismatch (most
+        # actionable — publisher and partner disagree on the seller_id),
+        # pgam_seat_mismatch (wrong pgamssp seat declared), and
+        # partner_type_warning (partner declares the host as
+        # INTERMEDIARY). NO schema migration — all the raw data is
+        # already in compliance_entity_supply_path_audit.
+        # READ-ONLY: writes only the Slack message + a dedup row.
+        seller_id_consistency = _import(
+            "agents.compliance.seller_id_consistency_report")
+        schedule.every().day.at("08:15").do(
+            _run("seller_id_consistency_report", seller_id_consistency))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
