@@ -570,6 +570,23 @@ def setup_schedule():
             "agents.compliance.live_pubmatic_report")
         schedule.every().day.at("08:05").do(
             _run("live_pubmatic_report", live_pubmatic_report))
+
+        # PGAM sellers.json validator — daily 08:10 ET. Layer C
+        # direction-1: verifies our OWN sellers.json
+        # (pgamssp.com/sellers.json) correctly declares every active
+        # upstream supply partner as INTERMEDIARY or BOTH with the seat
+        # that matches what we issue on publisher app-ads.txt pgamssp
+        # lines. A miss here is multiplicative — one missing partner
+        # entry breaks the chain for every host routed through that
+        # partner, independent of how clean their app-ads.txt is.
+        # READ-ONLY: fetches our public sellers.json + writes a daily
+        # snapshot to compliance_pgam_sellers_index, a findings row per
+        # partner to compliance_pgam_sellers_findings, and one Slack
+        # message. Never modifies LL or any routing config.
+        pgam_sellers_validator = _import(
+            "agents.compliance.pgam_sellers_validator")
+        schedule.every().day.at("08:10").do(
+            _run("pgam_sellers_validator", pgam_sellers_validator))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
