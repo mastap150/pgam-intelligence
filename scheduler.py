@@ -396,6 +396,7 @@ def setup_schedule():
     from agents.dsp_buyer.margin_watchdog import margin_watchdog as dsp_margin_watchdog
     from agents.dsp_buyer.burn_rate_watchdog import burn_rate_watchdog as dsp_burn_rate_watchdog
     from agents.dsp_buyer.retro_generator import retro_generator as dsp_retro_generator
+    from agents.dsp_buyer.mid_funnel_watcher import mid_funnel_watcher as dsp_mid_funnel_watcher
     from agents.dsp_buyer.watchdog_invoker import (
         run_auto_rollback   as dsp_auto_rollback,
         run_status_report   as dsp_status_report,
@@ -414,6 +415,12 @@ def setup_schedule():
     # daily status digest goes out). Idempotent — UNIQUE on campaign_id
     # prevents re-running. Foundation for the knowledge base (Stage 2).
     schedule.every().day.at("09:30").do(_run("dsp_retro_generator", dsp_retro_generator))
+    # Intra-day per-campaign watcher (currently Mid Funnel). Bypasses
+    # the Neon mirror entirely (which has SS /report intermittency).
+    # Pulls live SS data every 30 min and Slacks on VTR drop, delivery
+    # cliff, pacing shift, or budget burnout. Dedup via
+    # campaign_watcher_alerts table (4h window per (campaign, alert_type)).
+    schedule.every(30).minutes.do(_run("dsp_mid_funnel_watcher", dsp_mid_funnel_watcher))
 
     # Weekly — discovery + rep-conversation feeds (Monday mornings)
     schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
