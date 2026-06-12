@@ -555,6 +555,21 @@ def setup_schedule():
             "agents.compliance.pubmatic_drift_watch")
         schedule.every().hour.at(":52").do(
             _run("pubmatic_drift_watch", pubmatic_drift_watch))
+
+        # PubMatic LIVE morning report — daily 08:05 ET, 5 min after the
+        # 08:00 ET compliance digest so both messages land in #compliance
+        # together. Focuses on (publisher × demand) wirings carrying
+        # bid traffic RIGHT NOW (qpsPreviousHour > 0 OR qpsYesterday > 0)
+        # via PubMatic at the partner level (demandPartner = 3). Pulls the
+        # live routing graph from /v1/demands/{id}/publishers (which is
+        # different from publisher.biddingpreferences — see the agent
+        # docstring for why). READ-ONLY: never calls disable_*, never
+        # writes anything except the Slack message + a dedup row in
+        # compliance_alert_state. Idempotent on re-fire.
+        live_pubmatic_report = _import(
+            "agents.compliance.live_pubmatic_report")
+        schedule.every().day.at("08:05").do(
+            _run("live_pubmatic_report", live_pubmatic_report))
     # Config auditor — daily LL + TB sweep for floors/wirings/rules that look
     # off. P1 contract-floor breaches, P2 zero/outlier floors, P3 orphans &
     # zombie wirings. TB section flags any signs of life (account is supposed
