@@ -220,13 +220,17 @@ def _build_slack_message(agg: dict) -> str:
         rows = sorted(fbc["partner_seat_mismatch"].values(),
                       key=lambda f: -f["max_rev_7d"])[:TOP_PER_CATEGORY]
         lines.append("```")
-        lines.append(f"{'host':<28}{'partner':<14}{'declared in SJ':<14}{'on app-ads.txt':<30}{'rev_7d':>10}")
+        # Column widths: 28 / 14 / 16 / 30 / 10. The SJ-seat column is 16
+        # wide (not 14) so the header "declared in SJ" (exactly 14 chars)
+        # gets the trailing 2-char separator that prevents it bleeding
+        # into the next column.
+        lines.append(f"{'host':<28}{'partner':<14}{'declared in SJ':<16}{'on app-ads.txt':<30}{'rev_7d':>10}")
         for f in rows:
             ev = f["evidence"]
             atx_sample = ",".join(ev["observed_partner_seats_sample"][:3])
             lines.append(f"{f['host'][:26]:<28}"
                          f"{f['partner'][:12]:<14}"
-                         f"{(ev['sj_seat'] or '-')[:12]:<14}"
+                         f"{(ev['sj_seat'] or '-')[:14]:<16}"
                          f"{atx_sample[:28]:<30}"
                          f"${f['max_rev_7d']:>8,.0f}")
         lines.append("```")
