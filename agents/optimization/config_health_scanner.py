@@ -66,14 +66,25 @@ QPS_BUMP_MULTIPLIER = 2.0
 #
 # Basis added 2026-05-22 per Priyesh: testing with Basis, hold all Basis demands
 # at the current QPS caps; do not auto-raise.
-# "bidmachine ron" added 2026-06-03 per Priyesh: hold QPS on d=1324 "BidMachine RON"
-# (currently 5k) + d=1335 "BidMachine RON EU" (currently 500) specifically.
-# Substring is precise — does NOT match Magnite-BidMachine / Sovrn-BidMachine /
-# Xandr-BidMachine / Unruly-BidMachine / Inmobi-BidMachine / etc. — those remain
-# eligible for QPS auto-raise when throttled.
+# "bidmachine ron" added 2026-06-03 per Priyesh: initially narrowed to d=1324
+# "BidMachine RON" + d=1335 "BidMachine RON EU" only.
+# BROADENED 2026-06-XX per Priyesh: strict QPS caps in place with 6 partners total
+# (Pubmatic, Basis, Unruly, Adnimation, BidMachine, Verve) — never auto-raise.
+# Substring coverage at current data:
+#   basis      → 3 demands
+#   bidmachine → 57 demands (Magnite-BM, Sovrn-BM, Unruly-BM, Inmobi-BM, etc.)
+#   pubmatic   → 97 demands
+#   unruly     → 115 demands
+#   adnimation → 14 demands
+#   verve      → 12 demands
+# Total: 286 of ~1047 demands now QPS-locked (27%).
 QPS_DEMAND_NAME_BLOCKLIST = (
     "basis",
-    "bidmachine ron",
+    "bidmachine",
+    "pubmatic",
+    "unruly",
+    "adnimation",
+    "verve",
 )
 
 
