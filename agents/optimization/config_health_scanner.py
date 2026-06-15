@@ -64,7 +64,7 @@ QPS_BUMP_MULTIPLIER = 2.0
 #   - The partner has explicit rate-limit rules we must respect
 #   - Commercial terms cap our QPS at a contracted level
 #
-# Strict QPS caps in place with 6 demand partners — never auto-raise QPS on
+# Strict QPS caps in place with 7 demand partners — never auto-raise QPS on
 # their demands. Substring tokens map to demandPartner IDs as follows
 # (verified against LL demand-partner field):
 #   basis           → demandPartner=32  (3 demands)
@@ -73,6 +73,7 @@ QPS_BUMP_MULTIPLIER = 2.0
 #   adnimation      → demandPartner=38  (14 demands)
 #   verve           → demandPartner=18  (12 demands)
 #   bidmachine ron  → demandPartner=40  (2 demands: BidMachine RON + RON EU)
+#   adelement       → demandPartner=43  (4 demands)
 #
 # IMPORTANT — why "bidmachine ron" not "bidmachine":
 # The bare substring "bidmachine" matches 57 demands spanning 14 different
@@ -82,6 +83,7 @@ QPS_BUMP_MULTIPLIER = 2.0
 # the demand partner (id=40). The narrow "bidmachine ron" token correctly
 # targets only the 2 actual BidMachine-as-demand-partner records.
 # Per Priyesh 2026-06-15: confirmed BidMachine = demand partner id=40 only.
+# Adelement added per Priyesh same date — clean single-partner match.
 QPS_DEMAND_NAME_BLOCKLIST = (
     "basis",
     "bidmachine ron",
@@ -89,6 +91,7 @@ QPS_DEMAND_NAME_BLOCKLIST = (
     "unruly",
     "adnimation",
     "verve",
+    "adelement",
 )
 
 
