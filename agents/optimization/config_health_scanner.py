@@ -64,23 +64,27 @@ QPS_BUMP_MULTIPLIER = 2.0
 #   - The partner has explicit rate-limit rules we must respect
 #   - Commercial terms cap our QPS at a contracted level
 #
-# Basis added 2026-05-22 per Priyesh: testing with Basis, hold all Basis demands
-# at the current QPS caps; do not auto-raise.
-# "bidmachine ron" added 2026-06-03 per Priyesh: initially narrowed to d=1324
-# "BidMachine RON" + d=1335 "BidMachine RON EU" only.
-# BROADENED 2026-06-XX per Priyesh: strict QPS caps in place with 6 partners total
-# (Pubmatic, Basis, Unruly, Adnimation, BidMachine, Verve) — never auto-raise.
-# Substring coverage at current data:
-#   basis      → 3 demands
-#   bidmachine → 57 demands (Magnite-BM, Sovrn-BM, Unruly-BM, Inmobi-BM, etc.)
-#   pubmatic   → 97 demands
-#   unruly     → 115 demands
-#   adnimation → 14 demands
-#   verve      → 12 demands
-# Total: 286 of ~1047 demands now QPS-locked (27%).
+# Strict QPS caps in place with 6 demand partners — never auto-raise QPS on
+# their demands. Substring tokens map to demandPartner IDs as follows
+# (verified against LL demand-partner field):
+#   basis           → demandPartner=32  (3 demands)
+#   pubmatic        → demandPartner=3   (97 demands)
+#   unruly          → demandPartner=5   (115 demands)
+#   adnimation      → demandPartner=38  (14 demands)
+#   verve           → demandPartner=18  (12 demands)
+#   bidmachine ron  → demandPartner=40  (2 demands: BidMachine RON + RON EU)
+#
+# IMPORTANT — why "bidmachine ron" not "bidmachine":
+# The bare substring "bidmachine" matches 57 demands spanning 14 different
+# demandPartners (Magnite=4, Sovrn=7, Pubmatic=3, Xandr=13, Unruly=5, Inmobi,
+# LoopMe, OneTag, etc.). Those are OTHER DSPs whose names include "BidMachine"
+# because it's the SUPPLY-path SSP routing to them — they're NOT BidMachine
+# the demand partner (id=40). The narrow "bidmachine ron" token correctly
+# targets only the 2 actual BidMachine-as-demand-partner records.
+# Per Priyesh 2026-06-15: confirmed BidMachine = demand partner id=40 only.
 QPS_DEMAND_NAME_BLOCKLIST = (
     "basis",
-    "bidmachine",
+    "bidmachine ron",
     "pubmatic",
     "unruly",
     "adnimation",
