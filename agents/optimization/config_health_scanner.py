@@ -92,6 +92,10 @@ QPS_DEMAND_NAME_BLOCKLIST = (
     "adnimation",
     "verve",
     "adelement",
+    "magnite",  # added 2026-06-16 per Priyesh; dp=4, 230 demands (231 by name —
+                # 1 test demand d=1 dp=1 also caught, no operational impact).
+                # Magnite stopped transacting today after a cliff on 5/21;
+                # hold QPS to avoid any further partner-side filtering.
 )
 
 
