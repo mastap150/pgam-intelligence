@@ -17,11 +17,16 @@ Why this exists separately from the daily 9am ET digest:
 
 Alerts fired (each with 4h dedup in campaign_watcher_alerts):
   1. vtr_below_floor    — today's VTR < VTR_FLOOR_PCT for >1K imps
-  2. delivery_cliff      — today's imps < CLIFF_PCT * yesterday's imps
+  2. vtr_auto_brake     — paired action with vtr_below_floor when imps
+                          ≥ VTR_BRAKE_MIN_IMPS: steps SS freq cap down by
+                          VTR_BRAKE_STEP_PCT (default 25%), floored at
+                          VTR_BRAKE_MIN_CAP. Logs to buyer_agent_actions.
+                          Disable with WATCHER_VTR_AUTO_BRAKE=0.
+  3. delivery_cliff      — today's imps < CLIFF_PCT * yesterday's imps
                           (after ≥6h into UTC day to avoid noise)
-  3. pacing_shift_high   — cumulative pacing > 150% (over-burn signal)
-  4. pacing_shift_low    — cumulative pacing < 60% (under-pace signal)
-  5. budget_burnout      — at current daily spend rate, remaining
+  4. pacing_shift_high   — cumulative pacing > 150% (over-burn signal)
+  5. pacing_shift_low    — cumulative pacing < 60% (under-pace signal)
+  6. budget_burnout      — at current daily spend rate, remaining
                           budget exhausts in <BURNOUT_DAYS days
 
 Each alert posts a Slack message AND records in campaign_watcher_alerts
@@ -61,6 +66,16 @@ PACING_OVER_PCT = float(os.environ.get("WATCHER_PACING_OVER_PCT", "150"))
 PACING_UNDER_PCT = float(os.environ.get("WATCHER_PACING_UNDER_PCT", "60"))
 BURNOUT_DAYS = float(os.environ.get("WATCHER_BURNOUT_DAYS", "7"))
 DEDUP_HOURS = int(os.environ.get("WATCHER_DEDUP_HOURS", "4"))
+
+# VTR auto-brake: when today's VTR drops below the floor on enough imps,
+# automatically step the SS demand-tag freq cap DOWN by a fixed ratio
+# (default 25%) to suppress re-exposure to low-VTR HHs. Floored at
+# VTR_BRAKE_MIN_CAP so we never freeze delivery entirely. Set
+# WATCHER_VTR_AUTO_BRAKE=0 to disable and keep alert-only behaviour.
+VTR_AUTO_BRAKE = os.environ.get("WATCHER_VTR_AUTO_BRAKE", "1") == "1"
+VTR_BRAKE_STEP_PCT = float(os.environ.get("WATCHER_VTR_BRAKE_STEP_PCT", "25"))
+VTR_BRAKE_MIN_CAP = int(os.environ.get("WATCHER_VTR_BRAKE_MIN_CAP", "5"))
+VTR_BRAKE_MIN_IMPS = int(os.environ.get("WATCHER_VTR_BRAKE_MIN_IMPS", "5000"))
 
 
 def mid_funnel_watcher() -> dict[str, Any]:
@@ -189,6 +204,20 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
             "snapshot": {"today_imps": today_imps, "today_vtr_pct": today_vtr,
                          "floor_pct": VTR_FLOOR_PCT},
         })
+
+        # Auto-brake: step the freq cap DOWN to suppress repeat exposures
+        # to low-VTR HHs. Only fires when we have enough volume to trust
+        # the VTR signal (≥VTR_BRAKE_MIN_IMPS today) and the current cap
+        # is above the floor. Dedup via the same vtr_below_floor 4h window
+        # — won't re-fire the brake on the same alert.
+        if (VTR_AUTO_BRAKE
+                and today_imps >= VTR_BRAKE_MIN_IMPS
+                and not _was_recently_fired(conn, campaign_id, "vtr_auto_brake", DEDUP_HOURS)):
+            brake = _auto_tighten_freq_cap(headers, int(tag_id), tag, campaign_id, name,
+                                            today_vtr=today_vtr, today_imps=today_imps,
+                                            conn=conn)
+            if brake is not None:
+                alerts.append(brake)
 
     # Cliff: compare today's HOURLY rate vs yesterday's hourly rate (rather
     # than today's partial total vs yesterday's full-day total — that always
@@ -360,6 +389,144 @@ def _post_slack(message: str) -> None:
         send_text(message)
     except Exception as e:
         print(f"[mid_funnel_watcher] slack post failed: {e}")
+
+
+# ── VTR auto-brake ─────────────────────────────────────────────────────────
+
+
+def _auto_tighten_freq_cap(headers, tag_id: int, tag: dict[str, Any],
+                           campaign_id: str, name: str,
+                           today_vtr: float, today_imps: int,
+                           conn) -> Optional[dict[str, Any]]:
+    """Step the SS demand tag's freq cap down by VTR_BRAKE_STEP_PCT.
+
+    Returns an alert dict to surface the action in Slack, or None if the
+    cap is already at the floor or the SS PATCH failed.
+    """
+    caps = tag.get("frequency_caps") or []
+    # Find the daily cap entry. Watcher only operates on per-day caps —
+    # hourly/lifetime caps would need different math.
+    day_cap = next(
+        (c for c in caps if c.get("frequency_cap_period") == "day"
+                          and c.get("frequency_cap_period_amount") == 1
+                          and c.get("frequency_cap_metric") == "impressions"),
+        None,
+    )
+    if not day_cap:
+        return None
+
+    current = int(day_cap.get("frequency_cap_value") or 0)
+    if current <= VTR_BRAKE_MIN_CAP:
+        return {
+            "type": "vtr_auto_brake",
+            "severity": "warning",
+            "fingerprint": f"brake:floored:{current}",
+            "message": (
+                f"🧰 *{name}* — VTR {today_vtr:.1f}% below {VTR_FLOOR_PCT:.0f}% floor "
+                f"but freq cap already at min {current}/day. No auto-brake possible — "
+                f"manual review needed (consider creative or publisher action)."
+            ),
+            "snapshot": {"current_cap": current, "today_vtr_pct": today_vtr,
+                         "min_cap": VTR_BRAKE_MIN_CAP},
+        }
+
+    target = max(VTR_BRAKE_MIN_CAP, int(round(current * (1 - VTR_BRAKE_STEP_PCT / 100))))
+    if target >= current:
+        target = current - 1  # always step at least 1 down so the brake is meaningful
+
+    # Build the full freq cap payload — SS PUT validates every required field
+    # on the array element (per 2026-06-24 incident: missing
+    # frequency_cap_metric / frequency_cap_period_amount → 400 with
+    # cryptic "can't be blank" errors).
+    new_cap_entry = {
+        "frequency_cap_period": "day",
+        "frequency_cap_period_amount": 1,
+        "frequency_cap_metric": "impressions",
+        "frequency_cap_value": target,
+        "frequency_cap_type": day_cap.get("frequency_cap_type") or "springserve",
+        "allow_empty_household_id": bool(day_cap.get("allow_empty_household_id", False)),
+        "allow_empty_household_ids": bool(day_cap.get("allow_empty_household_ids", False)),
+    }
+    base = os.environ["SPRINGSERVE_BASE_URL"].rstrip("/")
+    try:
+        res = requests.put(
+            f"{base}/demand_tags/{tag_id}",
+            headers=headers,
+            json={"frequency_caps": [new_cap_entry]},
+            timeout=20,
+        )
+    except Exception as e:
+        return {
+            "type": "vtr_auto_brake",
+            "severity": "critical",
+            "fingerprint": f"brake:error:{current}->{target}",
+            "message": (
+                f"🚨 *{name}* — VTR auto-brake FAILED (network): "
+                f"intended cap {current}/day → {target}/day. Error: {e}"
+            ),
+            "snapshot": {"intended_target": target, "current_cap": current,
+                         "error": str(e)[:200]},
+        }
+    if not res.ok:
+        return {
+            "type": "vtr_auto_brake",
+            "severity": "critical",
+            "fingerprint": f"brake:error:{current}->{target}",
+            "message": (
+                f"🚨 *{name}* — VTR auto-brake FAILED (HTTP {res.status_code}): "
+                f"intended cap {current}/day → {target}/day. "
+                f"Body: {res.text[:200]}"
+            ),
+            "snapshot": {"intended_target": target, "current_cap": current,
+                         "http_status": res.status_code},
+        }
+
+    # Log to the canonical buyer_agent_actions ledger so the auto-rollback
+    # cron + retro generator both see it.
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO buyer_agent_actions (
+                  campaign_id, advertiser_id, run_id, lever, action,
+                  applied, dry_run, push_status, pushed_at, reason,
+                  before_state, after_state
+                )
+                SELECT %s, advertiser_id, %s, 'freq_cap', 'tighten',
+                       TRUE, FALSE, 'pushed', NOW(), %s,
+                       %s::JSONB, %s::JSONB
+                  FROM ss_campaigns WHERE id = %s
+                """,
+                (
+                    campaign_id,
+                    f"vtr_auto_brake:{datetime.now(timezone.utc).isoformat()}",
+                    (f"VTR auto-brake: today's VTR {today_vtr:.1f}% on {today_imps:,} imps "
+                     f"fell below {VTR_FLOOR_PCT:.0f}% floor. Stepped freq cap "
+                     f"{current}/day → {target}/day ({VTR_BRAKE_STEP_PCT:.0f}% reduction) to "
+                     f"suppress repeat exposure on low-VTR HHs."),
+                    json.dumps({"frequency_caps": [{"cap_per_hh": current, "cap_window": "day"}]}),
+                    json.dumps({"frequency_caps": [{"cap_per_hh": target, "cap_window": "day"}]}),
+                    campaign_id,
+                ),
+            )
+        conn.commit()
+    except Exception as e:
+        print(f"[mid_funnel_watcher] ledger write failed: {e}")
+
+    return {
+        "type": "vtr_auto_brake",
+        "severity": "warning",
+        "fingerprint": f"brake:{current}->{target}",
+        "message": (
+            f"🧰 *{name}* — VTR auto-brake fired: today's VTR {today_vtr:.1f}% on "
+            f"{today_imps:,} imps below {VTR_FLOOR_PCT:.0f}% floor. "
+            f"Freq cap stepped *{current}/day → {target}/day*. "
+            f"Will continue stepping down on next VTR breach (floor {VTR_BRAKE_MIN_CAP}/day)."
+        ),
+        "snapshot": {"from_cap": current, "to_cap": target,
+                     "today_vtr_pct": today_vtr, "today_imps": today_imps,
+                     "floor_pct": VTR_FLOOR_PCT},
+    }
 
 
 if __name__ == "__main__":
