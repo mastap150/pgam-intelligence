@@ -151,7 +151,28 @@ def _qualifying_gaps(gaps_data: dict) -> list[dict]:
 
 
 def run() -> dict:
-    """Scheduler entry: read gaps, wire top MAX_WIRINGS_PER_RUN qualifying ones."""
+    """Scheduler entry: read gaps, wire top MAX_WIRINGS_PER_RUN qualifying ones.
+
+    DISABLED 2026-06-20 per Priyesh / team request: auto-wiring of new demand
+    to publishers' biddingpreferences must NOT happen automatically. The
+    blocklist approach (Verve/Pubmatic) didn't catch everything — Unruly Smaato
+    was wired to Start.IO without-Node EP on 6/02, a sensitive route. The team
+    explicitly requested no auto-wiring of any kind. Wiring decisions should be
+    human, via the LL UI.
+
+    Function preserved as a no-op (vs deleted) so the scheduler call site stays
+    stable. To re-enable, remove this early-return after team approval.
+    """
+    return {"skipped": True, "disabled": True,
+            "reason": "Auto-wiring globally disabled per Priyesh 2026-06-20. "
+                      "No demand will be auto-wired to any publisher. "
+                      "Re-enable requires removing the early-return in run().",
+            "ran_at": datetime.now(timezone.utc).isoformat(),
+            "wired": 0}
+
+
+def _disabled_original_run_logic_kept_for_reference() -> dict:
+    """Original logic preserved for reference. Not invoked while run() is disabled."""
     actor = f"{ACTOR_PREFIX}_{datetime.now(timezone.utc).strftime('%Y%m%d')}"
 
     if not GAPS_PATH.exists():
