@@ -24,10 +24,21 @@ Alerts fired (each with 4h dedup in campaign_watcher_alerts):
                           Disable with WATCHER_VTR_AUTO_BRAKE=0.
   3. delivery_cliff      — today's imps < CLIFF_PCT * yesterday's imps
                           (after ≥6h into UTC day to avoid noise)
-  4. pacing_shift_high   — cumulative pacing > 150% (over-burn signal)
-  5. pacing_shift_low    — cumulative pacing < 60% (under-pace signal)
-  6. budget_burnout      — at current daily spend rate, remaining
+  4. daily_rate_breach   — yesterday's delivered imps < DAILY_RATE_BREACH_PCT
+                          of (remaining_goal / days_left). Catches the
+                          front-loaded-but-collapsing failure mode where
+                          cumulative pacing still looks healthy.
+  5. pacing_shift_high   — cumulative pacing > 150% (over-burn signal)
+  6. pacing_shift_low    — cumulative pacing < 60% (under-pace signal)
+  7. budget_burnout      — at current daily spend rate, remaining
                           budget exhausts in <BURNOUT_DAYS days
+
+Impression goal is OPERATOR-CANONICAL: ss_campaigns.budget_total (gross
+USD IO commitment) / ss_campaigns.gross_rate_cpm_usd × 1000. Mid Funnel
+= $38,500 / $7 × 1000 = 5,500,000 imps. This matches what the daily
+digest now shows after the 2026-06-22 fix. The prior watcher math used
+SS lifetime budget / hardcoded $1.95 → 5.87M, which never matched the
+digest and caused phantom under-pace silence even as delivery collapsed.
 
 Each alert posts a Slack message AND records in campaign_watcher_alerts
 so a re-fire within 4h is suppressed.
@@ -66,6 +77,14 @@ PACING_OVER_PCT = float(os.environ.get("WATCHER_PACING_OVER_PCT", "150"))
 PACING_UNDER_PCT = float(os.environ.get("WATCHER_PACING_UNDER_PCT", "60"))
 BURNOUT_DAYS = float(os.environ.get("WATCHER_BURNOUT_DAYS", "7"))
 DEDUP_HOURS = int(os.environ.get("WATCHER_DEDUP_HOURS", "4"))
+
+# Daily-rate breach: trips when yesterday's full-day delivery was under
+# DAILY_RATE_BREACH_PCT × the required-to-finish daily rate. Catches the
+# Mid Funnel failure mode (cumulative pacing looks fine after a front
+# load, but per-day delivery has collapsed) which the cumulative-pacing
+# under/over thresholds miss entirely.
+DAILY_RATE_BREACH_PCT = float(os.environ.get("WATCHER_DAILY_RATE_BREACH_PCT", "70"))
+DAILY_RATE_MIN_HOURS_INTO_DAY = float(os.environ.get("WATCHER_DAILY_RATE_MIN_HOURS", "12"))
 
 # VTR auto-brake: when today's VTR drops below the floor on enough imps,
 # automatically step the SS demand-tag freq cap DOWN by a fixed ratio
@@ -127,14 +146,15 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
         cur.execute(
             """
             SELECT id, name, springserve_demand_tag_ids[1] AS tag_id,
-                   start_date, end_date, gross_rate_cpm_usd
+                   start_date, end_date, gross_rate_cpm_usd,
+                   budget_total
               FROM ss_campaigns WHERE id = %s AND status = 'active'
             """, (campaign_id,)
         )
         row = cur.fetchone()
     if not row:
         return {"campaign_id": campaign_id, "skipped": "not active"}
-    cid, name, tag_id, start_date, end_date, gross_cpm = row
+    cid, name, tag_id, start_date, end_date, gross_cpm, budget_total = row
     if not tag_id:
         return {"campaign_id": campaign_id, "skipped": "no tag_id"}
 
@@ -181,8 +201,36 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
         start_dt = datetime.fromisoformat(str(start_date).replace("Z", "+00:00"))
     days_elapsed = (now - start_dt).total_seconds() / 86400
     days_total = max(0.1, days_elapsed + days_left)
-    budget_bound_goal = int(lifetime_budget / 1.95 * 1000) if lifetime_budget else 0
-    pacing_expected = budget_bound_goal * (days_elapsed / days_total) if days_total > 0 else 0
+
+    # Impression goal — OPERATOR-CANONICAL ONLY.
+    # The IO commitment is stored in ss_campaigns.budget_total (gross USD)
+    # and ss_campaigns.gross_rate_cpm_usd (gross CPM). For Mid Funnel that's
+    # $38,500 / $7 × 1000 = 5,500,000 imps — the number the digest now
+    # shows correctly after PR #303/#304/#306/#309/#312.
+    #
+    # The PRIOR pacing math here divided the SS-side lifetime budget
+    # ($11,453) by a hardcoded $1.95 — that's the SS-rate path the digest
+    # was already corrected away from. It produced 5.87M (or 6.47M at the
+    # real $1.77 SS rate), neither of which matches the operator IO, so
+    # pacing_pct never matched the digest and the under-pace threshold
+    # never fired even when delivery collapsed to <10% of required rate.
+    #
+    # Fall back to SS lifetime / SS rate ONLY if the operator hasn't
+    # populated budget_total yet (e.g. early in a campaign's lifecycle) so
+    # the watcher is still useful on fresh campaigns. The fallback uses
+    # the LIVE SS tag rate (from `tag["rate"]`), never a hardcoded value.
+    impression_goal = 0
+    goal_source = "none"
+    if budget_total and gross_cpm and float(gross_cpm) > 0:
+        impression_goal = int(float(budget_total) * 1000 / float(gross_cpm))
+        goal_source = "operator_canonical"
+    elif lifetime_budget:
+        ss_rate = float(tag.get("rate") or 0)
+        if ss_rate > 0:
+            impression_goal = int(lifetime_budget / ss_rate * 1000)
+            goal_source = "ss_lifetime_fallback"
+
+    pacing_expected = impression_goal * (days_elapsed / days_total) if days_total > 0 else 0
     pacing_pct = (cum_imps / pacing_expected * 100) if pacing_expected > 0 else None
 
     # Budget burnout (use yesterday spend as the rate proxy)
@@ -242,6 +290,12 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
                              "hours_in": round(hours_in, 1)},
             })
 
+    # Required daily rate to hit the canonical goal — useful in both
+    # over-pace and under-pace messages so the operator sees the actual
+    # number to steer toward.
+    imps_remaining = max(0, impression_goal - cum_imps)
+    daily_need = int(imps_remaining / days_left) if days_left > 0 else 0
+
     if pacing_pct is not None and pacing_pct > PACING_OVER_PCT:
         alerts.append({
             "type": "pacing_shift_high",
@@ -249,10 +303,43 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
             "fingerprint": f"over:{int(pacing_pct/10)*10}",  # bucketed to 10s
             "message": (
                 f"📈 *{name}* — over-pacing *{pacing_pct:.0f}%* "
-                f"({cum_imps:,} delivered vs expected {int(pacing_expected):,})."
+                f"({cum_imps:,} / goal {impression_goal:,} vs expected by today {int(pacing_expected):,}). "
+                f"Source: {goal_source}."
             ),
             "snapshot": {"pacing_pct": pacing_pct, "cum_imps": cum_imps,
-                         "expected": int(pacing_expected)},
+                         "expected": int(pacing_expected),
+                         "impression_goal": impression_goal,
+                         "goal_source": goal_source},
+        })
+
+    # Daily-rate breach — the alarm that catches Mid Funnel's actual
+    # failure mode. We're at 95% cumulative but delivering 5K/day vs
+    # 107K/day required — cumulative pacing will stay >60% all the way
+    # until the under-pace threshold trips far too late. This compares
+    # yesterday's full-day delivery (stable, not partial) to the
+    # required daily rate and fires if it's under DAILY_RATE_BREACH_PCT.
+    if (daily_need > 0
+            and yest_imps > 0
+            and hours_in >= DAILY_RATE_MIN_HOURS_INTO_DAY  # wait until yesterday is settled
+            and yest_imps < daily_need * (DAILY_RATE_BREACH_PCT / 100)):
+        rate_pct = (yest_imps / daily_need) * 100
+        alerts.append({
+            "type": "daily_rate_breach",
+            "severity": "critical",
+            "fingerprint": f"rate:{int(rate_pct/10)*10}",  # bucketed to 10s
+            "message": (
+                f"🚨 *{name}* — daily-rate breach: yesterday delivered "
+                f"*{yest_imps:,}* but needed *{daily_need:,}/day* to hit "
+                f"{impression_goal:,} by end-of-flight ({rate_pct:.0f}% of required). "
+                f"Cumulative pacing {pacing_pct:.0f}% hides this — front-load is masking "
+                f"the daily collapse. Source: {goal_source}."
+            ),
+            "snapshot": {"yesterday_imps": yest_imps, "daily_need": daily_need,
+                         "rate_pct": round(rate_pct, 1),
+                         "cum_imps": cum_imps,
+                         "impression_goal": impression_goal,
+                         "cumulative_pacing_pct": round(pacing_pct, 1) if pacing_pct else None,
+                         "goal_source": goal_source},
         })
 
     if pacing_pct is not None and pacing_pct < PACING_UNDER_PCT:
@@ -262,10 +349,15 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
             "fingerprint": f"under:{int(pacing_pct/10)*10}",
             "message": (
                 f"📉 *{name}* — under-pacing *{pacing_pct:.0f}%* "
-                f"({cum_imps:,} delivered vs expected {int(pacing_expected):,})."
+                f"({cum_imps:,} / goal {impression_goal:,} vs expected by today {int(pacing_expected):,}). "
+                f"Need *{daily_need:,}/day* for next {days_left:.1f}d. Source: {goal_source}."
             ),
             "snapshot": {"pacing_pct": pacing_pct, "cum_imps": cum_imps,
-                         "expected": int(pacing_expected)},
+                         "expected": int(pacing_expected),
+                         "impression_goal": impression_goal,
+                         "daily_need": daily_need,
+                         "days_left": round(days_left, 1),
+                         "goal_source": goal_source},
         })
 
     if burnout_days < BURNOUT_DAYS and remaining_budget > 0:
@@ -303,6 +395,10 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
             "today_imps": today_imps,
             "today_vtr_pct": round(today_vtr, 1) if today_vtr else None,
             "pacing_pct": round(pacing_pct, 1) if pacing_pct else None,
+            "impression_goal": impression_goal,
+            "goal_source": goal_source,
+            "daily_need_for_remaining": daily_need,
+            "days_left": round(days_left, 1),
             "remaining_budget": round(remaining_budget, 2) if lifetime_budget else None,
             "burnout_days": round(burnout_days, 1) if burnout_days != float("inf") else None,
         },
