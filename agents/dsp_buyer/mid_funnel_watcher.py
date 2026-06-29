@@ -85,6 +85,11 @@ DEDUP_HOURS = int(os.environ.get("WATCHER_DEDUP_HOURS", "4"))
 # under/over thresholds miss entirely.
 DAILY_RATE_BREACH_PCT = float(os.environ.get("WATCHER_DAILY_RATE_BREACH_PCT", "70"))
 DAILY_RATE_MIN_HOURS_INTO_DAY = float(os.environ.get("WATCHER_DAILY_RATE_MIN_HOURS", "12"))
+# Don't trip the breach until the campaign has substantial cumulative
+# history — a fresh campaign on day 1 with cum=0 shouldn't fire. Default
+# 100K imps marks "this campaign has actually been running and a
+# zero-delivery day is anomalous, not initial conditions".
+DAILY_RATE_MIN_CUM = int(os.environ.get("WATCHER_DAILY_RATE_MIN_CUM", "100000"))
 
 # VTR auto-brake: when today's VTR drops below the floor on enough imps,
 # automatically step the SS demand-tag freq cap DOWN by a fixed ratio
@@ -312,23 +317,36 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
                          "goal_source": goal_source},
         })
 
-    # Daily-rate breach — the alarm that catches Mid Funnel's actual
-    # failure mode. We're at 95% cumulative but delivering 5K/day vs
-    # 107K/day required — cumulative pacing will stay >60% all the way
-    # until the under-pace threshold trips far too late. This compares
-    # yesterday's full-day delivery (stable, not partial) to the
-    # required daily rate and fires if it's under DAILY_RATE_BREACH_PCT.
+    # Daily-rate breach — the alarm that catches the actual failure mode
+    # for front-loaded campaigns: cumulative pacing looks fine (>60%) but
+    # recent daily delivery is in catastrophic free-fall. Compares
+    # yesterday's full-day delivery (stable, not partial) to the daily
+    # rate needed-from-here to hit the goal.
+    #
+    # Guard requires `cum_imps > DAILY_RATE_MIN_CUM` so a fresh campaign
+    # on day 1 doesn't trip immediately. The previous guard required
+    # `yest_imps > 0` which silently skipped the alert when yesterday
+    # delivered ZERO — the absolute worst case (campaign auto-paused,
+    # broken creative, deal pool collapsed). Mid Funnel on 2026-06-27
+    # had yest_imps=0 from the prior day's auto-pause and the watcher
+    # said "no alerts" while delivery was completely broken. Fix: drop
+    # the > 0 floor on yest, anchor instead on substantial cum history.
     if (daily_need > 0
-            and yest_imps > 0
+            and cum_imps > DAILY_RATE_MIN_CUM
             and hours_in >= DAILY_RATE_MIN_HOURS_INTO_DAY  # wait until yesterday is settled
             and yest_imps < daily_need * (DAILY_RATE_BREACH_PCT / 100)):
         rate_pct = (yest_imps / daily_need) * 100
+        # Emoji + severity escalates when yesterday was literally zero —
+        # that's the most-critical breach and the message should say so.
+        is_zero = yest_imps == 0
+        emoji = "🛑" if is_zero else "🚨"
+        prefix = "ZERO-DELIVERY DAY" if is_zero else "daily-rate breach"
         alerts.append({
             "type": "daily_rate_breach",
             "severity": "critical",
-            "fingerprint": f"rate:{int(rate_pct/10)*10}",  # bucketed to 10s
+            "fingerprint": f"rate:{'zero' if is_zero else int(rate_pct/10)*10}",
             "message": (
-                f"🚨 *{name}* — daily-rate breach: yesterday delivered "
+                f"{emoji} *{name}* — {prefix}: yesterday delivered "
                 f"*{yest_imps:,}* but needed *{daily_need:,}/day* to hit "
                 f"{impression_goal:,} by end-of-flight ({rate_pct:.0f}% of required). "
                 f"Cumulative pacing {pacing_pct:.0f}% hides this — front-load is masking "
@@ -338,6 +356,7 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
                          "rate_pct": round(rate_pct, 1),
                          "cum_imps": cum_imps,
                          "impression_goal": impression_goal,
+                         "is_zero_delivery_day": is_zero,
                          "cumulative_pacing_pct": round(pacing_pct, 1) if pacing_pct else None,
                          "goal_source": goal_source},
         })
