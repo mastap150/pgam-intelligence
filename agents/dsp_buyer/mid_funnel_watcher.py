@@ -15,7 +15,17 @@ Why this exists separately from the daily 9am ET digest:
     (whitelist below). Different from the burn_rate_watchdog which is
     triggered by lever-applied state, not by campaign identity.
 
+Watchlist: WATCHER_CAMPAIGN_IDS controls scope. Default is "auto" —
+queries ss_campaigns for every status='active' row at each tick. To
+restrict, set env var to a comma-separated list of campaign IDs.
+
 Alerts fired (each with 4h dedup in campaign_watcher_alerts):
+  0. flight_finale       — CRITICAL. days_left ≤ FINALE_DAYS (3) AND
+                          cum pacing < FINALE_PACING_PCT (95). Packs
+                          yesterday's imps + remaining-to-goal + per-day
+                          needed + days-left into a single decision
+                          message. Was missing on CLA close-out
+                          (2026-06-30) — added 2026-07-02.
   1. vtr_below_floor    — today's VTR < VTR_FLOOR_PCT for >1K imps
   2. vtr_auto_brake     — paired action with vtr_below_floor when imps
                           ≥ VTR_BRAKE_MIN_IMPS: steps SS freq cap down by
@@ -65,10 +75,14 @@ load_dotenv(override=True)
 
 # ── Watchlist + thresholds ─────────────────────────────────────────────────
 
-WATCHLIST = os.environ.get(
-    "WATCHER_CAMPAIGN_IDS",
-    "clearline-2378315",  # Mid Funnel
-).split(",")
+# WATCHLIST behaviour: default to "auto" which queries ss_campaigns for
+# every status='active' row at each tick. Explicit override via
+# WATCHER_CAMPAIGN_IDS="id1,id2,..." if we ever need a narrower scope.
+# The prior default was only clearline-2378315 (Mid Funnel), which is
+# how CLA 446320858/446368012 got zero last-day urgency alert on Jun 30
+# despite ending with 1 day left at 87% pacing — those tags weren't in
+# the loop at all. Auto-discovery is the safer default.
+WATCHLIST_RAW = os.environ.get("WATCHER_CAMPAIGN_IDS", "auto")
 
 VTR_FLOOR_PCT = float(os.environ.get("WATCHER_VTR_FLOOR_PCT", "70"))
 CLIFF_PCT = float(os.environ.get("WATCHER_CLIFF_PCT", "50"))
@@ -77,6 +91,13 @@ PACING_OVER_PCT = float(os.environ.get("WATCHER_PACING_OVER_PCT", "150"))
 PACING_UNDER_PCT = float(os.environ.get("WATCHER_PACING_UNDER_PCT", "60"))
 BURNOUT_DAYS = float(os.environ.get("WATCHER_BURNOUT_DAYS", "7"))
 DEDUP_HOURS = int(os.environ.get("WATCHER_DEDUP_HOURS", "4"))
+
+# Flight finale: fires when campaign is in its last stretch AND behind
+# pacing. Message includes yesterday's imps, remaining-to-goal, per-day
+# needed, and days remaining — the operator context that was missing on
+# the CLA close-out (they got no urgency signal on the day-before-end).
+FINALE_DAYS = int(os.environ.get("WATCHER_FINALE_DAYS", "3"))
+FINALE_PACING_PCT = float(os.environ.get("WATCHER_FINALE_PACING_PCT", "95"))
 
 # Daily-rate breach: trips when yesterday's full-day delivery was under
 # DAILY_RATE_BREACH_PCT × the required-to-finish daily rate. Catches the
@@ -122,10 +143,19 @@ def mid_funnel_watcher() -> dict[str, Any]:
 
     conn = dsp_connect()
     try:
-        for campaign_id in WATCHLIST:
-            campaign_id = campaign_id.strip()
-            if not campaign_id:
-                continue
+        # Resolve watchlist: "auto" (default) = every active campaign;
+        # otherwise comma-separated explicit list.
+        if WATCHLIST_RAW.strip().lower() == "auto":
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT id FROM ss_campaigns WHERE status = 'active' ORDER BY id"
+                )
+                watchlist = [row[0] for row in cur.fetchall()]
+        else:
+            watchlist = [c.strip() for c in WATCHLIST_RAW.split(",") if c.strip()]
+        out["watchlist"] = watchlist
+
+        for campaign_id in watchlist:
             try:
                 result = _check_one(conn, headers, campaign_id)
                 out["campaigns_checked"] += 1
@@ -244,6 +274,46 @@ def _check_one(conn, headers, campaign_id: str) -> dict[str, Any]:
 
     # ── Alert checks ───────────────────────────────────────────────────────
     alerts = []
+
+    # Flight finale — highest-priority alert. Fires when the flight is in
+    # its last stretch AND we're behind pacing. The CLA close-out on
+    # 2026-06-30 exposed this gap: no urgency alert on the day-before-end
+    # despite pacing at 87%. Message packs every number an operator needs
+    # to decide "one more push or accept the miss": yesterday's imps,
+    # remaining-to-goal, per-day needed, days remaining.
+    if (impression_goal > 0
+            and days_left <= FINALE_DAYS
+            and pacing_pct is not None
+            and pacing_pct < FINALE_PACING_PCT):
+        remaining_imps = max(0, impression_goal - cum_imps)
+        need_per_day = int(remaining_imps / max(0.1, days_left))
+        alerts.append({
+            "type": "flight_finale",
+            "severity": "critical",
+            # Include days_left (rounded) so fingerprint changes as we
+            # approach the wire — an alert on "3d left" doesn't dedup an
+            # alert on "1d left".
+            "fingerprint": f"finale:{int(days_left)}d:{int(pacing_pct)}",
+            "message": (
+                f"⏰ *{name}* — flight ends in *{days_left:.1f}d* at "
+                f"*{pacing_pct:.0f}%* pacing (target ≥{FINALE_PACING_PCT:.0f}%).\n"
+                f"   • Yesterday delivered: *{yest_imps:,}* imps\n"
+                f"   • Remaining to goal: *{remaining_imps:,}* imps "
+                f"({cum_imps:,} of {impression_goal:,})\n"
+                f"   • Needed per day to close: *{need_per_day:,}/day*\n"
+                f"   • Source: {goal_source}"
+            ),
+            "snapshot": {
+                "days_left": round(days_left, 1),
+                "pacing_pct": round(pacing_pct, 1),
+                "yesterday_imps": yest_imps,
+                "remaining_imps": remaining_imps,
+                "need_per_day": need_per_day,
+                "cum_imps": cum_imps,
+                "impression_goal": impression_goal,
+                "goal_source": goal_source,
+            },
+        })
 
     if today_vtr is not None and today_imps >= 1000 and today_vtr < VTR_FLOOR_PCT:
         alerts.append({
