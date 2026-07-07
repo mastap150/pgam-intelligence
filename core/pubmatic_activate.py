@@ -8,26 +8,34 @@ Seat:      PGAM_Activate_US   (organizationid = 17496)
 
 Authentication
 --------------
-The Activate app uses a session-cookie auth model, not the same OAuth
-bearer that the public PubMatic API console mints. This client supports
-both modes and auto-selects based on which env vars are set:
+PubMatic uses OAuth 2.0 with client_secret_basic. The credential set for
+a Developer Integration is FOUR values — access + refresh tokens are only
+half of it:
 
-  1) OAuth Bearer  — PUBMATIC_ACTIVATE_TOKEN
-                     60-day access token from the PubMatic API console.
-                     Refresh via PUBMATIC_ACTIVATE_REFRESH_TOKEN.
+    client_id       + client_secret          ← app registration (rarely rotates)
+    access_token    + refresh_token          ← 60-day, refreshable via the pair above
 
-                     STATUS 2026-07-07: the bearer minted for our seat
-                     401s against /api/activate/*. Ticket open with our
-                     PubMatic AM to confirm the correct token grant.
+The well-known config that describes the flow:
+    https://api.pubmatic.com/.well-known/oauth-authorization-server
+    token_endpoint = https://apps.pubmatic.com/v1/developer-integrations/developer/token
 
-  2) Session token — PUBMATIC_ACTIVATE_PUBTOKEN
-                     'pubtoken' header captured from any Activate UI XHR
-                     (DevTools → Network → any request → Request Headers).
-                     Session-scoped; expires when the browser logs out.
-                     Fine for one-off scripts, not scheduled jobs.
+This client supports two auth modes; it auto-picks based on which env vars
+are populated:
 
-Required env
-------------
+  1) OAuth (production) — PUBMATIC_ACTIVATE_CLIENT_ID +
+                          PUBMATIC_ACTIVATE_CLIENT_SECRET +
+                          PUBMATIC_ACTIVATE_TOKEN +
+                          PUBMATIC_ACTIVATE_REFRESH_TOKEN
+     Access tokens are cached in /tmp/pgam_pubmatic_activate_token.json
+     and auto-refreshed on 401.
+
+  2) Session token (dev/probe) — PUBMATIC_ACTIVATE_PUBTOKEN
+     'pubtoken' header captured from any Activate UI XHR
+     (DevTools → Network → any request → Request Headers).
+     Session-scoped; expires on browser logout. One-off scripts only.
+
+Required regardless of mode
+---------------------------
   PUBMATIC_ACTIVATE_ORG_ID=17496
 
 Advertisers on the PGAM_Activate_US seat (snapshot 2026-07-07)
@@ -41,9 +49,11 @@ Advertisers on the PGAM_Activate_US seat (snapshot 2026-07-07)
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -59,10 +69,18 @@ ACTIVATE_BASE = os.environ.get(
     "PUBMATIC_ACTIVATE_BASE_URL",
     "https://apps.pubmatic.com/api/activate",
 )
-ORG_ID       = os.environ.get("PUBMATIC_ACTIVATE_ORG_ID", "").strip()
-BEARER_TOKEN = os.environ.get("PUBMATIC_ACTIVATE_TOKEN", "").strip()
-REFRESH_TOK  = os.environ.get("PUBMATIC_ACTIVATE_REFRESH_TOKEN", "").strip()
-PUB_TOKEN    = os.environ.get("PUBMATIC_ACTIVATE_PUBTOKEN", "").strip()
+TOKEN_ENDPOINT = os.environ.get(
+    "PUBMATIC_ACTIVATE_TOKEN_ENDPOINT",
+    "https://apps.pubmatic.com/v1/developer-integrations/developer/token",
+)
+ORG_ID        = os.environ.get("PUBMATIC_ACTIVATE_ORG_ID", "").strip()
+CLIENT_ID     = os.environ.get("PUBMATIC_ACTIVATE_CLIENT_ID", "").strip()
+CLIENT_SECRET = os.environ.get("PUBMATIC_ACTIVATE_CLIENT_SECRET", "").strip()
+BEARER_TOKEN  = os.environ.get("PUBMATIC_ACTIVATE_TOKEN", "").strip()
+REFRESH_TOK   = os.environ.get("PUBMATIC_ACTIVATE_REFRESH_TOKEN", "").strip()
+PUB_TOKEN     = os.environ.get("PUBMATIC_ACTIVATE_PUBTOKEN", "").strip()
+
+TOKEN_CACHE = "/tmp/pgam_pubmatic_activate_token.json"
 
 # ---------------------------------------------------------------------------
 # Auth
@@ -72,30 +90,127 @@ class ActivateAuthError(RuntimeError):
     """Raised when the API rejects our credentials or no credentials are set."""
 
 
+def _load_cached_token() -> tuple[str, str]:
+    """Return (access_token, refresh_token) from cache if unexpired."""
+    if not os.path.exists(TOKEN_CACHE):
+        return ("", "")
+    try:
+        with open(TOKEN_CACHE) as f:
+            data = json.load(f)
+        expires_at = float(data.get("expires_at", 0))
+        if expires_at > time.time() + 300:   # 5-min safety margin
+            return (data.get("access_token", ""), data.get("refresh_token", ""))
+    except (json.JSONDecodeError, OSError, ValueError):
+        pass
+    return ("", "")
+
+
+def _save_token(access_token: str, refresh_token: str, expires_in: int):
+    try:
+        with open(TOKEN_CACHE, "w") as f:
+            json.dump({
+                "access_token":  access_token,
+                "refresh_token": refresh_token,
+                "expires_at":    time.time() + int(expires_in),
+            }, f)
+    except OSError:
+        pass
+
+
+def refresh_access_token() -> tuple[str, str]:
+    """
+    Exchange the refresh token for a fresh access token via OAuth.
+    Returns (access_token, refresh_token).  Raises ActivateAuthError.
+    """
+    if not (CLIENT_ID and CLIENT_SECRET and REFRESH_TOK):
+        raise ActivateAuthError(
+            "OAuth refresh needs PUBMATIC_ACTIVATE_CLIENT_ID + _CLIENT_SECRET "
+            "+ _REFRESH_TOKEN. See core/pubmatic_activate.py docstring for the "
+            "PubMatic Developer Integration credential set."
+        )
+    body = urllib.parse.urlencode({
+        "grant_type":    "refresh_token",
+        "refresh_token": REFRESH_TOK,
+        "client_id":     CLIENT_ID,          # some servers require it in the body too
+    }).encode()
+    creds = base64.b64encode(f"{CLIENT_ID}:{CLIENT_SECRET}".encode()).decode()
+    req = urllib.request.Request(TOKEN_ENDPOINT, data=body, method="POST")
+    req.add_header("Authorization", f"Basic {creds}")
+    req.add_header("Content-Type", "application/x-www-form-urlencoded")
+    req.add_header("Accept", "application/json")
+    try:
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        raise ActivateAuthError(
+            f"Refresh failed: HTTP {e.code} — {e.read().decode(errors='replace')[:400]}"
+        ) from e
+    access  = data.get("access_token", "")
+    refresh = data.get("refresh_token", REFRESH_TOK)   # PubMatic may return same
+    expires = int(data.get("expires_in", 3600))
+    if not access:
+        raise ActivateAuthError(f"Refresh response missing access_token: {data}")
+    _save_token(access, refresh, expires)
+    return (access, refresh)
+
+
+def _current_bearer() -> str:
+    """Return a valid access token — cache first, then refresh, then env."""
+    cached_access, _ = _load_cached_token()
+    if cached_access:
+        return cached_access
+    if CLIENT_ID and CLIENT_SECRET and REFRESH_TOK:
+        access, _ = refresh_access_token()
+        return access
+    return BEARER_TOKEN   # last-resort: whatever's pasted in env
+
+
 def _auth_headers() -> dict:
     """
     Pick an auth mode based on which env vars are populated.
-    Session pubtoken wins if both are set — it's the mode that currently works.
+    Session pubtoken wins if both are set — it's the mode that currently works
+    for hitting /api/activate/* while our OAuth scope is being sorted with support.
     """
     if PUB_TOKEN:
         return {"pubtoken": PUB_TOKEN}
-    if BEARER_TOKEN:
-        return {"Authorization": f"Bearer {BEARER_TOKEN}"}
+    token = _current_bearer()
+    if token:
+        return {"Authorization": f"Bearer {token}"}
     raise ActivateAuthError(
         "No PubMatic Activate credentials configured. Set one of:\n"
-        "  PUBMATIC_ACTIVATE_PUBTOKEN   (session token from UI DevTools) — recommended today\n"
-        "  PUBMATIC_ACTIVATE_TOKEN      (OAuth bearer from API console)   — awaiting PubMatic scope fix"
+        "  Mode A (OAuth): PUBMATIC_ACTIVATE_CLIENT_ID + _CLIENT_SECRET + _TOKEN + _REFRESH_TOKEN\n"
+        "  Mode B (session): PUBMATIC_ACTIVATE_PUBTOKEN (from UI DevTools)"
     )
 
 
 def activate_configured() -> bool:
-    """Return True if any credential + org_id are present."""
-    return bool(ORG_ID and (BEARER_TOKEN or PUB_TOKEN))
+    """Return True if we have enough credentials to attempt a call."""
+    if not ORG_ID:
+        return False
+    if PUB_TOKEN:
+        return True
+    return bool(BEARER_TOKEN or (CLIENT_ID and CLIENT_SECRET and REFRESH_TOK))
 
 
 # ---------------------------------------------------------------------------
 # Core request
 # ---------------------------------------------------------------------------
+
+def _build_request(path: str, method: str, params: dict | None, body: dict | None):
+    url = f"{ACTIVATE_BASE}{path}"
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    data = json.dumps(body).encode() if body is not None else None
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Accept", "application/json")
+    req.add_header("organizationid", ORG_ID)
+    req.add_header("usepubmaticerrorformat", "true")
+    if data is not None:
+        req.add_header("Content-Type", "application/json")
+    for k, v in _auth_headers().items():
+        req.add_header(k, v)
+    return req
+
 
 def _request(
     path: str,
@@ -107,8 +222,12 @@ def _request(
     """
     Low-level Activate API request. Returns parsed JSON.
 
+    Auto-refreshes the bearer once on 401 if OAuth creds are set. Session
+    pubtoken auth doesn't retry — that mode implies the operator holds a
+    fresh token from the UI.
+
     Raises:
-        ActivateAuthError on 401/403.
+        ActivateAuthError on 401/403 after retry, or missing config.
         urllib.error.HTTPError on other non-2xx.
     """
     if not ORG_ID:
@@ -116,33 +235,40 @@ def _request(
             "PUBMATIC_ACTIVATE_ORG_ID not set. Add PUBMATIC_ACTIVATE_ORG_ID=17496 to .env."
         )
 
-    url = f"{ACTIVATE_BASE}{path}"
-    if params:
-        url += "?" + urllib.parse.urlencode(params)
-
-    data = None
-    if body is not None:
-        data = json.dumps(body).encode()
-
-    req = urllib.request.Request(url, data=data, method=method)
-    req.add_header("Accept", "application/json")
-    req.add_header("organizationid", ORG_ID)
-    req.add_header("usepubmaticerrorformat", "true")
-    if data is not None:
-        req.add_header("Content-Type", "application/json")
-    for k, v in _auth_headers().items():
-        req.add_header(k, v)
+    def _do():
+        req = _build_request(path, method, params, body)
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            return resp.read().decode()
 
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            raw = resp.read().decode()
+        raw = _do()
     except urllib.error.HTTPError as e:
-        if e.code in (401, 403):
+        can_retry = (
+            e.code == 401
+            and not PUB_TOKEN
+            and CLIENT_ID and CLIENT_SECRET and REFRESH_TOK
+        )
+        if can_retry:
+            # Drop the cache and force a refresh, then retry once.
+            try:
+                os.remove(TOKEN_CACHE)
+            except OSError:
+                pass
+            refresh_access_token()
+            try:
+                raw = _do()
+            except urllib.error.HTTPError as e2:
+                body_txt = e2.read().decode(errors="replace")[:400]
+                raise ActivateAuthError(
+                    f"HTTP {e2.code} from {path} after refresh — {body_txt}"
+                ) from e2
+        elif e.code in (401, 403):
             body_txt = e.read().decode(errors="replace")[:400]
             raise ActivateAuthError(
                 f"HTTP {e.code} from {path} — credentials rejected. Body: {body_txt}"
             ) from e
-        raise
+        else:
+            raise
 
     if not raw:
         return {}
@@ -222,6 +348,7 @@ PubMatic Activate CLI
 
 Commands:
   config                          Print resolved config (safe — masks tokens)
+  refresh                         Force an OAuth refresh (requires client_id/secret)
   advertisers                     List advertisers under the seat
   advertiser <id>                 Fetch one advertiser
   fees <adv_id> [fee_type]        Get custom fees (default fee_type=AD_SERVING)
@@ -241,15 +368,22 @@ def _mask(s: str) -> str:
 
 def _cli_config():
     print("PubMatic Activate — resolved config")
-    print(f"  ACTIVATE_BASE                : {ACTIVATE_BASE}")
-    print(f"  PUBMATIC_ACTIVATE_ORG_ID     : {ORG_ID or '(unset)'}")
-    print(f"  PUBMATIC_ACTIVATE_TOKEN      : {_mask(BEARER_TOKEN)}")
-    print(f"  PUBMATIC_ACTIVATE_REFRESH... : {_mask(REFRESH_TOK)}")
-    print(f"  PUBMATIC_ACTIVATE_PUBTOKEN   : {_mask(PUB_TOKEN)}")
+    print(f"  ACTIVATE_BASE                    : {ACTIVATE_BASE}")
+    print(f"  TOKEN_ENDPOINT                   : {TOKEN_ENDPOINT}")
+    print(f"  PUBMATIC_ACTIVATE_ORG_ID         : {ORG_ID or '(unset)'}")
+    print(f"  PUBMATIC_ACTIVATE_CLIENT_ID      : {_mask(CLIENT_ID)}")
+    print(f"  PUBMATIC_ACTIVATE_CLIENT_SECRET  : {_mask(CLIENT_SECRET)}")
+    print(f"  PUBMATIC_ACTIVATE_TOKEN          : {_mask(BEARER_TOKEN)}")
+    print(f"  PUBMATIC_ACTIVATE_REFRESH_TOKEN  : {_mask(REFRESH_TOK)}")
+    print(f"  PUBMATIC_ACTIVATE_PUBTOKEN       : {_mask(PUB_TOKEN)}")
+    cached_access, _ = _load_cached_token()
+    print(f"  cached access (from {TOKEN_CACHE}) : {'present' if cached_access else '(none)'}")
     if PUB_TOKEN:
         print("  → auth mode: session pubtoken")
+    elif CLIENT_ID and CLIENT_SECRET and REFRESH_TOK:
+        print("  → auth mode: OAuth (refreshable)")
     elif BEARER_TOKEN:
-        print("  → auth mode: OAuth bearer")
+        print("  → auth mode: OAuth bearer (no refresh — cannot recover from expiry)")
     else:
         print("  → auth mode: (none)")
 
@@ -266,6 +400,11 @@ def main(argv: list[str]) -> int:
     try:
         if cmd == "config":
             _cli_config()
+        elif cmd == "refresh":
+            access, refresh = refresh_access_token()
+            print(f"OK — new access token cached at {TOKEN_CACHE}")
+            print(f"     access:  {_mask(access)}")
+            print(f"     refresh: {_mask(refresh)}")
         elif cmd == "advertisers":
             _dump(list_advertisers())
         elif cmd == "advertiser":
