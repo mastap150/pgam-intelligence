@@ -41,7 +41,7 @@ from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from core import ll_mgmt, floor_ledger, slack
+from core import ll_mgmt, ll_report, floor_ledger, slack
 
 DATA_DIR = Path(__file__).parent.parent.parent / "data"
 HOURLY_PATH = DATA_DIR / "hourly_pub_demand.json.gz"
@@ -118,21 +118,57 @@ ACTOR_PREFIX = "config_health_scanner"
 
 
 def _load_revenue_maps() -> tuple[dict, dict]:
-    """Return (demand_rev_7d, pub_rev_7d) from the hourly store."""
-    if not HOURLY_PATH.exists():
-        return {}, {}
-    with gzip.open(HOURLY_PATH, "rt") as f:
-        rows = json.load(f)
-    cutoff = (date.today() - timedelta(days=7)).isoformat()
-    drev: dict = defaultdict(float)
-    prev: dict = defaultdict(float)
-    for r in rows:
-        if str(r.get("DATE", "")) < cutoff:
-            continue
-        rev = float(r.get("GROSS_REVENUE", 0) or 0)
-        drev[int(r.get("DEMAND_ID", 0) or 0)] += rev
-        prev[int(r.get("PUBLISHER_ID", 0) or 0)] += rev
-    return dict(drev), dict(prev)
+    """Return (demand_rev_7d, pub_rev_7d) — fresh from LL reporting API.
+
+    Was previously reading data/hourly_pub_demand.json.gz, but that ETL
+    stopped updating on 2026-06-02, causing the auto-fix ranker to sort by
+    6+ week-old revenue. That would mis-prioritize which demand gets the
+    limited MAX_AUTOFIX_PER_CATEGORY=5 raise budget per run.
+
+    Falls back to the stale hourly file if the API call fails, so the
+    scanner still functions during a reporting outage — the ranking just
+    reverts to being stale rather than broken.
+    """
+    end = date.today()
+    start = end - timedelta(days=7)
+    try:
+        # Note: LL's /v1/reports API returns rows outside the requested date
+        # range (historical aggregates leaking through). Must include DATE as
+        # a dimension and filter client-side to actually restrict to the
+        # requested window.
+        rows = ll_report.report(
+            dimensions=["DATE", "DEMAND_ID", "PUBLISHER_ID"],
+            metrics=["GROSS_REVENUE"],
+            start_date=start.isoformat(), end_date=end.isoformat(),
+        )
+        start_iso, end_iso = start.isoformat(), end.isoformat()
+        drev: dict = defaultdict(float)
+        prev: dict = defaultdict(float)
+        for r in rows:
+            d = str(r.get("DATE", ""))
+            if not (start_iso <= d <= end_iso):
+                continue
+            rev = float(r.get("GROSS_REVENUE", 0) or 0)
+            drev[int(r.get("DEMAND_ID", 0) or 0)] += rev
+            prev[int(r.get("PUBLISHER_ID", 0) or 0)] += rev
+        return dict(drev), dict(prev)
+    except Exception as e:
+        print(f"[config_health_scanner] LL report fetch failed ({e}), "
+              f"falling back to stale ETL file")
+        if not HOURLY_PATH.exists():
+            return {}, {}
+        with gzip.open(HOURLY_PATH, "rt") as f:
+            rows = json.load(f)
+        cutoff = (date.today() - timedelta(days=7)).isoformat()
+        drev = defaultdict(float)
+        prev = defaultdict(float)
+        for r in rows:
+            if str(r.get("DATE", "")) < cutoff:
+                continue
+            rev = float(r.get("GROSS_REVENUE", 0) or 0)
+            drev[int(r.get("DEMAND_ID", 0) or 0)] += rev
+            prev[int(r.get("PUBLISHER_ID", 0) or 0)] += rev
+        return dict(drev), dict(prev)
 
 
 def check_demand_supplychain(demands: list[dict], demand_rev: dict, actor: str) -> dict:
