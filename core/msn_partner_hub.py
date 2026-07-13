@@ -71,9 +71,15 @@ DEFAULT_PARTNER_ID = "AA1lKiff"           # BoxingNews
 DEFAULT_PARTNER_TYPE = "2"
 
 # Flight tags from the trace; copy verbatim so we look like the SPA.
+# The realtime endpoints and the report/earning endpoints emit different
+# flight sets from the same SPA — we pass the appropriate one per call.
 _UGC_FLIGHTS = (
     "prg-ugc-benchmark,prg-ugc-revagvnext,prg-ugc-timespent,"
     "prg-ugc-aiusage,prg-ugc-shortinsight,prg-ugc-pcm"
+)
+_UGC_REPORT_FLIGHTS = (
+    "prg-ugc-benchmark,prg-ugc-shortinsight,prg-ugc-pcm,"
+    "prg-ugc-fixshorts,prg-ugc-sastokenux"
 )
 
 # Sentinel values MSN's UI uses for "all" / "no filter".
@@ -583,33 +589,128 @@ class PartnerHubClient:
         end: Optional[datetime] = None,
         window_days: int = 30,
     ) -> dict[str, Any]:
-        """Hit the daily-aggregate endpoint. Path discovered at runtime by
-        the SPA's "Overview" tab; here we use the documented sibling path
-        based on the realtime path pattern. Returns the raw JSON so the
-        caller can decide whether to inspect recordList directly."""
+        """Legacy shim. Historically tried candidate paths under
+        insights/content/* which all 404'd — the endpoint sniffer proved
+        MSN keeps monetization under insights/earning/* instead. Callers
+        should migrate to fetch_earning_adsrev / fetch_partner_docstats /
+        fetch_partner_rejected_docstats. This method returns an empty
+        recordList so existing callers no-op instead of throwing."""
+        return {"recordList": [], "recordCount": 0}
+
+    # ------------------------------------------------------------------
+    # Confirmed via endpoint sniffer 2026-07-13 — see
+    # agents/etl/msn_endpoint_sniffer.py output at
+    # ~/.pgam/msn-endpoint-sniff-<ts>.jsonl
+    # ------------------------------------------------------------------
+
+    def fetch_earning_adsrev(
+        self,
+        *,
+        end: Optional[datetime] = None,
+        window_months: int = 12,
+    ) -> dict[str, Any]:
+        """Monthly ads-revenue rows. Each row has:
+            { "date": "2026-05",              # YYYY-MM bucket
+              "interaction": 1500987.0,       # monthly interaction count
+              "netRevenue": 807.77,           # net USD paid to us
+              "adsAmount": 517.81,            # gross ads spend attributed
+              "processedDate": "2026-06-16" } # when we got paid
+
+        `interaction` is the closest thing MSN exposes to a monthly
+        impression count — pair with our own read counts from realtime
+        snapshots to model CTR at a monthly level. Default window is
+        12 months, capped at MSN's own retention.
+        """
         end_dt = end or _now_utc()
-        start_dt = end_dt - timedelta(days=window_days)
-        params = self._build_common_params(start=start_dt, end=end_dt)
-        params.update({"$orderBy": "date", "$skip": "0", "$top": str(window_days + 5)})
-        # The aggregate endpoint sibling. We try a couple of candidate
-        # paths — MSN's surface has evolved and we don't have a confirmed
-        # path from the user's trace yet. The first that returns 200 wins.
-        candidates = (
-            f"{API_BASE_PATH}/aggregate",
-            f"{API_BASE_PATH}/daily",
-            f"{API_BASE_PATH}/dailyDeck",
-        )
-        last_err: Optional[Exception] = None
-        for path in candidates:
-            try:
-                return self._call(path, params)
-            except PartnerHubError as exc:
-                last_err = exc
-                continue
-        # If none worked, raise the last error — the puller decides what
-        # to do (we still want realtime to land even if aggregate fails).
-        raise PartnerHubError(
-            f"None of the aggregate endpoint candidates returned 200. Last: {last_err}"
+        # adsrev endDate/startDate are YYYY-MM strings, not ISO datetimes.
+        end_ym = end_dt.strftime("%Y-%m")
+        start_ym = (end_dt - timedelta(days=32 * window_months)).strftime("%Y-%m")
+        params = {
+            "apikey": APIKEY,
+            "brandId": _ALL,
+            "adsType": _ALL,
+            "date": "-1",
+            "endDate": end_ym,
+            "startDate": start_ym,
+            "fdhead": _UGC_FLIGHTS,
+            "ocid": "msph",
+            "partnerId": self.partner_id,
+            "partnerType": DEFAULT_PARTNER_TYPE,
+            "scn": "MSNRPSAuth",
+            "skipaadal": "true",
+            "timeout": "30000",
+            "ugc-flights": _UGC_FLIGHTS,
+            "wrapodata": "false",
+            "$skip": "0",
+            "$top": str(window_months + 1),
+        }
+        return self._call("/msn/v0/pages/ugc/insights/earning/adsrev", params)
+
+    def fetch_partner_docstats(
+        self,
+        *,
+        end: Optional[datetime] = None,
+    ) -> dict[str, Any]:
+        """Publish-rate rollup for the current partner:
+            { "recordList": [{ "providerId": "BB1jwrk8",
+                               "contentPublishRate": 98.19,
+                               "contentSubmitted": 1543,
+                               "contentPublished": 1515,
+                               "contentRejected": 28 }], ... }
+
+        This is the rollup MSN's Content Report card shows on the home
+        page — a rolling ~4-week publish-rate KPI.
+
+        Empirically the endpoint returns an empty recordList for anything
+        other than a **29-day** window ending yesterday-UTC. Tested
+        7/14/29/30/60 and only 29 returns data. Not documented anywhere;
+        MSN's SPA always requests exactly 29 days from a fixed offset.
+        No window_days knob exposed — call it what MSN's UI calls it and
+        move on.
+        """
+        end_dt = end or (_now_utc() - timedelta(days=1))
+        start_dt = end_dt - timedelta(days=29)
+        params = {
+            "apikey": APIKEY,
+            "endDate": end_dt.strftime("%Y-%m-%d"),
+            "startDate": start_dt.strftime("%Y-%m-%d"),
+            "fdhead": _UGC_REPORT_FLIGHTS,
+            "ocid": "msph",
+            "partnerId": self.partner_id,
+            "partnerType": DEFAULT_PARTNER_TYPE,
+            "scn": "MSNRPSAuth",
+            "skipaadal": "true",
+            "timeout": "30000",
+            "ugc-flights": _UGC_REPORT_FLIGHTS,
+            "wrapodata": "false",
+        }
+        return self._call("/msn/v0/pages/ugc/contents/report/partnerdocstats", params)
+
+    def fetch_partner_rejected_docstats(self) -> dict[str, Any]:
+        """Rejection failures for the current partner:
+            { "failures": [ ... per-doc entries ... ],
+              "docCount": 29,
+              "logEndTime": "2026-07-13T18:00Z" }
+
+        This is the API replacement for the manual "Content Rejection
+        Report" CSV export that had to be downloaded from Partner Hub
+        home. Kills that workflow — we can now pull rejections at any
+        cadence.
+        """
+        params = {
+            "apikey": APIKEY,
+            "fdhead": _UGC_REPORT_FLIGHTS,
+            "ocid": "msph",
+            "partnerId": self.partner_id,
+            "partnerType": DEFAULT_PARTNER_TYPE,
+            "scn": "MSNRPSAuth",
+            "skipaadal": "true",
+            "timeout": "30000",
+            "ugc-flights": _UGC_REPORT_FLIGHTS,
+            "wrapodata": "false",
+        }
+        return self._call(
+            "/msn/v0/pages/ugc/contents/report/partnerrejecteddocstats", params
         )
 
 
