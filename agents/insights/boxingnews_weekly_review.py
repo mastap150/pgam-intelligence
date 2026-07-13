@@ -214,6 +214,7 @@ def _pull_boxingnews_articles(canonical_urls: list[str]) -> dict[str, dict[str, 
                    title,
                    msn_title,
                    msn_title_variants,
+                   msn_status,
                    published_at,
                    tag_names,
                    category_names,
@@ -269,11 +270,21 @@ def _join_msn_and_articles(
 
 
 def _detect_pattern(article: dict[str, Any] | None) -> str:
-    """Pull the picked tuner pattern from msn_title_variants. Returns
-    "P?" when unknown — the tuner has always emitted a pattern key
-    since 2026-05-16, so unknowns mean pre-tuner articles or manual
-    overrides."""
-    if not article or not article.get("msn_title_variants"):
+    """Bucket the article by tuner pattern.
+
+    - "P1".."P6": tuner picked a variant, headline exact-matches
+    - "P-skip":   tuner deliberately skipped this article (msn_status='skipped').
+                  Skipped rows store {"reason": ...} in msn_title_variants
+                  with no variants array — before this bucket existed they
+                  all fell to "P?" and contaminated the tuner-pattern signal.
+    - "P?":       genuinely unknown (pre-tuner article, manual override,
+                  or tuner state anomaly). Post-fix this should be small.
+    """
+    if not article:
+        return "P?"
+    if article.get("msn_status") == "skipped":
+        return "P-skip"
+    if not article.get("msn_title_variants"):
         return "P?"
     raw = article["msn_title_variants"]
     if isinstance(raw, str):
