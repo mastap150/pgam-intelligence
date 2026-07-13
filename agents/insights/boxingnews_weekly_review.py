@@ -318,6 +318,8 @@ def _detect_lane(tags: list[str]) -> str:
     launched."""
     tag_set = {t.lower() for t in tags}
 
+    if "fighter-angle" in tag_set:
+        return "fighter-angle"
     if "breaking-news" in tag_set:
         return "breaking"
     if "trending-now" in tag_set or "trending" in tag_set:
