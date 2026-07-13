@@ -99,6 +99,9 @@ QPS_DEMAND_NAME_BLOCKLIST = (
     "zeta",     # added 2026-06-16 per Priyesh; dp=31, 34 demands (clean match,
                 # no false positives). All currently qpsLimit=None; lock against
                 # future raises.
+    "robust apps",  # added 2026-07-13 per Priyesh; dp=46, 5 demands (clean
+                    # single-partner match, no false positives). Current caps
+                    # 1000-10000 — lock against auto-raises for the time being.
 )
 
 
