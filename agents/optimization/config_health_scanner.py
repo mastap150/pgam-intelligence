@@ -84,6 +84,11 @@ QPS_BUMP_MULTIPLIER = 2.0
 # targets only the 2 actual BidMachine-as-demand-partner records.
 # Per Priyesh 2026-06-15: confirmed BidMachine = demand partner id=40 only.
 # Adelement added per Priyesh same date — clean single-partner match.
+#
+# BidMachine cap is PARTNER-MANDATED (confirmed by Priyesh 2026-07-13):
+# BidMachine explicitly told us to cap their QPS at contracted levels.
+# This is not internal caution — raising it violates the commercial agreement.
+# d=1324 sitting at 99% util is expected behavior; do not treat as opportunity.
 QPS_DEMAND_NAME_BLOCKLIST = (
     "basis",
     "bidmachine ron",
