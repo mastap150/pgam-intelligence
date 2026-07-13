@@ -610,9 +610,13 @@ def _fallback_report(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
 
     # Best-effort strategy from the segmentation data alone.
     cohort_median = stats.get("median_reads", 0) or 0
+    # Match the LLM-path schema: winning_patterns is P1..P6 only. P-skip and
+    # P? are aggregation buckets, not tuner patterns the headline generator
+    # can act on.
+    _PICKABLE = {"P1", "P2", "P3", "P4", "P5", "P6"}
     winning_patterns = [
         b["key"] for b in payload["by_pattern"]
-        if b["key"] != "P?" and cohort_median and b["reads_avg"] >= cohort_median * 1.3
+        if b["key"] in _PICKABLE and cohort_median and b["reads_avg"] >= cohort_median * 1.3
     ][:6]
     hot_topics = [b["key"] for b in payload["by_tag"][:8]]
     dud_lanes = [
