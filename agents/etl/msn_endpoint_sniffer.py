@@ -24,9 +24,15 @@ msn_daily_totals table starts filling.
 
 Usage
 -----
-    python3 -m agents.etl.msn_endpoint_sniffer            # 90s default
+    python3 -m agents.etl.msn_endpoint_sniffer            # 90s default, manual clicking
     python3 -m agents.etl.msn_endpoint_sniffer --duration 120
     python3 -m agents.etl.msn_endpoint_sniffer --duration 60 --tabs
+    python3 -m agents.etl.msn_endpoint_sniffer --auto-navigate  # no manual clicks
+
+--auto-navigate visits a list of candidate Partner Hub URLs and
+also programmatically clicks any nav-links it finds in the DOM,
+so the whole flow can run headless (given a fresh session) without
+a human in the loop.
 
 Env
 ---
@@ -84,10 +90,79 @@ def _preview_body(body: str, max_chars: int = 400) -> str:
     return b[:max_chars] + f"... ({len(b) - max_chars} more chars)"
 
 
-def sniff(duration_seconds: int, tabs_hint: bool) -> Path:
+# Candidate Partner Hub URLs the SPA might respond to. If any 404 or
+# redirect, that's fine — the response listener still logs whatever
+# XHRs fired. Ordered from most-likely to least-likely aggregate paths.
+_CANDIDATE_URLS = (
+    "https://www.msn.com/en-us/partnerhub/analytics/aggregate",
+    "https://www.msn.com/en-us/partnerhub/analytics/overview",
+    "https://www.msn.com/en-us/partnerhub/analytics/content",
+    "https://www.msn.com/en-us/partnerhub/analytics/content-report",
+    "https://www.msn.com/en-us/partnerhub/analytics/insights",
+    "https://www.msn.com/en-us/partnerhub/analytics/realtime/traffic",
+    "https://www.msn.com/en-us/partnerhub/analytics/daily",
+    "https://www.msn.com/en-us/partnerhub/analytics/reports",
+)
+
+
+def _auto_navigate(page: Any, dwell_seconds: int = 6) -> None:
+    """Visit candidate Partner Hub URLs and click discovered nav-links so
+    the SPA fires its per-tab XHRs. Each URL gets `dwell_seconds` to
+    resolve — enough for the initial data-load XHRs but not so much
+    that the whole sweep takes forever."""
+    from urllib.parse import urlsplit
+
+    # Pass 1: direct URL navigation. Path-based SPAs (this one is)
+    # generally re-render on real navigations to a router-owned URL.
+    for url in _CANDIDATE_URLS:
+        print(f"[sniffer] navigating: {url}")
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=15_000)
+            page.wait_for_timeout(dwell_seconds * 1000)
+        except Exception as exc:
+            print(f"[sniffer]   nav skipped: {type(exc).__name__}: {str(exc)[:120]}")
+
+    # Pass 2: DOM sweep — any <a> in the Partner Hub nav that we
+    # haven't already visited via direct URL. Catches tabs that use
+    # SPA-internal routing (pushState + client-side handler).
+    try:
+        anchors = page.locator('a[href*="/partnerhub/"]').all()
+        seen = {urlsplit(u).path for u in _CANDIDATE_URLS}
+        clicked = 0
+        for a in anchors:
+            try:
+                href = a.get_attribute("href")
+                if not href:
+                    continue
+                path = urlsplit(href).path
+                if path in seen:
+                    continue
+                seen.add(path)
+                # Only click nav-shaped things, not action buttons.
+                if not a.is_visible(timeout=500):
+                    continue
+                print(f"[sniffer] clicking nav-link: {href}")
+                a.click(timeout=3_000)
+                page.wait_for_timeout(dwell_seconds * 1000)
+                clicked += 1
+                if clicked >= 8:
+                    break  # bounded — we're not crawling
+            except Exception:
+                continue
+    except Exception as exc:
+        print(f"[sniffer] nav-link sweep skipped: {type(exc).__name__}: {str(exc)[:120]}")
+
+
+def sniff(duration_seconds: int, tabs_hint: bool, auto_navigate: bool) -> Path:
     """Run the sniffer for `duration_seconds` and return the log path."""
-    # Force visible browser — clicking through tabs is the whole workflow.
-    os.environ.setdefault("MSN_HEADLESS", "0")
+    if auto_navigate:
+        # In auto-navigate mode we don't need a human, so headless is fine
+        # (and much less disruptive on a workstation). Callers who want to
+        # watch can still pass MSN_HEADLESS=0.
+        os.environ.setdefault("MSN_HEADLESS", "1")
+    else:
+        # Manual-clicking mode needs a visible browser.
+        os.environ.setdefault("MSN_HEADLESS", "0")
 
     log_path = _default_log_path()
     log_path.parent.mkdir(parents=True, exist_ok=True)
@@ -152,12 +227,19 @@ def sniff(duration_seconds: int, tabs_hint: bool) -> Path:
             assert client._page is not None, "PartnerHubClient.start() did not create a page"
             client._page.on("response", _on_response)
 
-            deadline = time.time() + duration_seconds
-            while time.time() < deadline:
-                remaining = int(deadline - time.time())
-                if remaining % 10 == 0:
-                    print(f"[sniffer] {remaining}s left — click around Partner Hub tabs")
-                time.sleep(1)
+            if auto_navigate:
+                # Kick off programmatic sweep. Response listener is already
+                # attached, so every XHR fires goes to the log.
+                _auto_navigate(client._page)
+                print(f"[sniffer] auto-navigate complete — settling for {duration_seconds}s")
+                time.sleep(duration_seconds)
+            else:
+                deadline = time.time() + duration_seconds
+                while time.time() < deadline:
+                    remaining = int(deadline - time.time())
+                    if remaining % 10 == 0:
+                        print(f"[sniffer] {remaining}s left — click around Partner Hub tabs")
+                    time.sleep(1)
         finally:
             client.close()
 
@@ -184,11 +266,24 @@ def main() -> None:
     parser.add_argument(
         "--tabs",
         action="store_true",
-        help="Print a checklist of tabs to click while sniffing",
+        help="Print a checklist of tabs to click while sniffing (manual mode only)",
+    )
+    parser.add_argument(
+        "--auto-navigate",
+        action="store_true",
+        help=(
+            "Programmatically visit candidate Partner Hub URLs and click "
+            "discovered nav-links so no manual clicking is needed. Runs "
+            "headless by default (set MSN_HEADLESS=0 to watch)."
+        ),
     )
     args = parser.parse_args()
     try:
-        sniff(duration_seconds=args.duration, tabs_hint=args.tabs)
+        sniff(
+            duration_seconds=args.duration,
+            tabs_hint=args.tabs,
+            auto_navigate=args.auto_navigate,
+        )
     except PartnerHubError as exc:
         print(f"[sniffer] partner hub error: {exc}", file=sys.stderr)
         sys.exit(1)
