@@ -201,6 +201,25 @@ def _put(path: str, payload: dict) -> dict | list:
     Perform an authenticated PUT request.
     Auto-refreshes the token once on 401.
     """
+    # Partner-freeze choke-point for direct /v1/demands/{id} PUTs. Catches
+    # writers that mutate a demand via the raw _put API (e.g. QPS auto-raise,
+    # schain auto-enable, margin adjusts) without going through the helper
+    # wrappers. Publisher-level PUTs are not gated here — a publisher payload
+    # can contain wirings to many demands, and the caller must decide whether
+    # any frozen-demand wirings are being touched (see _set_publisher_demand_status
+    # for the enable/disable helper, which does check).
+    if path.startswith("/v1/demands/"):
+        try:
+            demand_id = int(path.rsplit("/", 1)[-1])
+        except ValueError:
+            demand_id = None
+        if demand_id is not None:
+            from core import partner_freeze
+            if partner_freeze.is_frozen(demand_id=demand_id):
+                print(f"[ll_mgmt._put] SKIPPED {path}: partner frozen")
+                return {"skipped": True, "reason": "partner_frozen",
+                        "path": path, "applied": False}
+
     token = get_token()
 
     for attempt in range(2):
@@ -364,6 +383,15 @@ def set_demand_floor(
             "allow_multi_pub=True after aggregating per-pub recommendations."
         )
 
+    # Partner-freeze choke-point. Any partner in core.partner_freeze.FROZEN_PARTNERS
+    # gets a hard skip here regardless of caller — one enforcement location beats
+    # 10 per-writer guards. Returns a no-op result so callers can log/proceed.
+    from core import partner_freeze
+    if partner_freeze.is_frozen(demand_id=demand_id):
+        print(f"[ll_mgmt.set_demand_floor] SKIPPED d={demand_id}: partner frozen")
+        return {"skipped": True, "reason": "partner_frozen", "demand_id": demand_id,
+                "requested_floor": new_floor, "applied": False}
+
     # Fetch demand (needed for the name-based contract clamp below, even in
     # dry-run — we want dry-run to reflect the final clamped value not the raw
     # requested one).
@@ -487,6 +515,17 @@ def _set_publisher_demand_status(
     """
     effective_dry_run = dry_run or _GLOBAL_DRY_RUN
 
+    # Partner-freeze choke-point — see set_demand_floor for rationale. Blocks
+    # both enable and disable on frozen partners; a frozen demand's status
+    # cannot be flipped by any writer.
+    from core import partner_freeze
+    if partner_freeze.is_frozen(demand_id=demand_id):
+        print(f"[ll_mgmt._set_publisher_demand_status] SKIPPED "
+              f"pub={publisher_id} d={demand_id} status→{new_status}: partner frozen")
+        return {"skipped": True, "reason": "partner_frozen",
+                "publisher_id": publisher_id, "demand_id": demand_id,
+                "requested_status": new_status, "applied": False}
+
     publisher = get_publisher(publisher_id)
     action_label = "enable_publisher_demand" if new_status == 1 else "disable_publisher_demand"
     status_label = "enabled (1)" if new_status == 1 else "disabled (2)"
@@ -570,6 +609,19 @@ def disable_publisher_demand(
     Returns:
         The updated publisher dict (or the current publisher dict on dry-run).
     """
+    # Partner-freeze choke-point. disable_publisher_demand doesn't route through
+    # _set_publisher_demand_status because it deletes the wiring array entry
+    # rather than flipping status. So the freeze check has to live here too.
+    # The demand_id parameter is actually the wiring id (== the underlying
+    # demand id in LL's coherent namespace) so the freeze lookup still works.
+    from core import partner_freeze
+    if partner_freeze.is_frozen(demand_id=demand_id):
+        print(f"[ll_mgmt.disable_publisher_demand] SKIPPED "
+              f"pub={publisher_id} d={demand_id}: partner frozen")
+        return {"skipped": True, "reason": "partner_frozen",
+                "publisher_id": publisher_id, "demand_id": demand_id,
+                "applied": False}
+
     effective_dry_run = dry_run or _GLOBAL_DRY_RUN
     publisher = get_publisher(publisher_id)
 
