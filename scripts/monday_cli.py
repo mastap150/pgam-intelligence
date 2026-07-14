@@ -90,9 +90,19 @@ def board_meta(board_id: int) -> dict:
 
 
 def find_status_column(meta: dict) -> str:
-    for col in meta["columns"]:
-        if col["type"] == "status":
-            return col["id"]
+    status_cols = [c for c in meta["columns"] if c["type"] == "status"]
+    for c in status_cols:
+        if c["title"].strip().lower() == "status":
+            return c["id"]
+    for c in status_cols:
+        try:
+            labels = [l["label"].lower() for l in json.loads(c["settings_str"]).get("labels", [])]
+        except Exception:
+            labels = []
+        if "done" in labels:
+            return c["id"]
+    if status_cols:
+        return status_cols[0]["id"]
     raise RuntimeError(f"No status column on board {meta['id']}.")
 
 
