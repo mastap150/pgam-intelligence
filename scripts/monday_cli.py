@@ -7,6 +7,9 @@ Usage:
     python3 scripts/monday_cli.py move  <item_id> <group_id> [--board <id>]
     python3 scripts/monday_cli.py status <item_id> <label> [--board <id>]
     python3 scripts/monday_cli.py note   <item_id> <text>  [--board <id>]
+    python3 scripts/monday_cli.py create <name> [--group <id>] [--owner <id_or_email>]
+                                        [--status <label>] [--priority <label>] [--note <text>]
+                                        [--board <id>]
     python3 scripts/monday_cli.py list   --board <id> [--owner <name>] [--status <label>]
     python3 scripts/monday_cli.py board  <id>
     python3 scripts/monday_cli.py boards
@@ -181,6 +184,62 @@ def cmd_note(args: argparse.Namespace) -> None:
     print(json.dumps(d, indent=2))
 
 
+def _resolve_user_id(who: str) -> int:
+    if who.isdigit():
+        return int(who)
+    needle = who.lower()
+    d = gql("query { users(limit: 200) { id name email } }")
+    for u in d["users"]:
+        if needle in (u.get("email") or "").lower() or needle in (u.get("name") or "").lower():
+            return int(u["id"])
+    raise RuntimeError(f"No Monday user matches {who!r}")
+
+
+def _find_col(meta: dict, col_type: str, title_hint: str | None = None) -> str | None:
+    cols = [c for c in meta["columns"] if c["type"] == col_type]
+    if title_hint:
+        for c in cols:
+            if c["title"].strip().lower() == title_hint.lower():
+                return c["id"]
+    return cols[0]["id"] if cols else None
+
+
+def cmd_create(args: argparse.Namespace) -> None:
+    meta = board_meta(args.board)
+    cv: dict[str, Any] = {}
+    if args.status:
+        cv[find_status_column(meta)] = {"label": args.status}
+    if args.priority:
+        prio_col = _find_col(meta, "status", "Priority")
+        if not prio_col:
+            sys.exit("No Priority status column on this board.")
+        cv[prio_col] = {"label": args.priority}
+    if args.owner:
+        people_col = _find_col(meta, "people", "Owner") or _find_col(meta, "people")
+        if not people_col:
+            sys.exit("No people column on this board.")
+        cv[people_col] = {"personsAndTeams": [{"id": _resolve_user_id(args.owner), "kind": "person"}]}
+    if args.note:
+        text_col = _find_col(meta, "text", "Notes") or _find_col(meta, "text")
+        if not text_col:
+            sys.exit("No text column on this board.")
+        cv[text_col] = args.note
+    group_id = args.group or next(
+        (g["id"] for g in meta["groups"] if g["title"].strip().lower() == "to do"),
+        meta["groups"][0]["id"],
+    )
+    d = gql(
+        """
+        mutation ($b: ID!, $g: String!, $n: String!, $cv: JSON!) {
+          create_item(board_id: $b, group_id: $g, item_name: $n, column_values: $cv) { id name }
+        }
+        """,
+        {"b": str(args.board), "g": group_id, "n": args.name, "cv": json.dumps(cv)},
+    )
+    item = d["create_item"]
+    print(f"created item {item['id']}: {item['name']} in group {group_id}")
+
+
 def cmd_list(args: argparse.Namespace) -> None:
     meta = board_meta(args.board)
     people_col = next((c["id"] for c in meta["columns"] if c["type"] == "people"), None)
@@ -272,6 +331,16 @@ def main() -> None:
     c.add_argument("text")
     c.add_argument("--board", type=int, default=DEFAULT_BOARD)
     c.set_defaults(func=cmd_note)
+
+    c = sub.add_parser("create", help="Create a new item on a board")
+    c.add_argument("name")
+    c.add_argument("--group", default=None, help="group_id (default: 'To Do' if present, else first group)")
+    c.add_argument("--owner", default=None, help="user id, email, or name substring")
+    c.add_argument("--status", default=None, help="Status label (e.g. 'In Progress', 'Blocked')")
+    c.add_argument("--priority", default=None, help="Priority label (e.g. 'High', 'Medium', 'Low')")
+    c.add_argument("--note", default=None, help="Text to write into Notes column")
+    c.add_argument("--board", type=int, default=DEFAULT_BOARD)
+    c.set_defaults(func=cmd_create)
 
     c = sub.add_parser("list", help="List items, optional owner/status filter")
     c.add_argument("--board", type=int, default=DEFAULT_BOARD)
