@@ -51,24 +51,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Preflight — required secrets present and DSN shape valid
+      - name: Preflight — required secret present and DSN shape valid
         # Fails fast with a clear error if PGAM_DIRECT_DATABASE_URL is
-        # missing or malformed, or if MSN creds aren't set. Historical
-        # failure mode (2026-07): a placeholder-style DSN got saved to
-        # the secret and every subsequent run died deep in psycopg with
-        # `missing "=" after "***" in connection info string` — the
-        # `***` being GH Actions' redaction of the malformed value. That
-        # error is unreadable without this preflight; hence this step.
-        # DSN value itself is never echoed — only shape is reported.
+        # missing or malformed. Historical failure mode (2026-07): a
+        # placeholder-style DSN got saved to the secret and every
+        # subsequent run died deep in psycopg with:
+        #     ProgrammingError: missing "=" after "***" in connection info string
+        # The `***` is GH Actions' log redaction of the malformed value,
+        # so the true error was unreadable in the run log. This preflight
+        # asserts the shape without ever echoing the DSN itself.
+        #
+        # Note: MSN_EMAIL / MSN_PASSWORD are no longer required. The
+        # refresh-token puller (2026-05-19 architecture pivot) reads
+        # the rotating refresh_token from pgam_direct.msn_oauth_token
+        # and mints access tokens directly against Microsoft OAuth —
+        # no browser, no user credentials.
         run: |
           set -euo pipefail
-          missing=""
-          [ -z "${PGAM_DIRECT_DATABASE_URL:-}" ] && missing="$missing PGAM_DIRECT_DATABASE_URL"
-          [ -z "${MSN_EMAIL:-}" ] && missing="$missing MSN_EMAIL"
-          [ -z "${MSN_PASSWORD:-}" ] && missing="$missing MSN_PASSWORD"
-          if [ -n "$missing" ]; then
-            echo "::error title=Missing required secrets::$missing"
-            echo "Add via: gh secret set <NAME> --repo mastap150/pgam-intelligence"
+          if [ -z "${PGAM_DIRECT_DATABASE_URL:-}" ]; then
+            echo "::error title=Missing required secret::PGAM_DIRECT_DATABASE_URL"
+            echo "Add via: gh secret set PGAM_DIRECT_DATABASE_URL --repo mastap150/pgam-intelligence"
             exit 1
           fi
           dsn="${PGAM_DIRECT_DATABASE_URL}"
@@ -87,7 +89,7 @@ jobs:
               exit 1
               ;;
           esac
-          echo "preflight ok: secrets present, DSN shape looks valid"
+          echo "preflight ok: DSN shape looks valid"
 
       - name: Set up Python
         uses: actions/setup-python@v5
