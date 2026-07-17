@@ -165,12 +165,25 @@ def refresh_access_token(row: dict[str, Any]) -> dict[str, Any]:
         'redirect_uri': row['redirect_uri'],
         'scope': row['scope'],
     }
+    # Microsoft rejects SPA-issued refresh tokens without an Origin
+    # header ("Tokens issued for the 'Single-Page Application'
+    # client-type should only be redeemed via cross-origin requests").
+    # Derive the origin from the stored redirect_uri, which points at
+    # the SPA's auth bridge (e.g. https://www.msn.com/staticsb/…).
+    from urllib.parse import urlparse
+    parsed_redirect = urlparse(row.get('redirect_uri') or '')
+    origin = (
+        f"{parsed_redirect.scheme}://{parsed_redirect.netloc}"
+        if parsed_redirect.scheme and parsed_redirect.netloc
+        else 'https://www.msn.com'
+    )
     r = requests.post(
         endpoint,
         data=body,
         headers={
             'Content-Type': 'application/x-www-form-urlencoded',
             'Accept': 'application/json',
+            'Origin': origin,
         },
         timeout=20,
     )

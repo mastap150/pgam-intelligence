@@ -97,6 +97,59 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
+      - name: Preflight — OAuth refresh_token row exists
+        # After the DSN passes, verify the bootstrap has been run. This
+        # is a one-time interactive step (scripts/msn_oauth_capture.py)
+        # that captures a refresh_token during a real MSAL login. If
+        # the row is missing (or the chain broke past its 24h window),
+        # the puller can't mint an access_token and every run fails
+        # with a stack trace deep in HTTP land.
+        #
+        # Surfacing this as an ::error at preflight means the run
+        # summary points at the actual fix instead of "check the log".
+        run: |
+          set -euo pipefail
+          python -m pip install --quiet --upgrade pip
+          pip install --quiet "psycopg[binary]>=3.1.0"
+          python - <<'PY'
+          import os, sys, psycopg
+          dsn = os.environ["PGAM_DIRECT_DATABASE_URL"]
+          with psycopg.connect(dsn, connect_timeout=15) as conn, conn.cursor() as cur:
+              cur.execute(
+                  "SELECT refresh_expires_at, refresh_count "
+                  "FROM pgam_direct.msn_oauth_token "
+                  "WHERE id = 'msn-partner-hub-boxingnews-primary'"
+              )
+              row = cur.fetchone()
+          if not row:
+              print(
+                  "::error title=OAuth bootstrap missing::"
+                  "No row in pgam_direct.msn_oauth_token. "
+                  "Run scripts/msn_oauth_capture.py locally once to capture the "
+                  "refresh_token; then cron takes over indefinitely."
+              )
+              sys.exit(1)
+          refresh_expires_at, refresh_count = row
+          # Warn (don't fail) if the refresh window is imminent — gives
+          # us a few hours to notice before the chain actually breaks.
+          from datetime import datetime, timezone, timedelta
+          now = datetime.now(timezone.utc)
+          if refresh_expires_at and refresh_expires_at < now:
+              print(
+                  "::error title=OAuth chain broken::"
+                  f"refresh_token expired at {refresh_expires_at.isoformat()}. "
+                  "Re-run scripts/msn_oauth_capture.py to re-bootstrap."
+              )
+              sys.exit(1)
+          if refresh_expires_at and refresh_expires_at < now + timedelta(hours=6):
+              print(
+                  "::warning title=OAuth chain expiring soon::"
+                  f"refresh_token expires {refresh_expires_at.isoformat()} — "
+                  f"chain has rotated {refresh_count} times; next cron will refresh."
+              )
+          print(f"preflight ok: oauth row present, refresh_count={refresh_count}, expires={refresh_expires_at}")
+          PY
+
       - name: Install Python deps (HTTP-only puller — no Playwright)
         # The refresh-token puller only needs requests + psycopg, which
         # are already in requirements.txt. Skipping the full install for
