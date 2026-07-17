@@ -51,6 +51,44 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Preflight — required secrets present and DSN shape valid
+        # Fails fast with a clear error if PGAM_DIRECT_DATABASE_URL is
+        # missing or malformed, or if MSN creds aren't set. Historical
+        # failure mode (2026-07): a placeholder-style DSN got saved to
+        # the secret and every subsequent run died deep in psycopg with
+        # `missing "=" after "***" in connection info string` — the
+        # `***` being GH Actions' redaction of the malformed value. That
+        # error is unreadable without this preflight; hence this step.
+        # DSN value itself is never echoed — only shape is reported.
+        run: |
+          set -euo pipefail
+          missing=""
+          [ -z "${PGAM_DIRECT_DATABASE_URL:-}" ] && missing="$missing PGAM_DIRECT_DATABASE_URL"
+          [ -z "${MSN_EMAIL:-}" ] && missing="$missing MSN_EMAIL"
+          [ -z "${MSN_PASSWORD:-}" ] && missing="$missing MSN_PASSWORD"
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing required secrets::$missing"
+            echo "Add via: gh secret set <NAME> --repo mastap150/pgam-intelligence"
+            exit 1
+          fi
+          dsn="${PGAM_DIRECT_DATABASE_URL}"
+          case "$dsn" in
+            postgresql://*|postgres://*) ;;
+            *)
+              echo "::error title=Malformed DSN::PGAM_DIRECT_DATABASE_URL does not start with postgresql:// or postgres://. Value likely still a placeholder."
+              exit 1
+              ;;
+          esac
+          # Must have @host and /database segments after the scheme.
+          case "$dsn" in
+            *@*/*) ;;
+            *)
+              echo "::error title=Malformed DSN::PGAM_DIRECT_DATABASE_URL missing user@host/database segments. Value not logged."
+              exit 1
+              ;;
+          esac
+          echo "preflight ok: secrets present, DSN shape looks valid"
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
