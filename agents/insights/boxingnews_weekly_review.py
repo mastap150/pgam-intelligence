@@ -120,9 +120,16 @@ def boxingnews_weekly_review() -> None:
 
     summary_stats = _summary_stats(msn_rows, prev_msn_rows)
 
+    title_candidates = _pull_title_change_candidates(limit=15)
+    title_history = _pull_recent_title_history(days=28, limit=10)
+    rejection_summary = _pull_rejection_summary(days=28)
+
     payload_for_claude = _build_claude_payload(
         period_start, period_end, iso_week,
         summary_stats, segmentation, joined,
+        title_candidates=title_candidates,
+        title_history=title_history,
+        rejection_summary=rejection_summary,
     )
 
     if _ANTHROPIC_AVAILABLE and os.environ.get("ANTHROPIC_API_KEY"):
@@ -179,6 +186,96 @@ def _pull_msn_rows(period_start: date, period_end: date) -> list[dict[str, Any]]
         )
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def _pull_title_change_candidates(limit: int = 15) -> list[dict[str, Any]]:
+    """Pull the current-worst underperformers from the migration view.
+    Each row is a live MSN article whose readCount is <60% of the 14d
+    cohort median — a prime target for a Partner Hub title rewrite."""
+    with connect_pgam_direct() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT doc_id, latest_msn_title, peak_read_count, age_hours,
+                   underperformance_severity, cohort_median
+              FROM pgam_direct.msn_title_change_candidates
+             WHERE partner_id = %s
+             ORDER BY (cohort_median - peak_read_count) DESC
+             LIMIT %s
+            """,
+            (PARTNER_ID, limit),
+        )
+        cols = [c[0] for c in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def _pull_recent_title_history(days: int = 28, limit: int = 10) -> list[dict[str, Any]]:
+    """Actual observed title changes with before/after peak reads.
+    Anchors the tuner's belief about which edit patterns work."""
+    with connect_pgam_direct() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT doc_id, old_title, new_title,
+                   changed_at, old_title_peak_reads, new_title_peak_reads
+              FROM pgam_direct.msn_title_history
+             WHERE changed_at >= now() - (%s || ' days')::interval
+             ORDER BY changed_at DESC
+             LIMIT %s
+            """,
+            (str(days), limit),
+        )
+        cols = [c[0] for c in cur.description]
+        return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def _pull_rejection_summary(days: int = 28) -> dict[str, Any]:
+    """Aggregate rejection reasons from msn_rejection_report. Empty
+    when no CSV has been loaded recently — that's a signal to Priyesh
+    to download a fresh Content Rejection Report."""
+    out = {
+        "total_failures": 0,
+        "by_reason": [],
+        "by_type": [],
+        "last_window_end": None,
+    }
+    with connect_pgam_direct() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT MAX(window_end) FROM pgam_direct.msn_rejection_report
+             WHERE partner_id = %s
+               AND window_end >= now() - (%s || ' days')::interval
+            """,
+            (PARTNER_ID, str(days)),
+        )
+        row = cur.fetchone()
+        out["last_window_end"] = row[0] if row else None
+        if out["last_window_end"] is None:
+            return out
+
+        cur.execute(
+            """
+            SELECT rejection_reason, SUM(failure_count) AS n
+              FROM pgam_direct.msn_rejection_report
+             WHERE partner_id = %s
+               AND window_end >= %s - INTERVAL '1 day'
+             GROUP BY 1 ORDER BY 2 DESC
+            """,
+            (PARTNER_ID, out["last_window_end"]),
+        )
+        out["by_reason"] = [{"reason": r[0], "count": int(r[1] or 0)} for r in cur.fetchall()]
+        out["total_failures"] = sum(r["count"] for r in out["by_reason"])
+
+        cur.execute(
+            """
+            SELECT failure_type, SUM(failure_count) AS n
+              FROM pgam_direct.msn_rejection_report
+             WHERE partner_id = %s
+               AND window_end >= %s - INTERVAL '1 day'
+             GROUP BY 1 ORDER BY 2 DESC
+            """,
+            (PARTNER_ID, out["last_window_end"]),
+        )
+        out["by_type"] = [{"type": r[0], "count": int(r[1] or 0)} for r in cur.fetchall()]
+    return out
 
 
 def _pull_boxingnews_articles(canonical_urls: list[str]) -> dict[str, dict[str, Any]]:
@@ -365,10 +462,12 @@ def _segment(joined: list[dict[str, Any]]) -> dict[str, Any]:
     by_lane: dict[str, list[int]] = defaultdict(list)
     by_tag: dict[str, list[int]] = defaultdict(list)
     by_dow: dict[str, list[int]] = defaultdict(list)
+    by_sport: dict[str, list[int]] = defaultdict(list)
 
     for row in joined:
         by_pattern[row["pattern"]].append(row["reads"])
         by_lane[row["lane"]].append(row["reads"])
+        by_sport[row.get("sport") or "unknown"].append(row["reads"])
         for t in (row.get("tags") or []):
             by_tag[t].append(row["reads"])
         if row.get("published_at"):
@@ -396,6 +495,7 @@ def _segment(joined: list[dict[str, Any]]) -> dict[str, Any]:
     return {
         "by_pattern":    _agg(by_pattern),
         "by_lane":       _agg(by_lane),
+        "by_sport":      _agg(by_sport),
         "by_tag":        _agg(by_tag)[:25],         # cap — long tail is noise
         "by_day_of_week":_agg(by_dow),
         "top_articles":  top_articles,
@@ -439,6 +539,10 @@ def _build_claude_payload(
     stats: dict[str, Any],
     segmentation: dict[str, Any],
     joined: list[dict[str, Any]],
+    *,
+    title_candidates: list[dict[str, Any]] | None = None,
+    title_history: list[dict[str, Any]] | None = None,
+    rejection_summary: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compact JSON-friendly payload — keeps the prompt under ~2K tokens
     even on heavy weeks."""
@@ -470,8 +574,32 @@ def _build_claude_payload(
         ],
         "by_pattern":      segmentation["by_pattern"],
         "by_lane":         segmentation["by_lane"],
+        "by_sport":        segmentation["by_sport"],
         "by_tag":          segmentation["by_tag"],
         "by_day_of_week":  segmentation["by_day_of_week"],
+        "title_change_candidates": [
+            {
+                "doc_id":        c["doc_id"],
+                "current_title": c["latest_msn_title"],
+                "reads":         c["peak_read_count"],
+                "cohort_median": int(c["cohort_median"] or 0),
+                "age_hours":     float(c["age_hours"] or 0),
+                "severity":      c["underperformance_severity"],
+            }
+            for c in (title_candidates or [])
+        ],
+        "title_edit_history": [
+            {
+                "doc_id":        h["doc_id"],
+                "old_title":     h["old_title"],
+                "new_title":     h["new_title"],
+                "changed_at":    str(h["changed_at"]),
+                "old_peak":      h["old_title_peak_reads"],
+                "new_peak":      h["new_title_peak_reads"],
+            }
+            for h in (title_history or [])
+        ],
+        "rejection_summary": rejection_summary or {},
     }
 
 
@@ -515,6 +643,33 @@ Your weekly job:
         - Be honest about dud_sources: if a lane published a lot of
           articles but produced <30% of the cohort's median reads,
           flag it. Empty list is fine if the data is too sparse.
+
+3. Also produce a MMA-vs-boxing lane call. `by_sport` shows reads per
+   sport this week; if MMA's reads_avg is ≥40% higher than boxing's,
+   say so in the report and include a short "MMA-lead" note in
+   strategy.notes. This is a live editorial decision: BoxingNews.com
+   is boxing-first by identity but its MSN traffic has repeatedly been
+   MMA-dominated (McGregor, Strickland, Jon Jones storylines). If MMA
+   is beating boxing on MSN this week, we want more MMA production
+   next week, and we want it flagged loudly in the report.
+
+4. Title-change candidates. `title_change_candidates` is the current
+   list of live MSN articles whose readCount is <60% of the 14-day
+   cohort median — prime targets for a Partner Hub title rewrite.
+   Add a short "Title rewrite candidates" section to the report
+   listing the top 5 by (cohort_median - reads). For each: quote the
+   current title verbatim and suggest a specific rewrite drawing on
+   the winning patterns and hot_topics from this week's data.
+   Keep suggestions short — MSN's platform is unforgiving to over-
+   long headlines.
+
+5. Rejection funnel. `rejection_summary.total_failures` and
+   `rejection_summary.by_reason` come from the last Content Rejection
+   Report CSV we imported. If total_failures > 0, add a one-line
+   "Rejection funnel" note calling out the top reason and how many
+   articles it cost us. If rejection_summary.last_window_end is null
+   or older than 14 days, flag that we're overdue on downloading a
+   fresh report from Partner Hub Home.
 
 OUTPUT FORMAT — strict:
 First emit the Markdown report wrapped in <report>...</report>.

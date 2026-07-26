@@ -1,0 +1,39 @@
+name: MSN puller watchdog
+
+# Hourly heartbeat check on the MSN Partner Hub puller (msn-insights.yml).
+# Alerts Slack + opens a Monday item if the last successful pull is
+# >4h stale. Runs from GH Actions (outside the puller's own cron) so
+# it can detect the puller being down.
+
+on:
+  schedule:
+    - cron: "10 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: msn-puller-watchdog
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  watchdog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      MSN_SLACK_WEBHOOK: ${{ secrets.MSN_SLACK_WEBHOOK }}
+      COMPLIANCE_SLACK_WEBHOOK: ${{ secrets.COMPLIANCE_SLACK_WEBHOOK }}
+      MONDAY_API_TOKEN: ${{ secrets.MONDAY_API_TOKEN }}
+      PGAM_MSN_WATCHDOG_STALE_HRS: "4"
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: pip install --quiet -r requirements.txt
+      - run: python -m agents.msn.puller_watchdog
