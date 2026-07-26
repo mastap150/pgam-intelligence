@@ -63,7 +63,7 @@ TOKEN_ENDPOINT_PATH_FRAGMENTS = (
     "/oauth2/token",
 )
 
-WAIT_TIMEOUT_SEC = 7 * 60  # 7 min — plenty of time for MFA tap
+WAIT_TIMEOUT_SEC = int(os.environ.get("MSN_CAPTURE_TIMEOUT_SEC", "900"))  # 15 min default
 CAPTURE_DELAY_SEC = 2      # how long to sit after capture before exiting
 
 
@@ -266,15 +266,24 @@ def main() -> int:
             browser.close()
             return 1
 
-        context.close()
-        browser.close()
-
-    captured = interceptor.captured
-    if not captured:
-        print("[capture] no token captured. Try again.", file=sys.stderr)
-        return 1
-
-    upsert_oauth_token(captured)
+        # ── Write to Neon BEFORE closing the browser ─────────────────────
+        # Chromium.close() has been observed to hang on macOS for a
+        # variable amount of time; we do not want a browser-close hang
+        # to lose a captured token. Persist first, then tear down.
+        captured = interceptor.captured
+        if not captured:
+            print("[capture] no token captured. Try again.", file=sys.stderr)
+            context.close()
+            browser.close()
+            return 1
+        print("[capture] persisting token to Neon…", flush=True)
+        upsert_oauth_token(captured)
+        print("[capture] closing Chromium (may take a few seconds)…", flush=True)
+        try:
+            context.close()
+            browser.close()
+        except Exception as exc:
+            print(f"[capture] non-fatal browser close error: {exc}", file=sys.stderr)
     print()
     print("[capture] SUCCESS. Next: scripts/msn_refresh_puller.py can run on")
     print("[capture] any machine (GH Actions, Render, anywhere) using the stored")
