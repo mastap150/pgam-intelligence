@@ -62,10 +62,23 @@ from agents.etl.msn_insights_etl import (   # noqa: E402
     _DAILY_UPSERT_SQL,
     _log_run,
 )
+from agents.etl.msn_rejection_etl import (  # noqa: E402
+    ensure_schema as _ensure_rejection_schema,
+    _UPSERT_SQL as _REJECTION_UPSERT_SQL,
+)
 from core.msn_partner_hub import (           # noqa: E402
     API_HOST, API_BASE_PATH, APIKEY, DEFAULT_PARTNER_ID, DEFAULT_PARTNER_TYPE,
     _iso_z, _now_utc,
 )
+
+# Report path is a sibling of the /realtime insights endpoint. Split
+# from API_BASE_PATH so we don't accidentally couple with future
+# insights-only path changes.
+REPORT_BASE_PATH = "/msn/v0/pages/ugc/contents/report"
+# Ingest at most once every 22h — the underlying data-update-time on
+# the MSN side ticks daily, so more-frequent calls just re-upsert
+# identical rows and burn Actions minutes.
+REJECTION_MIN_INTERVAL_HOURS = 22
 
 TOKEN_TABLE_ID = "msn-partner-hub-boxingnews-primary"
 TOKEN_ENDPOINT_TMPL = "https://login.microsoftonline.com/{tenant}/oauth2/v2.0/token"
@@ -242,6 +255,177 @@ def build_common_params(start: datetime, end: datetime, partner_id: str) -> dict
     }
 
 
+def _rejection_recent_upsert_age_hours(partner_id: str) -> Optional[float]:
+    """Return hours since the last row was upserted into msn_rejection_report
+    for this partner. None if the table is empty."""
+    dsn = _resolve_dsn()
+    with psycopg.connect(dsn, connect_timeout=15) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT MAX(imported_at) FROM pgam_direct.msn_rejection_report "
+            "WHERE partner_id = %s",
+            (partner_id,),
+        )
+        row = cur.fetchone()
+    last = row[0] if row else None
+    if last is None:
+        return None
+    return (datetime.now(tz=timezone.utc) - last).total_seconds() / 3600.0
+
+
+def _parse_log_end_time(s: Any) -> Optional[datetime]:
+    """logEndTime is emitted as e.g. '2026-05-29T04:15Z'. Tolerate both
+    the trailing Z and full ISO forms; return None if unparseable."""
+    if not s or not isinstance(s, str):
+        return None
+    txt = s.strip()
+    if txt.endswith("Z"):
+        txt = txt[:-1] + "+00:00"
+    try:
+        dt = datetime.fromisoformat(txt)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt
+    except ValueError:
+        return None
+
+
+def _aggregate_failures(failures: list[dict[str, Any]]) -> list[tuple[str, str, int]]:
+    """Reduce the API's `failures[]` list to (reason, type, count) tuples.
+
+    Shape unknown at build time — the one prior capture returned an empty
+    list, so we've inferred field names from the CSV variant (Overview
+    columns: Rejection reason, Failure type, Total number of the failures;
+    Detail columns per-doc: rejection details JSON with `reason`, plus
+    the Overview grouping key). Handle both possibilities:
+      (a) already-aggregated rows with a numeric `count`/`total`/`failureCount`
+      (b) per-doc rows we roll up ourselves
+    """
+    tally: dict[tuple[str, str], int] = {}
+    for f in failures or ():
+        if not isinstance(f, dict):
+            continue
+        # Pull reason from any of the plausible field names.
+        reason = (
+            f.get("rejectionReason")
+            or f.get("reason")
+            or f.get("failureReason")
+            or f.get("message")
+            or "Unknown reason"
+        )
+        ftype = (
+            f.get("failureType")
+            or f.get("type")
+            or f.get("category")
+            or "Unknown"
+        )
+        # Aggregated row?
+        n_raw = (
+            f.get("count")
+            if isinstance(f.get("count"), (int, float))
+            else f.get("failureCount")
+            if isinstance(f.get("failureCount"), (int, float))
+            else f.get("total")
+            if isinstance(f.get("total"), (int, float))
+            else None
+        )
+        n = int(n_raw) if n_raw is not None else 1
+        key = (str(reason).strip(), str(ftype).strip())
+        tally[key] = tally.get(key, 0) + n
+    return [(r, t, c) for (r, t), c in tally.items()]
+
+
+def _pull_rejections(access_token: str, partner_id: str,
+                     dry_run: bool = False) -> dict[str, Any]:
+    """Call /partnerrejecteddocstats, aggregate the failures list, upsert
+    into pgam_direct.msn_rejection_report.
+
+    Skips the API call entirely if we upserted within the last
+    REJECTION_MIN_INTERVAL_HOURS — the data-update-time ticks once/day
+    on MSN's side so more-frequent pulls waste round-trips."""
+    result: dict[str, Any] = {"called": False, "rows_written": 0,
+                              "failures_seen": 0, "doc_count": 0}
+
+    age = _rejection_recent_upsert_age_hours(partner_id)
+    if age is not None and age < REJECTION_MIN_INTERVAL_HOURS:
+        print(f"[refresh-puller] rejections: last upsert {age:.1f}h ago "
+              f"(< {REJECTION_MIN_INTERVAL_HOURS}h); skipping")
+        result["skipped_reason"] = f"last_upsert_{age:.1f}h_ago"
+        return result
+
+    # Match the params the Partner Hub SPA sent verbatim on the click.
+    params = {
+        "apikey": APIKEY,
+        "fdhead": "prg-ugc-benchmark,prg-ugc-shortinsight,prg-ugc-pcm",
+        "isExportingCsv": "false",
+        "ocid": "msph",
+        "partnerId": partner_id,
+        "partnerType": DEFAULT_PARTNER_TYPE,
+        "scn": "MSNRPSAuth",
+        "skipaadal": "true",
+        "timeout": "30000",
+        "ugc-flights": "prg-ugc-benchmark,prg-ugc-shortinsight,prg-ugc-pcm",
+        "wrapodata": "false",
+    }
+    payload = call_partner_hub_api(
+        access_token,
+        f"{REPORT_BASE_PATH}/partnerrejecteddocstats",
+        params,
+    )
+    result["called"] = True
+
+    failures = payload.get("failures") or []
+    doc_count = int(payload.get("docCount") or 0)
+    result["failures_seen"] = len(failures)
+    result["doc_count"] = doc_count
+
+    log_end = _parse_log_end_time(payload.get("logEndTime"))
+    if log_end is None:
+        log_end = datetime.now(tz=timezone.utc)
+    # MSN's Overview CSV is a rolling 7-day window ending at logEndTime;
+    # mirror that so downstream weekly-review queries line up.
+    window_end = log_end
+    window_start = log_end - timedelta(days=7)
+
+    print(f"[refresh-puller] rejections: doc_count={doc_count}, "
+          f"failures_len={len(failures)}, window={window_start.date()}→{window_end.date()}")
+
+    if not failures:
+        # Log a preview of the payload so the next iteration can see
+        # exactly what MSN returned (helpful because prior captures
+        # showed an empty list under one param combo).
+        preview = json.dumps(payload)[:400]
+        print(f"[refresh-puller] rejections: empty failures list; payload preview: {preview}")
+        return result
+
+    rows = _aggregate_failures(failures)
+    if not rows:
+        return result
+    result["aggregated_rows"] = len(rows)
+
+    if dry_run:
+        for reason, ftype, n in rows:
+            print(f"  [dry-run] {ftype:20s}  {n:4d}  {reason[:80]}")
+        return result
+
+    dsn = _resolve_dsn()
+    with psycopg.connect(dsn, connect_timeout=30) as conn, conn.cursor() as cur:
+        for reason, ftype, n in rows:
+            cur.execute(_REJECTION_UPSERT_SQL, {
+                "partner_id":       partner_id,
+                "window_start":     window_start,
+                "window_end":       window_end,
+                "rejection_reason": reason,
+                "failure_type":     ftype,
+                "failure_count":    n,
+                "data_update_time": log_end,
+                "source_filename":  "api:partnerrejecteddocstats",
+            })
+        conn.commit()
+    result["rows_written"] = len(rows)
+    print(f"[refresh-puller] rejections: upserted {len(rows)} aggregate row(s)")
+    return result
+
+
 def run(partner_id: str = DEFAULT_PARTNER_ID, dry_run: bool = False) -> dict[str, Any]:
     started_at = datetime.now(tz=timezone.utc)
     t0 = time.perf_counter()
@@ -251,6 +435,7 @@ def run(partner_id: str = DEFAULT_PARTNER_ID, dry_run: bool = False) -> dict[str
     record_count = 0
     bucket_rows = 0
     pages_done = 0
+    rejection_result: dict[str, Any] = {}
 
     try:
         if not dry_run:
@@ -326,6 +511,20 @@ def run(partner_id: str = DEFAULT_PARTNER_ID, dry_run: bool = False) -> dict[str
         if bucket_records and not dry_run:
             bucket_rows = _write_traffic_buckets(partner_id=partner_id, records=bucket_records)
 
+        # Rejection report — best-effort, isolated from the realtime path.
+        # An API/schema change here must not fail the whole cron tick.
+        try:
+            if not dry_run:
+                _ensure_rejection_schema()
+            rejection_result = _pull_rejections(
+                access_token=access_token,
+                partner_id=partner_id,
+                dry_run=dry_run,
+            )
+        except Exception as rex:
+            rejection_result = {"error": f"{type(rex).__name__}: {rex}"}
+            print(f"[refresh-puller] rejections: ✗ {rejection_result['error']}")
+
     except Exception as exc:
         err = f"{type(exc).__name__}: {exc}"
         print(f"[refresh-puller] ✗ {err}")
@@ -347,6 +546,7 @@ def run(partner_id: str = DEFAULT_PARTNER_ID, dry_run: bool = False) -> dict[str
     result = {
         "ok": ok, "realtime_rows": realtime_rows, "realtime_inserted": realtime_inserted,
         "record_count": record_count, "bucket_rows": bucket_rows,
+        "rejection": rejection_result,
         "elapsed_seconds": round(elapsed, 2), "error": err,
     }
     return result
