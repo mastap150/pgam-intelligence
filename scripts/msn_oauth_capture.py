@@ -244,21 +244,62 @@ def main() -> int:
         context.on("response", interceptor.on_response)
 
         page = context.new_page()
-        page.goto(PARTNER_HUB_URL, wait_until='domcontentloaded')
+        # Surface page-level failures. Previous runs went silent because
+        # page.goto blocked on a redirect or a JS error we never saw.
+        page.on("pageerror", lambda err: print(f"[capture] pageerror: {err}", flush=True))
+        page.on("console", lambda msg: (
+            print(f"[capture] console.{msg.type}: {msg.text[:200]}", flush=True)
+            if msg.type in ("error", "warning") else None
+        ))
+        page.on("requestfailed", lambda req: print(
+            f"[capture] requestfailed: {req.method} {req.url[:120]} — {req.failure}", flush=True))
+
+        # wait_until='commit' fires on the FIRST HTTP response (before
+        # full DOM) — MSN Partner Hub does a heavy client-side redirect
+        # chain that occasionally never emits domcontentloaded, which
+        # is what stranded earlier capture attempts with a blank window.
+        print(f"[capture] navigating to {PARTNER_HUB_URL}", flush=True)
+        try:
+            page.goto(PARTNER_HUB_URL, wait_until='commit', timeout=45000)
+            print(f"[capture] page committed — bring the 'Google Chrome for Testing' window to the front and sign in", flush=True)
+        except Exception as exc:
+            print(f"[capture] page.goto error (non-fatal, keep going): {exc}", flush=True)
+
+        # macOS: pop the Playwright Chromium window to the front so the
+        # operator doesn't have to Cmd+Tab hunting for it.
+        try:
+            import subprocess as _sp
+            _sp.run(
+                ["osascript", "-e",
+                 'tell application "Google Chrome for Testing" to activate'],
+                check=False, capture_output=True, timeout=5,
+            )
+        except Exception:
+            pass
 
         # Optional: auto-fill email/password if env vars set. MFA still
         # needs human.
         email = os.environ.get('MSN_EMAIL', '').strip()
         password = os.environ.get('MSN_PASSWORD', '').strip()
         if email and password:
-            print(f"[capture] auto-fill enabled for {email} — MFA still needs your tap")
+            print(f"[capture] auto-fill enabled for {email} — MFA still needs your tap", flush=True)
 
         deadline = time.time() + WAIT_TIMEOUT_SEC
+        last_status = 0.0
         while time.time() < deadline:
             if interceptor.captured:
                 # Give 2s of grace to make sure all related events fire
                 time.sleep(CAPTURE_DELAY_SEC)
                 break
+            # Heartbeat every 30s so the operator sees the script is alive
+            if time.time() - last_status > 30:
+                remaining = int(deadline - time.time())
+                try:
+                    cur_url = page.url
+                except Exception:
+                    cur_url = "<no url>"
+                print(f"[capture] waiting… {remaining}s left  cur_url={cur_url[:110]}", flush=True)
+                last_status = time.time()
             time.sleep(2)
         else:
             print("[capture] TIMEOUT — no OAuth token exchange seen in window.", file=sys.stderr)
