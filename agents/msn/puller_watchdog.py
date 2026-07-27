@@ -182,13 +182,24 @@ def _post_slack(hb: dict, stale_h: float, kind: str) -> bool:
     import urllib.request
     webhook = os.environ.get("MSN_SLACK_WEBHOOK", "").strip() or \
               os.environ.get("COMPLIANCE_SLACK_WEBHOOK", "").strip()
-    if not webhook:
-        print("[msn-watchdog] no webhook configured")
+    if not webhook or not webhook.startswith(("https://", "http://")):
+        # Missing or malformed webhook — don't try to POST. GH Actions
+        # env-injects an empty secret as literal '' or '***' and urllib's
+        # `Request(bad_url)` raises 'unknown url type', crashing the run
+        # BEFORE it can mark the dedup, so every subsequent tick would
+        # crash the same way. Short-circuit cleanly instead.
+        print(f"[msn-watchdog] no valid webhook configured (got {webhook!r}) — logging only")
+        print(f"[msn-watchdog] would-have-alerted: kind={kind} stale={stale_h:.1f}h "
+              f"fail_streak={hb.get('fail_streak')}")
         return False
     body = json.dumps({"blocks": blocks, "text": "MSN puller outage"}).encode()
-    req = urllib.request.Request(webhook, data=body, headers={"Content-Type": "application/json"})
-    with urllib.request.urlopen(req, timeout=15) as r:
-        status = r.status
+    try:
+        req = urllib.request.Request(webhook, data=body, headers={"Content-Type": "application/json"})
+        with urllib.request.urlopen(req, timeout=15) as r:
+            status = r.status
+    except Exception as exc:
+        print(f"[msn-watchdog] slack POST failed: {exc}")
+        return False
     _slack.mark_sent_shared(DEDUP_KEY)
     print(f"[msn-watchdog] alert posted status={status}")
     return True
