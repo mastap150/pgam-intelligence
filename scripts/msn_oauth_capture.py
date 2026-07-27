@@ -284,6 +284,30 @@ def main() -> int:
         if email and password:
             print(f"[capture] auto-fill enabled for {email} — MFA still needs your tap", flush=True)
 
+        # Auto-dismiss Microsoft's GDPR cookie-consent banner. Partner Hub
+        # blocks the auth redirect until this is dismissed.
+        try:
+            for label in ("Reject All", "Reject all", "I Accept", "Accept all"):
+                loc = page.get_by_role("button", name=label)
+                try:
+                    loc.first.click(timeout=3000)
+                    print(f"[capture] dismissed consent banner via '{label}' button", flush=True)
+                    break
+                except Exception:
+                    continue
+        except Exception as exc:
+            print(f"[capture] consent-banner auto-click skipped: {exc}", flush=True)
+
+        # Auto-click the "Sign in to get started" landing button so the flow
+        # redirects to login.live.com without human interaction.
+        try:
+            time.sleep(1)
+            loc = page.get_by_role("button", name="Sign in to get started")
+            loc.first.click(timeout=5000)
+            print("[capture] clicked 'Sign in to get started'", flush=True)
+        except Exception as exc:
+            print(f"[capture] sign-in-landing click skipped: {exc}", flush=True)
+
         deadline = time.time() + WAIT_TIMEOUT_SEC
         last_status = 0.0
         while time.time() < deadline:
