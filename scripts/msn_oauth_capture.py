@@ -226,22 +226,57 @@ def main() -> int:
     print(f"[capture] will wait up to {WAIT_TIMEOUT_SEC}s for the OAuth exchange to fire.")
     print()
 
+    # When MSN_CAPTURE_PROFILE_DIR is set, we run in "persistent" mode:
+    # the browser reuses a saved on-disk profile across script invocations,
+    # so once the operator signs in once, future re-bootstraps skip MFA
+    # entirely — Partner Hub silently refreshes the token in the background
+    # and the interceptor catches it. This is the "make the next outage
+    # trivial" mode.
+    profile_dir = os.environ.get("MSN_CAPTURE_PROFILE_DIR", "").strip()
+
     with sync_playwright() as pw:
-        # Fresh context — we do NOT want to use the existing
-        # ~/.pgam/msn-session because it's expired and would skip
-        # the OAuth exchange we need to intercept.
-        browser = pw.chromium.launch(headless=False, args=[])
-        context = browser.new_context(
-            viewport={'width': 1400, 'height': 900},
-            user_agent=(
-                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/148.0.0.0 Safari/537.36"
-            ),
-        )
+        browser = None  # only set in non-persistent mode
+        if profile_dir:
+            os.makedirs(profile_dir, exist_ok=True)
+            print(f"[capture] persistent-profile mode: {profile_dir}", flush=True)
+            context = pw.chromium.launch_persistent_context(
+                profile_dir,
+                headless=False,
+                args=[],
+                viewport={'width': 1400, 'height': 900},
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/148.0.0.0 Safari/537.36"
+                ),
+            )
+        else:
+            browser = pw.chromium.launch(headless=False, args=[])
+            context = browser.new_context(
+                viewport={'width': 1400, 'height': 900},
+                user_agent=(
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/148.0.0.0 Safari/537.36"
+                ),
+            )
         interceptor = OAuthInterceptor()
         context.on("request", interceptor.on_request)
         context.on("response", interceptor.on_response)
+        # Log popups / new tabs so we can see whether "Sign in to get started"
+        # opens the Microsoft OAuth flow in a separate window we didn't know
+        # about. Popups are still in the same context so the interceptor
+        # sees their traffic — this is diagnostic only.
+        def _on_new_page(p: Any) -> None:
+            try:
+                print(f"[capture] NEW PAGE opened: {p.url[:120]}", flush=True)
+                p.on("framenavigated", lambda fr: (
+                    print(f"[capture] popup-nav: {fr.url[:120]}", flush=True)
+                    if fr == p.main_frame else None
+                ))
+            except Exception as _e:
+                print(f"[capture] new-page hook error: {_e}", flush=True)
+        context.on("page", _on_new_page)
 
         page = context.new_page()
         # Surface page-level failures. Previous runs went silent because
@@ -299,14 +334,25 @@ def main() -> int:
             print(f"[capture] consent-banner auto-click skipped: {exc}", flush=True)
 
         # Auto-click the "Sign in to get started" landing button so the flow
-        # redirects to login.live.com without human interaction.
-        try:
-            time.sleep(1)
-            loc = page.get_by_role("button", name="Sign in to get started")
-            loc.first.click(timeout=5000)
-            print("[capture] clicked 'Sign in to get started'", flush=True)
-        except Exception as exc:
-            print(f"[capture] sign-in-landing click skipped: {exc}", flush=True)
+        # redirects to login.live.com without human interaction. The button
+        # may be a <button>, an <a> styled as a button, or a <div role="button">
+        # — try each in order.
+        clicked = False
+        for locator, label in [
+            (page.get_by_role("button", name="Sign in to get started"), "role=button"),
+            (page.get_by_role("link", name="Sign in to get started"), "role=link"),
+            (page.locator("text=Sign in to get started"), "text-locator"),
+        ]:
+            try:
+                locator.first.wait_for(state="visible", timeout=8000)
+                locator.first.click(timeout=5000)
+                print(f"[capture] clicked 'Sign in to get started' via {label}", flush=True)
+                clicked = True
+                break
+            except Exception:
+                continue
+        if not clicked:
+            print("[capture] sign-in-landing click: no matching element found", flush=True)
 
         deadline = time.time() + WAIT_TIMEOUT_SEC
         last_status = 0.0
@@ -323,12 +369,19 @@ def main() -> int:
                 except Exception:
                     cur_url = "<no url>"
                 print(f"[capture] waiting… {remaining}s left  cur_url={cur_url[:110]}", flush=True)
+                try:
+                    urls = [p.url[:100] for p in context.pages]
+                    if len(urls) > 1:
+                        print(f"[capture]   context has {len(urls)} pages: {urls}", flush=True)
+                except Exception:
+                    pass
                 last_status = time.time()
             time.sleep(2)
         else:
             print("[capture] TIMEOUT — no OAuth token exchange seen in window.", file=sys.stderr)
             context.close()
-            browser.close()
+            if browser is not None:
+                browser.close()
             return 1
 
         # ── Write to Neon BEFORE closing the browser ─────────────────────
@@ -339,14 +392,16 @@ def main() -> int:
         if not captured:
             print("[capture] no token captured. Try again.", file=sys.stderr)
             context.close()
-            browser.close()
+            if browser is not None:
+                browser.close()
             return 1
         print("[capture] persisting token to Neon…", flush=True)
         upsert_oauth_token(captured)
         print("[capture] closing Chromium (may take a few seconds)…", flush=True)
         try:
             context.close()
-            browser.close()
+            if browser is not None:
+                browser.close()
         except Exception as exc:
             print(f"[capture] non-fatal browser close error: {exc}", file=sys.stderr)
     print()
