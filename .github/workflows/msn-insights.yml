@@ -165,5 +165,8 @@ jobs:
         if: always()
         run: |
           python -m pip install --upgrade pip
-          pip install "requests>=2.31.0" "psycopg[binary]>=3.1.0"
+          # core/neon.py imports python-dotenv at module load; missing it
+          # takes down the resolver with ModuleNotFoundError before any
+          # of its own logic runs. Regression caught 2026-08-04.
+          pip install "requests>=2.31.0" "psycopg[binary]>=3.1.0" "python-dotenv>=1.0.0"
           python -m agents.enrichment.msn_doc_resolver
