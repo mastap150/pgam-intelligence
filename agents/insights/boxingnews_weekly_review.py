@@ -138,6 +138,14 @@ def boxingnews_weekly_review() -> None:
         print("[boxingnews_weekly_review] anthropic unavailable — using fallback report")
         report_md, strategy = _fallback_report(payload_for_claude)
 
+    # Trend-guard banner. If reads collapsed >25% WoW, prepend a
+    # hard-coded banner to whatever the model produced — enforced in
+    # Python so no prompt drift can bury a global collapse under
+    # per-lane micro-recommendations. The LLM prompt also tells the
+    # model to lead with the collapse; this is the belt to that
+    # suspender.
+    report_md = _maybe_prepend_trend_banner(report_md, summary_stats)
+
     _upsert_weekly_review(
         iso_week=iso_week,
         period_start=period_start,
@@ -492,7 +500,7 @@ def _segment(joined: list[dict[str, Any]]) -> dict[str, Any]:
     top_articles = sorted(joined, key=lambda r: r["reads"], reverse=True)[:15]
     top_article = top_articles[0] if top_articles else None
 
-    return {
+    result = {
         "by_pattern":    _agg(by_pattern),
         "by_lane":       _agg(by_lane),
         "by_sport":      _agg(by_sport),
@@ -501,6 +509,18 @@ def _segment(joined: list[dict[str, Any]]) -> dict[str, Any]:
         "top_articles":  top_articles,
         "top_article":   top_article,
     }
+
+    # Log article count per bucket per segmentation. When Claude
+    # hallucinates a segment (e.g. W31 "programmatic: 28 articles"
+    # when the classifier actually returned zero), post-hoc grep
+    # over these lines catches it in seconds.
+    for seg_key in ("by_pattern", "by_lane", "by_sport", "by_day_of_week"):
+        summary = ", ".join(f"{b['key']}={b['articles']}" for b in result[seg_key]) or "(empty)"
+        print(f"[boxingnews_weekly_review] segment {seg_key}: {summary}")
+    top_tags = ", ".join(f"{b['key']}={b['articles']}" for b in result["by_tag"][:10]) or "(empty)"
+    print(f"[boxingnews_weekly_review] segment by_tag (top 10): {top_tags}")
+
+    return result
 
 
 def _summary_stats(rows: list[dict[str, Any]], prev_rows: list[dict[str, Any]]) -> dict[str, Any]:
@@ -609,6 +629,29 @@ on article reads — page views are the only revenue lever that matters.
 
 Your weekly job:
 1. Read the prior-7-day MSN performance data.
+
+HARD RULES — read these before writing anything:
+
+ * TREND GUARD. `stats.wow_delta_pct` is week-on-week reads change. If
+   it is more negative than -25%, that collapse IS the headline
+   finding — lead with it, name the magnitude, and frame the rest of
+   the report as diagnosis of the drop. Do NOT bury a >25% WoW
+   collapse under micro-optimizations of individual lanes or
+   headlines. On a heavy-collapse week the correct posture is "figure
+   out what's happening globally" (MSN algo shift? account-level
+   suppression? distribution partner issue?), not "kill the P4
+   pattern".
+
+ * ARTICLE-COUNT FLOOR. Every recommendation that names a segment
+   (a lane, a pattern, a tag, a sport, a day-of-week) MUST cite a
+   segment with `articles >= 20` in the reporting window. Do NOT
+   recommend killing, scaling, or reallocating away from any segment
+   with fewer than 20 articles — the sample is too small to
+   distinguish signal from noise, and past reports have hallucinated
+   segments entirely. If no segment clears 20 articles, say so
+   explicitly and give qualitative observations instead of segment-
+   level recommendations.
+
 2. Produce TWO outputs in one response:
 
    A. A short Markdown report (Slack-ready, <500 words) for the founder
@@ -640,9 +683,12 @@ Your weekly job:
         - winning_patterns picked from the `by_pattern` ranking. A
           pattern only counts if avg_reads exceeds the overall median
           by ≥30%.
-        - Be honest about dud_sources: if a lane published a lot of
-          articles but produced <30% of the cohort's median reads,
-          flag it. Empty list is fine if the data is too sparse.
+        - Be honest about dud_sources: if a lane produced <30% of
+          the cohort's median reads AND published `articles >= 20`
+          in the window, flag it. Below 20 articles the lane does
+          not qualify regardless of how bad the average looks —
+          leave it out. Empty list is fine if no lane clears the
+          floor.
 
 3. Also produce a MMA-vs-boxing lane call. `by_sport` shows reads per
    sport this week; if MMA's reads_avg is ≥40% higher than boxing's,
@@ -776,9 +822,12 @@ def _fallback_report(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         if b["key"] in _PICKABLE and cohort_median and b["reads_avg"] >= cohort_median * 1.3
     ][:6]
     hot_topics = [b["key"] for b in payload["by_tag"][:8]]
+    # Same ≥20-article floor the LLM prompt enforces — see the HARD
+    # RULES block in _SYSTEM_PROMPT. Below that the sample is too
+    # small to distinguish signal from noise.
     dud_lanes = [
         b["key"] for b in payload["by_lane"]
-        if cohort_median and b["reads_avg"] < cohort_median * 0.3 and b["articles"] >= 5
+        if cohort_median and b["reads_avg"] < cohort_median * 0.3 and b["articles"] >= 20
     ]
     return report, _normalize_strategy({
         "hot_topics":       hot_topics,
@@ -965,6 +1014,46 @@ def _send_email_html(html: str, subject: str, sendgrid_key: str, sender: str, to
 def _iso_week_label(d: date) -> str:
     iso_year, iso_week, _ = d.isocalendar()
     return f"{iso_year}-W{iso_week:02d}"
+
+
+# Anything more negative than this triggers the collapse banner. -25%
+# WoW is the point at which per-lane recommendations stop being useful
+# — the right response is to diagnose the global drop (algo shift?
+# suppression? partner-side issue?) before touching editorial levers.
+_TREND_COLLAPSE_PCT = -25.0
+
+
+def _maybe_prepend_trend_banner(report_md: str, stats: dict[str, Any]) -> str:
+    """Prepend a "reads collapsed WoW" banner when the drop is severe.
+
+    Two properties matter here:
+      1. Python-enforced, not prompt-enforced — the model can't
+         accidentally drop this line even if it decides the week's
+         story is really about a spicy P4 headline.
+      2. Idempotent-safe on model reruns — if the model ALSO led with
+         the collapse (per the HARD RULES prompt), the banner still
+         sits above it as a labeled callout; no de-duping needed.
+    """
+    delta = stats.get("wow_delta_pct")
+    if delta is None or delta > _TREND_COLLAPSE_PCT:
+        return report_md
+    prev = stats.get("reads_prev_week") or 0
+    curr = stats.get("reads_total") or 0
+    # Bold+emoji rather than a `>` blockquote — the report path's tiny
+    # MD→HTML renderer doesn't handle blockquotes, and Slack's mrkdwn
+    # converter here only knows about **bold** and headings. Keeping
+    # the banner to primitives it CAN render means it lands intact in
+    # both channels.
+    banner = (
+        f"**⚠ Reads collapsed {delta:+.1f}% WoW** "
+        f"({prev:,} → {curr:,}). This is the headline finding — "
+        f"diagnose the drop (MSN algo weighting, account suppression, "
+        f"distribution partner) before acting on per-lane recommendations "
+        f"below.\n\n"
+    )
+    print(f"[boxingnews_weekly_review] TREND GUARD fired: wow={delta:+.1f}% "
+          f"({prev} → {curr})")
+    return banner + report_md
 
 
 # Module-callable shim so scheduler.py's _import helper (which looks for
