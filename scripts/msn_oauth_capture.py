@@ -63,8 +63,15 @@ TOKEN_ENDPOINT_PATH_FRAGMENTS = (
     "/oauth2/token",
 )
 
-WAIT_TIMEOUT_SEC = int(os.environ.get("MSN_CAPTURE_TIMEOUT_SEC", "900"))  # 15 min default
+WAIT_TIMEOUT_SEC = int(os.environ.get("MSN_CAPTURE_TIMEOUT_SEC", "1200"))  # 20 min default
 CAPTURE_DELAY_SEC = 2      # how long to sit after capture before exiting
+# Grace period AFTER the sign-in deadline expires, during which we
+# continue polling `interceptor.captured`. Async on_response events
+# can fire seconds after the wall-clock deadline; observed 2026-08-07:
+# three separate capture runs all set `interceptor.captured` between
+# 5-15s past deadline, and each was lost to the timeout branch. See
+# msn-reads-freefall-2026-08 for context.
+TIMEOUT_GRACE_SEC = 60
 
 
 def is_token_endpoint(url: str) -> bool:
@@ -377,7 +384,24 @@ def main() -> int:
                     pass
                 last_status = time.time()
             time.sleep(2)
-        else:
+
+        # Deadline passed without capture. But on_response fires from the
+        # async event loop and has been observed to set interceptor.captured
+        # 5-15s AFTER the wall-clock deadline (typical when a FIDO/passkey
+        # tap completes right before timeout). Keep polling for a short
+        # grace window before declaring failure — losing a captured token
+        # to a timing race would force another full sign-in + MFA cycle.
+        if not interceptor.captured:
+            grace_end = time.time() + TIMEOUT_GRACE_SEC
+            print(f"[capture] deadline reached; polling {TIMEOUT_GRACE_SEC}s grace "
+                  f"for late on_response event…", flush=True)
+            while time.time() < grace_end and not interceptor.captured:
+                time.sleep(1)
+            if interceptor.captured:
+                print("[capture] captured within grace window — proceeding to persist.", flush=True)
+                time.sleep(CAPTURE_DELAY_SEC)
+
+        if not interceptor.captured:
             print("[capture] TIMEOUT — no OAuth token exchange seen in window.", file=sys.stderr)
             context.close()
             if browser is not None:
