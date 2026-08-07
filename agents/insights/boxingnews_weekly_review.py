@@ -113,12 +113,29 @@ def boxingnews_weekly_review() -> None:
         print("[boxingnews_weekly_review] no MSN data for the period — skipping")
         return
 
+    # Puller-coverage sanity check. This catches the case where reads
+    # look like they collapsed but really the puller was down half the
+    # week (OAuth expiry, Playwright crash, etc.). Coverage < 90% means
+    # the reads totals are undercounts; a low-coverage banner then wins
+    # over the WoW-collapse banner because "reads dropped 70%" is
+    # misleading when 70% of the hours weren't sampled.
+    coverage = _pull_bucket_coverage(period_start, period_end)
+    prev_coverage = _pull_bucket_coverage(prev_period_start, prev_period_end)
+    print(f"[boxingnews_weekly_review] hourly-bucket coverage: "
+          f"this_wk={coverage['coverage_pct']:.0f}% "
+          f"({coverage['hours_captured']}/{coverage['hours_expected']}), "
+          f"prev_wk={prev_coverage['coverage_pct']:.0f}%")
+
     article_rows = _pull_boxingnews_articles([r["canonical_url"] for r in msn_rows if r["canonical_url"]])
 
     joined = _join_msn_and_articles(msn_rows, article_rows)
     segmentation = _segment(joined)
 
     summary_stats = _summary_stats(msn_rows, prev_msn_rows)
+    summary_stats["coverage_pct"] = coverage["coverage_pct"]
+    summary_stats["prev_coverage_pct"] = prev_coverage["coverage_pct"]
+    summary_stats["hours_captured"] = coverage["hours_captured"]
+    summary_stats["hours_expected"] = coverage["hours_expected"]
 
     title_candidates = _pull_title_change_candidates(limit=15)
     title_history = _pull_recent_title_history(days=28, limit=10)
@@ -194,6 +211,43 @@ def _pull_msn_rows(period_start: date, period_end: date) -> list[dict[str, Any]]
         )
         cols = [c[0] for c in cur.description]
         return [dict(zip(cols, r)) for r in cur.fetchall()]
+
+
+def _pull_bucket_coverage(period_start: date, period_end: date) -> dict[str, Any]:
+    """Count distinct captured hours vs expected hours in the window.
+
+    The MSN puller writes one row per hour to
+    `pgam_direct.msn_traffic_buckets`; a full 7-day window should yield
+    168 rows. Anything materially under that is an outage — either
+    OAuth expiry (see msn-session-bootstrap memory), Playwright crash,
+    or scheduler downtime. When that happens `msn_article_peak` is
+    also an undercount, because the peak is MAX(read_count) over
+    snapshots that never got taken.
+
+    Returns hours_captured / hours_expected / coverage_pct. Uses ET
+    dates for consistency with the rest of the review; bucket_at is
+    stored in UTC but the day-anchoring off it is a rough proxy —
+    good enough for the ≥90% / <90% gate.
+    """
+    with connect_pgam_direct() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT COUNT(DISTINCT date_trunc('hour', bucket_at))
+              FROM pgam_direct.msn_traffic_buckets
+             WHERE partner_id = %s
+               AND bucket_at::date BETWEEN %s AND %s
+            """,
+            (PARTNER_ID, period_start, period_end),
+        )
+        hours_captured = int(cur.fetchone()[0] or 0)
+    days = (period_end - period_start).days + 1
+    hours_expected = days * 24
+    coverage_pct = (hours_captured / hours_expected * 100.0) if hours_expected else 0.0
+    return {
+        "hours_captured": hours_captured,
+        "hours_expected": hours_expected,
+        "coverage_pct": coverage_pct,
+    }
 
 
 def _pull_title_change_candidates(limit: int = 15) -> list[dict[str, Any]]:
@@ -580,6 +634,10 @@ def _build_claude_payload(
             "revenue_usd":     round(stats["revenue_usd"], 2),
             "avg_reads":       stats["avg_reads"],
             "median_reads":    stats["median_cpm_eligible"],
+            "coverage_pct":       stats.get("coverage_pct"),
+            "prev_coverage_pct":  stats.get("prev_coverage_pct"),
+            "hours_captured":     stats.get("hours_captured"),
+            "hours_expected":     stats.get("hours_expected"),
         },
         "top_articles": [
             {
@@ -632,15 +690,24 @@ Your weekly job:
 
 HARD RULES — read these before writing anything:
 
+ * COVERAGE GUARD. `stats.coverage_pct` is what percentage of the
+   week's hours we successfully captured from MSN Partner Hub. If it
+   is below 90%, the reads number is an UNDERCOUNT — the puller was
+   partially down. On a low-coverage week you must NOT treat
+   wow_delta_pct as a real signal. Lead with "puller coverage was
+   X% — reads are undercounted, fix the puller and rerun" and skip
+   per-lane recommendations entirely (they'll be based on a biased
+   sample). This preempts the TREND GUARD below.
+
  * TREND GUARD. `stats.wow_delta_pct` is week-on-week reads change. If
-   it is more negative than -25%, that collapse IS the headline
-   finding — lead with it, name the magnitude, and frame the rest of
-   the report as diagnosis of the drop. Do NOT bury a >25% WoW
-   collapse under micro-optimizations of individual lanes or
-   headlines. On a heavy-collapse week the correct posture is "figure
-   out what's happening globally" (MSN algo shift? account-level
-   suppression? distribution partner issue?), not "kill the P4
-   pattern".
+   coverage_pct is ≥90% AND wow_delta_pct is more negative than -25%,
+   that collapse IS the headline finding — lead with it, name the
+   magnitude, and frame the rest of the report as diagnosis of the
+   drop. Do NOT bury a >25% WoW collapse under micro-optimizations
+   of individual lanes or headlines. On a heavy-collapse week the
+   correct posture is "figure out what's happening globally" (MSN
+   algo shift? account-level suppression? distribution partner
+   issue?), not "kill the P4 pattern".
 
  * ARTICLE-COUNT FLOOR. Every recommendation that names a segment
    (a lane, a pattern, a tag, a sport, a day-of-week) MUST cite a
@@ -805,6 +872,10 @@ def _fallback_report(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     ]
     if stats.get("wow_delta_pct") is not None:
         lines.append(f"- **WoW change**: {stats['wow_delta_pct']:+.1f}%")
+    if stats.get("coverage_pct") is not None:
+        lines.append(f"- **Puller coverage**: {stats['coverage_pct']:.0f}% "
+                     f"({stats.get('hours_captured', 0)}/"
+                     f"{stats.get('hours_expected', 168)} hourly buckets)")
     lines.append("")
     lines.append("## Top 5 articles")
     for a in top:
@@ -1022,18 +1093,51 @@ def _iso_week_label(d: date) -> str:
 # suppression? partner-side issue?) before touching editorial levers.
 _TREND_COLLAPSE_PCT = -25.0
 
+# Below this hourly-bucket coverage the reads totals are undercounts.
+# 2026-08-07 diagnostic showed the "W27→W31 -73% collapse" was actually
+# a puller outage — W30 hit 37% coverage, W31 hit 27%. See
+# msn-reads-freefall-2026-08 memory. The coverage banner PREEMPTS the
+# reads-collapse banner because "reads dropped 70%" is misleading when
+# 70% of the hours weren't sampled.
+_COVERAGE_FLOOR_PCT = 90.0
+
 
 def _maybe_prepend_trend_banner(report_md: str, stats: dict[str, Any]) -> str:
-    """Prepend a "reads collapsed WoW" banner when the drop is severe.
+    """Prepend a data-freshness / reads-collapse banner when warranted.
 
-    Two properties matter here:
+    Precedence:
+      1. Coverage banner (this-week coverage < 90%) — the reads number
+         is unreliable; fix the puller first, then anything.
+      2. Reads-collapse banner (WoW < -25% AND coverage ≥ 90%) — real
+         drop worth diagnosing.
+
+    Two invariants:
       1. Python-enforced, not prompt-enforced — the model can't
          accidentally drop this line even if it decides the week's
          story is really about a spicy P4 headline.
       2. Idempotent-safe on model reruns — if the model ALSO led with
-         the collapse (per the HARD RULES prompt), the banner still
-         sits above it as a labeled callout; no de-duping needed.
+         a matching call-out (per the HARD RULES prompt), the banner
+         still sits above it as a labeled callout; no de-duping needed.
     """
+    coverage = stats.get("coverage_pct")
+    if coverage is not None and coverage < _COVERAGE_FLOOR_PCT:
+        hrs_c = stats.get("hours_captured", 0)
+        hrs_e = stats.get("hours_expected", 168)
+        prev_cov = stats.get("prev_coverage_pct")
+        prev_str = f" (prev-week coverage: {prev_cov:.0f}%)" if prev_cov is not None else ""
+        banner = (
+            f"**⚠ Puller coverage was only {coverage:.0f}% this week** "
+            f"({hrs_c}/{hrs_e} hourly buckets){prev_str}. The reads "
+            f"total is an UNDERCOUNT — do not treat WoW deltas or "
+            f"per-lane averages as real signals until coverage returns "
+            f"to ≥90%. Fix the puller (typically an MSN OAuth "
+            f"re-bootstrap; see msn-session-bootstrap runbook) before "
+            f"acting on the recommendations below.\n\n"
+        )
+        print(f"[boxingnews_weekly_review] COVERAGE GUARD fired: "
+              f"coverage={coverage:.1f}% ({hrs_c}/{hrs_e})")
+        return banner + report_md
+
     delta = stats.get("wow_delta_pct")
     if delta is None or delta > _TREND_COLLAPSE_PCT:
         return report_md
