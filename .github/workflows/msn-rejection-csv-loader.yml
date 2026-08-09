@@ -85,9 +85,15 @@ jobs:
           PY
 
       - name: Process inbox CSVs
-        # For each CSV in inbox/, run the loader then move to archive/
-        # under a timestamped subfolder. If load fails, leave file in
-        # place — the run fails loudly and we don't want silent data loss.
+        # For each CSV in inbox/, route to the right loader by filename
+        # variant and move to archive/ on success. Two variants exist:
+        #   *-Overview.csv → aggregate rejection reasons (small table,
+        #     agents.etl.msn_rejection_etl → msn_rejection_report)
+        #   *-Details.csv  → per-doc records with actual doc_id, URL,
+        #     flagged words (agents.etl.msn_rejection_details_etl →
+        #     msn_rejection_docs)
+        # If load fails, leave file in place — the run fails loudly and
+        # we don't want silent data loss.
         run: |
           set -euo pipefail
           shopt -s nullglob
@@ -102,7 +108,20 @@ jobs:
           mkdir -p "$archive_dir"
           for f in "${csvs[@]}"; do
             echo "::group::loading $f"
-            python -m agents.etl.msn_rejection_etl "$f"
+            case "$f" in
+              *-Details.csv)
+                python -m agents.etl.msn_rejection_details_etl "$f"
+                ;;
+              *-Overview.csv)
+                python -m agents.etl.msn_rejection_etl "$f"
+                ;;
+              *)
+                # Unknown variant — try Details first (richer schema),
+                # fall back to Overview. Fail if neither parses.
+                python -m agents.etl.msn_rejection_details_etl "$f" \
+                  || python -m agents.etl.msn_rejection_etl "$f"
+                ;;
+            esac
             mv "$f" "$archive_dir/"
             echo "::endgroup::"
           done

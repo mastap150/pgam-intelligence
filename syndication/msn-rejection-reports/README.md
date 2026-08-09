@@ -1,26 +1,27 @@
 # MSN Rejection Reports — drop directory
 
-MSN Partner Hub → Home → **Resolve content issues** → **Download** produces a
-CSV named like:
+MSN Partner Hub → Home → **Resolve content issues** → **Download**
+exports one of two CSV variants:
 
-    Content Rejection Report-PGAM Media LLC-All brands-{DATE}-Overview.csv
+- `*-Overview.csv` — aggregate: reason × failure_type × count. Small
+  file, fast to load. Populates `pgam_direct.msn_rejection_report`.
+- `*-Details.csv` — per-article: one row per rejected doc with
+  Document ID, canonical URL, flagged words / image URLs, appeal
+  status. Populates `pgam_direct.msn_rejection_docs` — joinable to
+  `msn_article_snapshots` (via doc_id) and `boxingnews.articles`
+  (via canonical URL).
+
+**Prefer Details.** It's a strict superset of what Overview tells you.
 
 ## How to use
 
 1. Download the CSV from Partner Hub. Save into `inbox/`.
 2. `git add`, commit, push to `main`.
-3. The `msn-rejection-csv-loader` workflow fires on the push, loads
-   the rows into `pgam_direct.msn_rejection_report`, and moves the
-   processed file into `archive/{YYYY-MM-DD}/` with an automated commit.
-
-## Why not fully automated?
-
-MSN's per-doc rejection endpoint returns empty `failures[]` under our
-current auth — the human "Download" button is the only path to real
-data. See `docs/msn-moderation-findings.md` for the 2026-05 hunt.
+3. `msn-rejection-csv-loader` workflow fires, routes by filename to
+   the right loader, and moves the processed file to
+   `archive/{YYYY-MM-DD}/` under an automated commit.
 
 ## Idempotent
 
-Same `(partner_id, window_start, window_end, reason, failure_type)` tuple
-UPSERTs with latest count winning. Safe to re-process any archived file
-by copying it back into `inbox/`.
+Same key tuple UPSERTs with latest fields winning. Safe to re-load any
+archived file by copying it back into `inbox/`.
