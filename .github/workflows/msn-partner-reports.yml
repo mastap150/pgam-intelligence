@@ -1,0 +1,94 @@
+name: msn-partner-reports
+
+# Weekly refresh of MSN Partner Hub monthly earnings, docstats, and
+# rejection reports for BoxingNews (partner AA1lKiff). Fills
+# pgam_direct.msn_earning_monthly (net revenue + partner share),
+# msn_docstats_snapshot, and msn_rejection_snapshot.
+#
+# MSN publishes each month's earnings 2-6 weeks after month-end. This
+# job runs weekly to catch new monthly rows the day they're published.
+#
+# The realtime puller (msn-insights.yml) runs every 15 min but only
+# hits the /realtime endpoint. This one hits the partner-reports
+# endpoints which change monthly, so 15-min cadence would be wasteful.
+
+on:
+  schedule:
+    # Monday 06:00 UTC = ~1am ET. Weekly cadence catches any new monthly
+    # row within a week of MSN processing (typically mid-month +6 weeks).
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Skip Neon writes (debug)'
+        required: false
+        default: 'false'
+        type: choice
+        options: ['true', 'false']
+
+concurrency:
+  group: msn-partner-reports
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight — required secret present
+        run: |
+          if [ -z "${PGAM_DIRECT_DATABASE_URL:-}" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL secret missing"
+            exit 1
+          fi
+          echo "DSN present"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install deps
+        run: pip install -q -r requirements.txt
+
+      - name: Run partner-reports ETL
+        run: |
+          DRY_FLAG=""
+          if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
+            DRY_FLAG="--dry-run"
+          fi
+          python3 -m agents.etl.msn_partner_reports_etl --once $DRY_FLAG
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### MSN partner reports — $(date -u +%FT%TZ)" >> "$GITHUB_STEP_SUMMARY"
+          echo '' >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "Latest earnings rows:" >> "$GITHUB_STEP_SUMMARY"
+          PGPASSWORD_URL="$PGAM_DIRECT_DATABASE_URL" python3 -c "
+          import os, psycopg
+          conn = psycopg.connect(os.environ['PGAM_DIRECT_DATABASE_URL'])
+          cur = conn.cursor()
+          cur.execute(\"\"\"
+            SELECT to_char(report_month, 'YYYY-MM'), interactions,
+                   ROUND(ads_amount_usd::numeric, 2) AS partner_share,
+                   to_char(processed_date, 'YYYY-MM-DD')
+            FROM pgam_direct.msn_earning_monthly
+            WHERE partner_id='AA1lKiff'
+            ORDER BY report_month DESC LIMIT 4
+          \"\"\")
+          for row in cur.fetchall():
+              print(f'  {row[0]}  {row[1]:>10,}  \$${row[2]:>7}  processed {row[3]}')
+          " >> "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
