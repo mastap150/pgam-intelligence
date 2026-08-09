@@ -140,6 +140,10 @@ def boxingnews_weekly_review() -> None:
     title_candidates = _pull_title_change_candidates(limit=15)
     title_history = _pull_recent_title_history(days=28, limit=10)
     rejection_summary = _pull_rejection_summary(days=28)
+    # Per-doc breakdown from msn_rejection_docs — populated by the
+    # Details CSV loader (agents.etl.msn_rejection_details_etl). This
+    # is where the flagged_words come from that feed strategy.avoid_content_words.
+    rejection_details = _pull_rejection_details_summary(days=28)
 
     payload_for_claude = _build_claude_payload(
         period_start, period_end, iso_week,
@@ -147,6 +151,7 @@ def boxingnews_weekly_review() -> None:
         title_candidates=title_candidates,
         title_history=title_history,
         rejection_summary=rejection_summary,
+        rejection_details=rejection_details,
     )
 
     if _ANTHROPIC_AVAILABLE and os.environ.get("ANTHROPIC_API_KEY"):
@@ -337,6 +342,131 @@ def _pull_rejection_summary(days: int = 28) -> dict[str, Any]:
             (PARTNER_ID, out["last_window_end"]),
         )
         out["by_type"] = [{"type": r[0], "count": int(r[1] or 0)} for r in cur.fetchall()]
+    return out
+
+
+def _pull_rejection_details_summary(days: int = 28) -> dict[str, Any]:
+    """Per-doc rejection breakdown from msn_rejection_docs (populated by
+    the Details CSV loader). Strictly richer than _pull_rejection_summary
+    which reads the aggregate Overview CSV — this one has actual flagged
+    words the generators can be told to avoid.
+
+    Returns:
+        {
+          "by_category":         [{category, count}, ...]  # descending
+          "flagged_words":       [{word, count}, ...]      # descending
+          "sample_titles":       {category: [title, ...]}  # 3/category
+          "flagged_image_urls":  [url, ...]                # up to 10
+          "total":               int,
+          "last_updated_at":     iso timestamp or None
+        }
+
+    Empty when no Details CSV has been loaded — treat null last_updated_at
+    as "download a fresh Details CSV" the same way the Overview flow does.
+    """
+    out: dict[str, Any] = {
+        "by_category": [],
+        "flagged_words": [],
+        "sample_titles": {},
+        "flagged_image_urls": [],
+        "total": 0,
+        "last_updated_at": None,
+    }
+    with connect_pgam_direct() as conn, conn.cursor() as cur:
+        # Bail if the table is missing (older environments won't have the
+        # Aug 2026 migration). Safer than crashing the weekly cron.
+        cur.execute(
+            "SELECT to_regclass('pgam_direct.msn_rejection_docs') IS NOT NULL"
+        )
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return out
+
+        cur.execute(
+            """
+            SELECT MAX(last_updated_at)
+              FROM pgam_direct.msn_rejection_docs
+             WHERE partner_id = %s
+               AND last_updated_at >= now() - (%s || ' days')::interval
+            """,
+            (PARTNER_ID, str(days)),
+        )
+        row = cur.fetchone()
+        out["last_updated_at"] = row[0].isoformat() if (row and row[0]) else None
+        if out["last_updated_at"] is None:
+            return out
+
+        cur.execute(
+            """
+            SELECT failure_category, COUNT(*) AS n
+              FROM pgam_direct.msn_rejection_docs
+             WHERE partner_id = %s
+               AND last_updated_at >= now() - (%s || ' days')::interval
+             GROUP BY 1 ORDER BY 2 DESC
+            """,
+            (PARTNER_ID, str(days)),
+        )
+        out["by_category"] = [
+            {"category": r[0], "count": int(r[1] or 0)} for r in cur.fetchall()
+        ]
+        out["total"] = sum(c["count"] for c in out["by_category"])
+
+        # Flagged word frequency across all profanity rejections. This is
+        # the direct feed into strategy.avoid_content_words for the
+        # generator prompt.
+        cur.execute(
+            """
+            SELECT lower(w) AS word, COUNT(*) AS n
+              FROM pgam_direct.msn_rejection_docs,
+                   unnest(flagged_words) AS w
+             WHERE partner_id = %s
+               AND last_updated_at >= now() - (%s || ' days')::interval
+             GROUP BY 1 ORDER BY 2 DESC
+             LIMIT 30
+            """,
+            (PARTNER_ID, str(days)),
+        )
+        out["flagged_words"] = [
+            {"word": r[0], "count": int(r[1] or 0)} for r in cur.fetchall()
+        ]
+
+        # Three sample titles per category — Claude gets pattern examples
+        # to reason from ("these three profanity rejects all had 'blast'
+        # or 'rip' in the framing").
+        cur.execute(
+            """
+            SELECT failure_category, content_title
+              FROM (
+                SELECT failure_category, content_title,
+                       ROW_NUMBER() OVER (
+                         PARTITION BY failure_category
+                         ORDER BY last_updated_at DESC
+                       ) AS rn
+                  FROM pgam_direct.msn_rejection_docs
+                 WHERE partner_id = %s
+                   AND last_updated_at >= now() - (%s || ' days')::interval
+              ) t
+             WHERE rn <= 3 AND content_title IS NOT NULL
+            """,
+            (PARTNER_ID, str(days)),
+        )
+        for cat, title in cur.fetchall():
+            out["sample_titles"].setdefault(cat, []).append(title)
+
+        # Flagged image URLs (from graphic-image rejections). Not for
+        # Claude — for a follow-up "audit these Sanity assets" task.
+        cur.execute(
+            """
+            SELECT DISTINCT u
+              FROM pgam_direct.msn_rejection_docs,
+                   unnest(flagged_image_urls) AS u
+             WHERE partner_id = %s
+               AND last_updated_at >= now() - (%s || ' days')::interval
+             LIMIT 10
+            """,
+            (PARTNER_ID, str(days)),
+        )
+        out["flagged_image_urls"] = [r[0] for r in cur.fetchall() if r[0]]
     return out
 
 
@@ -617,6 +747,7 @@ def _build_claude_payload(
     title_candidates: list[dict[str, Any]] | None = None,
     title_history: list[dict[str, Any]] | None = None,
     rejection_summary: dict[str, Any] | None = None,
+    rejection_details: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Compact JSON-friendly payload — keeps the prompt under ~2K tokens
     even on heavy weeks."""
@@ -678,6 +809,7 @@ def _build_claude_payload(
             for h in (title_history or [])
         ],
         "rejection_summary": rejection_summary or {},
+        "rejection_details": rejection_details or {},
     }
 
 
@@ -734,13 +866,14 @@ HARD RULES — read these before writing anything:
    B. A strategy JSON object the production system can read directly.
       Schema (every key required, even if empty list):
         {
-          "hot_topics":         [string, ...]   // 5-12 tag-shaped topics that overperformed
-          "hot_fighters":       [string, ...]   // 5-12 proper-name fighters that overperformed
-          "winning_patterns":   ["P1"|"P2"|"P3"|"P4"|"P5"|"P6", ...]
-          "hot_sources":        [string, ...]   // origin lanes / publisher sources that overperformed
-          "dud_sources":        [string, ...]   // origin lanes / sources to deprioritize
-          "avoid_phrases":      [string, ...]   // 0-10 phrases observed to depress PVs
-          "notes":              string          // 1-2 sentence free-form note for the tuner
+          "hot_topics":           [string, ...]   // 5-12 tag-shaped topics that overperformed
+          "hot_fighters":         [string, ...]   // 5-12 proper-name fighters that overperformed
+          "winning_patterns":     ["P1"|"P2"|"P3"|"P4"|"P5"|"P6", ...]
+          "hot_sources":          [string, ...]   // origin lanes / publisher sources that overperformed
+          "dud_sources":          [string, ...]   // origin lanes / sources to deprioritize
+          "avoid_phrases":        [string, ...]   // 0-10 phrases observed to depress PVs
+          "avoid_content_words":  [string, ...]   // 0-30 tokens MSN flagged as profane in bodies (per rejection_details)
+          "notes":                string          // 1-2 sentence free-form note for the tuner
         }
 
       Notes on the strategy fields:
@@ -783,6 +916,34 @@ HARD RULES — read these before writing anything:
    articles it cost us. If rejection_summary.last_window_end is null
    or older than 14 days, flag that we're overdue on downloading a
    fresh report from Partner Hub Home.
+
+6. Rejection details → self-improving safety guard. `rejection_details`
+   (from the per-doc Details CSV) has three fields the strategy JSON
+   must incorporate when populated:
+
+   - `rejection_details.flagged_words` — list of {word, count} pairs
+     for every word MSN flagged as profane in article BODIES over the
+     last 28 days. Every distinct word here MUST go into
+     `strategy.avoid_content_words` (a new field defined below).
+     These are the exact tokens the generator prompt should never
+     produce in prose. Do not paraphrase — pass the words through
+     literally, lowercased.
+
+   - `rejection_details.sample_titles.thumbnail-size` — if populated,
+     flag it in `strategy.notes` with the count. This is a feed-side
+     image bug that no generator prompt can fix — surface it to
+     Priyesh, don't try to route around it.
+
+   - `rejection_details.sample_titles.profanity` — read the sample
+     titles for pattern hints ("Rogan Blasts…", "Strickland Warns…").
+     If two or more share a framing verb (blasts, warns, rips,
+     schools), add THAT verb + " " phrasing to `strategy.avoid_phrases`
+     so the tuner steers titles away from it. Do NOT ban the fighter
+     names — only the framing verb pattern.
+
+   If `rejection_details.last_updated_at` is null, do NOT invent
+   avoid_content_words from thin air — leave the array empty and note
+   in strategy.notes that a Details CSV hasn't been loaded yet.
 
 OUTPUT FORMAT — strict:
 First emit the Markdown report wrapped in <report>...</report>.
@@ -848,13 +1009,18 @@ def _normalize_strategy(s: dict[str, Any]) -> dict[str, Any]:
     def _arr(v) -> list[str]:
         return [str(x) for x in v if isinstance(x, (str, int))][:50] if isinstance(v, list) else []
     return {
-        "hot_topics":       _arr(s.get("hot_topics")),
-        "hot_fighters":     _arr(s.get("hot_fighters")),
-        "winning_patterns": _arr(s.get("winning_patterns")),
-        "hot_sources":      _arr(s.get("hot_sources")),
-        "dud_sources":      _arr(s.get("dud_sources")),
-        "avoid_phrases":    _arr(s.get("avoid_phrases")),
-        "notes":            str(s.get("notes") or "")[:1000],
+        "hot_topics":         _arr(s.get("hot_topics")),
+        "hot_fighters":       _arr(s.get("hot_fighters")),
+        "winning_patterns":   _arr(s.get("winning_patterns")),
+        "hot_sources":        _arr(s.get("hot_sources")),
+        "dud_sources":        _arr(s.get("dud_sources")),
+        "avoid_phrases":      _arr(s.get("avoid_phrases")),
+        # New 2026-08-09 — populated from msn_rejection_docs.flagged_words
+        # by the Claude prompt (or by the fallback path below when the
+        # LLM is unavailable). Consumer-side reader ignores unknown keys,
+        # so this is safe to add without a boxingnews-side migration.
+        "avoid_content_words": _arr(s.get("avoid_content_words")),
+        "notes":              str(s.get("notes") or "")[:1000],
     }
 
 
@@ -900,14 +1066,24 @@ def _fallback_report(payload: dict[str, Any]) -> tuple[str, dict[str, Any]]:
         b["key"] for b in payload["by_lane"]
         if cohort_median and b["reads_avg"] < cohort_median * 0.3 and b["articles"] >= 20
     ]
+    # Even in the fallback path, we CAN populate avoid_content_words
+    # deterministically from the rejection_details payload — no LLM
+    # judgment needed for "MSN flagged this exact token in a body".
+    avoid_content_words = []
+    rd = payload.get("rejection_details") or {}
+    for entry in (rd.get("flagged_words") or [])[:30]:
+        if isinstance(entry, dict) and entry.get("word"):
+            avoid_content_words.append(str(entry["word"]).lower())
+
     return report, _normalize_strategy({
-        "hot_topics":       hot_topics,
-        "hot_fighters":     [],
-        "winning_patterns": winning_patterns,
-        "hot_sources":      [],
-        "dud_sources":      dud_lanes,
-        "avoid_phrases":    [],
-        "notes":            "Auto-generated fallback (Anthropic unavailable). Re-run for a richer review.",
+        "hot_topics":         hot_topics,
+        "hot_fighters":       [],
+        "winning_patterns":   winning_patterns,
+        "hot_sources":        [],
+        "dud_sources":        dud_lanes,
+        "avoid_phrases":      [],
+        "avoid_content_words": avoid_content_words,
+        "notes":              "Auto-generated fallback (Anthropic unavailable). Re-run for a richer review.",
     })
 
 
