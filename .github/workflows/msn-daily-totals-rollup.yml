@@ -1,0 +1,90 @@
+name: msn-daily-totals-rollup
+
+# Daily rollup of pgam_direct.msn_daily_totals from the realtime
+# snapshot feed. Runs at 05:00 UTC — 5h after midnight UTC to give
+# MSN's realtime window a full 24h to close, and after the msn-insights
+# */15 cron has landed the last snapshots for the prior day.
+#
+# Why we synthesise this instead of pulling from MSN's aggregate feed:
+# see scripts/msn_daily_totals_rollup.py — the aggregate endpoint has
+# never been discoverable under our auth. The rollup reconciles vs
+# msn_weekly_review within ~1.5%, so the numbers are trustworthy for
+# trend analysis + revenue-per-day math.
+#
+# Manual dispatch supports range backfills:
+#     gh workflow run msn-daily-totals-rollup.yml --field days=30
+
+on:
+  schedule:
+    - cron: "0 5 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Number of prior days to roll up (default 1 = yesterday)"
+        required: false
+        default: "1"
+
+concurrency:
+  group: msn-daily-totals-rollup
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  rollup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight — DSN present + shape valid
+        # Same guard as msn-insights.yml. Bail fast with a clear
+        # ::error if the secret is missing / malformed. The DSN value
+        # is never echoed.
+        run: |
+          set -euo pipefail
+          if [ -z "${PGAM_DIRECT_DATABASE_URL:-}" ]; then
+            echo "::error title=Missing required secret::PGAM_DIRECT_DATABASE_URL"
+            exit 1
+          fi
+          dsn="${PGAM_DIRECT_DATABASE_URL}"
+          case "$dsn" in
+            postgresql://*|postgres://*) ;;
+            *)
+              echo "::error title=Malformed DSN::not postgres://"
+              exit 1
+              ;;
+          esac
+          case "$dsn" in
+            *@*/*) ;;
+            *)
+              echo "::error title=Malformed DSN::missing @host/db segments"
+              exit 1
+              ;;
+          esac
+          echo "preflight ok"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "psycopg[binary]>=3.1.0" "python-dotenv>=1.0.0"
+
+      - name: Run rollup
+        # Rolls up `days` prior days (default 1 = yesterday only, per
+        # cron schedule). Idempotent — a manual dispatch with days=30
+        # simply re-computes the last 30 days' rows using the latest
+        # snapshot data.
+        run: |
+          DAYS="${{ github.event.inputs.days || '1' }}"
+          python scripts/msn_daily_totals_rollup.py --days "$DAYS"

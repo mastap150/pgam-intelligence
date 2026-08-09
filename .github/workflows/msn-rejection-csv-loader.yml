@@ -1,0 +1,123 @@
+name: msn-rejection-csv-loader
+
+# Loads any MSN "Content Rejection Report - Overview" CSVs that land in
+# syndication/msn-rejection-reports/inbox/ into pgam_direct.msn_rejection_report,
+# then moves the processed file to syndication/msn-rejection-reports/archive/
+# and pushes the move commit back to the branch.
+#
+# Trigger: PUSH to main. Drop a CSV in the inbox folder, commit + push,
+# and this workflow picks it up. Also supports workflow_dispatch for
+# re-processing (idempotent — same window + same reason → UPSERT).
+#
+# WHY: MSN's per-doc rejection endpoint returns empty `failures[]` under
+# our auth (see docs/msn-moderation-findings.md). Getting real rejection
+# data requires manually clicking Partner Hub → Resolve content issues →
+# Download and pulling the CSV. This workflow removes the "then what?"
+# step so the download-to-usable-data loop is a git push away.
+#
+# CSV naming convention (as MSN exports it):
+#   Content Rejection Report-PGAM Media LLC-All brands-{DATE}-Overview.csv
+# Any *.csv in the inbox folder will be processed.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "syndication/msn-rejection-reports/inbox/**"
+  workflow_dispatch:
+
+concurrency:
+  group: msn-rejection-csv-loader
+  cancel-in-progress: false
+
+permissions:
+  # write needed for the archive-file commit; contents-only, no other
+  # tokens escalated.
+  contents: write
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # We're going to commit + push the archive move, so we need
+          # write auth via the default GITHUB_TOKEN.
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 1
+
+      - name: Preflight — DSN present
+        run: |
+          set -euo pipefail
+          if [ -z "${PGAM_DIRECT_DATABASE_URL:-}" ]; then
+            echo "::error title=Missing required secret::PGAM_DIRECT_DATABASE_URL"
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "psycopg[binary]>=3.1.0" "python-dotenv>=1.0.0"
+
+      - name: Ensure schema + folders exist
+        run: |
+          mkdir -p syndication/msn-rejection-reports/inbox
+          mkdir -p syndication/msn-rejection-reports/archive
+          # Ensure schema is present — first-run safety net.
+          python - <<'PY'
+          import sys
+          from pathlib import Path
+          sys.path.insert(0, str(Path.cwd()))
+          from agents.etl.msn_rejection_etl import ensure_schema
+          ensure_schema()
+          print("schema ready")
+          PY
+
+      - name: Process inbox CSVs
+        # For each CSV in inbox/, run the loader then move to archive/
+        # under a timestamped subfolder. If load fails, leave file in
+        # place — the run fails loudly and we don't want silent data loss.
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          csvs=(syndication/msn-rejection-reports/inbox/*.csv)
+          if [ ${#csvs[@]} -eq 0 ]; then
+            echo "no CSVs in inbox — nothing to do"
+            exit 0
+          fi
+          echo "found ${#csvs[@]} CSV(s) to process"
+          ymd=$(date -u +%Y-%m-%d)
+          archive_dir="syndication/msn-rejection-reports/archive/$ymd"
+          mkdir -p "$archive_dir"
+          for f in "${csvs[@]}"; do
+            echo "::group::loading $f"
+            python -m agents.etl.msn_rejection_etl "$f"
+            mv "$f" "$archive_dir/"
+            echo "::endgroup::"
+          done
+
+      - name: Commit archived files back
+        # Only commit if we actually moved something. Uses the runner's
+        # default identity so the commit is attributed to actions[bot].
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "no filesystem changes — nothing to commit"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add syndication/msn-rejection-reports/
+          git commit -m "msn: archive processed rejection CSV(s) [skip ci]"
+          git push
