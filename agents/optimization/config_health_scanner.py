@@ -109,9 +109,29 @@ QPS_DEMAND_NAME_BLOCKLIST = (
                     # 1000-10000 — lock against auto-raises for the time being.
 )
 
+# Partner-ID blocklist for QPS auto-raise. Used when a name-substring block
+# would collide with other partners' demands (e.g. "cas.ai" matches Pubmatic-
+# Cas.ai, Magnite-Cas.ai, LoopMe Cas.ai etc.). Partner-ID matching is precise
+# — only that specific demand_partner's demands are blocked, regardless of
+# how their names read.
+#
+# Cas.ai (dp=27) added 2026-08-11 per Priyesh: distributed 12k QPS across
+# active Cas.ai demands proportional to current traffic, then blocked from
+# further auto-raises so that the partner-total stays at ~12k.
+QPS_PARTNER_ID_BLOCKLIST = frozenset({
+    27,   # Cas.ai — 2026-08-11, capped at 12k partner-total
+})
 
-def _qps_demand_blocked(name: str) -> bool:
-    """True if a demand's QPS should not be auto-raised."""
+
+def _qps_demand_blocked(name: str, demand_partner: int | None = None) -> bool:
+    """True if a demand's QPS should not be auto-raised.
+
+    Checks both the name-substring blocklist (backwards-compat, used by
+    existing callers) and the partner-ID blocklist (precise, no substring
+    collisions). Either match blocks the raise.
+    """
+    if demand_partner is not None and demand_partner in QPS_PARTNER_ID_BLOCKLIST:
+        return True
     nl = (name or "").lower()
     return any(tok in nl for tok in QPS_DEMAND_NAME_BLOCKLIST)
 
@@ -294,8 +314,9 @@ def check_demand_qps(demands: list[dict], demand_rev: dict, actor: str) -> dict:
         rev = demand_rev.get(d.get("id"), 0)
         if rev < MIN_DEMAND_REV_7D:
             continue
-        # Blocklist gate — never raise QPS on testing/restricted partners
-        if _qps_demand_blocked(d.get("name", "")):
+        # Blocklist gate — never raise QPS on testing/restricted partners.
+        # Checks both name-substring and partner-ID blocklists.
+        if _qps_demand_blocked(d.get("name", ""), d.get("demandPartner")):
             blocked += 1
             continue
         qps = d.get("qpsLimit") or 0
