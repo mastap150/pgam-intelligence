@@ -67,9 +67,14 @@ jobs:
         # actual Chromium binary lives outside site-packages and has to be
         # fetched separately. --with-deps grabs the shared libs Chromium
         # needs on the ubuntu-latest runner.
+        #
+        # NOTE 2026-08-17: this alone is not sufficient — Partner Hub
+        # requires a persisted login session (Chromium user-data-dir with
+        # cookies from a completed MFA flow). GHA runners are ephemeral,
+        # so the ETL currently fails at page load. Session-restore layer
+        # is the next fix; until then run the ETL locally when earnings
+        # need pulling.
         run: python3 -m playwright install --with-deps chromium
-
-      - name: Run partner-reports ETL
         run: |
           DRY_FLAG=""
           if [ "${{ github.event.inputs.dry_run }}" = "true" ]; then
