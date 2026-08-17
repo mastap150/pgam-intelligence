@@ -2,7 +2,9 @@
 
 **Received:** Aug 2026, inbound pitch from AffiliRed (`teamop@affilired.com`), creatives hosted on `email.cj.com`
 **Property in scope:** destination.com
-**Verdict:** **Join, don't build.** Low-effort yes on the signup, hard no on commissioning content for it.
+**Verdict:** **Nothing to do.** We're already joined; the link inventory shows the program earns effectively
+nothing and has no English deep-link coverage. Park it, revisit in November if family-Italy content happens
+for other reasons.
 
 ---
 
@@ -13,14 +15,73 @@
 | Commission | 4% per confirmed sale, all properties | Floor of market for a single-brand travel program |
 | Cookie | 30 days | Fine — matches Booking.com, beats Expedia's 7 |
 | Audience | Families, summer travellers, open-air | Narrow slice of destination.com's mix |
-| Promo codes | "Available upon request" | Not offered up front = not a mature program |
+| Promo codes | "Always updated; available upon request" | Not borne out by the link export — see below |
 | Seasonality | Summer, school holidays, long weekends | ~4 earning months a year |
-| Network | AffiliRed, creatives served through CJ | See "the actual upside" below |
+| Network | CJ, advertiser CID `7748599`, managed by AffiliRed | We are already an Active publisher on it |
 
 **The merchant:** Club del Sole is a real, expanding Italian open-air hospitality group — 29 villages across
 eight regions (Tuscany, Emilia Romagna, Abruzzo, Marche, Lake Garda, Jesolo, Upper Adriatic), segmented into
 Easy Camping Village / Family Collection / Family Resort / Boutique Resort lines. It is acquiring more sites.
 This is a legitimate operator, not a thin affiliate shell.
+
+---
+
+## What the CJ link export shows
+
+78-link export pulled from our own CJ account (PID `101849129`), Aug 2026. This is the decisive evidence.
+
+**1. We're already in the program.** All 78 links return `RELATIONSHIP STATUS: Active` and carry our PID in
+the click URLs. There is no signup decision left to make — and the CJ publisher account that was the main
+strategic reason to accept already exists, which means the door to the card programs
+(`08_monetization_strategy.md`: $100–200 per approved card via CJ/Impact) is already open independent of
+this merchant.
+
+**2. The EPC is close to zero.** CJ reports EPC per *hundred* clicks:
+
+| Metric | Value |
+|--------|-------|
+| Links with any EPC data at all | 1 of 78 |
+| That link | Italian-language homepage, IT-targeted |
+| Three-month EPC | $2.50 / 100 clicks → **$0.025 per click** |
+| Seven-day EPC | $0.00 |
+
+77 links show `N/A`, which in CJ means insufficient network activity to compute — i.e. across the whole
+publisher base this program has not generated enough earnings to report. The one link with a number is the
+Italian homepage, which is exactly the geo skew predicted. Healthy travel programs run EPCs an order of
+magnitude above this. At 2.5 cents a click, 1,000 clicks earns $25.
+
+**3. There is no English deep-link inventory.** Every village-level landing page in the export is
+Italian-language only — Rimini, Riccione, Jesolo, Desenzano, Orbetello, Marina Julia, Vigna sul Mar,
+Stella del Mare, La Risacca, Romagna, Spina, Adriano, Stork, Marina. English is 13 of 78 links, and 8 of
+those are generic banners. The four English text links are homepage, offers page, "Zero Risk Offer" and
+"Easy Summer Beach Offer" — nothing property-specific.
+
+This is the conversion killer in concrete form: an English "Lake Garda with kids" article can only deep-link
+to Desenzano Boutique Resort's *Italian* page. We'd be sending an English-speaking family to a foreign-language
+booking flow for a brand they've never heard of.
+
+**4. Language mix confirms who actually buys.**
+
+| Language | Links |
+|----------|-------|
+| Italian | 26 |
+| English | 13 |
+| French | 12 |
+| Polish | 12 |
+| German | 12 |
+| Dutch | 3 |
+
+Poland gets as much creative investment as Germany and France. That's a European domestic and near-market
+program. The `US`-targeted English banners are the advertiser's declared targeting metadata, not evidence
+of US demand.
+
+**5. The promo-code claim doesn't hold up.** Nine links are typed `Sale/Discount`, and every one has an
+empty `COUPON CODE` field. They're offer *landing pages*, not codes. Minor, but the pitch said codes are
+"always updated."
+
+**6. Season shape confirmed.** "Zero Risk Offer" runs 17-Feb → 4-Oct-2026; "Easy Summer Beach" runs
+22-Mar → 14-Sep-2026. Offers open in late winter and wind down through September. Nothing to earn now; the
+next live window is roughly Feb 2027.
 
 ---
 
@@ -33,15 +94,12 @@ two nights for a couple.
 
 The problem is the numerator, not the rate:
 
-- **Wrong geography for our traffic.** Italian camping villages are bought by European domestic and
-  near-market families — Italian, German, Dutch, Austrian, Swiss. The pitch itself ships creatives in
-  IT / EN / ES / NL, which tells you exactly who AffiliRed thinks the buyer is. A US-weighted English
-  travel audience does not book Italian mobile homes.
+- **Wrong geography for our traffic.** Confirmed by the language mix above.
 - **Zero English brand pull.** Nobody in our audience searches "Club del Sole." Every click has to be
-  manufactured by our editorial, against a brand the reader has never heard of, on a booking flow that is
-  Italian-first.
-- **Single brand, single country, single season.** Compare against what destination.com already runs —
-  Expedia via Partnerize — which covers every destination on the site year-round with one integration.
+  manufactured by our editorial, against a brand the reader has never heard of, into an Italian-first
+  booking flow.
+- **Single brand, single country, single season** — versus the Expedia/Partnerize integration destination.com
+  already runs, which covers every destination year-round on one integration.
 - **Content fit is currently zero.** Of the 50 planned destination.com articles, three are Italy
   (best time to visit, Amalfi road trip, Tuscany road trip) and all three are adult road-trip framing.
   There is no family-camping cluster for this to sit in.
@@ -56,64 +114,48 @@ Assume we eventually build the Italy-with-kids cluster and it does 5,000 in-seas
 1 booking × €50                               =  ~€50 / month, four months a year
 ```
 
-Call it **€150–€400 a season** in the good case. For reference, the monetization plan puts one approved
-Chase Sapphire referral at $100–$200. This program is a rounding error against the card category, and it
-should never consume an editorial slot that a card or insurance CTA could occupy.
-
----
-
-## The actual upside
-
-The most valuable thing in this email is not Club del Sole — it is that the creatives are served through CJ.
-
-`08_monetization_strategy.md` already identifies credit cards as "the highest-revenue affiliate category in
-the travel niche by far" ($100–$200 per approved card, via CJ/Impact), and we do not yet have a CJ publisher
-account. A warm, low-stakes merchant application is a clean reason to open one and get destination.com
-through CJ's publisher review before we need it for the card programs. **That is worth more than the 4%.**
-
----
-
-## Timing
-
-It is mid-August. The 2026 Italian summer season is effectively over — there is nothing to earn this year.
-The booking window for 2027 opens around November and peaks February–May. That means:
-
-- No urgency, no reason to rush a decision.
-- A genuine 4–5 month runway if we do decide to build family-Italy content for the Q1 2027 booking window.
-- **Cash-conversion risk to confirm:** travel programs commonly validate on stay completion, not on booking.
-  A February booking for an August stay could pay out in September — an eight-month lag. Confirm before
-  counting any of it as revenue.
+Call it **€150–€400 a season** in the good case — and the network EPC says even that is optimistic. For
+reference, one approved Chase Sapphire referral is $100–200. This program should never consume an editorial
+slot that a card or insurance CTA could occupy.
 
 ---
 
 ## Recommendation
 
-1. **Accept the program.** It is free, non-exclusive, and gets us a CJ publisher account. Take the tracking
-   links and the promo codes.
+1. **No action needed on signup.** Already Active on CJ. The strategic prize — a working CJ publisher
+   account — is already ours.
 2. **Do not commission content for it.** Never write an article whose purpose is monetizing a single small
-   merchant — that is the tail wagging the site.
-3. **Place it only as a secondary CTA**, and only if the Italy-family cluster gets written on its own SEO
-   merits. Primary booking CTA stays Expedia/Partnerize; Club del Sole goes underneath as the specialist
-   option, on pages like "Italy with kids," "Lake Garda with kids," "Italian beach holidays for families."
-4. **Gate the content decision on analytics.** Pull the destination.com GA geo split first. If EU sessions
-   (especially IT/DE/NL/AT/CH) are under ~15% of traffic, the cluster does not pay for itself and this stays
-   a link-in-a-drawer.
-5. **Negotiate before signing anything that locks the rate.** 4% is the floor for a single-brand program
-   with no English brand recognition and a four-month season. They are in acquisition mode with rooms to
-   fill — ask for 6–8%, or a flat placement fee for a seasonal feature, which de-risks it for us entirely.
+   merchant with a $0.025 EPC.
+3. **Do not place links on existing pages either.** With no English village-level landing pages, there is
+   nothing worth linking to.
+4. **Revisit only if two things change:** the Italy-family cluster gets written on its own SEO merits *and*
+   Club del Sole ships English deep links. Then it goes in as a secondary CTA under Expedia, never as the
+   primary.
+5. **Optional, low cost:** reply to AffiliRed asking for English village-level landing pages and a rate
+   above 4%. They're in acquisition mode with rooms to fill and a program showing no publisher traction —
+   that's the leverage. Worth one email, not worth a follow-up.
 
-### Questions to send AffiliRed
+### Questions the link export already answered
 
-1. What is the program's current EPC and average order value, and its converting-traffic geo split?
-2. Is the program on CJ, and does joining require a CJ publisher account or an AffiliRed-only account?
-3. Is commission validated on booking or on stay completion — and what is the actual payout lag?
-4. What are the payment terms, minimum payout threshold, and payout currency?
-5. Is deep linking to individual village pages supported, and is tracking last-click and cross-device?
-6. Will they go above 4%, or do a flat-fee seasonal placement, for a dedicated feature?
+| Question | Answer |
+|----------|--------|
+| Is it on CJ? Do we need an account? | Yes, CID `7748599`. Account exists, relationship Active. |
+| What's the EPC? | $2.50/100 clicks on the one link with data; N/A on the other 77. |
+| Converting-traffic geo? | Only the Italian homepage has earnings history. |
+| Deep linking supported? | Village-level links exist — Italian only. |
+| Promo codes? | None populated, despite the claim. |
+
+### Still open, if we ever revisit
+
+1. Is commission validated on booking or on stay completion — and what's the payout lag? A February booking
+   for an August stay could pay in September, an eight-month lag.
+2. Payment terms, minimum payout threshold, payout currency.
+3. Is tracking last-click and cross-device?
 
 ---
 
 ## Bottom line
 
-Interesting enough to accept, not interesting enough to build for. Sign up, bank the CJ account, park the
-links, and revisit in November if the Italy-family content happens for other reasons.
+The pitch was worth ten minutes. The link export closed it: we're already joined, the program earns
+essentially nothing across CJ's entire publisher base, and it can't send an English reader to an English
+page. Park the links, keep the CJ account for the card programs, move on.
