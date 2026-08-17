@@ -1,11 +1,23 @@
 # Destination.com Media Kit
 
-Advertiser-facing media kit deck — 20 slides, 16:9.
+Two advertiser-facing assets, same content and brand system:
+
+| Asset | Source | Output | Use |
+|---|---|---|---|
+| 20-slide deck, 16:9 | `build.js` | `Destination_com_Media_Kit.pptx` | Pitch meetings, full walkthrough |
+| One-page leave-behind, US Letter | `onepager.html` | `Destination_com_OnePager.pdf` | Cold outreach, email attachment |
 
 ```
 npm install
 node build.js      # writes Destination_com_Media_Kit.pptx
+
+# one-pager — renders via headless Chromium
+chromium --headless --no-pdf-header-footer \
+  --print-to-pdf=Destination_com_OnePager.pdf onepager.html
 ```
+
+On this container Chromium lives at
+`/opt/pw-browsers/chromium-1194/chrome-linux/chrome` (add `--no-sandbox`).
 
 ## Before sending externally
 
@@ -27,6 +39,10 @@ data before the deck goes to an advertiser:
 Rate-card and package pricing (slides 15–16) is an opening position derived
 from `08_monetization_strategy.md` scaled to a 50K list. Confirm against
 what has actually closed before it goes out as a rate card.
+
+**The one-pager hardcodes the same figures** in its stat strip and package
+row — update `onepager.html` alongside the `N` block so the two assets never
+disagree in front of an advertiser.
 
 ## Structure
 
