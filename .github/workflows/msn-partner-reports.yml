@@ -61,6 +61,14 @@ jobs:
       - name: Install deps
         run: pip install -q -r requirements.txt
 
+      - name: Install Playwright browser
+        # The partner-reports ETL drives MSN Partner Hub via Playwright.
+        # `pip install playwright` only installs the Python package — the
+        # actual Chromium binary lives outside site-packages and has to be
+        # fetched separately. --with-deps grabs the shared libs Chromium
+        # needs on the ubuntu-latest runner.
+        run: python3 -m playwright install --with-deps chromium
+
       - name: Run partner-reports ETL
         run: |
           DRY_FLAG=""
