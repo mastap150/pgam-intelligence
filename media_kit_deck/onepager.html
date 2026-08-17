@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Destination.com — Media Kit One-Pager</title>
+<style>
+  /* US Letter, printed edge-to-edge. Figures mirror build.js — keep in sync. */
+  @page { size: 8.5in 11in; margin: 0; }
+
+  :root {
+    --ink: #0E2F42;
+    --ink-deep: #081F2E;
+    --blue: #1B6CA8;
+    --blue-soft: #D6E6F2;
+    --teal: #0D9B76;
+    --terra: #C4703E;
+    --gold: #F4A124;
+    --gold-soft: #FDEBCB;
+    --cream: #FAF7F2;
+    --cream-dark: #F0EBE3;
+    --text: #1A1A1A;
+    --muted: #6B7A85;
+    --divider: #E0DAD1;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    width: 8.5in;
+    height: 11in;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--text);
+    background: var(--cream);
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .page { width: 8.5in; height: 11in; display: flex; flex-direction: column; }
+
+  h1, h2, h3, .serif { font-family: Georgia, "Times New Roman", serif; }
+
+  /* ---------- Masthead ---------- */
+  .masthead {
+    background: var(--ink-deep);
+    color: #fff;
+    padding: 0.34in 0.42in 0.3in;
+    position: relative;
+  }
+  .masthead::after {
+    content: ""; position: absolute; left: 0; bottom: 0;
+    width: 100%; height: 4px;
+    background: linear-gradient(90deg, var(--blue) 0 25%, var(--teal) 25% 50%, var(--terra) 50% 75%, var(--gold) 75% 100%);
+  }
+  .brandline { display: flex; align-items: baseline; justify-content: space-between; }
+  .wordmark { font-family: Georgia, serif; font-size: 20pt; font-weight: 700; letter-spacing: -0.4px; }
+  .wordmark .dot { color: var(--gold); }
+  .kicker { font-size: 7pt; letter-spacing: 2.6px; color: var(--gold); font-weight: 700; }
+  .headline { font-family: Georgia, serif; font-size: 27pt; font-weight: 700; line-height: 1.08; margin-top: 0.14in; }
+  .sub { font-size: 9.4pt; color: var(--blue-soft); line-height: 1.45; margin-top: 0.09in; max-width: 6.1in; }
+
+  /* ---------- Stat strip ---------- */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); background: var(--ink); }
+  .stat { padding: 0.15in 0.42in 0.16in; border-left: 1px solid rgba(255,255,255,.09); }
+  .stat:first-child { border-left: 0; padding-left: 0.42in; }
+  .stat:not(:first-child) { padding-left: 0.16in; }
+  .stat .v { font-family: Georgia, serif; font-size: 17pt; font-weight: 700; color: var(--gold); line-height: 1.1; }
+  .stat .l { font-size: 7.2pt; color: var(--blue-soft); margin-top: 2px; letter-spacing: .2px; }
+
+  /* ---------- Body ---------- */
+  .body { flex: 1; padding: 0.24in 0.42in 0; }
+
+  .sec-label {
+    font-size: 7pt; letter-spacing: 2.2px; font-weight: 700;
+    display: flex; align-items: center; gap: 6px; margin-bottom: 0.09in;
+  }
+  .sec-label::before { content: ""; width: 15px; height: 2.5px; background: currentColor; }
+
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.26in; }
+
+  .offer { list-style: none; }
+  .offer li {
+    padding: 3.4px 0 3.4px 11px;
+    font-size: 8.1pt; line-height: 1.32;
+    border-bottom: 1px solid var(--divider);
+    position: relative;
+  }
+  .offer li:last-child { border-bottom: 0; }
+  .offer li::before {
+    content: ""; position: absolute; left: 0; top: 8.5px;
+    width: 4px; height: 4px; border-radius: 50%; background: currentColor;
+  }
+  .offer b { font-weight: 700; color: var(--text); }
+  .offer span { color: var(--muted); }
+
+  /* ---------- Journey ---------- */
+  .journey { margin-top: 0.26in; }
+  .journey-track { display: grid; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .stage { background: #fff; border: 1px solid var(--divider); border-top-width: 3px; padding: 0.1in 0.1in 0.11in; }
+  .stage .n { font-size: 6.6pt; font-weight: 700; letter-spacing: 1.4px; }
+  .stage .t { font-family: Georgia, serif; font-size: 10pt; font-weight: 700; color: var(--ink); margin: 2px 0 3px; }
+  .stage .d { font-size: 7pt; color: var(--muted); line-height: 1.3; }
+
+  /* ---------- Targeting ---------- */
+  .targeting { margin-top: 0.26in; }
+  .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+  .chip {
+    font-size: 7.4pt; padding: 3px 7px; border-radius: 9px;
+    background: #fff; border: 1px solid var(--divider); color: var(--text);
+  }
+
+  /* ---------- Packages ---------- */
+  .packages { margin-top: 0.26in; }
+  .pack-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+  .pack { border: 1px solid var(--divider); background: #fff; padding: 0.1in 0.1in 0.11in; border-top-width: 3px; }
+  .pack.dark { background: var(--ink); border-color: var(--gold); }
+  .pack .nm { font-size: 6.8pt; font-weight: 700; letter-spacing: 1.6px; }
+  .pack .pr { font-family: Georgia, serif; font-size: 14pt; font-weight: 700; color: var(--ink); margin-top: 2px; line-height: 1.1; }
+  .pack .pr small { font-size: 7.5pt; }
+  .pack.dark .pr { color: #fff; }
+  .pack .ds { font-size: 7pt; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+  .pack.dark .ds { color: var(--blue-soft); }
+  .pack .from { font-size: 6.6pt; color: var(--muted); }
+  .pack.dark .from { color: var(--blue-soft); }
+
+  /* ---------- Why ---------- */
+  .why { margin-top: 0.26in; }
+  .why-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.22in; }
+  .why-item { border-left: 3px solid var(--blue); padding-left: 0.11in; }
+  .why-item .t { font-family: Georgia, serif; font-size: 10.5pt; font-weight: 700; color: var(--ink); }
+  .why-item .d { font-size: 7.6pt; color: var(--muted); line-height: 1.4; margin-top: 3px; }
+
+  /* ---------- Categories ---------- */
+  .cats { margin-top: 0.26in; }
+  .cat-band {
+    background: var(--gold-soft); padding: 0.11in 0.14in;
+    font-size: 7.9pt; line-height: 1.55; color: var(--ink);
+  }
+  .cat-band b { font-family: Georgia, serif; }
+
+  /* ---------- Footer ---------- */
+  .footer {
+    margin-top: auto; background: var(--ink-deep); color: #fff;
+    padding: 0.19in 0.42in; display: flex;
+    align-items: center; justify-content: space-between;
+    border-top: 3px solid var(--gold);
+  }
+  .footer .cta { font-family: Georgia, serif; font-size: 12.5pt; font-weight: 700; }
+  .footer .cta small { display: block; font-family: Helvetica, Arial, sans-serif; font-size: 7.4pt; font-weight: 400; color: var(--blue-soft); margin-top: 2px; }
+  .footer .contact { text-align: right; font-size: 8.2pt; line-height: 1.5; }
+  .footer .contact b { color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div class="brandline">
+      <div class="wordmark">DESTINATION<span class="dot">.</span>COM</div>
+      <div class="kicker">MEDIA KIT &nbsp;·&nbsp; Q4 2026</div>
+    </div>
+    <div class="headline">Reach travelers before they book.</div>
+    <div class="sub">
+      A premium travel media and intent-driven audience platform. Our readers arrive with a trip
+      in mind &mdash; and a decision still open.
+    </div>
+  </header>
+
+  <section class="stats">
+    <div class="stat"><div class="v">50,000+</div><div class="l">Newsletter subscribers</div></div>
+    <div class="stat"><div class="v">42%</div><div class="l">Average open rate</div></div>
+    <div class="stat"><div class="v">3.8%</div><div class="l">Average click rate</div></div>
+    <div class="stat"><div class="v">180K+</div><div class="l">Monthly site readers</div></div>
+  </section>
+
+  <main class="body">
+
+    <div class="cols">
+      <div>
+        <div class="sec-label" style="color:var(--blue)">NEWSLETTER SPONSORSHIPS</div>
+        <ul class="offer" style="color:var(--blue)">
+          <li><b>Dedicated Send</b> <span>&mdash; 100% share of voice, full list or segment</span></li>
+          <li><b>Sponsored Placement</b> <span>&mdash; premium top or mid-newsletter slot</span></li>
+          <li><b>Native Content</b> <span>&mdash; written in our voice, clearly labeled</span></li>
+          <li><b>Destination Spotlight</b> <span>&mdash; full editorial feature on your destination</span></li>
+          <li><b>Travel Deal Feature</b> <span>&mdash; your offer in our deals module</span></li>
+          <li><b>Segmented Campaign</b> <span>&mdash; send only to the travelers that matter</span></li>
+        </ul>
+      </div>
+      <div>
+        <div class="sec-label" style="color:var(--teal)">SITE SPONSORSHIPS</div>
+        <ul class="offer" style="color:var(--teal)">
+          <li><b>Sponsored Articles</b> <span>&mdash; studio-produced, 12 months live</span></li>
+          <li><b>Homepage &amp; Category</b> <span>&mdash; hero placements, own a vertical outright</span></li>
+          <li><b>Display &amp; Native</b> <span>&mdash; IAB units and in-feed recommendation</span></li>
+          <li><b>Affiliate &amp; Deep Links</b> <span>&mdash; straight into your booking flow</span></li>
+          <li><b>Custom Content Hubs</b> <span>&mdash; a branded destination within the site</span></li>
+          <li><b>Newsletter&rarr;Site Retargeting</b> <span>&mdash; the full-funnel close</span></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="journey">
+      <div class="sec-label" style="color:var(--terra)">REACH THEM ACROSS THE ENTIRE TRIP</div>
+      <div class="journey-track">
+        <div class="stage" style="border-top-color:var(--blue)">
+          <div class="n" style="color:var(--blue)">01</div>
+          <div class="t">Inspiration</div>
+          <div class="d">Spotlights, homepage hero, native discovery</div>
+        </div>
+        <div class="stage" style="border-top-color:var(--teal)">
+          <div class="n" style="color:var(--teal)">02</div>
+          <div class="t">Research</div>
+          <div class="d">Sponsored articles, category sponsorship</div>
+        </div>
+        <div class="stage" style="border-top-color:var(--terra)">
+          <div class="n" style="color:var(--terra)">03</div>
+          <div class="t">Planning</div>
+          <div class="d">Newsletter native, custom content hubs</div>
+        </div>
+        <div class="stage" style="border-top-color:var(--gold)">
+          <div class="n" style="color:var(--gold)">04</div>
+          <div class="t">Booking</div>
+          <div class="d">Deal features, deep links, dedicated sends</div>
+        </div>
+        <div class="stage" style="border-top-color:var(--blue)">
+          <div class="n" style="color:var(--blue)">05</div>
+          <div class="t">Post-trip</div>
+          <div class="d">Segmented sends, retargeting, loyalty</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="targeting">
+      <div class="sec-label" style="color:var(--blue)">SEGMENT THE LIST &mdash; BUY ONLY THE TRAVELERS YOU WANT</div>
+      <div class="chips">
+        <span class="chip">Location &amp; origin market</span>
+        <span class="chip">Destination interest</span>
+        <span class="chip">Travel intent stage</span>
+        <span class="chip">Family travel</span>
+        <span class="chip">Luxury travel</span>
+        <span class="chip">Budget travel</span>
+        <span class="chip">Beach trips</span>
+        <span class="chip">City breaks</span>
+        <span class="chip">Hotels</span>
+        <span class="chip">Flights</span>
+        <span class="chip">Cruises</span>
+        <span class="chip">Experiences</span>
+        <span class="chip">Seasonal moments</span>
+        <span class="chip">Deal responders</span>
+        <span class="chip">Recent clickers</span>
+      </div>
+    </div>
+
+    <div class="packages">
+      <div class="sec-label" style="color:var(--gold)">SAMPLE PACKAGES &mdash; INDICATIVE, NET</div>
+      <div class="pack-row">
+        <div class="pack" style="border-top-color:var(--blue)">
+          <div class="nm" style="color:var(--blue)">DISCOVER</div>
+          <div class="from">from</div>
+          <div class="pr">$5,000</div>
+          <div class="ds">Sponsored placement, deal feature, one article</div>
+        </div>
+        <div class="pack" style="border-top-color:var(--teal)">
+          <div class="nm" style="color:var(--teal)">AMPLIFY</div>
+          <div class="from">from</div>
+          <div class="pr">$12,500</div>
+          <div class="ds">Dedicated send, native, homepage, two articles</div>
+        </div>
+        <div class="pack dark" style="border-top-color:var(--terra)">
+          <div class="nm" style="color:var(--terra)">SIGNATURE</div>
+          <div class="from">from</div>
+          <div class="pr">$28,000</div>
+          <div class="ds">Category ownership, content hub, retargeting</div>
+        </div>
+        <div class="pack" style="border-top-color:var(--gold)">
+          <div class="nm" style="color:var(--gold)">ALWAYS-ON</div>
+          <div class="from">from</div>
+          <div class="pr">$8,000<small>/mo</small></div>
+          <div class="ds">Monthly native, run-of-site, deep links</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="why">
+      <div class="sec-label" style="color:var(--terra)">WHY DESTINATION.COM</div>
+      <div class="why-row">
+        <div class="why-item" style="border-left-color:var(--blue)">
+          <div class="t">Intent, not inference</div>
+          <div class="d">We don&rsquo;t model travel interest from browsing exhaust. Our readers came to us to plan a trip.</div>
+        </div>
+        <div class="why-item" style="border-left-color:var(--teal)">
+          <div class="t">First-party and owned</div>
+          <div class="d">The list, the site and the data are ours &mdash; no cookie risk, no platform dependency.</div>
+        </div>
+        <div class="why-item" style="border-left-color:var(--gold)">
+          <div class="t">Built to be measured</div>
+          <div class="d">Per-placement reporting, deep-link tracking, and a readout that tells you what to buy next.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cats">
+      <div class="cat-band">
+        <b>Built for:</b>
+        Hotels &amp; Resorts &nbsp;·&nbsp; Airlines &nbsp;·&nbsp; OTAs &nbsp;·&nbsp; Tourism Boards &nbsp;·&nbsp;
+        Credit Cards &amp; Points &nbsp;·&nbsp; Cruise Lines &nbsp;·&nbsp; Travel Insurance &nbsp;·&nbsp;
+        Luggage &amp; Gear &nbsp;·&nbsp; Attractions &nbsp;·&nbsp; Car Rental &nbsp;·&nbsp; Restaurants &nbsp;·&nbsp;
+        Local Experiences
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    <div class="cta">
+      Tell us who you want to reach.
+      <small>Send the destination, the traveler and the dates &mdash; we&rsquo;ll come back with a plan in two business days.</small>
+    </div>
+    <div class="contact">
+      <b>Advertising &amp; Partnerships</b><br>
+      ppatel@pgammedia.com &nbsp;·&nbsp; destination.com
+    </div>
+  </footer>
+
+</div>
+</body>
+</html>
