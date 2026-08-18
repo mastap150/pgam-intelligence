@@ -25,6 +25,10 @@ So this is not a re-skin. It's a **subtraction pass**: make the page obey the sy
 it already ships with, and cut the redundancy. Elegance here is almost entirely a
 removal problem.
 
+Section D is a reference read of how **Vibe** solves the same job — twelve concrete
+patterns pulled from their own platform docs via the Vibe MCP. Section E is the
+copy-pasteable design prompt, which incorporates them.
+
 ---
 
 ## A. Structure
@@ -170,7 +174,207 @@ wire them to real daily series or drop them.
 
 ---
 
-## D. Ready-to-paste Claude design prompt
+## D. Reference: how Vibe structures the same job
+
+**Sourced from the Vibe MCP's own platform documentation** (`get_business_rules`:
+`getting_started`, `campaign_setup`, `pixel_tracking_reporting`,
+`campaign_optimization_playbook`), pulled 2026-08-18.
+
+> **On screenshots:** there are none, and not for lack of trying. The Vibe MCP is a
+> data API — campaigns, metrics, targeting, business rules — with no screenshot or
+> UI-rendering tool. `vibe.co`, `www.vibe.co` and `app.vibe.co` are all blocked by this
+> session's egress proxy (HTTP 000), so their UI can't be captured from here either.
+> What follows is therefore an **interaction and IA reference, not a visual one** — and
+> it's arguably the more useful half. Vibe's screens don't feel intuitive because of
+> their colour choices; they feel intuitive because of the twelve decisions below.
+> To add visual reference, capture the screenshots manually from a logged-in Vibe
+> session and drop them in `docs/dsp/reference/vibe/`.
+
+Vibe is the closest comparable: same medium (CTV), same self-serve buyer, a genuinely
+more complex product underneath — **seven** campaign goals with a per-goal feature
+matrix, per-dimension targeting modes, 500+ channels — and it still reads simpler than
+ours. That's the point worth internalizing: **their simplicity is not less product, it
+is more defaulting.**
+
+### D1 — Their dashboard is five state-driven blocks
+
+Per their own docs, the Vibe dashboard shows: last-7-day trends · personalized
+recommendations · the Performance Forecaster · a campaign status panel
+(delivering / paused / blocked / draft) · the Vibe feed. Plus the Vibe Agent, their
+in-product AI.
+
+Every block answers a question the user already has. Compare ours: a gradient hero
+asking *"What do you want to achieve today?"*, then a checklist, then KPIs, then three
+static marketing cards.
+
+### D2 — Recommendations are typed, not generic
+Six types, each bound to a detectable account state and a specific fix:
+**Set performance objective · Fix tracking · Optimize bidding · Optimize budget ·
+Expand reach · Launch web traffic.**
+
+And they state their basis: *"projected outcomes come from a rolling 6-month analysis
+of how budget, audience and bidding changes correlated with impressions, sessions and
+conversions across thousands of Vibe campaigns."*
+
+Ours is a card titled *"Tips to get the best results"* holding three fixed marketing
+links (Quickstart / templates / add funds) that never change with account state. Vibe's
+version is the same slot doing real work. **This is the single highest-value pattern to
+copy** — and note we already have the ingredients: wallet balance, pixel presence,
+creative count, campaign pacing, attention score. A typed recommendation engine over
+those five signals is honest, useful, and needs no new data.
+
+### D3 — The Performance Forecaster: one concept, three fidelities, honest framing
+A budget-vs-outcome curve for a single strategy. Budget on x, projected outcome on y,
+outcome metric matched to the goal (impressions for awareness, sessions for
+traffic/leads, purchases for sales). Exactly three markers: **Current** ·
+**Recommended** · **New** (where the user's slider sits). Below Current, expect to lose
+performance; above Recommended, you're scaling past their advice — *"a marker, not a
+cap."*
+
+Three surfaces, escalating interactivity: interactive slider on the campaign edit page ·
+read-only curve with one-click apply on the dashboard card · read-only preview in a
+"Ready to scale" popover in the campaigns list. **One idea, three densities** — the
+opposite of our three-different-KPI-card-shapes problem.
+
+Framing to steal verbatim: *"Projections are estimates — never present them as
+commitments."* Also: the headline outcome is **always weekly** even when budget is
+daily or lifetime, so the number is comparable across campaigns.
+
+### D4 — Status taxonomy where every state names its own cause and exit
+> Draft → Upcoming (up to 12h before delivery starts) → Delivering → Paused →
+> **Inactive** (balance hit $0; resumes automatically once funded) → Completed (end
+> date reached or lifetime budget spent) → Archived (7+ days after completion; cannot
+> be reactivated — duplicate instead)
+
+Ours: Live / Paused / Preparing / Draft / Complete / Rejected — where **"Preparing"
+silently covers three different backend states** (`pending_review`,
+`pending_approval`, `pending`) and tells the advertiser neither what's being waited on
+nor how long. Two states we lack that users will hit constantly: an *Upcoming* with a
+timebox, and an *Inactive (out of funds, auto-resumes)* that distinguishes "you ran
+dry" from "you paused this".
+
+### D5 — Waiting and empty states are designed, per source
+Their audience statuses: Created (blue) → Populating (blue) → **No data** (orange, if
+size is still zero 24h after populating) → Active (green) → Inactive (grey, unused 2+
+weeks, reactivates automatically). Documented separately for manual CRM upload, CRM
+integration sync, and web-traffic audiences.
+
+`design-system-ss.md` §9 already concedes *"empty and loading states are the weakest
+part of the surface."* Vibe treats "populating", "no data" and "dormant" as three
+distinct designed states with colours and recovery paths. We mostly have "0".
+
+### D6 — Collect only mandatory inputs; auto-configure the rest *silently*
+Their creation flow's stated principles: collect **advertiser · goal · performance
+objective · creative · budget amount · 2–3 audience answers** — and then, verbatim:
+*"Do not ask for confirmation on auto-picked settings (campaign name, budget type,
+flight dates, targeting, placement, bidding). Surface them only when calling
+create_or_update_campaign."*
+
+Auto-config works by finding the most similar prior campaign — same advertiser + goal,
+else same goal + same industry — and reusing its targeting, placement and bidding.
+Fallbacks are tabulated: name `[Advertiser] - [goal] - [Month YYYY]`, daily budget,
+4-week flight starting next business day, suggestions mode, any-time-any-day slots,
+automatic bidding, 5/day frequency cap.
+
+**This dissolves our "simple wizard vs Pro wizard" split.** We ship two wizards
+(`/ss-campaigns/new` at 4,948 lines and `/ss-campaigns/new-pro` at 3,363) because we
+assumed the choice is *few fields vs many fields*. Vibe's answer is that there is one
+flow with ~6 required answers and everything else silently defaulted from precedent,
+then editable afterwards. Our footer link — *"Need full control over targeting and
+bidding? Use the Pro wizard →"* — is the symptom.
+
+### D7 — Two or three conversational questions instead of a targeting wizard
+Not a paginated dimension picker. Two general questions, each carrying 2–3 educated
+guesses inferred from the advertiser's industry and website:
+- *"Where should this campaign run?"* — with suggestions shaped by business type
+  (national DTC → nationwide; multi-location → their states; single location → their
+  metro).
+- *"Who are you trying to reach?"* — one bundled persona in plain language
+  ("women 25–44 who are into fitness"), **not** age + gender + income + interests as
+  four separate controls.
+
+Their instruction: *"the advertiser should never have to pick segments themselves"*,
+and *"do not enumerate every targeting field one by one or paginate dimensions in a
+wizard."* The agent translates the answer into segments. Directly relevant: our Step 2
+targeting has its own audit doc (`self-serve-step2-targeting-audit.md`).
+
+### D8 — The default is the recommended one, and the escape hatch teaches
+Targeting dimensions default to **Suggestions** (soft signals that guide the bidder)
+rather than **Controls** (hard filters). Controls apply only when the user explicitly
+asks — and then the UI explains the trade-off *before* switching: smaller audience
+pool, fewer optimization opportunities, higher cost per result, slower learning,
+possible delivery failure if too narrow. There is deliberately **no mode toggle
+offered** in the happy path.
+
+That's a general principle worth adopting: don't put the power-user control on screen
+next to the recommended one. Make the recommended path the only visible path, and let
+the escape hatch cost one question — which doubles as education.
+
+### D9 — Education placed exactly where the confusion happens
+- *"No clicks on CTV. Use view-through attribution, not CTR/CPC."*
+- *"The Pixel page shows ALL events from ALL sources; the Reports page shows only
+  events attributed to Vibe campaigns. Seeing events on the Pixel page but zero in
+  Reports is normal early on."*
+- *"Why Vibe numbers may differ from GA4: GA4 uses last-click session models, Vibe uses
+  IP-based view-through — a modeling difference, not a tracking bug."*
+- They even document their own trap: session-only report filters that silently diverge
+  from the persisted campaign attribution window, *"a common source of 'why don't my
+  numbers match' confusion."*
+
+Every one of these pre-empts a support ticket at the moment of doubt. Our equivalent is
+a right-rail card of four links titled "Learn the basics", all pointing at the same
+`/ss-learn` hub — help *adjacent* to the product rather than *inside* it. Our attention
+score has exactly this problem: it's a proprietary 0–100 number with no in-place
+explanation of what it means or how it's derived.
+
+### D10 — Prerequisites stated as arithmetic, with worked examples
+Leads campaigns need Page View events in the last 12h, Lead events in the last 7 days,
+and ≥0.1% conversion rate — *"5,000 PVs + 5 leads = 0.1% → can publish. 5,000 PVs + 4
+leads = 0.08% → cannot publish."* Publish failures are enumerated per goal, and
+post-publish troubleshooting is explicit ("allow up to 12 hours", "widen targeting
+until the delivery estimator turns green", "raise manual CPM to ≥$18").
+
+Our setup checklist is four labels — Business details / Upload a creative / Add funds /
+Connect measurement — with no statement of *why* each gate exists or what breaks
+without it. "Connect measurement" is even marked **Optional**, when it's the only
+reason the Calls & leads KPI can ever be non-zero.
+
+### D11 — Metrics come with typical ranges
+CPM *"typical range $15–$30"* · completed view rate *"CTV typically 95%+"* · ROAS
+*"3.0x = $3 earned per $1 spent"* · manual CPM *"stay above $15 for deliverability,
+$18+ recommended"*. A number with a range attached is interpretable by a restaurant
+owner; a bare number is not. Our KPI tiles give bare values — and then fake the trend.
+
+### D12 — Simplicity argued as strategy, not taste
+Their optimization playbook opens with *"Chapter 1 — Setup: Simplicity as a Competitive
+Advantage"*: fragmenting into many small strategies starves the bidding algorithm of
+the data volume it needs, and a complex setup is harder to diagnose. Their rule: *"if
+two strategies share the same objective, target CPA and audience type, they should
+almost certainly be one strategy. Add complexity only when you have a specific,
+measurable, testable reason."*
+
+That test generalizes to UI. **Two surfaces that serve the same intent for the same
+user should be one surface.** Applied to us: two campaign wizards, five creation
+routes, eight creation CTAs on the dashboard, two nested right rails, and three KPI
+card shapes all fail it.
+
+### What not to copy
+
+- Vibe's product is genuinely more complex than ours underneath. The lesson is the
+  **defaulting**, not the feature count — copying their surface area would make our
+  problem worse.
+- They run a hard tier split (Self-Serve with chat support vs Managed for $60k+/month),
+  which lets the self-serve UI be opinionated and refuse to expose everything. We
+  currently serve both audiences from one surface, which is exactly the pressure that
+  produced the Pro wizard. Worth deciding deliberately rather than by accretion.
+- Their conversational flows assume an always-available AI agent that can hold a
+  multi-turn exchange. Where our AI is one extraction call against
+  `/api/url-to-campaign`, borrow the *question structure* (2–3 questions, guesses
+  offered, silent defaults) — not the assumption of open-ended dialogue.
+
+---
+
+## E. Ready-to-paste Claude design prompt
 
 Everything below the line is the prompt. Hand it to Claude Design (or `/design` in
 Claude Code) as-is.
@@ -234,8 +438,12 @@ now. Trustworthy above all: this screen is about someone's ad spend.
 - Four KPIs: Calls & leads · Total spend · Active campaigns · Attention score (0–100,
   PGAM's proprietary metric — treat as a first-class differentiator, and design the
   "not measurable yet" state).
-- Recent campaigns: name, date range, status (Live / Paused / Preparing / Draft /
-  Complete / Rejected), spend, budget pacing.
+- Recent campaigns: name, date range, status, spend, budget pacing. Today's six statuses
+  are Live / Paused / Preparing / Draft / Complete / Rejected — redesign the set so each
+  state tells the advertiser what's happening and what to do: split the opaque
+  "Preparing" into something with a cause and an expected wait, and add an out-of-funds
+  state distinct from a user-initiated pause (an empty prepaid wallet is our most common
+  stall, and it currently looks identical to "Paused").
 - Setup checklist, 4 items: business details · upload a creative · add funds ·
   connect measurement (optional). Dismissible, with progress.
 - Resume-an-unfinished-draft affordance.
@@ -247,8 +455,58 @@ now. Trustworthy above all: this screen is about someone's ad spend.
   button, and a footer link to a "Pro wizard". Fold the rest into those two, or move
   them to the campaigns page.
 - Help and support: a few "learn the basics" links and a `Book a call` path. These
-  matter (the audience is non-expert) but must not outweigh the data.
+  matter (the audience is non-expert) but must not outweigh the data — and prefer
+  explaining a thing where it appears over linking out to a hub.
+- A recommendations slot that changes with account state (see the reference product) —
+  replacing today's three fixed marketing cards. Design the card for one recommendation:
+  what's wrong or available, the projected effect if we can honestly state one, and a
+  single action.
 - Measurement nudge, shown only while no conversion source is connected.
+
+**Reference product — study this and borrow its logic, not its pixels.**
+Our closest comparable is **Vibe** (`vibe.co`), a self-serve CTV platform for the same
+kind of buyer. Their product is *more* complex than ours underneath — seven campaign
+goals, per-dimension targeting modes, 500+ channels — and still reads simpler, because
+they default aggressively instead of asking. Patterns to carry over:
+
+- **Their dashboard is five state-driven blocks:** last-7-day trends · personalized
+  recommendations · a budget-vs-outcome forecaster · a campaign status panel · an
+  activity feed. Every block answers a question the user already has. None of it is a
+  marketing pitch.
+- **Recommendations are typed, not generic.** Six kinds, each bound to a detectable
+  account state and one specific fix: set performance objective · fix tracking ·
+  optimize bidding · optimize budget · expand reach · launch web traffic. Design our
+  equivalent slot this way — we can detect wallet balance, missing pixel, no creative,
+  pacing, and attention score, which is enough for real recommendations. Today that
+  slot holds three fixed marketing links that never change.
+- **One idea at three fidelities.** Their forecaster is a single budget-vs-outcome curve
+  with exactly three markers (current · recommended · where you've dragged to), rendered
+  as an interactive slider on the edit page, a read-only card with one-click apply on the
+  dashboard, and a small preview in a list popover. Do that instead of inventing a
+  different card shape per page.
+- **Estimates are labelled as estimates.** Their rule: *projections are estimates, never
+  present them as commitments* — and their headline figure is always weekly so numbers
+  stay comparable. Apply the same discipline to anything modelled or forecast.
+- **Every status names its own cause and its exit.** Theirs: draft → upcoming (up to 12h
+  before delivery) → delivering → paused → *inactive, balance hit $0, resumes
+  automatically once funded* → completed → archived. Ours flattens three different
+  backend states into one opaque "Preparing" and has no out-of-funds state at all, even
+  though an empty prepaid wallet is our most common stall.
+- **Waiting states are designed.** They ship distinct designed states for created ·
+  populating · no data after 24h · active · dormant, each with a colour and a recovery
+  path. Our own design doc concedes empty and loading states are the weakest part of the
+  surface. Treat "nothing here yet", "still measuring" and "this stopped" as three
+  different designs.
+- **Metrics carry their typical range.** They print CPM $15–$30, completed-view rate
+  95%+, "3.0x ROAS = $3 back per $1". A restaurant owner can interpret a number with a
+  range attached and cannot interpret a bare one.
+- **Education sits where the confusion happens,** not in a help hub — e.g. *"there are
+  no clicks on CTV, so we measure view-through, not click-through"* placed next to the
+  metric it explains. Our attention score especially needs this: it's a proprietary
+  0–100 figure with no in-place explanation.
+- **Their stated test for structure:** two things serving the same objective for the
+  same user with the same target should be one thing; add complexity only for a
+  specific, measurable, testable reason. Apply it ruthlessly to this screen.
 
 **Design these artboards:**
 1. **Returning advertiser, desktop 1440×1024** — the primary case. 2–4 live
@@ -278,6 +536,12 @@ now. Trustworthy above all: this screen is about someone's ad spend.
   Tools and Help behind "More ▾" at *every* width including 27" displays, and at
   768–1023px the nav renders as six unlabeled icons. Show me the topbar at 1440, 1024
   and 390.
+- The creation flow this dashboard feeds. We currently ship two wizards — a standard
+  one and a "Pro" one — because we assumed the choice is *few fields vs many fields*.
+  The reference product instead runs one flow with ~6 required answers (advertiser,
+  goal, objective metric, objective value, creative, budget) and silently defaults
+  everything else from the user's most similar previous campaign, editable afterwards.
+  Show me what the dashboard's entry point looks like if we commit to that model.
 - Copy voice. Today three collide: warm ("Good afternoon, Priyesh"), urgent ("⚡ 60
   seconds"), instructional ("Tips to get the best results"), plus "Or skip the AI:" —
   which frames our flagship feature as something to escape. Pick one voice and rewrite
