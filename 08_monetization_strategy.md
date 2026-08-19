@@ -164,7 +164,7 @@
 |---------|-----------|--------|-------|
 | Booking.com | 4% of booking | 30 days | Best coverage globally |
 | Hotels.com | 4–6% | 30 days | Good US/Europe |
-| Expedia | 4% hotel/activities, 2% vacation rental, 1.5% car, $0 air, 0% cruise | 7 days | Confirmed CJ US terms (CID 1874913). Paid on *consumed* travel, not booking. Already live via Partnerize/EAN — do not double-track. See `docs/expedia-affiliate-decision.md` |
+| Expedia | 4% hotel/activities, 2% vacation rental/package, 1.5% car, 0% air, 0% cruise | 7 days | Live on Partnerize Travel Creator Program (camref 1101l5I7Wc). CJ Expedia US offers the *identical* rate card — no reason to double-track. See `docs/expedia-affiliate-decision.md` |
 | Airbnb (referral) | $30/new host | 30 days | Better for "alternative stays" content |
 | Vrbo | 3–5% | 30 days | Strong for family/group travel content |
 
