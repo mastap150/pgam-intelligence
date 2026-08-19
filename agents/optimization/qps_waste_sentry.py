@@ -48,14 +48,17 @@ Safeguards, all deliberate:
 * **Ledger.** Every proposal and every action is recorded with its evidence, so
   a revenue move afterwards can be attributed rather than guessed at.
 
-Read-only by default. Proposals print and go to the ledger; nothing reaches the
-platform without `--apply` *and* the two TBX write gates.
+**There is no write path in this module.** Not a gated one, not a flag. It
+measures, classifies, and prints what it would recommend; a person makes the
+change on the platform. That is the posture until the promotion gate in
+`docs/optimization-cadence.md` §3.5 is met — and since Teqblaze cannot shape
+traffic, every action this rule proposes is irreversible-in-effect within the
+cadence, which is exactly the kind of change that should not start automated.
 
 Usage
 -----
-    python3 -m agents.optimization.qps_waste_sentry              # propose
-    python3 -m agents.optimization.qps_waste_sentry --json out.json
-    python3 -m agents.optimization.qps_waste_sentry --apply      # gated, refuses without TBX_ALLOW_WRITES
+    python3 -m agents.optimization.qps_waste_sentry
+    python3 -m agents.optimization.qps_waste_sentry --json proposals.json
 """
 
 from __future__ import annotations
@@ -283,8 +286,6 @@ def main() -> int:
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--days", type=int, default=OBSERVE_DAYS)
     ap.add_argument("--json", help="write the proposal set to this path")
-    ap.add_argument("--apply", action="store_true",
-                    help="attempt the writes (needs TBX_ALLOW_WRITES=1; refuses otherwise)")
     a = ap.parse_args()
 
     if not (os.environ.get("PGAM_DIRECT_DATABASE_URL") or os.environ.get("DATABASE_URL")):
@@ -300,7 +301,7 @@ def main() -> int:
     print(f"{_LOG} QPS waste sweep")
     print(f"  window        {df} → {dt}  ({a.days}d observation)")
     print(f"  metric        gross $ per million bid requests (GPM)")
-    print(f"  mode          {'APPLY (gated)' if a.apply else 'PROPOSE ONLY'}")
+    print(f"  mode          PROPOSE ONLY — this module cannot write")
     print(f"  why cut, not throttle: Teqblaze does not shape traffic, so the")
     print(f"  only controls are binary. See the module docstring.")
 
@@ -341,14 +342,9 @@ def main() -> int:
             json.dump(payload, fh, indent=2, default=str)
         print(f"\n{_LOG} proposals written to {a.json}")
 
-    if a.apply:
-        print(f"\n{_LOG} --apply requested.")
-        print(f"{_LOG} REFUSED: these are LEGACY ids and do not address entities on")
-        print(f"{_LOG} api.pgammedia.com. Applying needs the Teqblaze ID mapping")
-        print(f"{_LOG} (docs/teqblaze-new-platform.md §8.1.10b) plus TBX_ALLOW_WRITES=1.")
-        print(f"{_LOG} Nothing was sent. The proposal set above is the deliverable.")
-        return 3
-
+    print(f"\n{_LOG} Proposals above are the deliverable. Nothing was changed.")
+    print(f"{_LOG} Apply them by hand on the platform after review; the promotion")
+    print(f"{_LOG} gate for automating this is docs/optimization-cadence.md §3.5.")
     return 0
 
 

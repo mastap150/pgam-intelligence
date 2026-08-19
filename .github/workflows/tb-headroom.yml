@@ -18,6 +18,7 @@ name: Marketplace Headroom (legacy TB data in Neon)
 # The log carries revenue figures; it is visible to repo collaborators, same as
 # any other run log here.
 #
+# Rev 4: adds the recommendations digest.
 # Rev 3: adds revenue-change attribution (scripts/tb_whatchanged.py).
 # Rev 2: adds per-partner, partner×country, win→impression render loss, and
 #        an explicit first-7d vs last-7d trend block.
@@ -86,6 +87,11 @@ jobs:
         env:
           IN_DAYS: ${{ inputs.days || '30' }}
         run: python3 scripts/tb_headroom.py --days "$IN_DAYS"
+
+      - name: Daily recommendations digest
+        # Read-only. --post is deliberately omitted: this run prints, it does
+        # not notify a channel from a feature branch.
+        run: python3 -m agents.alerts.marketplace_digest
 
       - name: Attribute the revenue change
         # Answers "what caused it", which is the half a bare percentage can't.

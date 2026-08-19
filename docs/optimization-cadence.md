@@ -80,20 +80,29 @@ rather than heartbeats.
 
 ## 2. Cadence
 
+**Nothing on this schedule changes anything.** Every job reads, works out what
+it would recommend, and hands that to a person. No write tier is scheduled, and
+none will be until the promotion gate in §3.5 is met.
+
 | When | What | Mode |
 |---|---|---|
-| Daily 08:30 ET | Revenue regression + delivery health | Alert only |
-| Weekly Mon 09:00 ET | Headroom report (`tb_headroom.py`) → Slack | Report only |
-| Weekly Mon 09:00 ET | QPS waste sweep (`qps_waste_sentry.py`) → proposals | Propose |
-| **Fortnightly Wed** | **QPS cut execution** — act on proposals that have held two consecutive sweeps | Write, gated |
-| Monthly 1st | Recompute the GPM baseline and the band thresholds | Config |
-| Quarterly | Re-test everything previously cut, 7-day window | Write, gated |
+| Daily 08:30 ET | `marketplace_digest.py` — regression, flat-price collapses, render health, margin drift, QPS proposals | Recommend |
+| Weekly Mon 09:00 ET | `tb_headroom.py` — full headroom report | Report |
+| Weekly Mon 09:00 ET | `qps_waste_sentry.py` — QPS proposal set | Recommend |
+| Fortnightly Wed | Review the standing proposals; **a person applies what they agree with** | Manual |
+| Monthly 1st | Recompute the GPM baseline and band thresholds | Config |
+| Quarterly | Re-test anything previously cut, 7-day window | Manual |
 
-Two deliberate choices. **Proposals wait a fortnight before becoming actions**,
-so a single bad week cannot cut a partner — a rule that acts on one week's data
-would have cut half the marketplace during the Advetisi decline. And **cuts
-happen on Wednesdays**, never Friday: nobody wants to discover a bad cut on a
-Saturday, which is exactly how the April incident got expensive.
+Three deliberate choices:
+
+- **A proposal must survive two consecutive sweeps** before it is worth acting
+  on. A rule reacting to one week would have recommended cutting half the
+  marketplace during the Advetisi decline.
+- **Act on Wednesdays, never Friday.** Nobody wants to discover a bad cut on a
+  Saturday, which is exactly how the April incident got expensive.
+- **The digest names an owner per finding** — commercial or engineering. A
+  volume collapse at flat price and an eCPM slide are different problems with
+  different fixes, and routing them to the same person wastes both.
 
 ---
 
@@ -140,6 +149,29 @@ for two-thirds of one percent of revenue is the clearest trade on the board.
 
 `BidFuse CTV AdPrime #304` is the extreme: 874M requests for **$4.30**.
 
+### 3.5 Promotion gate — what would justify automating this
+
+The rule above is implemented and tested, and it stays advisory. Automating it
+is a separate decision, and these are the conditions that would earn it. All of
+them, not a majority:
+
+1. **Three months of proposals reviewed by a person**, with a record of how
+   often the recommendation was accepted. If a human overrides the rule
+   regularly, the rule is wrong and automating it just makes it fast.
+2. **Zero false positives on a live partner** across that period. One
+   automated cut of a healthy partner costs more than a quarter of saved QPS.
+3. **The Teqblaze ID mapping exists** (`docs/teqblaze-new-platform.md`
+   §8.1.10b), so an action addresses the entity it was reasoned about.
+4. **A verified rollback.** Teqblaze cannot shape traffic, so a cut is binary;
+   we need to have re-enabled a source and watched it recover before trusting
+   the reverse direction.
+5. **The Advetisi question is closed.** While a 43% decline is unexplained, no
+   automated rule should be changing the same marketplace — it makes the next
+   attribution impossible.
+
+Until then the sentry has no write path at all: not a flag, not a gated one.
+A flag whose only purpose is to attempt writes is an invitation.
+
 ### Safeguards
 
 - **Grace period, 21 days.** New integrations ramp, wait on seat approval, and
@@ -167,7 +199,7 @@ without a code change. Defaults are the values argued for above.
 
 | Tier | Scope | Status |
 |---|---|---|
-| 1 | Alerts and reports — regression, delivery health, headroom, QPS proposals | **Buildable now**, no new credentials |
+| 1 | Alerts and recommendations — `marketplace_digest.py`, `tb_headroom.py`, `qps_waste_sentry.py`, `tb_whatchanged.py` | **Built, read-only**, no new credentials |
 | 2 | Demand-side pricing — `geo_settings.bid_floor[]`, `qps[]`, `blacklist[]`, `margin_type`, `spend_limit` | Needs TBX credentials. No publisher contract exposure, so a mistake costs fill, not a breach |
 | 3 | Routing and capacity — `is_allowed_sources`, `qps_limit`, placement `status` | Needs tier 2 proven |
 | 4 | Supply-side floors — `placements[].floor_price`, per-placement margin | **Blocked**: `PROTECTED_FLOOR_MINIMUMS` empty (legacy IDs don't map), round trip unverified, `is_smart_floor` state unknown. That combination caused the April incidents |
@@ -178,15 +210,14 @@ Nothing here is registered in `scheduler.py` yet. When it is, follow the repo
 convention: an env flag per job, default off.
 
 ```
-PGAM_REVENUE_REGRESSION_ENABLED=0    # daily alert
-PGAM_QPS_SENTRY_ENABLED=0            # weekly proposals
-PGAM_QPS_SENTRY_APPLY=0              # fortnightly execution — needs TBX_ALLOW_WRITES=1 too
+PGAM_MARKETPLACE_DIGEST_ENABLED=0    # daily recommendations to Slack
+PGAM_QPS_SENTRY_ENABLED=0            # weekly proposal set
 ```
 
-The apply path is separately gated on purpose. `PGAM_OPTIMIZER_AUTO_APPLY=0`
-and `PGAM_FLOOR_OPTIMIZER_ENABLED=0` are both still off after the April
-incidents; this rule does not get a softer default than the ones that caused
-them.
+There is no apply flag, because there is no apply path.
+`PGAM_OPTIMIZER_AUTO_APPLY=0` and `PGAM_FLOOR_OPTIMIZER_ENABLED=0` are both
+still off after the April incidents; a rule proposing irreversible-in-effect
+cuts does not get a softer default than the ones that caused them.
 
 ---
 
