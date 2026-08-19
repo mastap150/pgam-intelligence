@@ -936,6 +936,25 @@ def ads_txt_verification_history(filters: dict | None = None,
                      {"filter": dict(filters or {})}, per_page=per_page)
 
 
+def scanner_settings(source_type: str | None = None) -> Any:
+    """
+    `GET /scanner-settings` (or `/scanner-settings/{source_type}`) — the
+    third-party scanners configured on the account, each with `scanner_id`,
+    `name`, `key`, `type` (prebid/postbid) and `status`.
+
+    Note the vendors here are the platform's own scanner integrations — the
+    spec names Pixalate, Protected Media, FraudSensor, MediaGuard and GeoEdge.
+    **HUMAN is not one of them**; it has its own module, `human_report` and
+    `human_report_settings`. Do not read this expecting to find HUMAN.
+
+    Which scanners are *enabled per source* is a different question again: that
+    lives on each supply/demand source's own `scanner_settings[]` array, keyed
+    on the `setting_id` values this returns.
+    """
+    path = f"/scanner-settings/{source_type}" if source_type else "/scanner-settings"
+    return _request("GET", path)
+
+
 def scanner_statistics(
     kind: str = "prebid",
     date_from: str | None = None,

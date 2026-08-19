@@ -358,6 +358,20 @@ def pull_diagnostics(df: str, dt: str, log_rows: int) -> None:
     table(pull("dict_failure_reasons", tbx.failure_reasons) or [],
           ["id", "name", "key"], limit=40)
 
+    section("scanner settings — which third-party scanners are configured")
+    settings = pull("scanner_settings", tbx.scanner_settings)
+    if settings is not None:
+        rows = settings.get("data", settings) if isinstance(settings, dict) else settings
+        if isinstance(rows, list):
+            table(rows, ["id", "scanner_id", "name", "key", "type", "status"], limit=30)
+            enabled = [r for r in rows if r.get("status")]
+            names = ", ".join(f"{r.get('name')}/{r.get('type')}" for r in enabled)
+            print(f"  {len(enabled)}/{len(rows)} enabled  ({names or 'none'})")
+        else:
+            print(f"  {json.dumps(rows, default=str)[:600]}")
+    print("  NB: HUMAN is not in this list — it is a separate module. See the")
+    print("      human-report section for its volume and charge figures.")
+
     section("scanner statistics")
     for kind, metrics in (("prebid", ["requests_sum", "blocked_sum", "blocked_rate"]),
                           ("postbid", ["scan_attempts", "scans"])):

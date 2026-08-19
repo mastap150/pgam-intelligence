@@ -194,8 +194,49 @@ into named reasons (`failure-reasons` dictionary maps the IDs).
 metrics. This names the cause.
 
 Adjacent: `POST /scanner-statistics/prebid` → `requests_sum`, `blocked_sum`,
-`blocked_rate` per supply source — is the fraud scanning we pay for blocking
-anything, and where. `postbid` gives `scan_attempts` / `scans`.
+`blocked_rate` per supply source; `postbid` gives `scan_attempts` / `scans`.
+Which scanner is blocking, and where.
+
+**These are not HUMAN.** The `/scanner-settings` module covers the third-party
+scanners the platform integrates — the spec's payload union names Pixalate,
+Protected Media, FraudSensor, MediaGuard and GeoEdge — each toggleable per
+scanner and per source. HUMAN is a **separate module** (`/human-report`,
+`/human-report/settings`) and its volume does not appear in
+`scanner-statistics` at all. An earlier revision of this doc treated them as
+one thing; they are not, and the distinction matters for §3.6.
+
+### 3.6 HUMAN — ours to pay for, therefore ours to manage
+
+PGAM holds the HUMAN contract directly. Teqblaze operates the integration and
+does not bill us for it, and the scan runs **both pre-bid and post-bid**
+(confirmed by Priyesh, 2026-08-19). So HUMAN scan volume is a cost PGAM controls
+and, today, cannot see. Three endpoints make it visible:
+
+| Signal | Where |
+|---|---|
+| Pre-bid scan volume | `human-report/risk-metrics` → `requests_sum` |
+| Post-bid scan volume | `human-report/traffic-report` → `impressions_sum` |
+| What HUMAN charges | `human-report/traffic-report` → `charge_amount_sum` |
+| What the scanning caught | `risk-metrics` → `mfa_sum`, `sivt_sum`, `givt_sum` |
+
+Both cuts break down by `inventory_key`, so cost and value land on the same
+domain. That is the whole input to a scan-cost monitor: spend per domain
+against invalid traffic actually caught per domain. A domain generating heavy
+pre-bid scan volume, a negligible IVT catch rate and little revenue is one we
+are paying HUMAN to inspect for nothing.
+
+Two things have to be settled before that monitor can act rather than just
+report, and both are questions for Teqblaze (§8.1.7):
+
+1. **Can HUMAN scanning be scoped at all** — per supply source, per traffic
+   type, sampled — or is it all-or-nothing for the account? The per-source
+   `scanner_settings[]` array keys on `scanner_id` / `setting_id` from the
+   `/scanner-settings` module, which does **not** list HUMAN, so there may be
+   no per-source lever. If there is none, "manage it on our end" can only mean
+   managing which supply we accept, not which we scan — a much blunter
+   instrument, and worth knowing before we plan around the finer one.
+2. **Does `charge_amount_sum` reconcile with HUMAN's invoice to us?** If it
+   does, it is a monthly cross-check on a bill we currently take on trust.
 
 ---
 
@@ -417,6 +458,16 @@ These are onboarding unknowns, and two of them gate the write path.
 
 **Blocking the write path — ask first**
 
+1. **HUMAN scan-cost monitor.** We pay HUMAN per scan and the platform scans
+   pre-bid and post-bid, so this is spend we own and cannot currently see. Join
+   `risk-metrics` (requests scanned, IVT caught) to `traffic-report`
+   (impressions scanned, `charge_amount_sum`) to `/report` (revenue), all keyed
+   on `inventory_key`, and rank domains by scan cost against invalid traffic
+   caught and revenue earned. Reports only until §8.1.7(a) tells us whether
+   scanning can be scoped — there is no point proposing a change we have no
+   lever to make. Cheap, and it pays for itself the first time it finds a
+   domain we are scanning for nothing.
+
 1. **Do the `/update` endpoints replace the whole object or patch it?**
    `POST /supply-sources/{id}/update` and `/demand-sources/{id}/update` take
    what looks like a complete entity. If it is a full replace, any field we
@@ -459,19 +510,30 @@ These are onboarding unknowns, and two of them gate the write path.
 
 **Commercial / data**
 
-7. **HUMAN.** PGAM holds the HUMAN contract directly; Teqblaze only operates
-   the integration. So the questions are operational, not commercial: which of
-   our HUMAN credentials is the platform wired to, is it scanning 100% of
-   traffic or a sample, and at what point in the request does the scan happen
-   (pre-bid, post-bid, or both)? Does `traffic-report.charge_amount_sum`
-   reconcile with what HUMAN invoices **us** — if so it is a useful monthly
-   cross-check against our own bill, which is worth having regardless. And is
+7. **HUMAN — can the scan be scoped?** Settled already: we hold the contract,
+   you operate the integration and don't bill us, and the scan runs pre-bid and
+   post-bid. What we still need:
+   **(a)** Since we pay per scan, can scanning be **limited** — per supply
+   source, per traffic type, or by sampling — or is it all-or-nothing for the
+   account? We can see the volume via `risk-metrics.requests_sum` and
+   `traffic-report.impressions_sum`; what we lack is a lever. The per-source
+   `scanner_settings[]` array appears to cover only the `/scanner-settings`
+   vendors, which don't include HUMAN — is that right?
+   **(b)** Is pre-bid scanning applied to *every* bid request, or only to
+   requests that pass some earlier filter? This is the difference between a
+   large bill and a small one.
+   **(c)** Does `traffic-report.charge_amount_sum` match what HUMAN invoices
+   us, so we can use it as a monthly cross-check?
+   **(d)** Which of our HUMAN credentials is the integration wired to, and is
    anything on the platform currently *acting* on an MFA/SIVT/GIVT verdict, or
    is it reporting only?
 
-8. **Scanners.** Which are provisioned for us, prebid vs postbid, and what does
-   each cost? `scanner-statistics` exposes `blocked_rate`, so we can measure
-   value — we just need to know what we are paying for.
+8. **The other scanners.** Separately from HUMAN: which of the
+   `/scanner-settings` vendors (Pixalate, Protected Media, FraudSensor,
+   MediaGuard, GeoEdge) are provisioned for us, prebid vs postbid, which are
+   currently *enabled* on which sources, and who pays for each — you or us? If
+   any are billed to us the same cost question as §8.1.7 applies. If they're
+   yours, `blocked_rate` still tells us how much they're doing for us.
 
 9. **API sync / discrepancy.** What is the macro syntax in the sync URL (the
    spec example shows `{%Y-m-d%}`)? Can a partner endpoint requiring auth be
