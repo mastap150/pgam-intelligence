@@ -21,10 +21,13 @@ The Vercel projects (`pgam-www`, `pgam-direct-web`, `healthnation-web`,
 `closer-web`, `attune-tv-ads`, …) are **separate repos**. See the repo map in
 the playbook.
 
-## Two Teqblaze platforms, not one
+## Two Teqblaze APIs, one marketplace
 
-PGAM talks to two Teqblaze-family hosts. They are different systems with
-non-portable IDs, and conflating them is the easiest mistake to make here.
+`ssp.pgammedia.com` is the **old** Teqblaze platform PGAM was on;
+`api.pgammedia.com` is its **successor**, believed to serve the same underlying
+data (legacy reporting still answers). So this is a migration in progress — but
+the two APIs are different systems with non-portable IDs, and conflating them
+is the easiest mistake to make here.
 
 | | legacy "TB" | new "TBX" |
 |---|---|---|
@@ -34,9 +37,13 @@ non-portable IDs, and conflating them is the easiest mistake to make here.
 | Env | `TB_EMAIL`, `TB_PASSWORD`, `TB_USER_ID` | `TBX_EMAIL`, `TBX_PASSWORD` |
 | Entities | inventory → placement | supply/demand source → placement |
 
-Both are live. Neither replaces the other, and the `tb_*` scheduler jobs
-(`tb_floor_nudge`, `tb_contract_floor_sentry`) still run against the legacy
-host — do not repoint or delete them.
+Both are live *today*, and the `tb_*` scheduler jobs (`tb_floor_nudge`,
+`tb_contract_floor_sentry`) still run against the legacy host — do not repoint
+or delete them. The new platform is unverified against real data, so the legacy
+leg is the one currently carrying live floor decisions. Migrate deliberately
+(`docs/teqblaze-new-platform.md` §7), never by swapping a base URL: an ID
+mapping between the two does not exist yet, so contract floor minimums do not
+carry across.
 
 Writes to TBX are gated twice: `dry_run=True` by default on every call, plus
 `TBX_ALLOW_WRITES=1` at the environment level. The prerequisites for opening

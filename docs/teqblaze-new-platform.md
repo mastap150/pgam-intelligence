@@ -40,9 +40,22 @@ Locally, on a machine that has `.env` and network access:
 
 ---
 
-## 1. This is a second, different platform — not an upgrade path
+## 1. Successor platform — same marketplace, different API
 
-PGAM now talks to two Teqblaze-family hosts, and they are not the same system:
+Corrected 2026-08-19 on Priyesh's account. An earlier draft of this doc called
+the two hosts separate marketplaces; they are not. `ssp.pgammedia.com` is the
+**old** Teqblaze platform PGAM was on, `api.pgammedia.com` is its successor,
+and it is believed to be **the same underlying data** — legacy reporting still
+answers today. Treat "same data" as a strong hypothesis to verify, not as
+established (see §7, tranche 1), because the whole migration plan hangs on it.
+
+What that changes: this is a **migration**, not a second book. The legacy
+`tb_*` modules are a leg PGAM eventually steps off, so an ID mapping between
+the two is a migration blocker rather than a curiosity, and the deprecation
+date for the old host is now a scheduling input.
+
+What it does not change: the API is a genuinely different system, and none of
+the plumbing carries over:
 
 | | legacy | new |
 |---|---|---|
@@ -59,11 +72,17 @@ nothing here. Contract-floor maps, freeze lists and ledger entries all have to
 be re-keyed — `PROTECTED_FLOOR_MINIMUMS` in `core/tbx_mgmt.py` starts empty for
 exactly that reason.
 
-Whether the two hosts front the same inventory, or the new platform is a
-migration target, is a question for Teqblaze. Until that is answered, treat
-them as separate books. **Do not delete or repoint the legacy `tb_*` modules** —
+**Do not delete or repoint the legacy `tb_*` modules yet** —
 `tb_floor_nudge` and `tb_contract_floor_sentry` still run against the legacy
-host.
+host, and until the new platform is verified against real data, that leg is
+the one carrying live floor decisions. Migrate deliberately, per §7, not by
+repointing a base URL.
+
+The reconciliation is also the cheapest possible correctness test we have: if
+both hosts really do serve the same marketplace, then a TBX report and the
+legacy `pgam_direct` tables should agree on impressions and spend for the same
+window. Any material gap means one of the two is wrong about our revenue, and
+that is worth knowing before either drives a write.
 
 ---
 
@@ -330,10 +349,27 @@ read-only.
    the account's live `report/columns-list` against this client's constants,
    which is how we learn if the account exposes attributes or metrics the spec
    didn't document.
-2. ETL the new report into Neon `pgam_direct` beside the legacy TB tables, with
-   `supply_source × demand_source × country × date` granularity. Do not merge
-   the two platforms' tables until §1 is answered.
-3. Reconcile: one day of `sellers-validation` + `ads-txt-verification` against
+2. **Reconcile against the legacy platform first.** Now that the two hosts are
+   understood to serve the same marketplace (§1), pull a settled 7-day window
+   from `/report` at `date × supply_source` and compare impressions and spend
+   against the legacy `pgam_direct` TB tables for the same window. Watch for
+   the timezone trap: legacy reporting and `filter.timezone` must be set to the
+   same zone or the daily buckets will disagree for reasons that have nothing
+   to do with the data. Three outcomes, all informative:
+   - **Agreement** → the new platform is trustworthy for revenue, and the
+     migration is a porting exercise.
+   - **Constant offset** → likely a fee or margin applied at a different stage;
+     find it before anything downstream inherits it.
+   - **Row-level divergence** → one host is wrong about our revenue. Stop and
+     resolve that before either drives a write. Ask §8.1.10(c).
+
+   This is the cheapest correctness test available and it gates everything
+   else, so do it before building any ETL.
+3. ETL the new report into Neon `pgam_direct` beside the legacy TB tables, with
+   `supply_source × demand_source × country × date` granularity. Keep the two
+   platforms' tables separate until step 2 agrees — a premature union would
+   double-count the same marketplace.
+4. Reconcile: one day of `sellers-validation` + `ads-txt-verification` against
    one day of our own compliance findings. That comparison decides how much of
    `agents/compliance/crawlers` retires.
 
@@ -423,10 +459,15 @@ These are onboarding unknowns, and two of them gate the write path.
 
 **Commercial / data**
 
-7. **HUMAN.** Is the integration live on our account? `traffic-report` returns
-   `charge_amount_sum`, so: are we billed per scan, at what rate, and is
-   scanning 100% of traffic or sampled? What MFA/SIVT/GIVT thresholds do they
-   consider actionable, and does anything enforce automatically today?
+7. **HUMAN.** PGAM holds the HUMAN contract directly; Teqblaze only operates
+   the integration. So the questions are operational, not commercial: which of
+   our HUMAN credentials is the platform wired to, is it scanning 100% of
+   traffic or a sample, and at what point in the request does the scan happen
+   (pre-bid, post-bid, or both)? Does `traffic-report.charge_amount_sum`
+   reconcile with what HUMAN invoices **us** — if so it is a useful monthly
+   cross-check against our own bill, which is worth having regardless. And is
+   anything on the platform currently *acting* on an MFA/SIVT/GIVT verdict, or
+   is it reporting only?
 
 8. **Scanners.** Which are provisioned for us, prebid vs postbid, and what does
    each cost? `scanner-statistics` exposes `blocked_rate`, so we can measure
@@ -437,12 +478,20 @@ These are onboarding unknowns, and two of them gate the write path.
    registered — custom headers, basic auth, a token query param? How often does
    the sync run, and what happens on repeated failure?
 
-10. **Relationship to the legacy host.** Do `api.pgammedia.com` and
-    `ssp.pgammedia.com` front the same inventory and demand, or two separate
-    marketplaces? Is either deprecated, and on what timeline? Is there **any
-    ID mapping** between legacy inventories/placements and new supply
-    sources/placements? Without one, contract floor minimums (9 Dots $1.70)
-    have to be re-derived by hand on the new platform.
+10. **Migration off the legacy host.** We understand `api.pgammedia.com` to be
+    the successor to `ssp.pgammedia.com`, serving the same marketplace, with
+    legacy reporting still live. Confirm that, then:
+    **(a)** when is the legacy host's reporting API switched off? We have
+    scheduled jobs reading it daily, and a silent shutdown reads to us as a
+    revenue drop.
+    **(b)** is there an **ID mapping** from legacy inventories/placements to
+    new supply sources/placements — even a one-off export? Without one, every
+    contract floor minimum (9 Dots $1.70 among them) has to be re-derived by
+    hand, and that is the kind of manual re-keying that gets a floor wrong.
+    **(c)** for a given day, should a legacy `adx-report` and a new `/report`
+    return the same impressions and spend? If they can legitimately differ —
+    different timezone default, different dedup, fees applied at a different
+    stage — we need to know where, because we will be comparing them.
 
 11. **A sandbox or test account**, so the write path can be exercised without
     touching live money. This is the cheapest way to answer question 1.
