@@ -88,6 +88,37 @@ propose-only, with the promotion gate in `docs/optimization-cadence.md` §3.5.
 The first application of a new cut rule is the worst possible moment to also
 debut an automated writer.
 
+### A credential would not fix blocker 2
+
+Worth being explicit, because it is the counter-intuitive one. Only **six**
+legacy endpoints are known to this repo, all reverse-engineered by probing:
+`list_placement`, `edit_inventory`, `edit_placement_banner`,
+`edit_placement_video`, `edit_placement_native`, `set_floor`. Every one is
+supply-side. **No demand-side mutation on `ssp.pgammedia.com` has ever been
+found**, which is why `core/tb_mgmt.py` has no function for it.
+
+So handing a session a legacy password would not enable this cut — it would
+enable *guessing* an endpoint name and POSTing a mutation at the platform that
+currently carries PGAM's live floor decisions. That is the April failure mode
+with extra steps.
+
+There is precedent for the alternative: `docs/vadym_ssp_company_endpoint_request.md`
+is a previous request to Teqblaze for API surface that could not be found.
+
+### The durable fix is the new platform, not a legacy workaround
+
+`api.pgammedia.com` already has exactly the endpoint the legacy API lacks:
+
+    POST /demand-sources/{id}/status
+
+So automating this needs no favour from Teqblaze and no reverse-engineering. It
+needs the two things already on the list: the `TBX_EMAIL` / `TBX_PASSWORD` repo
+secrets, and the ID mapping (`docs/teqblaze-new-platform.md` §8.1.10b) so a
+legacy endpoint number resolves to a new-platform demand source. `set_demand_source_status()`
+in `core/tbx_mgmt.py` is already written and already gated.
+
+Until then: UI for this one-off, and the runbook above.
+
 ## What the platform can't tell us
 
 Zero wins is consistent with two different faults, and the legacy tables cannot
