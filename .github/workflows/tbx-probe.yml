@@ -40,6 +40,20 @@ name: TBX Data Pull (new Teqblaze platform)
 # pull, the ETL belongs on Render with Neon persistence instead.
 
 on:
+  # Pre-merge escape hatch. workflow_dispatch only works for workflows that
+  # already live on the default branch (dispatching this from the feature
+  # branch returns 404 — verified). A push-triggered workflow, by contrast,
+  # runs from the copy on the pushed ref, so this is the only way to exercise
+  # the pull before #99 merges. Scoped to this branch and to this file, so it
+  # fires only when the file is deliberately touched, not on every commit.
+  #
+  # REMOVE THIS BLOCK AT MERGE — on main, workflow_dispatch is the right door.
+  push:
+    branches:
+      - claude/teqblaze-platform-integration-xhazcl
+    paths:
+      - .github/workflows/tbx-probe.yml
+
   workflow_dispatch:
     inputs:
       days:
@@ -102,6 +116,13 @@ jobs:
         # pandas and playwright, none of which this touches.
         run: pip install --quiet requests python-dotenv
 
+      - name: Offline sanity checks
+        # Runs BEFORE the credential gate on purpose: it needs no secrets,
+        # so even a run with none configured still proves the client works
+        # on a clean runner with only requests + python-dotenv installed.
+        # If this fails, the bug is ours, not the platform's.
+        run: python3 tests/test_tbx.py
+
       - name: Verify credentials are present
         run: |
           if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
@@ -111,11 +132,6 @@ jobs:
           fi
           echo "Credentials present for: ${TBX_EMAIL%%@*}@***"
 
-      - name: Offline sanity checks
-        # Cheap guard: if the client's own logic is broken, fail here rather
-        # than misattributing it to the platform.
-        run: python3 tests/test_tbx.py
-
       - name: Connectivity probe
         run: python3 scripts/tbx_probe.py --dictionaries
 
@@ -123,9 +139,9 @@ jobs:
         # Inputs arrive via env, not ${{ }} interpolation into the shell —
         # dispatch inputs are free text and would otherwise be executed.
         env:
-          IN_DAYS: ${{ inputs.days }}
-          IN_LOG_ROWS: ${{ inputs.log_rows }}
-          IN_MAX_SOURCES: ${{ inputs.max_sources }}
+          IN_DAYS: ${{ inputs.days || '7' }}
+          IN_LOG_ROWS: ${{ inputs.log_rows || '15' }}
+          IN_MAX_SOURCES: ${{ inputs.max_sources || '25' }}
           IN_SKIP: ${{ inputs.skip }}
         run: |
           python3 scripts/tbx_pull.py \
@@ -139,7 +155,7 @@ jobs:
         # Only runs when an entity is named. Prints the read→write payload
         # diff; sends nothing. This is the gate described in
         # docs/teqblaze-new-platform.md §6.
-        if: inputs.diff_shape != ''
+        if: github.event_name == 'workflow_dispatch' && inputs.diff_shape != ''
         env:
           IN_DIFF_SHAPE: ${{ inputs.diff_shape }}
         run: python3 scripts/tbx_probe.py --diff-shape "$IN_DIFF_SHAPE"
