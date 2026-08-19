@@ -47,7 +47,7 @@
               padding: 0 20px; gap: 22px; flex: none; }
     .nav { height:52px; display:flex; align-items:center; padding:0 12px; font-size:13px;
            font-weight:400; color:#9098A6; }
-    .nav.on { color:#fff; font-weight:500; box-shadow: inset 0 -2px 0 #E67A1F; }
+    .nav.on { color:#fff; font-weight:500; box-shadow: inset 0 -2px 0 #0B3CFF; }
   </style>
 </helmet>
 <div class="r" style="width: 1360px; min-height: 880px; display: flex; flex-direction: column;">
@@ -56,7 +56,7 @@
     <div style="display:flex; align-items:center; gap:9px;">
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 15L9 3l7 12H2z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
       <span style="color:#fff; font-size:13px; font-weight:600; letter-spacing:-.01em;">PGAM Admin</span>
-      <span class="m" style="font-size:10px; color:#E67A1F; border:1px solid #803F15; background:#2E1D10; padding:2px 6px; border-radius:4px; letter-spacing:.04em;">INTERNAL</span>
+      <span class="m" style="font-size:10px; color:#F8D06A; border:1px solid #803F15; background:#512710; padding:2px 6px; border-radius:4px; letter-spacing:.04em;">INTERNAL</span>
     </div>
     <div style="display:flex; gap:2px;">
       <div class="nav on">Fulfilment</div><div class="nav">All deals</div>
@@ -70,7 +70,7 @@
   <div style="padding:20px 24px 14px; display:flex; align-items:flex-start; gap:16px;">
     <div style="display:flex; flex-direction:column; gap:4px;">
       <div style="font-size:24px; font-weight:600; letter-spacing:-.021em;">Fulfilment queue</div>
-      <div style="font-size:13px; color:#545C6B;">3 open · median time to Deal ID this week <strong style="font-weight:600; color:#0C1017;">38 min</strong></div>
+      <div style="font-size:13px; color:#545C6B;">3 in queue · 1 claimed by you · median time to Deal ID this week <strong style="font-weight:600; color:#0C1017;">38 min</strong></div>
     </div>
     <div style="margin-left:auto; display:flex; gap:16px; align-items:center;">
       <div style="display:flex; flex-direction:column; gap:2px; text-align:right;">
@@ -79,7 +79,7 @@
       </div>
       <div style="width:1px; height:32px; background:#E3E7EF;"></div>
       <div style="display:flex; flex-direction:column; gap:2px; text-align:right;">
-        <span class="lbl">Oldest open</span>
+        <span class="lbl">Oldest in queue</span>
         <span class="num" style="font-size:18px; font-weight:600; color:#B94018;">51 min</span>
       </div>
     </div>
@@ -197,7 +197,7 @@
         <div style="margin-left:auto; display:flex; align-items:center; gap:14px;">
           <div style="text-align:right; display:flex; flex-direction:column; gap:2px;">
             <span class="lbl">Margin</span>
-            <span class="num" style="font-size:13px; font-weight:600; color:#991B1B;">−5.0%</span>
+            <span class="num" style="font-size:13px; font-weight:600; color:#991B1B;">−7.5%</span>
           </div>
           <div class="btn btn-s">Suggest $21</div>
           <div class="btn btn-s">Override</div>
@@ -215,7 +215,7 @@
             <span style="font-size:13px; font-weight:500;">PubMatic · 17496</span>
             <span class="pill p-live" style="margin-left:auto; height:20px; font-size:10px;">Reads OK</span>
           </div>
-          <div style="font-size:12px; color:#545C6B; line-height:1.45;">Deal creation is <strong style="font-weight:500;">manual</strong> — no write API yet. 12 built this week, median 34 min.</div>
+          <div style="font-size:12px; color:#545C6B; line-height:1.45;">Deal creation is <strong style="font-weight:500;">manual</strong> — no write API yet. 12 built this week, median 41 min.</div>
         </div>
         <div style="height:1px; background:#EEF0F5;"></div>
 
@@ -224,7 +224,7 @@
             <span style="font-size:13px; font-weight:500;">Magnite · ClearLine</span>
             <span class="pill p-bld" style="margin-left:auto; height:20px; font-size:10px;">Manual only</span>
           </div>
-          <div style="font-size:12px; color:#545C6B; line-height:1.45;">Console build, ~2 min each. Forecast API still returns 422 — seat ticket open since May.</div>
+          <div style="font-size:12px; color:#545C6B; line-height:1.45;">7 built this week, ~4 min each. Forecast API still returns 422 — seat ticket open since May.</div>
         </div>
         <div style="height:1px; background:#EEF0F5;"></div>
 
