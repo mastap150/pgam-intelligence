@@ -21,6 +21,28 @@ The Vercel projects (`pgam-www`, `pgam-direct-web`, `healthnation-web`,
 `closer-web`, `attune-tv-ads`, …) are **separate repos**. See the repo map in
 the playbook.
 
+## Two Teqblaze platforms, not one
+
+PGAM talks to two Teqblaze-family hosts. They are different systems with
+non-portable IDs, and conflating them is the easiest mistake to make here.
+
+| | legacy "TB" | new "TBX" |
+|---|---|---|
+| Host | `ssp.pgammedia.com/api` | `api.pgammedia.com` |
+| Auth | token in the URL path | `POST /login` → Bearer JWT |
+| Modules | `core/tb_api.py`, `core/tb_mgmt.py` | `core/tbx_api.py`, `core/tbx_mgmt.py` |
+| Env | `TB_EMAIL`, `TB_PASSWORD`, `TB_USER_ID` | `TBX_EMAIL`, `TBX_PASSWORD` |
+| Entities | inventory → placement | supply/demand source → placement |
+
+Both are live. Neither replaces the other, and the `tb_*` scheduler jobs
+(`tb_floor_nudge`, `tb_contract_floor_sentry`) still run against the legacy
+host — do not repoint or delete them.
+
+Writes to TBX are gated twice: `dry_run=True` by default on every call, plus
+`TBX_ALLOW_WRITES=1` at the environment level. The prerequisites for opening
+that gate are in `docs/teqblaze-new-platform.md` §6. Spec is vendored at
+`docs/api/teqblaze-openapi.json`; probe with `scripts/tbx_probe.py`.
+
 ## Secrets are not present in this repo, ever
 
 - `.env` is gitignored; `.env.example` holds names with empty placeholder values.
