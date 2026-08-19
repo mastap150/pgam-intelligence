@@ -18,6 +18,9 @@ name: Marketplace Headroom (legacy TB data in Neon)
 # The log carries revenue figures; it is visible to repo collaborators, same as
 # any other run log here.
 #
+# Rev 2: adds per-partner, partner×country, win→impression render loss, and
+#        an explicit first-7d vs last-7d trend block.
+#
 # Run:  Actions → this workflow → Run workflow  (once it is on the default
 #       branch — workflow_dispatch only works from there). Before then, touching
 #       this file and pushing fires it via the push trigger below.

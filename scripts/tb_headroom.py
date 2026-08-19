@@ -166,6 +166,36 @@ def marketplace_shape(conn, df: str, dt: str) -> None:
         print(f"\n  window total: gross ${gross:,.2f}  profit ${profit:,.2f}  "
               f"blended margin {100 * profit / gross if gross else 0:,.2f}%")
 
+        # A 30-row table hides a trend. Compare the ends of the window.
+        if len(rows) >= 14:
+            first, last = rows[:7], rows[-7:]
+
+            def avg(block, idx):
+                vals = [float(r[idx] or 0) for r in block]
+                return sum(vals) / len(vals) if vals else 0.0
+
+            section("trend: first 7 days vs last 7 days of the window")
+            metrics = [("imps", 1), ("gross $", 2), ("profit $", 4),
+                       ("margin %", 5), ("eCPM $", 6)]
+            trend_rows = []
+            for label, idx in metrics:
+                a, b = avg(first, idx), avg(last, idx)
+                delta = (100 * (b - a) / a) if a else 0.0
+                trend_rows.append((label, round(a, 3), round(b, 3), round(delta, 1)))
+            table(trend_rows, ["metric", "first_7d_avg", "last_7d_avg", "change_%"],
+                  limit=10)
+
+            g_a, g_b = avg(first, 2), avg(last, 2)
+            p_a, p_b = avg(first, 4), avg(last, 4)
+            if g_a and g_b < g_a * 0.85:
+                print(f"\n  ⚠️  DAILY GROSS DOWN {100 * (g_a - g_b) / g_a:,.1f}% "
+                      f"across the window (${g_a:,.0f} → ${g_b:,.0f}/day).")
+                print(f"      Daily profit ${p_a:,.0f} → ${p_b:,.0f} "
+                      f"(−{100 * (p_a - p_b) / p_a if p_a else 0:,.1f}%), "
+                      f"≈ ${(p_a - p_b) * 30:,.0f} per 30 days.")
+                print("      Margin held, so this is volume and price, not a margin")
+                print("      problem — no margin lever fixes it. Diagnose before tuning.")
+
 
 def demand_side(conn, df: str, dt: str) -> None:
     heading("2. DEMAND SIDE — where the money comes from, and at what margin")
@@ -230,6 +260,72 @@ def demand_side(conn, df: str, dt: str) -> None:
                   "send them only what they actually bid on. Confirm against "
                   "`bids-overview` drop reasons on the new platform first — that "
                   "names the cause, which this can only infer.")
+
+
+def render_loss(conn, df: str, dt: str) -> None:
+    """Wins that never became impressions.
+
+    We won the auction and then no ad rendered. On the legacy tables this can
+    only be inferred as imps/wins; the new platform exposes `render_rate` and
+    `timeout_rate` directly, which is why they are called out in §2 of the doc
+    as having no legacy equivalent.
+    """
+    heading("2b. WIN → IMPRESSION LOSS (inferred render rate)")
+    print("  A win we don't render is an auction we paid to enter and earned")
+    print("  nothing from. Anything well under ~90% deserves a look; the")
+    print("  healthy sources here sit at 93-99%.")
+    rows = run(conn, "render rate", """
+        SELECT demand_name,
+               sum(wins)::bigint,
+               sum(impressions)::bigint,
+               CASE WHEN sum(wins) > 0
+                    THEN round((100.0 * sum(impressions) / sum(wins))::numeric, 1) END,
+               round(sum(gross_revenue)::numeric, 2),
+               CASE WHEN sum(impressions) > 0
+                    THEN round((1000.0 * sum(gross_revenue)
+                                / sum(impressions))::numeric, 3) END
+        FROM pgam_direct.tb_daily_demand_revenue
+        WHERE report_date BETWEEN %(df)s AND %(dt)s
+        GROUP BY demand_name
+        HAVING sum(wins) > 1000000 AND sum(impressions) > 0
+           AND sum(impressions) < 0.9 * sum(wins)
+        ORDER BY (sum(wins) - sum(impressions)) DESC
+    """, {"df": df, "dt": dt})
+    if rows is not None:
+        table(rows, ["demand_source", "wins", "imps", "render%", "gross", "eCPM"],
+              limit=25)
+        if rows:
+            lost = sum(int(r[1] or 0) - int(r[2] or 0) for r in rows)
+            print(f"\n  {lost:,} wins across {len(rows)} sources did not render.")
+            # Size the opportunity at each source's own eCPM, lifting only the
+            # worst offenders to a conservative 90%. Deliberately not summed
+            # into one headline number — see the caveat below.
+            worst = [r for r in rows if r[3] is not None and float(r[3]) < 60]
+            if worst:
+                print("\n  Sources under 60% render, with the revenue a lift to 90%")
+                print("  would imply at their current eCPM:")
+                est_rows = []
+                for name, wins, imps, pct, gross, ecpm in worst:
+                    if not ecpm:
+                        continue
+                    extra_imps = int(0.90 * int(wins)) - int(imps)
+                    est_rows.append((name, float(pct), int(imps),
+                                     max(extra_imps, 0),
+                                     round(max(extra_imps, 0) * float(ecpm) / 1000, 2)))
+                est_rows.sort(key=lambda r: -r[4])
+                table(est_rows, ["demand_source", "render%", "imps_now",
+                                 "imps_if_90%", "implied_gross_30d"], limit=15)
+                print("\n  Treat those figures as an upper bound, not a forecast:")
+                print("  eCPM would likely fall as volume rises, and some win→imp")
+                print("  loss is legitimate (VAST wrapper failures, timeouts,")
+                print("  viewability). The point is the ranking, not the total.")
+            lever("This is a diagnosis job before it is a lever. On the new "
+                  "platform read `render_rate` and `timeout_rate` per demand "
+                  "source, and `bids-overview` for the named drop reason. Then "
+                  "the levers are `integration.default_tmax` (a too-tight tmax "
+                  "kills renders), `billing_type` (adm/nurl/burl/imptrackers — "
+                  "the wrong one under-counts impressions that did render), and "
+                  "`video_filter[]` sizes for video endpoints.")
 
 
 def geo(conn, df: str, dt: str) -> None:
@@ -330,6 +426,12 @@ def pairs(conn, df: str, dt: str) -> None:
     """, {"df": df, "dt": dt})
     if rows is not None:
         table(rows, ["publisher", "demand_source", "bids", "wins", "imps"], limit=25)
+        if not rows:
+            print("\n  NOTE: empty here does NOT mean there is no waste. The ETL")
+            print("  that fills tb_daily_publisher_demand_revenue skips rows with")
+            print("  gross_revenue <= 0 (agents/etl/tb_segments_etl.py), so a pair")
+            print("  that bids and never wins is filtered out upstream and cannot")
+            print("  appear. The DSP-level view in §2 is where that waste shows.")
         if rows:
             wasted = sum(int(r[2] or 0) for r in rows)
             print(f"\n  {wasted:,} bid requests across {len(rows)} pairs that never "
@@ -337,6 +439,76 @@ def pairs(conn, df: str, dt: str) -> None:
             lever("Same routing lever, plus `qps_limit`. On the new platform, "
                   "`bids-overview` names *why* each was dropped — worth reading "
                   "before cutting, in case the fix is a filter rather than a block.")
+
+
+def partners(conn, df: str, dt: str) -> None:
+    heading("4b. PER PARTNER (supply side)")
+    rows = run(conn, "per publisher", """
+        SELECT publisher_name,
+               sum(impressions)::bigint,
+               sum(bids)::bigint,
+               round(sum(gross_revenue)::numeric, 2),
+               round(sum(pub_payout)::numeric, 2),
+               round((sum(gross_revenue) - sum(pub_payout))::numeric, 2),
+               CASE WHEN sum(gross_revenue) > 0
+                    THEN round((100.0 * (sum(gross_revenue) - sum(pub_payout))
+                                / sum(gross_revenue))::numeric, 2) END,
+               CASE WHEN sum(impressions) > 0
+                    THEN round((1000.0 * sum(gross_revenue)
+                                / sum(impressions))::numeric, 3) END
+        FROM pgam_direct.tb_daily_publisher_revenue
+        WHERE report_date BETWEEN %(df)s AND %(dt)s
+        GROUP BY publisher_name
+        HAVING sum(gross_revenue) > 0
+        ORDER BY sum(gross_revenue) DESC
+    """, {"df": df, "dt": dt})
+    if rows:
+        table(rows, ["partner", "imps", "bids", "gross", "payout", "profit",
+                     "margin%", "eCPM"], limit=40)
+        total = sum(float(r[3] or 0) for r in rows)
+        top = sum(float(r[3] or 0) for r in rows[:3])
+        print(f"\n  {len(rows)} partners; top 3 = "
+              f"{100 * top / total if total else 0:,.1f}% of gross")
+        margins = [float(r[6]) for r in rows if r[6] is not None]
+        if margins:
+            print(f"  margin spread across partners: {min(margins):,.2f}% → "
+                  f"{max(margins):,.2f}%")
+            print("  Partner margin is a commercial term, not a dial to turn —")
+            print("  check the contract before treating a low one as a defect.")
+        lever("Per-placement `floor_price` and `price_type` on that partner's "
+              "supply source, and per-placement margin. HIGHEST-RISK levers: "
+              "direct contract exposure, and `PROTECTED_FLOOR_MINIMUMS` is "
+              "still empty because legacy ids do not map to the new platform. "
+              "`is_allowed_sources` + `demand_sources[]` is the safer lever — it "
+              "changes who buys the partner's inventory without repricing it.")
+
+    section("partner × country mix — where each partner's volume actually is")
+    rows = run(conn, "publisher x country", """
+        SELECT publisher_name, country,
+               sum(impressions)::bigint,
+               round(sum(gross_revenue)::numeric, 2),
+               CASE WHEN sum(impressions) > 0
+                    THEN round((1000.0 * sum(gross_revenue)
+                                / sum(impressions))::numeric, 3) END
+        FROM pgam_direct.tb_daily_publisher_country
+        WHERE report_date BETWEEN %(df)s AND %(dt)s
+        GROUP BY publisher_name, country
+        HAVING sum(impressions) > 100000
+        ORDER BY sum(impressions) DESC
+    """, {"df": df, "dt": dt})
+    if rows is not None:
+        table(rows, ["partner", "country", "imps", "gross", "eCPM"], limit=30)
+        cheap = [r for r in rows if r[4] is not None and float(r[4]) < 0.25]
+        if cheap:
+            imps = sum(int(r[2] or 0) for r in cheap)
+            gross = sum(float(r[3] or 0) for r in cheap)
+            print(f"\n  {len(cheap)} partner×country slices over 100k imps are "
+                  f"clearing under $0.25 eCPM: {imps:,} imps for ${gross:,.2f}.")
+            print("  That is volume we carry, and pay QPS for, at almost no price.")
+            lever("`geo_settings.bid_floor[]` on the demand side to stop buying it "
+                  "that cheap, or `geo_settings.qps[]` / `blacklist[]` to stop "
+                  "requesting it at all. Demand-side, so no partner contract "
+                  "exposure.")
 
 
 def dayparting(conn, df: str, dt: str) -> None:
@@ -441,10 +613,13 @@ def main() -> int:
             marketplace_shape(conn, df, dt)
         if counts.get("tb_daily_demand_revenue"):
             demand_side(conn, df, dt)
+            render_loss(conn, df, dt)
         if counts.get("tb_daily_country_revenue"):
             geo(conn, df, dt)
         if counts.get("tb_daily_publisher_demand_revenue"):
             pairs(conn, df, dt)
+        if counts.get("tb_daily_publisher_revenue"):
+            partners(conn, df, dt)
         if counts.get("tb_daily_hour"):
             dayparting(conn, df, dt)
         if counts.get("tb_daily_os"):
