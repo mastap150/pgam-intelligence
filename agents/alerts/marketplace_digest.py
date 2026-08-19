@@ -222,7 +222,9 @@ def check_render(conn, findings: list[Finding]) -> None:
     for name, wins, imps, gross in rows:
         wins, imps = int(wins or 0), int(imps or 0)
         pct = 100 * imps / wins if wins else 0
-        upside = (0.9 * wins - imps) * (float(gross or 0) / imps / 1000) if imps else 0
+        # Revenue per impression is gross/imps. An earlier version also divided
+        # by 1000, conflating it with eCPM, and printed every upside as $0.
+        upside = (0.9 * wins - imps) * (float(gross or 0) / imps) if imps else 0
         findings.append(Finding(
             "critical" if pct < 60 else "warning",
             f"{name} renders {pct:.1f}% of wins",
