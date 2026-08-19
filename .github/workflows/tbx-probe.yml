@@ -21,6 +21,12 @@ name: TBX Data Pull (new Teqblaze platform)
 # Run:  Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow
 #   or  gh workflow run tbx-probe.yml -f days=7
 #
+# NOTE: GitHub only offers workflow_dispatch for workflows that exist on the
+# repository's DEFAULT branch. Until this file lands on main it will not appear
+# in the Actions tab and `gh workflow run` returns 404, even though the file is
+# present on the feature branch. Merge first, then dispatch. Once it is on main
+# you can still target a feature branch with `--ref` to test changes to it.
+#
 # Results land in three places:
 #   • the job log        — full digest, which is what a Claude session reads
 #   • the run summary    — capability matrix table

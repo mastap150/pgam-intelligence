@@ -17,12 +17,19 @@ Two things block a Claude Code cloud session from verifying it directly:
    proxy (verified 2026-08-19). Credentials alone would not help; a cloud
    session cannot reach the platform at all.
 
-So verification runs on **GitHub Actions**, which has open network:
+So verification runs on **GitHub Actions**, which has open network. Setup is
+two steps, in this order:
 
-    Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow
+1. **Add the secrets** — Settings → Secrets and variables → Actions → New
+   repository secret: `TBX_EMAIL` and `TBX_PASSWORD`.
+2. **Land the workflow on `main`.** GitHub only offers `workflow_dispatch` for
+   workflows present on the default branch, so `.github/workflows/tbx-probe.yml`
+   is not dispatchable — and does not appear in the Actions tab — while it lives
+   only on a feature branch. Merge, then run.
 
-`.github/workflows/tbx-probe.yml` needs two repo secrets (`TBX_EMAIL`,
-`TBX_PASSWORD`) and is read-only. It publishes results three ways: the full
+Then: Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow.
+
+The workflow is read-only. It publishes results three ways: the full
 digest in the job log (which is how a session reads them back), a capability
 matrix in the run summary, and full per-surface JSON as a 7-day artifact.
 
