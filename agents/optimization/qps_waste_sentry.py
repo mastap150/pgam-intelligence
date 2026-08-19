@@ -281,6 +281,55 @@ def report(dimension: str, rows: list[dict], blended: float,
         print("\n  ► no setup meets the action bands this run")
 
 
+def record_proposals(actions: list[dict], dimension: str, blended: float,
+                     window: tuple[str, str]) -> int:
+    """Append each proposal to the TB ledger.
+
+    Claimed in this module's docstring and in docs/optimization-cadence.md
+    before it was implemented — that gap is why this exists as its own
+    function with its own test rather than a line buried in main().
+
+    Entries are written with `applied=False`, because nothing here executes:
+    the record says "this was recommended, on this evidence, on this date".
+    When someone cuts a source by hand afterwards, the ledger is what lets a
+    later revenue move be attributed to the decision instead of guessed at.
+    """
+    if not actions:
+        return 0
+    try:
+        from core import tb_ledger
+    except Exception as exc:
+        print(f"{_LOG} WARN: ledger unavailable ({exc}) — proposals NOT recorded. "
+              f"A later revenue move will not be attributable.", file=sys.stderr)
+        return 0
+
+    run_id = f"{ACTOR}:{date.today().isoformat()}"
+    written = 0
+    for r in actions:
+        try:
+            tb_ledger.record(
+                actor=ACTOR,
+                action=f"propose_{r['band']}",
+                entity_type="demand_source" if "DEMAND" in dimension else "supply_setup",
+                entity_id=r["name"],
+                reason=r["reason"],
+                before={"requests": r["requests"], "gross": r["gross"],
+                        "gpm": r["gpm"], "impressions": r["impressions"]},
+                after={},                     # nothing changed
+                applied=False,                # explicitly: this is a proposal
+                dry_run=False,                # not a dry run either — a recommendation
+                run_id=run_id,
+                extra={"blended_gpm": round(blended, 4),
+                       "window": {"from": window[0], "to": window[1]},
+                       "observe_days": OBSERVE_DAYS,
+                       "note": "proposal only; this module cannot write to any platform"},
+            )
+            written += 1
+        except Exception as exc:
+            print(f"{_LOG} WARN: could not record {r['name']}: {exc}", file=sys.stderr)
+    return written
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -326,6 +375,11 @@ def main() -> int:
             rows = classify(rows, blended, end)
             actions = enforce_blast_radius(rows, total_req)
             report(dim, rows, blended, actions, total_req)
+
+            n = record_proposals(actions, dim, blended, (df, dt))
+            if n:
+                print(f"\n  {n} proposal(s) recorded to the ledger "
+                      f"(applied=False — nothing was changed)")
 
             payload["dimensions"][dim] = {
                 "blended_gpm": round(blended, 4),

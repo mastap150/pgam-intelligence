@@ -463,6 +463,45 @@ def test_qps_waste_rule() -> None:
     check("QPS share cap limits one run", len(acted) == 1, str(len(acted)))
 
 
+def test_qps_proposals_reach_the_ledger() -> None:
+    """The docs promise every proposal is recorded. Prove it, at a temp path."""
+    print("\nQPS proposal ledger")
+    import importlib, json as _json, tempfile, os as _os
+    from agents.optimization import qps_waste_sentry as q
+    from core import tb_ledger
+
+    saved = tb_ledger.LEDGER_PATH
+    tmp = _os.path.join(tempfile.mkdtemp(), "ledger.jsonl")
+    tb_ledger.LEDGER_PATH = tmp
+    try:
+        actions = [{"name": "Illumin - RON copy1 #2179", "band": "cut",
+                    "reason": "zero revenue on 6.4B requests",
+                    "requests": 6_400_000_000, "gross": 0.0, "gpm": 0.0,
+                    "impressions": 0}]
+        n = q.record_proposals(actions, "DEMAND SOURCES", 0.8225,
+                               ("2026-08-05", "2026-08-18"))
+        check("proposal written", n == 1, str(n))
+
+        entries = [_json.loads(l) for l in open(tmp) if l.strip()]
+        check("exactly one entry", len(entries) == 1, str(len(entries)))
+        e = entries[0]
+        check("recorded as NOT applied", e["applied"] is False, str(e["applied"]))
+        check("not mislabelled as a dry run", e["dry_run"] is False, str(e["dry_run"]))
+        check("action names the band", e["action"] == "propose_cut", e["action"])
+        check("entity is the demand source", e["entity_id"].startswith("Illumin"),
+              e["entity_id"])
+        check("before-state captured for later attribution",
+              e["before"]["requests"] == 6_400_000_000)
+        check("after-state empty — nothing changed", e["after"] == {})
+        check("evidence carries the baseline",
+              e["extra"]["blended_gpm"] == 0.8225, str(e["extra"].get("blended_gpm")))
+
+        check("empty action list writes nothing",
+              q.record_proposals([], "DEMAND SOURCES", 0.8, ("a", "b")) == 0)
+    finally:
+        tb_ledger.LEDGER_PATH = saved
+
+
 def test_no_credentials_message() -> None:
     print("\nunconfigured behaviour")
     saved = (tbx.TBX_EMAIL, tbx.TBX_PASSWORD)
@@ -490,6 +529,7 @@ def main() -> int:
     test_roughly_equal()
     test_vocabulary()
     test_qps_waste_rule()
+    test_qps_proposals_reach_the_ledger()
     test_multipart_encoding()
     test_filter_value_writes()
     test_no_credentials_message()
