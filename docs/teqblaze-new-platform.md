@@ -367,19 +367,108 @@ read-only.
 
 ---
 
-## 8. Open questions for Teqblaze
+## 8. Questions for Teqblaze
 
-1. Do `api.pgammedia.com` and `ssp.pgammedia.com` front the same inventory and
-   demand, or two separate marketplaces? Is one deprecated?
-2. Rate limits and concurrency on the new API. The legacy one allowed a single
-   concurrent query per user; `tbx_api` conservatively serialises calls with a
-   0.25s floor (`TBX_MIN_INTERVAL`) until we know better.
-3. JWT lifetime. `expires_in` is honoured; the fallback assumption is 55
-   minutes. Is there a refresh endpoint, or is re-login the only path?
-4. Is the HUMAN integration active on our account, and are we billed per scan?
-5. `POST /filter-lists/{id}/import-values` — exact body shape for bulk import.
-6. Does `POST /supply-sources/{id}/update` accept the `GET` response with only
-   `id` / `margin_*` removed, or does it need a hand-built body?
-7. Are the platform's own optimisers (`is_smart_floor`, QPS auto-optimisation)
-   currently on for any of our sources? If so, PGAM agents must not touch those
-   levers.
+Triaged, because vendor attention is finite. **§8.1 is what to actually send** —
+things only they can answer. §8.2 is what the API answers itself once we have
+credentials; asking those wastes a round trip.
+
+Nothing here is a report of a fault. As of 2026-08-19 we have never reached
+`api.pgammedia.com`, so we have no evidence of anything broken on their side.
+These are onboarding unknowns, and two of them gate the write path.
+
+### 8.1 Only Teqblaze can answer these
+
+**Blocking the write path — ask first**
+
+1. **Do the `/update` endpoints replace the whole object or patch it?**
+   `POST /supply-sources/{id}/update` and `/demand-sources/{id}/update` take
+   what looks like a complete entity. If it is a full replace, any field we
+   omit is blanked, which on a live supply source means silently dropping
+   floors, allowed-demand lists or IAB blocks. Concretely: can we send back the
+   `GET /supply-sources/{id}` response with read-only fields stripped, and if
+   so **exactly which fields must be stripped**? A canonical round-trip
+   example would settle it. Until this is answered our write path stays gated.
+
+2. **Are the platform's own optimisers currently enabled on any of our
+   sources?** Specifically `source.is_smart_floor`, `source.is_dynamic_margin`,
+   and `qps_limit.qps_optimization_by`. If the platform is already moving a
+   floor or a QPS envelope, a PGAM agent on the same lever gives us two
+   controllers fighting. We need to know which are on, what each optimises,
+   and on what cadence — so we can divide the levers rather than overlap.
+
+**Operational**
+
+3. **A dedicated read-only API user**, separate from a person's dashboard
+   login. Scoped to reporting only, so a leaked credential cannot write and
+   nobody's individual account is shared. If roles are configurable, which
+   permission set corresponds to read-only?
+
+4. **Rate limits and concurrency.** Requests/sec, concurrent queries per user,
+   any per-endpoint caps on the reporting surface. Does a throttled request
+   return 429, and does it carry `Retry-After`? The legacy host allowed one
+   concurrent query per user; we currently serialise calls with a 0.25s floor
+   as a guess.
+
+5. **JWT lifetime and sessions.** The spec's example token is 1 hour and there
+   is no refresh endpoint, so we assume re-login. Confirm — and confirm whether
+   a second `/login` on the same user **invalidates the first token**. If it
+   does, a scheduled job and an ad-hoc script running together will knock each
+   other out, and we need either separate users or a shared token cache.
+
+6. **`POST /report/{hash}` — what is the hash?** Client-generated or must it
+   come from the server first? We currently send an md5 of the canonical
+   request body so paging is stable. What is the cached result set's TTL, and
+   when is `POST /active-hash/update/{hash}` actually required?
+
+**Commercial / data**
+
+7. **HUMAN.** Is the integration live on our account? `traffic-report` returns
+   `charge_amount_sum`, so: are we billed per scan, at what rate, and is
+   scanning 100% of traffic or sampled? What MFA/SIVT/GIVT thresholds do they
+   consider actionable, and does anything enforce automatically today?
+
+8. **Scanners.** Which are provisioned for us, prebid vs postbid, and what does
+   each cost? `scanner-statistics` exposes `blocked_rate`, so we can measure
+   value — we just need to know what we are paying for.
+
+9. **API sync / discrepancy.** What is the macro syntax in the sync URL (the
+   spec example shows `{%Y-m-d%}`)? Can a partner endpoint requiring auth be
+   registered — custom headers, basic auth, a token query param? How often does
+   the sync run, and what happens on repeated failure?
+
+10. **Relationship to the legacy host.** Do `api.pgammedia.com` and
+    `ssp.pgammedia.com` front the same inventory and demand, or two separate
+    marketplaces? Is either deprecated, and on what timeline? Is there **any
+    ID mapping** between legacy inventories/placements and new supply
+    sources/placements? Without one, contract floor minimums (9 Dots $1.70)
+    have to be re-derived by hand on the new platform.
+
+11. **A sandbox or test account**, so the write path can be exercised without
+    touching live money. This is the cheapest way to answer question 1.
+
+12. **Attribution.** Does `filter.timezone` change bucketing only, or which day
+    an impression is attributed to? And does the platform's `profit` / `margin`
+    match what appears on an invoice, or are there fees applied later?
+
+13. **A/B testing.** `ab_test_feature` comes back as `Main` / `Test` and the
+    filter takes `1` / `2`. How is a test configured, is it drivable via API,
+    and which is which?
+
+### 8.2 Don't ask — the API answers these
+
+- **Which modules our account licenses** → `GET /permissions`.
+- **Whether HUMAN is configured at all** → `GET /human-report/settings`.
+  (The billing question in §8.1.7 still needs them.)
+- **The unlabelled `[1, 2, 3]` enums** on `sellers_verification_attr`,
+  `adstxt_verification_attr` and `seller_domain_node_rank_id_attr` → the
+  `verification-list` and `seller-domain-node-rank` dictionaries exist to label
+  exactly these. `scripts/tbx_pull.py` fetches both.
+- **The authoritative attribute/metric list** → `GET /report/columns-list`. The
+  pull diffs it against this client's constants, so a platform upgrade that
+  adds vocabulary shows up as a diff rather than a surprise.
+- **`POST /filter-lists/{id}/import-values` body shape** → resolved from the
+  spec on 2026-08-19: `multipart/form-data` with a single `import` **file**
+  field, not JSON. Our first implementation sent JSON and would have 422'd;
+  fixed, along with `add-value` and `remove-value`, which are also multipart
+  and take `value[]` **arrays** (so a batch is one call, not one per value).

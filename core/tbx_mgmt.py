@@ -1211,29 +1211,65 @@ def add_filter_values(
     actor: str = "manual",
     reason: str = "",
     dry_run: bool | None = None,
+    chunk_size: int = 1000,
 ) -> dict:
     """
-    `POST /filter-lists/{id}/add-value` per value.
+    `POST /filter-lists/{id}/add-value` — append values to an existing list.
 
-    For thousands of entries use `import_filter_values` instead — the
-    platform has a bulk import path and this one is a call per value.
+    The endpoint takes an *array* (`value[]`) over `multipart/form-data`, so
+    the whole batch goes in one call rather than one call per value. Batches
+    over `chunk_size` are split, because a single request carrying tens of
+    thousands of domains is the kind of thing a proxy truncates.
+
+    For a full replace rather than an append, `clear_filter_values` first —
+    and read the current values out before you do, since clearing is not
+    reversible from our side.
     """
+    values = [str(v).strip() for v in values if str(v).strip()]
+    if not values:
+        raise ValueError("add_filter_values: no non-empty values given")
+
+    chunks = [values[i:i + chunk_size] for i in range(0, len(values), chunk_size)]
     results = []
-    for value in values:
+    for index, chunk in enumerate(chunks, 1):
+        note = reason or f"add {len(values)} values"
+        if len(chunks) > 1:
+            note = f"{note} (chunk {index}/{len(chunks)})"
         results.append(_simple_write(
-            f"/filter-lists/{filter_list_id}/add-value", {"value": value},
-            "filter_list", filter_list_id, "add_filter_value", actor,
-            reason or f"add {value}", dry_run,
-        ))
-    return {"filter_list_id": filter_list_id, "count": len(values), "results": results}
+            f"/filter-lists/{filter_list_id}/add-value", {"value": chunk},
+            "filter_list", filter_list_id, "add_filter_values", actor,
+            note, dry_run, multipart=True))
+    return {"filter_list_id": filter_list_id, "count": len(values),
+            "chunks": len(chunks), "results": results}
 
 
-def remove_filter_value(filter_list_id: int, value: str, actor: str = "manual",
-                        reason: str = "", dry_run: bool | None = None) -> dict:
-    """`POST /filter-lists/{id}/remove-value`."""
+def remove_filter_values(
+    filter_list_id: int,
+    values: str | list[str],
+    actor: str = "manual",
+    reason: str = "",
+    dry_run: bool | None = None,
+) -> dict:
+    """
+    `POST /filter-lists/{id}/remove-value`.
+
+    Like `add-value`, this takes an array over `multipart/form-data`. Accepts
+    a single value or a list.
+    """
+    if isinstance(values, str):
+        values = [values]
+    values = [str(v).strip() for v in values if str(v).strip()]
+    if not values:
+        raise ValueError("remove_filter_values: no non-empty values given")
     return _simple_write(f"/filter-lists/{filter_list_id}/remove-value",
-                         {"value": value}, "filter_list", filter_list_id,
-                         "remove_filter_value", actor, reason or f"remove {value}", dry_run)
+                         {"value": values}, "filter_list", filter_list_id,
+                         "remove_filter_values", actor,
+                         reason or f"remove {len(values)} values", dry_run,
+                         multipart=True)
+
+
+# Kept because the singular form reads better at a call site removing one entry.
+remove_filter_value = remove_filter_values
 
 
 def clear_filter_values(filter_list_id: int, actor: str = "manual",
@@ -1249,20 +1285,38 @@ def clear_filter_values(filter_list_id: int, actor: str = "manual",
                          actor, reason or "clear all values", dry_run)
 
 
-def import_filter_values(filter_list_id: int, values: list[str],
-                         actor: str = "manual", reason: str = "",
-                         dry_run: bool | None = None) -> dict:
+def import_filter_values(
+    filter_list_id: int,
+    values: list[str],
+    actor: str = "manual",
+    reason: str = "",
+    dry_run: bool | None = None,
+) -> dict:
     """
-    `POST /filter-lists/{id}/import-values` — bulk load.
+    `POST /filter-lists/{id}/import-values` — bulk load from a file.
 
-    The spec documents this as a file/CSV import; the exact body shape is
-    unverified against a live account, so confirm with
-    `scripts/tbx_probe.py` before relying on it for large lists.
+    The spec declares this as `multipart/form-data` with a single `import`
+    file field, so the values are serialised to a one-column CSV and uploaded.
+    `GET /filter-lists/export-values-example` returns the platform's own
+    template; if a live import is rejected, compare against that before
+    assuming the endpoint is at fault.
+
+    `add_filter_values` is the better choice for anything that fits in a
+    request — it needs no file and reports per-chunk. Use this for the
+    tens-of-thousands case.
     """
-    return _simple_write(f"/filter-lists/{filter_list_id}/import-values",
-                         {"values": values}, "filter_list", filter_list_id,
-                         "import_filter_values", actor,
-                         reason or f"import {len(values)} values", dry_run)
+    values = [str(v).strip() for v in values if str(v).strip()]
+    if not values:
+        raise ValueError("import_filter_values: no non-empty values given")
+
+    blob = ("\n".join(values) + "\n").encode()
+    return _simple_write(
+        f"/filter-lists/{filter_list_id}/import-values",
+        {"value_count": len(values)},   # shown in the log/ledger, not sent as data
+        "filter_list", filter_list_id, "import_filter_values", actor,
+        reason or f"import {len(values)} values from a {len(blob)}-byte CSV",
+        dry_run,
+        files={"import": (f"filter_list_{filter_list_id}.csv", blob, "text/csv")})
 
 
 def set_filter_list_status(filter_list_id: int, active: bool, actor: str = "manual",
@@ -1456,12 +1510,19 @@ def create_scheduled_report(
 
 def _simple_write(path: str, payload: dict, entity_type: str, entity_id: int | str,
                   action: str, actor: str, reason: str,
-                  dry_run: bool | None) -> dict:
+                  dry_run: bool | None,
+                  multipart: bool = False,
+                  files: dict | None = None) -> dict:
     """
     POST a self-contained body under the same gates as `_apply_update`,
     for endpoints that need no read-modify-write round trip.
+
+    `multipart=True` sends `multipart/form-data` instead of JSON, which the
+    spec requires for several write endpoints. `files` carries real file parts
+    (used by the bulk `import-values` endpoints); it implies multipart.
     """
     dry_run = _default_dry_run() if dry_run is None else dry_run
+    multipart = multipart or files is not None
 
     if dry_run:
         print(f"{_LOG} DRY_RUN  {action}  POST {path}  "
@@ -1479,7 +1540,10 @@ def _simple_write(path: str, payload: dict, entity_type: str, entity_id: int | s
         return {"path": path, "payload": payload, "applied": False,
                 "refused": "TBX_ALLOW_WRITES!=1"}
 
-    result = tbx.post(path, payload)
+    if multipart:
+        result = tbx.post_form(path, fields=payload, files=files)
+    else:
+        result = tbx.post(path, payload)
     print(f"{_LOG} {action}  POST {path}  applied  {reason}")
     _ledger(actor, action, entity_type, entity_id, reason, {}, payload,
             applied=True, extra={"response": result} if isinstance(result, dict) else None)

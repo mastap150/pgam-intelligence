@@ -319,12 +319,16 @@ def _request(
     params: dict | None = None,
     retry_auth: bool = True,
     expect_json: bool = True,
+    files: list | None = None,
 ) -> Any:
     """
     One authenticated call against the new platform.
 
     Handles: rate throttle, JWT attach, 401 re-login (once), and retry with
     exponential backoff on 429 / 5xx / network error.
+
+    `files` sends a `multipart/form-data` body instead of JSON. Several write
+    endpoints require multipart rather than JSON — see `post_form`.
     """
     url = f"{TBX_BASE}/{path.lstrip('/')}"
     attempt = 0
@@ -342,7 +346,10 @@ def _request(
                 _throttle()
                 resp = requests.request(
                     method.upper(), url,
-                    json=payload if payload is not None else None,
+                    # requests sets the multipart boundary itself; never pass
+                    # both a JSON body and files.
+                    json=payload if (payload is not None and files is None) else None,
+                    files=files or None,
                     params=params or None,
                     headers=headers,
                     timeout=TIMEOUT,
@@ -402,6 +409,53 @@ def get(path: str, params: dict | None = None) -> Any:
 def post(path: str, payload: dict | None = None) -> Any:
     """Authenticated POST. Exposed for endpoints without a typed helper."""
     return _request("POST", path, payload=payload or {})
+
+
+def build_form_parts(
+    fields: dict | None = None,
+    files: dict | None = None,
+) -> list[tuple]:
+    """
+    Build the parts list for a `multipart/form-data` body.
+
+    Two wrinkles this handles, both of which will silently 422 otherwise:
+
+    * **Array fields need PHP-style `name[]` keys.** The platform is a Laravel
+      app, and endpoints like `/filter-lists/{id}/add-value` declare `value` as
+      an array of strings. Sent as a bare repeated `value`, only the last one
+      survives.
+    * **Scalar parts need a `(None, value)` tuple** so `requests` emits them as
+      form fields inside the multipart body rather than switching to
+      urlencoded.
+
+    `files` maps a field name to `(filename, bytes_or_str, content_type)`.
+    """
+    parts: list[tuple] = []
+    for key, value in (fields or {}).items():
+        if isinstance(value, (list, tuple, set)):
+            for item in value:
+                parts.append((f"{key}[]", (None, str(item))))
+        elif isinstance(value, bool):
+            # Laravel reads "1"/"0" for booleans in form bodies; "True" is truthy
+            # as a non-empty string, so a False would invert.
+            parts.append((key, (None, "1" if value else "0")))
+        else:
+            parts.append((key, (None, str(value))))
+    for key, spec in (files or {}).items():
+        parts.append((key, spec))
+    return parts
+
+
+def post_form(path: str, fields: dict | None = None,
+              files: dict | None = None) -> Any:
+    """
+    Authenticated `multipart/form-data` POST.
+
+    Required by the endpoints the spec declares as multipart rather than JSON:
+    `/filter-lists/{id}/add-value`, `/remove-value`, `/import-values`, the
+    equivalents on `/deals` and `/adapters`, and `/platform-settings/upload-temp`.
+    """
+    return _request("POST", path, files=build_form_parts(fields, files))
 
 
 def download(path: str, params: dict | None = None) -> bytes:

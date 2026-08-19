@@ -335,6 +335,75 @@ def test_vocabulary() -> None:
                                            "crid", "adomain", "schain_node_domain"})
 
 
+def test_multipart_encoding() -> None:
+    """
+    The spec declares several write endpoints as multipart/form-data, not JSON.
+    Getting the encoding wrong is a silent 422, so pin the part construction.
+    """
+    print("\nmultipart encoding")
+
+    parts = tbx.build_form_parts({"value": ["a.com", "b.com"]})
+    check("array fields get PHP-style name[] keys",
+          [k for k, _ in parts] == ["value[]", "value[]"],
+          str([k for k, _ in parts]))
+    check("array values preserved in order",
+          [v[1] for _, v in parts] == ["a.com", "b.com"],
+          str([v[1] for _, v in parts]))
+    check("scalar parts use (None, value) so requests stays multipart",
+          tbx.build_form_parts({"status": "1"})[0][1][0] is None)
+    check("booleans encode as 1/0, not True/False",
+          [v[1] for _, v in tbx.build_form_parts({"a": True, "b": False})] == ["1", "0"],
+          str([v[1] for _, v in tbx.build_form_parts({"a": True, "b": False})]))
+
+    file_parts = tbx.build_form_parts({"n": 2}, {"import": ("x.csv", b"a\nb\n", "text/csv")})
+    check("file part passes through untouched",
+          dict(file_parts)["import"] == ("x.csv", b"a\nb\n", "text/csv"))
+
+    # A single value must still arrive as an array for add/remove-value.
+    single = tbx.build_form_parts({"value": ["only.com"]})
+    check("single value still sent as an array", single[0][0] == "value[]")
+
+
+def test_filter_value_writes() -> None:
+    """add/remove/import all go out as multipart; import carries a real file."""
+    print("\nfilter list value writes")
+
+    res = tbm.add_filter_values(7, ["a.com", "b.com"], dry_run=True)
+    check("add batches into one call, not one per value",
+          res["chunks"] == 1 and len(res["results"]) == 1, str(res["chunks"]))
+    check("add reports the full count", res["count"] == 2)
+
+    chunked = tbm.add_filter_values(7, [f"d{i}.com" for i in range(2500)],
+                                    dry_run=True, chunk_size=1000)
+    check("oversized batches split", chunked["chunks"] == 3, str(chunked["chunks"]))
+    check("split preserves the total", chunked["count"] == 2500)
+
+    check("blank-only input rejected rather than sent",
+          _raises(ValueError, tbm.add_filter_values, 7, ["", "  "]))
+
+    rem = tbm.remove_filter_values(7, "a.com", dry_run=True)
+    check("remove accepts a bare string", rem["payload"]["value"] == ["a.com"],
+          str(rem["payload"]))
+    check("remove_filter_value alias still resolves",
+          tbm.remove_filter_value is tbm.remove_filter_values)
+
+    imp = tbm.import_filter_values(7, ["a.com", "b.com"], dry_run=True)
+    check("import logs a count rather than dumping the CSV",
+          imp["payload"] == {"value_count": 2}, str(imp["payload"]))
+    check("import rejects an empty list",
+          _raises(ValueError, tbm.import_filter_values, 7, []))
+
+
+def _raises(exc, fn, *args, **kwargs) -> bool:
+    try:
+        fn(*args, **kwargs)
+    except exc:
+        return True
+    except Exception:
+        return False
+    return False
+
+
 def test_no_credentials_message() -> None:
     print("\nunconfigured behaviour")
     saved = (tbx.TBX_EMAIL, tbx.TBX_PASSWORD)
@@ -361,6 +430,8 @@ def main() -> int:
     test_validation_guards()
     test_roughly_equal()
     test_vocabulary()
+    test_multipart_encoding()
+    test_filter_value_writes()
     test_no_credentials_message()
 
     print()
