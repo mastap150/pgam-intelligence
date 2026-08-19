@@ -404,6 +404,65 @@ def _raises(exc, fn, *args, **kwargs) -> bool:
     return False
 
 
+def test_qps_waste_rule() -> None:
+    """The cut rule decides revenue-affecting actions; pin its edges."""
+    print("\nQPS waste rule")
+    from agents.optimization import qps_waste_sentry as q
+    from datetime import date
+
+    today = date(2026, 8, 19)
+    blended = 0.88          # $/M, the measured baseline
+    old = "2020-01-01"      # well outside the grace period
+
+    def row(name, gpm, gross, days=q.OBSERVE_DAYS, first=old, requests=10**9):
+        return {"name": name, "gpm": gpm, "gross": gross, "requests": requests,
+                "impressions": 0, "active_days": days, "first_seen": first}
+
+    rows = q.classify([
+        row("dead",       0.005, 4.30),      # far below cut band, trivial gross
+        row("cheap-big",  0.05,  5000.0),    # below cut band but earns real money
+        row("mid",        0.20,  900.0),     # cap band
+        row("fine",       0.90,  5000.0),    # at/above blended
+        row("newborn",    0.001, 0.0, first="2026-08-15"),   # inside grace
+        row("paused",     0.001, 0.0, days=3),               # partial coverage
+    ], blended, today)
+    band = {r["name"]: r["band"] for r in rows}
+
+    check("trivial waste is cut", band["dead"] == "cut", band["dead"])
+    check("cheap but earning is capped, not cut",
+          band["cheap-big"] == "cap", band["cheap-big"])
+    check("mid band is capped", band["mid"] == "cap", band["mid"])
+    check("healthy source untouched", band["fine"] == "ok", band["fine"])
+    check("new source protected by grace", band["newborn"] == "grace", band["newborn"])
+    check("partial coverage downgraded to watch — may be a pause, not waste",
+          band["paused"] == "watch", band["paused"])
+
+    # Never-cut list must beat the numbers.
+    saved = set(q.NEVER_CUT)
+    q.NEVER_CUT.add("dead")
+    try:
+        protected = q.classify([row("dead", 0.005, 4.30)], blended, today)[0]
+        check("never-cut list overrides the rule", protected["band"] == "protected",
+              protected["band"])
+    finally:
+        q.NEVER_CUT.clear(); q.NEVER_CUT.update(saved)
+
+    # Blast radius: action count cap.
+    many = q.classify([row(f"w{i}", 0.001, 1.0, requests=10**8) for i in range(12)],
+                      blended, today)
+    acted = q.enforce_blast_radius(many, total_requests=10**12)
+    check("action count capped per run", len(acted) <= q.MAX_ACTIONS_PER_RUN,
+          str(len(acted)))
+    check("overflow marked deferred, not silently dropped",
+          any(r["band"] == "deferred" for r in many))
+
+    # Blast radius: QPS share cap. Two rows at 10% each cannot both go under 15%.
+    big = q.classify([row("a", 0.001, 1.0, requests=10**11),
+                      row("b", 0.001, 1.0, requests=10**11)], blended, today)
+    acted = q.enforce_blast_radius(big, total_requests=10**12)
+    check("QPS share cap limits one run", len(acted) == 1, str(len(acted)))
+
+
 def test_no_credentials_message() -> None:
     print("\nunconfigured behaviour")
     saved = (tbx.TBX_EMAIL, tbx.TBX_PASSWORD)
@@ -430,6 +489,7 @@ def main() -> int:
     test_validation_guards()
     test_roughly_equal()
     test_vocabulary()
+    test_qps_waste_rule()
     test_multipart_encoding()
     test_filter_value_writes()
     test_no_credentials_message()
