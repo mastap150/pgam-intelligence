@@ -5,10 +5,31 @@ Assessment of the OpenAPI spec Teqblaze supplied on onboarding
 313 schemas), and what PGAM can build on it.
 
 **Status: written from the spec, not yet exercised against a live account.**
-This cloud session had no TBX credentials. Every capability below is what the
-spec documents; nothing here has been confirmed against real data. Run
-`python3 scripts/tbx_probe.py --reports` on a machine that has the credentials
-before treating any of it as verified.
+Every capability below is what the spec documents; nothing here has been
+confirmed against real data.
+
+Two things block a Claude Code cloud session from verifying it directly:
+
+1. **No credentials.** A fresh clone has none, by design.
+2. **Egress policy.** The Claude environment's network policy denies *every*
+   PGAM host — `api.pgammedia.com`, `ssp.pgammedia.com`, `admin.pgammedia.com`
+   and `stats.ortb.net` all return a 403 CONNECT rejection from the agent
+   proxy (verified 2026-08-19). Credentials alone would not help; a cloud
+   session cannot reach the platform at all.
+
+So verification runs on **GitHub Actions**, which has open network:
+
+    Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow
+
+`.github/workflows/tbx-probe.yml` needs two repo secrets (`TBX_EMAIL`,
+`TBX_PASSWORD`) and is read-only. It publishes results three ways: the full
+digest in the job log (which is how a session reads them back), a capability
+matrix in the run summary, and full per-surface JSON as a 7-day artifact.
+
+Locally, on a machine that has `.env` and network access:
+
+    python3 scripts/tbx_probe.py --reports        # does each surface answer
+    python3 scripts/tbx_pull.py --days 7 --outdir /tmp/tbx   # pull the data
 
 ---
 
@@ -229,6 +250,8 @@ spend their budget on judgement instead of heartbeats.
 | `core/tbx_api.py` | Auth (JWT + cache + 401 re-login), retry/throttle, pagination, dictionaries, and every analytics surface in §2–3. Read-only. |
 | `core/tbx_mgmt.py` | Entity reads + guarded writes for §4. Dry-run default, env gate, clamps, read-modify-write with key-loss detection, verify-after-write, ledger. |
 | `scripts/tbx_probe.py` | Read-only probe: auth, one call per module, `--diff-shape` for the read→write round trip. **Run this first.** |
+| `scripts/tbx_pull.py` | Read-only data pull across every surface — 20+ report cuts, drop reasons, IVT, schain, sellers validation, discrepancy, dictionaries. Bounded digest to stdout, full JSON to `--outdir`. Per-surface failures are recorded, not fatal. |
+| `.github/workflows/tbx-probe.yml` | Manual dispatch that runs both on a GH runner, because the Claude sandbox cannot reach the platform. Read-only; both write gates explicitly shut. |
 | `tests/test_tbx.py` | 80 offline checks — payload assembly, clamps, merge semantics, key-loss guard, both write gates, argument validation. No network, no credentials. |
 | `docs/api/teqblaze-openapi.json` | The spec, vendored so future sessions don't need the upload. |
 
@@ -294,9 +317,12 @@ Sequenced by payoff over risk. Everything in the first two tranches is
 read-only.
 
 **Tranche 1 — verify and observe (read-only)**
-1. `scripts/tbx_probe.py --reports` with real credentials. Record which
-   modules answer; a 403 usually means the account lacks that module, so check
-   `GET /permissions`.
+1. Add the `TBX_EMAIL` / `TBX_PASSWORD` repo secrets and run the **TBX Data
+   Pull** workflow. Record which modules answer; a 403 usually means the
+   account lacks that module, so check `GET /permissions`. The pull also diffs
+   the account's live `report/columns-list` against this client's constants,
+   which is how we learn if the account exposes attributes or metrics the spec
+   didn't document.
 2. ETL the new report into Neon `pgam_direct` beside the legacy TB tables, with
    `supply_source × demand_source × country × date` granularity. Do not merge
    the two platforms' tables until §1 is answered.
