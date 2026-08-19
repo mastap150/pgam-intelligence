@@ -1863,3 +1863,131 @@ press material and search results and must be confirmed via §19.6.
   curation; activation into 125+ DSPs by seat ID)
 - PubMatic — PMP Deal APIs (documented "for Publishers"; curator availability
   unconfirmed)
+
+---
+
+# Addendum — "Attentive Buying" as the product package
+
+Added after the audit, in response to the decision to package this as
+**Attentive Buying — buying PMPs with attention signals** rather than as a
+generic curation desk.
+
+## A21.1 This is the right call, and it changes the sequencing
+
+The audit's §4.4 argued PGAM should not compete on deal-creation speed and should
+put its weight on attention. Naming the product after that is stronger than
+treating attention as a feature inside "PGAM Curation," for three reasons:
+
+1. **It is the only differentiator that needs no vendor permission.** Everything
+   blocked in §19.4 is deal *creation*. Nothing about attention-based curation
+   requires Magnite or PubMatic to grant PGAM anything.
+2. **It inverts the competitive problem.** As "a curation desk," PGAM is a late,
+   single-SSP entrant against a free four-SSP incumbent. As "attentive buying,"
+   Advanced Curation is not a competitor at all — they have no attention data, and
+   cannot get it without impression-level access they do not have.
+3. **It makes the roadmap honest.** A generic curation desk whose deal creation is
+   manual is a worse version of a shipping product. An attentive-buying product
+   whose deal creation is manual in v1 is still the only one of its kind.
+
+**Sequencing consequence:** the audit put attention-curated deals in Phase 3 and
+flagged "consider pulling forward." Packaging it as the product settles that —
+**attention moves into Phase 1 as the reason the product exists**, not a later
+enhancement.
+
+## A21.2 The mechanism already exists
+
+The key finding: **attention can already be turned into deal inventory today, on
+transport PGAM already owns, with zero vendor entitlement.**
+
+`POST /api/v1/audiences/attention-materialize` does precisely this:
+
+> Turns an Attention tier + scope into a SpringServe DomainList and (optionally)
+> records the mapping against a campaign so the wizard / buyer agent can attach
+> it via `domain_list_ids`.
+
+Tiers are `PRIORITIZE` / `MONITOR` / `SUPPRESS`, over a configurable lookback
+(default 30d, max 90) with a `minImpressions` floor (default 500), lineage-tagged
+`attention_prioritize` / `attention_suppress`, persisted to
+`campaign_domain_lists`. Implementation in
+`src/lib/keystone/attention-materializer.ts` + `src/lib/springserve/domain-lists.ts`.
+
+So the chain is complete and shipping-capable:
+
+```
+CTV impressions → impression_attention_score → ctv_placement_attention_v1
+      → calibration (attention_v1_calibrations)
+      → tier the placements (PRIORITIZE / MONITOR / SUPPRESS)
+      → materialize to a DomainList
+      → that list IS the deal's inventory definition
+```
+
+This is the same transport `docs/magnite-field-coverage.md` says audiences already
+ride on (`domain_list_ids`) — which was a *limitation* for demographic audiences
+(§3.4) but is **exactly the right shape for attention**, because attention is a
+property of placements, not of people. The constraint that hurts audience
+targeting does not hurt this product at all.
+
+## A21.3 The three-tier product ladder
+
+Package Attentive Buying as three levels of increasing strength, which map
+cleanly onto what PGAM can actually deliver and when.
+
+| Tier | Name | What it means | Enforcement point | Ships |
+|---|---|---|---|---|
+| **1** | **Attention-Curated** | Deal inventory is selected by *measured* placement attention. The allowlist is the product | Pre-bid, via the deal's inventory definition | **Now — no vendor dependency** |
+| **2** | **Attention-Verified** | Attention delivered back per deal as an outcome metric, alongside completion and VCR. The buyer can see whether the deal earned attention | Post-delivery reporting | **Now** — rollups already carry `attention_score`, `attention_bucket`, `attention_sample_size` |
+| **3** | **Attention-Enforced** | `min_attention` is a hard condition on the deal, enforced in the auction. Inventory below threshold cannot win | In-auction | **`pgam_direct` only** — already a first-class column with three seeded cohorts |
+
+Tier 3 is the reason `pgam-direct` matters strategically (§19.5) and worth
+restating: `pgam_direct.deals.min_attention` with seeded cohorts at ≥0.75 / ≥0.65
+/ ≥0.55 is a product **no competitor and neither SSP can offer**, because it
+requires owning the auction. On Magnite and PubMatic, PGAM can curate and verify
+attention; only on its own SSP can it *guarantee* it.
+
+That is a genuinely differentiated three-step commercial story, and each step is
+independently sellable.
+
+## A21.4 Honest limits — say these out loud before they reach a pitch deck
+
+| Limit | Detail |
+|---|---|
+| **Attention is measured post-bid, not targeted pre-bid** | Scores come from delivered impressions (VAST events → Athena → Neon). Tier 1 curation works because *placements* persist — a placement that earned attention last month probably will next month. It is **not** per-impression attention bidding inside someone else's deal. Do not imply it is |
+| **CTV only** | Attention engine v1 is a CTV spec. OLV/display/in-app attention is **not** built. Attentive Buying is a CTV product on day one — which is fine, it is the highest-CPM inventory, but the marketing must not over-claim |
+| **Cold-start** | A placement with no PGAM delivery history has no score. The `minImpressions` floor (default 500) means new inventory is unscored, so early deals lean on the placements PGAM has already run. Scale grows with delivery |
+| **Attention-qualified *audiences* are gated** | `docs/features/attention-qualified-audiences.md` names "PMP deal" as an activation destination — but states the household resolver (W1-04) **"was never built,"** so `resolved_household_id` is a nullable pass-through and **no audience can be built yet.** Slice 1 in progress. AQA is Tier-2-plus and depends on that resolver, not on any vendor |
+| **`attention_scores` table is read but not written** | Seam `D2`: read by production routes, written only by `seed-demo.ts`. Confirm which attention tables are live before wiring a *sellable* product to them |
+| **Calibration is the credibility risk** | A 0–100 score sold as the basis of a media buy will be challenged by an agency's analytics team. `attention_v1_calibrations` exists; the methodology page (`/methodology`) exists. Have a defensible, written validation story before the first agency pitch |
+
+## A21.5 What the buyer sees
+
+Packaging, in buyer language, with PGAM's internals hidden:
+
+| Buyer-facing | Backed by |
+|---|---|
+| **Attentive Buying** (the product) | the curation engine in §6 |
+| "Attention-Curated CTV" deal type | `PRIORITIZE` tier materialized to the deal's inventory |
+| **Attention Score** on every deal, pre- and post-flight | forecast estimate → delivered `attention_score` |
+| "Suppress low-attention inventory" toggle | `SUPPRESS` tier as a blocklist |
+| **Attention Lift** vs the buyer's business-as-usual | existing lift/holdout modules (`src/lib/keystone/{lift,holdout}`) |
+| Marketplace: **PGAM Attention** category — High Attention CTV, High Completion Video, Premium Attention Publishers | `curation_marketplace_items` with `est_attention` (already in the §9.2 schema) |
+| **Attention premium** in the price | `attention_premium_pct` — already in the §13 pricing rules |
+
+Note that the pricing engine already has `attention_premium_pct` and the
+marketplace schema already has `est_attention`. The monetization hook for
+Attentive Buying is **already designed**; it needs populating, not building.
+
+## A21.6 Revised Phase 1 — the Attentive Buying delta
+
+Add to the §17.2 MVP list:
+
+| # | Item | Class | Vendor-blocked? |
+|---|---|---|---|
+| 21 | **Attention tiering as a first-class deal inventory source** — wire `attention-materialize` into the deal builder as a selectable inventory type, not just a campaign-level helper | **[EE]** | **No** |
+| 22 | **Attention Score on the deal object** — forecast estimate pre-flight, delivered score post-flight, on the package and per SSP child | **[EE]** | **No** |
+| 23 | **"PGAM Attention" marketplace category** with real `est_attention` values and a stated basis | **[EE]** | needs real deal IDs |
+| 24 | **Confirm the live attention tables** (resolve seam `D2`) before selling on them | **[EE]** | **No** |
+| 25 | **Write the attention methodology one-pager** for agency diligence | **[BN]** | **No** |
+
+Every one of those is unblocked. That is the point: **Attentive Buying is the part
+of this product PGAM can ship without waiting for Magnite or PubMatic to answer a
+single email.**
