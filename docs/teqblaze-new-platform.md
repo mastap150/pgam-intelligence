@@ -384,63 +384,87 @@ Sequenced by payoff over risk. Everything in the first two tranches is
 read-only.
 
 **Tranche 1 — verify and observe (read-only)**
+
 1. Add the `TBX_EMAIL` / `TBX_PASSWORD` repo secrets and run the **TBX Data
    Pull** workflow. Record which modules answer; a 403 usually means the
    account lacks that module, so check `GET /permissions`. The pull also diffs
    the account's live `report/columns-list` against this client's constants,
    which is how we learn if the account exposes attributes or metrics the spec
    didn't document.
-2. **Reconcile against the legacy platform first.** Now that the two hosts are
-   understood to serve the same marketplace (§1), pull a settled 7-day window
-   from `/report` at `date × supply_source` and compare impressions and spend
-   against the legacy `pgam_direct` TB tables for the same window. Watch for
-   the timezone trap: legacy reporting and `filter.timezone` must be set to the
-   same zone or the daily buckets will disagree for reasons that have nothing
-   to do with the data. Three outcomes, all informative:
+
+2. **Reconcile against the legacy platform, before building anything.** The two
+   hosts serve the same marketplace (§1), so pull a settled 7-day window from
+   `/report` at `date × supply_source` and compare impressions and spend against
+   the legacy `pgam_direct` TB tables for the same window. Mind the timezone
+   trap: legacy reporting and `filter.timezone` must be set to the same zone, or
+   the daily buckets disagree for reasons that have nothing to do with the data.
+   Three outcomes, all informative:
    - **Agreement** → the new platform is trustworthy for revenue, and the
      migration is a porting exercise.
-   - **Constant offset** → likely a fee or margin applied at a different stage;
-     find it before anything downstream inherits it.
+   - **Constant offset** → likely a fee or margin applied at a different stage.
+     Find it before anything downstream inherits it.
    - **Row-level divergence** → one host is wrong about our revenue. Stop and
-     resolve that before either drives a write. Ask §8.1.10(c).
+     resolve it before either drives a write. Ask §8.1.10(c).
 
-   This is the cheapest correctness test available and it gates everything
-   else, so do it before building any ETL.
-3. ETL the new report into Neon `pgam_direct` beside the legacy TB tables, with
-   `supply_source × demand_source × country × date` granularity. Keep the two
-   platforms' tables separate until step 2 agrees — a premature union would
-   double-count the same marketplace.
-4. Reconcile: one day of `sellers-validation` + `ads-txt-verification` against
-   one day of our own compliance findings. That comparison decides how much of
+   Cheapest correctness test available, and it gates everything below.
+
+3. ETL the new report into Neon `pgam_direct` beside the legacy TB tables, at
+   `supply_source × demand_source × country × date`. Keep the two platforms'
+   tables separate until step 2 agrees — a premature union double-counts one
+   marketplace.
+
+4. Compare one day of `sellers-validation` + `ads-txt-verification` against one
+   day of our own compliance findings. That decides how much of
    `agents/compliance/crawlers` retires.
 
 **Tranche 2 — new intelligence, still read-only**
-4. IVT report from `human-report/risk-metrics` — per-domain MFA/SIVT/GIVT into
+
+5. **HUMAN scan-cost monitor.** We pay HUMAN per scan and the platform scans
+   pre-bid and post-bid (§3.6), so this is spend we own and currently cannot
+   see. Join `risk-metrics` (requests scanned, IVT caught) to `traffic-report`
+   (impressions scanned, `charge_amount_sum`) to `/report` (revenue), all keyed
+   on `inventory_key`, and rank domains by scan cost against invalid traffic
+   caught and revenue earned. Reports only until §8.1.7(a) tells us whether
+   scanning can be scoped — no point proposing a change we have no lever to
+   make. Pays for itself the first time it finds a domain we are scanning for
+   nothing.
+
+6. IVT report from `human-report/risk-metrics` — per-domain MFA/SIVT/GIVT into
    the compliance digest. Genuinely new signal.
-5. Drop-reason report from `bids-overview` — feed named reasons into
+
+7. Drop-reason report from `bids-overview` — feed named reasons into
    `fill_funnel`.
-6. Timeout and render-rate monitor per DSP — `timeout_rate` and `render_rate`
+
+8. Timeout and render-rate monitor per DSP — `timeout_rate` and `render_rate`
    have no legacy equivalent.
-7. Register partner API-sync URLs, then a discrepancy digest. Highest
+
+9. Register partner API-sync URLs, then a discrepancy digest. Highest
    effort-to-payoff ratio of anything here: it retires manual recon.
 
 **Tranche 3 — writes, supervised**
-8. Populate `PROTECTED_FLOOR_MINIMUMS` from the contract sheets.
-9. Confirm the round trip with `--diff-shape` on one supply and one demand
-   source.
-10. Geo floor agent on `geo_settings.bid_floor`, proposing to Slack for
+
+10. Populate `PROTECTED_FLOOR_MINIMUMS` from the contract sheets.
+
+11. Confirm the round trip with `--diff-shape` on one supply and one demand
+    source. Blocked on §8.1.1.
+
+12. Geo floor agent on `geo_settings.bid_floor`, proposing to Slack for
     supervised review — mirroring `PGAM_OPTIMIZER_AUTO_APPLY=0`, not
     auto-applying. Demand-side floors carry no publisher contract exposure,
     which makes this the safest first writer.
-11. Schain enforcement: compliance audit finds an unverified chain →
+
+13. Schain enforcement: compliance audit finds an unverified chain →
     `set_demand_schain_policy` closes it. Propose first, apply on sign-off.
-12. Filter-list enforcement for `adomain` / `crid` brand safety.
+
+14. Filter-list enforcement for `adomain` / `crid` brand safety.
 
 **Not recommended yet**
+
 - Any autonomous floor writer on the supply side. Contract exposure, an empty
-  contract-floor map, and an unverified round trip is the exact combination
-  that produced the April incidents.
-- Retiring legacy `tb_*` modules. They run against a different host.
+  contract-floor map and an unverified round trip is the exact combination that
+  produced the April incidents.
+- Retiring the legacy `tb_*` modules. They still carry live floor decisions, and
+  no ID mapping exists to move their contract minimums across (§8.1.10b).
 
 ---
 
@@ -457,16 +481,6 @@ These are onboarding unknowns, and two of them gate the write path.
 ### 8.1 Only Teqblaze can answer these
 
 **Blocking the write path — ask first**
-
-1. **HUMAN scan-cost monitor.** We pay HUMAN per scan and the platform scans
-   pre-bid and post-bid, so this is spend we own and cannot currently see. Join
-   `risk-metrics` (requests scanned, IVT caught) to `traffic-report`
-   (impressions scanned, `charge_amount_sum`) to `/report` (revenue), all keyed
-   on `inventory_key`, and rank domains by scan cost against invalid traffic
-   caught and revenue earned. Reports only until §8.1.7(a) tells us whether
-   scanning can be scoped — there is no point proposing a change we have no
-   lever to make. Cheap, and it pays for itself the first time it finds a
-   domain we are scanning for nothing.
 
 1. **Do the `/update` endpoints replace the whole object or patch it?**
    `POST /supply-sources/{id}/update` and `/demand-sources/{id}/update` take
