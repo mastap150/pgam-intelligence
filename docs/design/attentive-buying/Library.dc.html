@@ -1,0 +1,222 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #F6F7FA; }
+    * { box-sizing: border-box; }
+    .r { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+         font-feature-settings: "cv05" 1, "cv08" 1, "ss03" 1;
+         -webkit-font-smoothing: antialiased; color: #0C1017; }
+    .m { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+    a { color: #0925A8; } a:hover { color: #0B3CFF; }
+    .lbl { font-size: 11px; font-weight: 500; letter-spacing: .055em;
+           text-transform: uppercase; color: #6B7383; }
+    .card { background: #fff; border: 1px solid #E3E7EF; border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(12,16,23,.04), 0 1px 3px rgba(12,16,23,.03); }
+    .secttl { font-size: 12px; font-weight: 600; letter-spacing: .04em;
+              text-transform: uppercase; color: #0C1017; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px;
+            border-radius: 5px; font-size: 11px; font-weight: 500; white-space: nowrap;
+            border: 1px solid; }
+    .p-live { background:#E7F7EE; color:#0F7A38; border-color:#BFE8CF; }
+    .p-bld  { background:#FFF3E8; color:#8A4513; border-color:#FBDCC0; }
+    .p-drf  { background:#F4F6F9; color:#6B7383; border-color:#E3E7EF; }
+    .p-pau  { background:#F4F6F9; color:#545C6B; border-color:#E3E7EF; }
+    .p-att  { background:#FFF9EC; color:#803F15; border-color:#FBE29C; }
+    .p-imp  { background:#F4F0FF; color:#5B21B6; border-color:#DDD0FA; }
+    .btn { height: 34px; border-radius: 8px; display: inline-flex; align-items: center;
+           justify-content: center; gap: 7px; font-size: 13px; font-weight: 500; padding: 0 12px; }
+    .btn-p { background: #0B3CFF; color: #fff; font-weight: 600;
+             box-shadow: 0 1px 2px rgba(11,60,255,.28); }
+    .btn-s { background: #fff; color: #545C6B; border: 1px solid #E3E7EF; }
+    table { border-collapse: collapse; width: 100%; }
+    th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .055em;
+         text-transform: uppercase; color: #6B7383; padding: 9px 12px;
+         border-bottom: 1px solid #E3E7EF; white-space: nowrap; }
+    td { font-size: 13px; padding: 12px; border-bottom: 1px solid #EEF0F5; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 500; }
+    .topbar { height: 52px; background: #0F1521; display: flex; align-items: center;
+              padding: 0 20px; gap: 22px; flex: none; }
+    .nav { height:52px; display:flex; align-items:center; padding:0 12px; font-size:13px;
+           font-weight:400; color:#9098A6; }
+    .nav.on { color:#fff; font-weight:500; box-shadow: inset 0 -2px 0 #E67A1F; }
+  </style>
+</helmet>
+<div class="r" style="width: 1360px; min-height: 880px; display: flex; flex-direction: column;">
+  <div class="topbar">
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 15L9 3l7 12H2z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span style="color:#fff; font-size:13px; font-weight:600; letter-spacing:-.01em;">Attentive Buying</span>
+    </div>
+    <div style="display:flex; gap:2px;">
+      <div class="nav">New deal</div><div class="nav on">Deals</div>
+      <div class="nav">Marketplace</div><div class="nav">Reporting</div>
+    </div>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+      <span class="m" style="font-size:11px; color:#6B7383;">Meridian Media</span>
+      <div style="width:26px; height:26px; border-radius:50%; background:#224BDB; color:#fff; font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center;">RK</div>
+    </div>
+  </div>
+
+  <div style="padding:20px 24px 14px; display:flex; align-items:flex-start; gap:16px;">
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="font-size:24px; font-weight:600; letter-spacing:-.021em;">Deals</div>
+      <div style="font-size:13px; color:#545C6B;">32 deals · 6 advertisers · $412K delivered this quarter</div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:8px;">
+      <div class="btn btn-s">Export</div>
+      <div class="btn btn-p"><svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M6 2.4v7.2M2.4 6h7.2" stroke="#fff" stroke-width="1.5" stroke-linecap="round"/></svg>New deal</div>
+    </div>
+  </div>
+
+  <!-- KPI strip -->
+  <div style="padding:0 24px 16px; display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px;">
+    <div class="card" style="padding:14px 16px; display:flex; flex-direction:column; gap:5px;">
+      <span class="lbl">Delivered</span>
+      <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em;">$412,880</span>
+    </div>
+    <div class="card" style="padding:14px 16px; display:flex; flex-direction:column; gap:5px;">
+      <span class="lbl">Impressions</span>
+      <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em;">17.2M</span>
+    </div>
+    <div class="card" style="padding:14px 16px; display:flex; flex-direction:column; gap:5px;">
+      <span class="lbl">Avg CPM</span>
+      <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em;">$24.01</span>
+    </div>
+    <div class="card" style="padding:14px 16px; display:flex; flex-direction:column; gap:5px; background:#FFFCF5; border-color:#FBE29C;">
+      <span class="lbl" style="color:#803F15;">Avg attention</span>
+      <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em; color:#803F15;">76<span style="font-size:14px; font-weight:500; color:#B45309;"> / 100</span></span>
+    </div>
+  </div>
+
+  <!-- filters -->
+  <div style="padding:0 24px 12px; display:flex; align-items:center; gap:8px;">
+    <div style="height:32px; min-width:220px; border:1px solid #E3E7EF; border-radius:6px; background:#fff; display:flex; align-items:center; gap:8px; padding:0 10px; font-size:13px; color:#9098A6;">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none"><circle cx="6.2" cy="6.2" r="3.9" stroke="#9098A6" stroke-width="1.3"/><path d="M9.2 9.2l2.4 2.4" stroke="#9098A6" stroke-width="1.3" stroke-linecap="round"/></svg>
+      Search deals
+    </div>
+    <div class="btn btn-s" style="height:32px;">All advertisers<svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2.5 4l2.5 2.5L7.5 4" stroke="#6B7383" stroke-width="1.3" stroke-linecap="round"/></svg></div>
+    <div class="btn btn-s" style="height:32px;">Any status<svg width="9" height="9" viewBox="0 0 10 10" fill="none"><path d="M2.5 4l2.5 2.5L7.5 4" stroke="#6B7383" stroke-width="1.3" stroke-linecap="round"/></svg></div>
+    <div class="btn btn-s" style="height:32px; background:#FFF9EC; border-color:#FBE29C; color:#803F15;">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.2" stroke="#B45309" stroke-width="1.3"/><circle cx="6" cy="6" r="1.4" fill="#E67A1F"/></svg>
+      Attention-curated only
+    </div>
+    <span style="margin-left:auto; font-size:12px; color:#6B7383;">Sorted by <strong style="font-weight:500; color:#545C6B;">last activity</strong></span>
+  </div>
+
+  <div style="padding:0 24px 24px;">
+    <div class="card" style="overflow:hidden;">
+      <table>
+        <thead><tr>
+          <th style="padding-left:16px;">Deal</th><th>Deal ID</th><th>Status</th>
+          <th>Format</th><th style="text-align:right;">Floor</th>
+          <th style="text-align:right;">Delivered</th><th style="text-align:right;">Attention</th>
+          <th style="width:34px;"></th>
+        </tr></thead>
+        <tbody>
+          <tr>
+            <td style="padding-left:16px;">
+              <div style="font-weight:500;">Ridgeline · FL CTV · Q4</div>
+              <div style="font-size:12px; color:#6B7383; margin-top:2px;">Ridgeline HVAC · TTD · 1–31 Oct</div>
+            </td>
+            <td><span class="m" style="font-size:12px; color:#6B7383;">—</span></td>
+            <td><span class="pill p-bld"><svg width="10" height="10" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.4" stroke="#8A4513" stroke-width="1.3"/><path d="M6 3.6V6l1.7 1" stroke="#8A4513" stroke-width="1.3" stroke-linecap="round"/></svg>Building</span></td>
+            <td style="color:#545C6B;">CTV</td>
+            <td style="text-align:right;" class="num">$24.00</td>
+            <td style="text-align:right; color:#9098A6;">—</td>
+            <td style="text-align:right; color:#9098A6;">—</td>
+            <td><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3.5" r="1.1" fill="#9098A6"/><circle cx="7" cy="7" r="1.1" fill="#9098A6"/><circle cx="7" cy="10.5" r="1.1" fill="#9098A6"/></svg></td>
+          </tr>
+          <tr>
+            <td style="padding-left:16px;">
+              <div style="font-weight:500; display:flex; align-items:center; gap:7px;">Ridgeline · Live Sports FL
+                <span class="pill p-att" style="height:19px; font-size:10px;">Attention</span></div>
+              <div style="font-size:12px; color:#6B7383; margin-top:2px;">Ridgeline HVAC · TTD · 15 Sep–31 Dec</div>
+            </td>
+            <td><span class="m" style="font-size:12px;">PGAM-CT-88410</span></td>
+            <td><span class="pill p-live"><svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#17A34A"/></svg>Live</span></td>
+            <td style="color:#545C6B;">CTV</td>
+            <td style="text-align:right;" class="num">$26.50</td>
+            <td style="text-align:right;" class="num">$88,412</td>
+            <td style="text-align:right;" class="num" style="color:#803F15;">81</td>
+            <td><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3.5" r="1.1" fill="#9098A6"/><circle cx="7" cy="7" r="1.1" fill="#9098A6"/><circle cx="7" cy="10.5" r="1.1" fill="#9098A6"/></svg></td>
+          </tr>
+          <tr>
+            <td style="padding-left:16px;">
+              <div style="font-weight:500; display:flex; align-items:center; gap:7px;">Caldwell Legal · News PM
+                <span class="pill p-att" style="height:19px; font-size:10px;">Attention</span></div>
+              <div style="font-size:12px; color:#6B7383; margin-top:2px;">Caldwell &amp; Reeve · DV360 · 1 Aug–30 Nov</div>
+            </td>
+            <td><span class="m" style="font-size:12px;">PGAM-CT-87226</span></td>
+            <td><span class="pill p-live"><svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#17A34A"/></svg>Live</span></td>
+            <td style="color:#545C6B;">CTV</td>
+            <td style="text-align:right;" class="num">$22.00</td>
+            <td style="text-align:right;" class="num">$142,660</td>
+            <td style="text-align:right;" class="num" style="color:#803F15;">79</td>
+            <td><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3.5" r="1.1" fill="#9098A6"/><circle cx="7" cy="7" r="1.1" fill="#9098A6"/><circle cx="7" cy="10.5" r="1.1" fill="#9098A6"/></svg></td>
+          </tr>
+          <tr>
+            <td style="padding-left:16px;">
+              <div style="font-weight:500;">Northwind Auto · Q3 Retarget</div>
+              <div style="font-size:12px; color:#6B7383; margin-top:2px;">Northwind · Amazon DSP · 1 Jul–30 Sep</div>
+            </td>
+            <td><span class="m" style="font-size:12px;">PGAM-OV-81904</span></td>
+            <td><span class="pill p-pau">Paused</span></td>
+            <td style="color:#545C6B;">Online video</td>
+            <td style="text-align:right;" class="num">$14.00</td>
+            <td style="text-align:right;" class="num">$61,204</td>
+            <td style="text-align:right;" class="num" style="color:#803F15;">68</td>
+            <td><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3.5" r="1.1" fill="#9098A6"/><circle cx="7" cy="7" r="1.1" fill="#9098A6"/><circle cx="7" cy="10.5" r="1.1" fill="#9098A6"/></svg></td>
+          </tr>
+          <tr>
+            <td style="padding-left:16px;">
+              <div style="font-weight:500; display:flex; align-items:center; gap:7px;">Harbour Point Resorts · FAST
+                <span class="pill p-imp" style="height:19px; font-size:10px;">Imported</span></div>
+              <div style="font-size:12px; color:#6B7383; margin-top:2px;">Harbour Point · TTD · created outside PGAM</div>
+            </td>
+            <td><span class="m" style="font-size:12px;">PM-4471-20913</span></td>
+            <td><span class="pill p-live"><svg width="7" height="7" viewBox="0 0 8 8"><circle cx="4" cy="4" r="3" fill="#17A34A"/></svg>Live</span></td>
+            <td style="color:#545C6B;">CTV</td>
+            <td style="text-align:right;" class="num">$19.50</td>
+            <td style="text-align:right;" class="num">$74,318</td>
+            <td style="text-align:right; color:#9098A6;">n/a</td>
+            <td><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3.5" r="1.1" fill="#9098A6"/><circle cx="7" cy="7" r="1.1" fill="#9098A6"/><circle cx="7" cy="10.5" r="1.1" fill="#9098A6"/></svg></td>
+          </tr>
+          <tr>
+            <td style="padding-left:16px;">
+              <div style="font-weight:500;">Ridgeline · Q1 planning</div>
+              <div style="font-size:12px; color:#6B7383; margin-top:2px;">Ridgeline HVAC · no dates set</div>
+            </td>
+            <td><span class="m" style="font-size:12px; color:#6B7383;">—</span></td>
+            <td><span class="pill p-drf">Draft</span></td>
+            <td style="color:#545C6B;">CTV</td>
+            <td style="text-align:right; color:#9098A6;">—</td>
+            <td style="text-align:right; color:#9098A6;">—</td>
+            <td style="text-align:right; color:#9098A6;">—</td>
+            <td><svg width="14" height="14" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="3.5" r="1.1" fill="#9098A6"/><circle cx="7" cy="7" r="1.1" fill="#9098A6"/><circle cx="7" cy="10.5" r="1.1" fill="#9098A6"/></svg></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="display:flex; align-items:center; gap:9px; padding:12px 4px 0; font-size:12px; color:#6B7383;">
+      <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style="flex:none;"><circle cx="7" cy="7" r="5.2" stroke="#6B7383" stroke-width="1.2"/><path d="M7 4.3v.5M7 6.2v3.4" stroke="#6B7383" stroke-width="1.3" stroke-linecap="round"/></svg>
+      <span><strong style="font-weight:500; color:#545C6B;">Imported</strong> deals were created outside PGAM — we report on them but didn't build them, so attention isn't measured.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

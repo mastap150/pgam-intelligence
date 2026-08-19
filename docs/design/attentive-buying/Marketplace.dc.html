@@ -1,0 +1,271 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #F6F7FA; }
+    * { box-sizing: border-box; }
+    .r { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+         font-feature-settings: "cv05" 1, "cv08" 1, "ss03" 1;
+         -webkit-font-smoothing: antialiased; color: #0C1017; }
+    .m { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+    a { color: #0925A8; } a:hover { color: #0B3CFF; }
+    .lbl { font-size: 11px; font-weight: 500; letter-spacing: .055em;
+           text-transform: uppercase; color: #6B7383; }
+    .card { background: #fff; border: 1px solid #E3E7EF; border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(12,16,23,.04), 0 1px 3px rgba(12,16,23,.03); }
+    .secttl { font-size: 12px; font-weight: 600; letter-spacing: .04em;
+              text-transform: uppercase; color: #0C1017; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px;
+            border-radius: 5px; font-size: 11px; font-weight: 500; white-space: nowrap;
+            border: 1px solid; }
+    .p-live { background:#E7F7EE; color:#0F7A38; border-color:#BFE8CF; }
+    .p-bld  { background:#FFF3E8; color:#8A4513; border-color:#FBDCC0; }
+    .p-drf  { background:#F4F6F9; color:#6B7383; border-color:#E3E7EF; }
+    .p-pau  { background:#F4F6F9; color:#545C6B; border-color:#E3E7EF; }
+    .p-att  { background:#FFF9EC; color:#803F15; border-color:#FBE29C; }
+    .p-imp  { background:#F4F0FF; color:#5B21B6; border-color:#DDD0FA; }
+    .btn { height: 34px; border-radius: 8px; display: inline-flex; align-items: center;
+           justify-content: center; gap: 7px; font-size: 13px; font-weight: 500; padding: 0 12px; }
+    .btn-p { background: #0B3CFF; color: #fff; font-weight: 600;
+             box-shadow: 0 1px 2px rgba(11,60,255,.28); }
+    .btn-s { background: #fff; color: #545C6B; border: 1px solid #E3E7EF; }
+    table { border-collapse: collapse; width: 100%; }
+    th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .055em;
+         text-transform: uppercase; color: #6B7383; padding: 9px 12px;
+         border-bottom: 1px solid #E3E7EF; white-space: nowrap; }
+    td { font-size: 13px; padding: 12px; border-bottom: 1px solid #EEF0F5; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 500; }
+    .topbar { height: 52px; background: #0F1521; display: flex; align-items: center;
+              padding: 0 20px; gap: 22px; flex: none; }
+    .nav { height:52px; display:flex; align-items:center; padding:0 12px; font-size:13px;
+           font-weight:400; color:#9098A6; }
+    .nav.on { color:#fff; font-weight:500; box-shadow: inset 0 -2px 0 #E67A1F; }
+  </style>
+</helmet>
+<div class="r" style="width: 1360px; min-height: 900px; display: flex; flex-direction: column;">
+  <div class="topbar">
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 15L9 3l7 12H2z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span style="color:#fff; font-size:13px; font-weight:600; letter-spacing:-.01em;">Attentive Buying</span>
+    </div>
+    <div style="display:flex; gap:2px;">
+      <div class="nav">New deal</div><div class="nav">Deals</div>
+      <div class="nav on">Marketplace</div><div class="nav">Reporting</div>
+    </div>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+      <span class="m" style="font-size:11px; color:#6B7383;">Meridian Media</span>
+      <div style="width:26px; height:26px; border-radius:50%; background:#224BDB; color:#fff; font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center;">RK</div>
+    </div>
+  </div>
+
+  <div style="padding:20px 24px 16px; display:flex; flex-direction:column; gap:5px;">
+    <div style="font-size:24px; font-weight:600; letter-spacing:-.021em;">Marketplace</div>
+    <div style="font-size:13px; color:#545C6B; max-width:70ch;">Ready-built deals. Pick one, choose your DSP and seat, and we'll issue the Deal ID.</div>
+  </div>
+
+  <!-- category rail -->
+  <div style="padding:0 24px 18px; display:flex; gap:7px; align-items:center;">
+    <div class="btn" style="height:30px; background:#FFF9EC; border:1px solid #FBE29C; color:#803F15; font-weight:600;">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="4.2" stroke="#B45309" stroke-width="1.3"/><circle cx="6" cy="6" r="1.4" fill="#E67A1F"/></svg>
+      PGAM Attention
+    </div>
+    <div class="btn btn-s" style="height:30px;">Sports</div>
+    <div class="btn btn-s" style="height:30px;">Audience</div>
+    <div class="btn btn-s" style="height:30px;">CTV</div>
+    <div class="btn btn-s" style="height:30px;">Seasonal</div>
+    <span style="margin-left:auto; font-size:12px; color:#6B7383;">4 attention packages</span>
+  </div>
+
+  <!-- attention section -->
+  <div style="padding:0 24px 8px; display:flex; align-items:flex-start; gap:11px;">
+    <div style="width:3px; align-self:stretch; background:#E67A1F; border-radius:2px; margin-top:3px;"></div>
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="font-size:15px; font-weight:600; letter-spacing:-.006em; color:#803F15;">PGAM Attention</div>
+      <div style="font-size:13px; color:#545C6B; max-width:78ch; line-height:1.5;">
+        Built from placements we've measured, not publisher reputation. Each package is rebuilt nightly
+        as attention scores move, so the inventory list stays current for the life of the deal.
+      </div>
+    </div>
+  </div>
+
+  <div style="padding:14px 24px 24px; display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px;">
+
+    <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
+      <div style="padding:18px 20px 16px; background:#FFFCF5; border-bottom:1px solid #FBE29C; display:flex; flex-direction:column; gap:9px;">
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:16px; font-weight:600; letter-spacing:-.008em;">High Attention CTV</span>
+            <span style="font-size:12px; color:#8A4513;">Top-quartile attention · national · 1,284 placements</span>
+          </div>
+          <div style="margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px;">
+            <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em; color:#803F15;">82</span>
+            <span class="lbl" style="color:#B45309;">attention</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <span class="pill p-att" style="height:20px; font-size:10px;">attn ≥ 0.75</span>
+          <span class="pill p-att" style="height:20px; font-size:10px;">CTV</span>
+          <span class="pill p-att" style="height:20px; font-size:10px;">live + VOD</span>
+        </div>
+      </div>
+      <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px; flex:1;">
+        <div style="font-size:13px; line-height:1.55; color:#545C6B;">
+          Our strongest-performing streaming placements across news, sport and premium entertainment.
+          Use it when completion and genuine viewing matter more than the lowest CPM.
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; padding:12px 0; border-top:1px solid #EEF0F5; border-bottom:1px solid #EEF0F5;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">From</span><span class="num" style="font-size:15px; font-weight:600;">$26 CPM</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Avail / mo</span><span class="num" style="font-size:15px; font-weight:600;">41M</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Completion</span><span class="num" style="font-size:15px; font-weight:600;">96%</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:auto;">
+          <div class="btn btn-p" style="flex:1;">Get Deal ID</div>
+          <div class="btn btn-s">Details</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
+      <div style="padding:18px 20px 16px; background:#FFFCF5; border-bottom:1px solid #FBE29C; display:flex; flex-direction:column; gap:9px;">
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:16px; font-weight:600; letter-spacing:-.008em;">Live Sports Attention</span>
+            <span style="font-size:12px; color:#8A4513;">In-game and pre/post · 412 placements</span>
+          </div>
+          <div style="margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px;">
+            <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em; color:#803F15;">86</span>
+            <span class="lbl" style="color:#B45309;">attention</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <span class="pill p-att" style="height:20px; font-size:10px;">attn ≥ 0.80</span>
+          <span class="pill p-att" style="height:20px; font-size:10px;">first-in-pod weighted</span>
+        </div>
+      </div>
+      <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px; flex:1;">
+        <div style="font-size:13px; line-height:1.55; color:#545C6B;">
+          Our highest attention scores anywhere — live sport holds viewers in the room. Weighted toward
+          first-in-pod, which measures roughly twice the attention of mid-pod.
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; padding:12px 0; border-top:1px solid #EEF0F5; border-bottom:1px solid #EEF0F5;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">From</span><span class="num" style="font-size:15px; font-weight:600;">$34 CPM</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Avail / mo</span><span class="num" style="font-size:15px; font-weight:600;">12M</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Completion</span><span class="num" style="font-size:15px; font-weight:600;">98%</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:auto;">
+          <div class="btn btn-p" style="flex:1;">Get Deal ID</div>
+          <div class="btn btn-s">Details</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
+      <div style="padding:18px 20px 16px; background:#FFFCF5; border-bottom:1px solid #FBE29C; display:flex; flex-direction:column; gap:9px;">
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:16px; font-weight:600; letter-spacing:-.008em;">High Completion Video</span>
+            <span style="font-size:12px; color:#8A4513;">Online video · 2,140 placements</span>
+          </div>
+          <div style="margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px;">
+            <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em; color:#803F15;">74</span>
+            <span class="lbl" style="color:#B45309;">attention</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <span class="pill p-att" style="height:20px; font-size:10px;">VCR ≥ 85%</span>
+          <span class="pill p-att" style="height:20px; font-size:10px;">instream only</span>
+        </div>
+      </div>
+      <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px; flex:1;">
+        <div style="font-size:13px; line-height:1.55; color:#545C6B;">
+          Instream video placements that consistently finish the ad. A cheaper route to attention than
+          CTV when reach matters more than the big screen.
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; padding:12px 0; border-top:1px solid #EEF0F5; border-bottom:1px solid #EEF0F5;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">From</span><span class="num" style="font-size:15px; font-weight:600;">$12 CPM</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Avail / mo</span><span class="num" style="font-size:15px; font-weight:600;">88M</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Completion</span><span class="num" style="font-size:15px; font-weight:600;">89%</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:auto;">
+          <div class="btn btn-p" style="flex:1;">Get Deal ID</div>
+          <div class="btn btn-s">Details</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="padding:0; overflow:hidden; display:flex; flex-direction:column;">
+      <div style="padding:18px 20px 16px; background:#FFFCF5; border-bottom:1px solid #FBE29C; display:flex; flex-direction:column; gap:9px;">
+        <div style="display:flex; align-items:flex-start; gap:10px;">
+          <div style="display:flex; flex-direction:column; gap:4px;">
+            <span style="font-size:16px; font-weight:600; letter-spacing:-.008em;">Premium Attention Publishers</span>
+            <span style="font-size:12px; color:#8A4513;">Named publishers · 38 properties</span>
+          </div>
+          <div style="margin-left:auto; text-align:right; display:flex; flex-direction:column; gap:2px;">
+            <span class="num" style="font-size:26px; font-weight:600; letter-spacing:-.026em; color:#803F15;">80</span>
+            <span class="lbl" style="color:#B45309;">attention</span>
+          </div>
+        </div>
+        <div style="display:flex; gap:5px;">
+          <span class="pill p-att" style="height:20px; font-size:10px;">transparent</span>
+          <span class="pill p-att" style="height:20px; font-size:10px;">publisher list shared</span>
+        </div>
+      </div>
+      <div style="padding:16px 20px; display:flex; flex-direction:column; gap:14px; flex:1;">
+        <div style="font-size:13px; line-height:1.55; color:#545C6B;">
+          For buyers who need to name the publishers in the plan. Every property is disclosed up front
+          and each one clears our attention floor.
+        </div>
+        <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; padding:12px 0; border-top:1px solid #EEF0F5; border-bottom:1px solid #EEF0F5;">
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">From</span><span class="num" style="font-size:15px; font-weight:600;">$29 CPM</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Avail / mo</span><span class="num" style="font-size:15px; font-weight:600;">24M</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:3px;">
+            <span class="lbl">Completion</span><span class="num" style="font-size:15px; font-weight:600;">95%</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px; margin-top:auto;">
+          <div class="btn btn-p" style="flex:1;">Get Deal ID</div>
+          <div class="btn btn-s">Details</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

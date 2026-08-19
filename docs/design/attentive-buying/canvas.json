@@ -1,0 +1,26 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html",        "x": 0,    "y": 0,    "w": 1360, "h": 940, "title": "Deal builder" },
+    { "file": "Library.dc.html",     "x": 1440, "y": 0,    "w": 1360, "h": 880, "title": "Deal library" },
+    { "file": "Package.dc.html",     "x": 2880, "y": 0,    "w": 1360, "h": 900, "title": "Deal ID & activation" },
+    { "file": "Marketplace.dc.html", "x": 0,    "y": 1040, "w": 1360, "h": 900, "title": "Marketplace — PGAM Attention" },
+    { "file": "Queue.dc.html",       "x": 1440, "y": 1040, "w": 1360, "h": 880, "title": "Admin — fulfilment queue" }
+  ],
+  "annotations": [
+    { "id": "note-builder", "x": 0, "y": -150, "w": 380,
+      "text": "AGENCY SURFACE\n\nOne screen, not a 9-step wizard. A trader fills six fields and hits Create; 'Guide me' opens the same section as a drawer for less technical users.\n\nNote what is absent: no margin, no supply cost, no SSP name. Supply path says 'PGAM Supply' until Advanced is chosen." },
+    { "id": "note-attention", "x": 430, "y": -150, "w": 380,
+      "text": "ATTENTION IS STRUCTURAL\n\nThe Inventory section leads with attention tier — the deal is built FROM measured placements, not from a publisher list.\n\nAmber (am-9 #E67A1F) appears only on attention. Per the design system it is reserved: seeing amber should mean attention and nothing else." },
+    { "id": "note-honesty", "x": 860, "y": -150, "w": 380,
+      "text": "TWO HONESTY RULES ON SCREEN\n\n1. Every forecast number carries its source — 'PGAM historical' vs 'PGAM estimate'. One panel legitimately mixes them.\n\n2. Create says 'ready in about 40 minutes', not instant. Fulfilment is human today; the ETA comes from measured p50. When a write API lands this resolves in seconds and the copy changes itself." },
+    { "id": "note-floor", "x": 1290, "y": -150, "w": 300,
+      "text": "THE FLOOR FIELD\n\nCommercially the most sensitive input — it sets PGAM's margin. The agency sees clearing guidance ('$21 is the lowest we'd recommend'). It never sees the spread." },
+    { "id": "note-imported", "x": 1440, "y": -150, "w": 340,
+      "text": "IMPORTED DEALS\n\nExisting PMP deals on buyer 69397 can be read today, so the library is useful from launch rather than starting empty. Badged 'Imported' and attention shows n/a — we report on them but didn't build them." },
+    { "id": "note-payload", "x": 2880, "y": -150, "w": 360,
+      "text": "THE DEAL ID IS THE PAYLOAD\n\nIt is what the buyer came for, so it gets the largest type on the page, a copy button, and the three DSP-specific steps beside it.\n\nAttention lift sits underneath as the reason to come back." },
+    { "id": "note-admin", "x": 1440, "y": 1960, "w": 400,
+      "text": "INTERNAL SURFACE — the mirror image\n\nDarker chrome and an INTERNAL tag so it can never be mistaken for the agency view.\n\nThis is the one place the full waterfall appears: buyer floor − SSP price − 25.5% take − data = PGAM margin, labelled 'never shown to agency'.\n\nThe third row is the unviable-floor case: a $16 floor that would lose $1.20 CPM, with a suggested floor rather than a silent loss." }
+  ],
+  "launch": { "view": "canvas" }
+}

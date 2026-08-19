@@ -11,9 +11,15 @@
 
 ### 0.1 The headline
 
-**The buyer-facing platform you want is roughly 70% built. The curation engine
-underneath it is 0% built, and it is blocked by SSP entitlements rather than by
-engineering.**
+**The buyer-facing platform you want is roughly 70% built. Curation-side deal
+*reading* already works on both SSPs. Deal *writing* — creating a deal and
+getting a Deal ID back — has no path on either, supported or otherwise.**
+
+> **Superseded in part.** §0.3, §7 and §8 were written before the reporting
+> repos (`pgam-recon`, `pgam-direct/jobs/report-fetchers`) were audited.
+> **Addendum B corrects them** — PGAM has more curation-side access than those
+> sections credit, and the shape of that access changes the vendor ask.
+> Read Addendum B before acting on §7 or §8.
 
 Almost every non-curation subsystem the brief asks for already exists in
 `pgam-dsp-dashboard`: agency/advertiser accounts, Clerk auth, per-feature RBAC,
@@ -59,8 +65,8 @@ capabilities with these platforms."* That is half right, and the halves matter:
 
 | | Relationship | API integration | Curation (deal-create) capability |
 |---|---|---|---|
-| **Magnite** | Yes — but a **demand/DSP** seat (SpringServe account **2724**, `pubops@pgammedia.com`) | Yes, deep — SpringServe `/api/v0` read+write for campaigns, demand tags, creatives, deal *lists* | **No.** Deals are created by hand in the ClearLine console. Two separate write entitlements are confirmed blocked. |
-| **PubMatic** | **Yes — a genuine curation seat.** `PGAM_Activate_US`, `organizationid=17496`, with live advertisers (Amazon, JP Morgan, IHG, Bamboo HR, MF) | Partial and unproven. Two competing clients in two repos; the good one has **one** confirmed endpoint | **No.** There is no create/POST function anywhere in either client. |
+| **Magnite** | Yes — a demand/DSP seat (SpringServe **2724**) **plus** working reporting credentials on `api.magnite.com` (OAuth2 client-credentials) and UI-token access to DV+ Performance Analytics | Yes, deep — but see **Addendum B**: the official DV+ analytics REST API is **proven account-blocked**, and what works is a Playwright-scraped UI session token | **No write path.** Deals are created by hand in the ClearLine console. |
+| **PubMatic** | **Yes — two curation-side seats with live revenue.** Activate seat `PGAM_Activate_US` (org **17496**) and PMP buyer account **69397** running real deals at a **25.5% contracted take rate** | Real but unsupported. Deal-level **read works today** via `apps.pubmatic.com/api/pmp/deals/reportingSearch`; the official OAuth buyer analytics API returns **zero rows** for our user | **No write path.** No create/POST function exists in any client. |
 
 The important nuance: **PGAM's Magnite integration is buy-side; curation is a
 sell-side/curator function.** SpringServe is Magnite's ad server and PGAM talks
@@ -1991,3 +1997,216 @@ Add to the §17.2 MVP list:
 Every one of those is unblocked. That is the point: **Attentive Buying is the part
 of this product PGAM can ship without waiting for Magnite or PubMatic to answer a
 single email.**
+
+---
+
+# Addendum B — corrected integration picture (reporting repos audited)
+
+**This supersedes §0.3, §7 and §8 where they conflict.** Those sections were
+written from `pgam-dsp-dashboard` and `pgam-intelligence` only. Auditing
+`pgam-recon` and `pgam-direct/jobs/report-fetchers` changes the picture
+materially — and the correction cuts both ways.
+
+## B1. What I got wrong
+
+I said PGAM had no meaningful curation-seat integration. **That was wrong.**
+PGAM has **two** PubMatic curation-side seats, one with live revenue and a
+contracted take rate, and **deal-level read access that works today**.
+
+| Seat / account | Where | What it is | Status |
+|---|---|---|---|
+| PubMatic buyer **69397** | `pgam-recon/pgam_recon/fetchers/pubmatic_pmp.py` | **PMP / curation buyer account with live deals and real spend.** P&L wiring: *"Gross = SUM(spend) across all active deals on buyer 69397; Net = Gross × 25.5% (PGAM's contracted take rate on PMP)"* | **Live, revenue-generating** |
+| PubMatic Activate **17496** (`PGAM_Activate_US`) | `pgam-intelligence/core/pubmatic_activate.py` | Activate curation seat, advertisers incl. Amazon, JP Morgan, IHG | Live seat, client unwired |
+| PubMatic publishers 162623 / 165708 / 166643 | `pgam-recon/.../pubmatic.py` | Sell-side accounts | OAuth API works |
+| Magnite DV+ | `pgam-recon/.../magnite.py` + `magnite_refresh.py` | Performance Analytics, partner-level revenue | **Working** via UI token |
+| Magnite `api.magnite.com` | `pgam-direct/.../adapters/magnite.py` | OAuth2 client-credentials, `reporting/v1/queries`, secret at `pgam/dsp/magnite/auth` | **Working** |
+
+So PGAM is **already in the curation business commercially.** It is not a
+hypothesis. That is a stronger starting position than §0 credited, and it
+changes the pitch: this product productizes an existing revenue line rather
+than entering a new one.
+
+## B2. What the correction does *not* change
+
+**There is still no write path to create a deal on either SSP** — supported or
+unsupported. Every integration found across all four repos is read-only
+reporting. No `POST`/`PUT` that creates a deal exists anywhere.
+
+## B3. The real shape of the access — and why it matters
+
+The genuinely important finding is not "read access exists," it is **how**. The
+pattern is identical across both vendors and both curation-side accounts:
+
+> **Official OAuth APIs serve the publisher / demand-partner direction.
+> The curation / buyer-side surfaces are only reachable by headless-browser
+> session-token scraping of internal SPA APIs.**
+
+Both vendors' official buyer-side APIs were tested and found not to work:
+
+**Magnite** — `pgam_recon/fetchers/magnite.py` documents the attempt:
+
+> Magnite's public docs describe a 3-step offline-report REST API on
+> `api.rubiconproject.com/analytics/v2/default` … We spent an afternoon on
+> 2026-04-21/22 proving that path is gated at the **account** level, not the key
+> level: three separate Key/Secret pairs (incl. a freshly minted one) all
+> gateway-parsed fine … but returned 401 "Invalid or expired access_token"
+> specifically against the `analytics` realm. Their own AM escalation is still
+> open; **no code change on our end unblocks it.**
+
+What works instead: `performance-analytics-reporting-service.magnite.com/report/v2/analytics/default`
+with the **UI session `access_token` as a URL query param** (~30–60 min sliding
+TTL), refreshed by Playwright headless login to `apps.rubiconproject.com`
+(`magnite_refresh.py`).
+
+**PubMatic** — `pubmatic_pmp.py`:
+
+> account 69397 is a *buyer* account managed in the apps.pubmatic.com UI, and the
+> buyer-side analytics endpoint on api.pubmatic.com **returns zero rows** for our
+> user 37,770 across every date range we've tried.
+
+What works instead: Playwright login via Okta → poll `sessionStorage` for
+`apiAuthValue` → replay `POST apps.pubmatic.com/api/pmp/deals/reportingSearch`
+with that token in a `pubtoken` header. Note this is the same auth mode
+`core/pubmatic_activate.py` fell back to on the Activate seat — **three
+independent instances of the same conclusion.**
+
+This is a coherent, consistent finding, and it reframes the vendor conversation
+(§B6).
+
+## B4. The Phase 1 unlock I under-credited
+
+`reportingSearch` is already called with a rich filter set:
+
+```
+filters: [ "status eq 1,status eq 2,status eq 4,status eq 11",
+           "dealCategory eq 1,dealCategory eq 2,dealCategory eq 3",
+           "channelType eq 0,channelType eq 1,channelType eq 5,channelType eq 6",
+           "loggedInOwnerId eq 69397", "loggedInOwnerTypeId eq 7" ]
+sort: "-revenue"   ·   pageSize: 9999   ·   fromDate / toDate honoured
+```
+
+That returns **per-deal rows with revenue, status, category and channel, date-bounded.**
+Which means:
+
+- **The Deal Library can be populated with real deals and real spend in Phase 1**,
+  not just with deals the new product creates. Existing PMP deals become the
+  product's day-one inventory. That is a much better launch than an empty table.
+- **Deal Health has a real input immediately.** The request body carries a
+  `dealHealthScore` field — PubMatic already computes one. Worth probing what it
+  returns before building a competing score from scratch.
+- **Per-deal spend reconciliation exists**, so the margin model in §B5 can be
+  validated against booked revenue rather than estimated.
+
+Add to Phase 1 (§17.2): **import existing PMP deals into the Deal Library
+read-only**, clearly badged as *externally created*, so the library is useful
+from launch and the two populations never get confused.
+
+## B5. Margin model — corrected to the floor-spread model
+
+§13 modelled margin as a markup on estimated supply cost. The actual model is a
+**spread between the buyer's floor and the SSP's price**:
+
+```
+Buyer floor CPM              ← what the agency tells us they'll pay
+  − SSP clearing price CPM   ← what Magnite / PubMatic actually charge
+  − SSP fee / take rate      ← e.g. PubMatic PMP 25.5% contracted take
+  − data / audience cost     ← audience CPM, attention premium
+  ─────────────────────────
+  = PGAM margin CPM          ← the spread. Never shown to the agency.
+```
+
+Three consequences the builder UI must handle:
+
+1. **Viability is a build-time check, not a post-hoc calculation.** If
+   `buyer_floor < ssp_price + fees + min_margin`, the deal cannot clear at a
+   profit. This must surface **while the buyer is typing the floor**, as a
+   warning with a concrete suggestion ("at $18 this deal won't clear premium CTV
+   — $24 is the lowest floor we'd recommend"), never as a submit-time rejection
+   and never as a silent loss.
+2. **The floor field is the most commercially sensitive input in the product.**
+   It is the one number that sets PGAM's margin. It deserves a live, private
+   margin readout for operators (`curation.pricing`) and *no* corresponding slot
+   in the agency view.
+3. **The 25.5% PMP take rate is real and contracted** — it belongs in
+   `curation_pricing_rules` as a `provider='pubmatic'` row, not as an env default.
+   Magnite's equivalent (~17–21% commission, per `magnite.py`'s note on
+   `seller_net_revenue`) should be confirmed and recorded the same way.
+
+Schema change to §9.2 — add to `curation_deals`:
+
+```sql
+ALTER TABLE curation_deals
+  ADD COLUMN buyer_floor_cpm_cents      INT,   -- what the agency set
+  ADD COLUMN ssp_price_cpm_cents        INT,   -- observed/quoted SSP clearing price
+  ADD COLUMN ssp_take_rate_pct          NUMERIC(6,4),
+  ADD COLUMN pgam_margin_cpm_cents      INT,   -- the spread. Operator-only.
+  ADD COLUMN margin_viable              BOOLEAN,
+  ADD COLUMN margin_computed_at         TIMESTAMPTZ;
+```
+
+`pgam_margin_cpm_cents` must be excluded from every tenant-scoped serializer —
+add it by name to the `assertCurationSafe` guard (§13.3) and unit-test the
+omission.
+
+## B6. The vendor ask is now far more credible
+
+This is the practical payoff. §7/§8's asks were open questions
+(*"is there a curator API?"*). PGAM can now ask something much harder to
+deflect, because it can name the exact endpoints it already depends on:
+
+**To PubMatic:** *"We run PMP buyer account 69397 and Activate seat 17496. We
+currently read our own deal data by driving your UI with Playwright and lifting
+`apiAuthValue` out of `sessionStorage` to call
+`POST /api/pmp/deals/reportingSearch`, because the OAuth buyer analytics endpoint
+returns zero rows for user 37,770. That is fragile for both of us. Please (a)
+enable OAuth access to the buyer-side reporting we already consume, and (b) tell
+us whether deal **create/update** is available to a curator seat over OAuth — and
+if so, give us the reference."*
+
+**To Magnite:** *"Your DV+ analytics REST API at
+`api.rubiconproject.com/analytics/v2/default` has been account-blocked for us
+since April — three key pairs, 401 on the `analytics` realm, AM escalation still
+open. We're reading Performance Analytics with a scraped UI `access_token`
+instead. Separately, we hold working OAuth2 client-credentials on
+`api.magnite.com`. Two questions: can the existing escalation be closed, and does
+our `api.magnite.com` credential's scope extend — or can it be extended — to deal
+creation on a curation seat (we're aware of
+`POST /v1/resources/seats/{seatId}/deals` on the Streaming API)?"*
+
+Those are specific, evidenced, and reference an escalation that is already open.
+
+## B7. Do not build writes on scraped session tokens
+
+One firm recommendation, because the temptation will be real once someone
+notices reads work this way.
+
+Reads degrade safely: `magnite.py` and `pubmatic_pmp.py` both fall back to
+`mirror-fallback` and alert, and a missed day is stale reporting. **A write that
+fails halfway leaves a real deal in a live marketplace in an unknown state, with
+money attached** — duplicated, misconfigured, or created-but-unrecorded. Layer on
+a ~30–60 min sliding token, an SPA whose payload shapes change without notice
+(both files carry dated DevTools-capture comments), an explicit MFA/captcha
+caveat, and undocumented internal endpoints, and it is not a foundation for
+customer-facing deal creation.
+
+**Use scraped-token access for reads only.** Route creation through
+`ManualFulfilmentAdapter` (§17) until a supported write API exists. The adapter
+interface means that decision costs nothing later: `supportsProgrammaticCreate`
+flips per provider, and if PubMatic grants OAuth writes on the endpoints PGAM
+already knows, the adapter is a small, well-understood change — because the
+payload shapes are already mapped in `pubmatic_pmp.py`.
+
+## B8. Revised probe list
+
+Replaces §19.6 V1–V3:
+
+| # | Probe | Answers |
+|---|---|---|
+| **B-V1** | Call `reportingSearch` against buyer 69397 and dump the **full item shape**, not just `revenue` — every field per deal | What deal metadata PGAM can already read: targeting? floor? DSP/seat? `dealHealthScore`? Determines how much of the Deal Library is free |
+| **B-V2** | Send the §B6 ask to PubMatic | Whether OAuth read + any write exists for a curator seat |
+| **B-V3** | Send the §B6 ask to Magnite; chase the open AM escalation | Whether the `analytics` block clears and whether `api.magnite.com` scope reaches deal creation |
+| **B-V4** | Run `python -m core.pubmatic_activate config/org/advertisers/deals` on seat 17496 | Whether the Activate seat authenticates independently of the 69397 path |
+| **B-V5** | Reconcile 69397 vs 17496 | Are these one commercial relationship or two? Which seat should the product create deals on? **Nobody has written this down** |
+
+**B-V1 and B-V5 need no vendor cooperation and can run this week.** B-V5 in
+particular is a gap in institutional knowledge, not a technical unknown.
