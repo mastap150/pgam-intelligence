@@ -1,0 +1,80 @@
+name: Marketplace Headroom (legacy TB data in Neon)
+
+# Reads the real marketplace data we ALREADY have and sizes the optimisation
+# headroom against each new-platform lever.
+#
+# Why this exists separately from tbx-probe.yml: that one needs TBX_EMAIL /
+# TBX_PASSWORD, which are not set yet. This needs only
+# PGAM_DIRECT_DATABASE_URL, which is already a repo secret (seven other
+# workflows use it), so it can produce real numbers today. The legacy platform
+# is the same marketplace as api.pgammedia.com, so headroom measured here is
+# headroom on the new platform's levers — see docs/teqblaze-new-platform.md §1.
+#
+# READ-ONLY. scripts/tb_headroom.py issues only SELECTs, inside a
+# `SET TRANSACTION READ ONLY` transaction, so a mistaken query cannot write.
+#
+# Results go to the job log, which is how a Claude Code session reads them back
+# (this sandbox is blocked from Neon and from every PGAM host by egress policy).
+# The log carries revenue figures; it is visible to repo collaborators, same as
+# any other run log here.
+#
+# Run:  Actions → this workflow → Run workflow  (once it is on the default
+#       branch — workflow_dispatch only works from there). Before then, touching
+#       this file and pushing fires it via the push trigger below.
+
+on:
+  # Pre-merge escape hatch, same reasoning as tbx-probe.yml: push-triggered
+  # workflows run from the pushed ref, workflow_dispatch does not.
+  # REMOVE THIS BLOCK AT MERGE.
+  push:
+    branches:
+      - claude/teqblaze-platform-integration-xhazcl
+    paths:
+      - .github/workflows/tb-headroom.yml
+
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Lookback window in days, ending yesterday"
+        required: false
+        default: "30"
+
+concurrency:
+  group: tb-headroom
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    name: Size the headroom
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet "psycopg[binary]>=3.1.0" python-dotenv
+
+      - name: Verify the DSN is present
+        run: |
+          if [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set for this repo."
+            exit 1
+          fi
+          echo "DSN present (value not printed)"
+
+      - name: Size the headroom
+        env:
+          IN_DAYS: ${{ inputs.days || '30' }}
+        run: python3 scripts/tb_headroom.py --days "$IN_DAYS"
