@@ -84,8 +84,13 @@ def _default_dry_run() -> bool:
 # ---------------------------------------------------------------------------
 
 # Mirror of `tb_mgmt.PROTECTED_FLOOR_MINIMUMS` and LL's
-# PROTECTED_FLOOR_MINIMUMS. Keyed by this platform's own IDs — legacy TB and
-# LL IDs are NOT portable here.
+# PROTECTED_FLOOR_MINIMUMS. Keyed by this platform's own IDs.
+#
+# ID portability, per Teqblaze 2026-08-20: PLACEMENT ids are the SAME as on the
+# legacy host (placements were transferred as-is, settings included), so a
+# legacy placement id is a valid key here. INVENTORY ids are different. Supply-
+# source ids were not covered — do not assume a legacy id resolves to one.
+# LL ids remain unrelated to both; LL's map is name-token keyed, not id keyed.
 #
 #   {"placement": {placement_id: min}, "supply_source": {supply_id: min}}
 #

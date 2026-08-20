@@ -160,8 +160,11 @@ them, not a majority:
    regularly, the rule is wrong and automating it just makes it fast.
 2. **Zero false positives on a live partner** across that period. One
    automated cut of a healthy partner costs more than a quarter of saved QPS.
-3. **The Teqblaze ID mapping exists** (`docs/teqblaze-new-platform.md`
-   §8.1.10b), so an action addresses the entity it was reasoned about.
+3. **Findings resolve to the entity an action would touch.** Partly answered
+   (§8.1.10b: placement IDs are stable, inventory IDs are not), but this gate
+   was never really about IDs — the sentry groups on partner *names* out of
+   `pgam_direct`, so the missing step is name → TBX entity, and a name that
+   matches two sources or none is how a cut lands on the wrong partner.
 4. **A verified rollback.** Teqblaze cannot shape traffic, so a cut is binary;
    we need to have re-enabled a source and watched it recover before trusting
    the reverse direction.
@@ -230,9 +233,12 @@ cuts does not get a softer default than the ones that caused them.
 2. **CTV supply.** Roku and Tizen went to near-zero. CTV was 2.3% of impressions
    and 13.6% of revenue at 8× the eCPM of mobile — if Advetisi was the CTV
    route, replacing it is the single biggest revenue action available.
-3. **The Teqblaze ID mapping** (`docs/teqblaze-new-platform.md` §8.1.10b).
-   Every finding here carries legacy IDs. Tier 2 onward cannot execute until
-   those map to entities on `api.pgammedia.com`.
+3. **Resolving findings to TBX entities** (`docs/teqblaze-new-platform.md`
+   §8.1.10b/d). Largely unblocked: placement IDs carry across unchanged, and the
+   findings here are keyed on partner *names* rather than IDs anyway. What is
+   left is the name → TBX supply/demand-source lookup, plus confirming
+   publisher/demand IDs are stable (§8.1.10d) before any join relies on them.
+   Tier 2 onward still needs that lookup to exist.
 4. **Two ETL gaps found while building this**: the partner×country table is
    missing ~92% of Dexerto's volume, and `tb_segments_etl` drops rows with
    `gross_revenue <= 0`, which hides zero-win pairs entirely.

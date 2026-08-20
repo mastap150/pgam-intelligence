@@ -45,14 +45,23 @@ Locally, on a machine that has `.env` and network access:
 Corrected 2026-08-19 on Priyesh's account. An earlier draft of this doc called
 the two hosts separate marketplaces; they are not. `ssp.pgammedia.com` is the
 **old** Teqblaze platform PGAM was on, `api.pgammedia.com` is its successor,
-and it is believed to be **the same underlying data** — legacy reporting still
-answers today. Treat "same data" as a strong hypothesis to verify, not as
-established (see §7, tranche 1), because the whole migration plan hangs on it.
+and it is **the same underlying data**. Teqblaze confirmed this directly on
+2026-08-20 (§8.1.10c): the data was fully transferred from the old ClickHouse to
+the new one, so the new platform should return the same reports as the old. That
+is now a vendor commitment rather than our inference — which does not remove the
+need to check it, but it changes what a failed check *means*: a divergence is now
+a bug to escalate, not an ambiguity for us to model around (§7, tranche 1).
 
 What that changes: this is a **migration**, not a second book. The legacy
-`tb_*` modules are a leg PGAM eventually steps off, so an ID mapping between
-the two is a migration blocker rather than a curiosity, and the deprecation
-date for the old host is now a scheduling input.
+`tb_*` modules are a leg PGAM eventually steps off. The old host's shutdown is
+**under PGAM's control** — Teqblaze confirmed (§8.1.10a) that the legacy UI and
+ClickHouse stay up until we confirm, for as long as we need, even after the full
+transfer. So the deprecation date is a decision we own rather than a deadline
+imposed on us, and the sequencing follows in one direction only: **do not
+confirm disconnection until the reconciliation in §7 tranche 1 step 2 has
+passed.** Those legacy tables are the only independent check on TBX's numbers we
+will ever have; confirming shutdown first would mean giving up the ability to
+verify the platform we are migrating onto, permanently, to save nothing.
 
 What it does not change: the API is a genuinely different system, and none of
 the plumbing carries over:
@@ -67,10 +76,36 @@ the plumbing carries over:
 | Report shape | flat `adx-report` query params | `POST /report/{hash}` with attributes + metrics + filters |
 | Writes | form-encoded, per-field endpoints | JSON, whole-object `.../update` |
 
-**IDs are not portable between them.** A placement ID from `tb_mgmt` means
-nothing here. Contract-floor maps, freeze lists and ledger entries all have to
-be re-keyed — `PROTECTED_FLOOR_MINIMUMS` in `core/tbx_mgmt.py` starts empty for
-exactly that reason.
+**Placement IDs carry across; inventory IDs do not.** Answered by Teqblaze
+2026-08-20 (§8.1.10b): they moved the placements over as-is, so placement IDs
+*and their settings* are unchanged, while inventory IDs are new. This is better
+than the earlier assumption in this doc, which was that nothing was portable.
+Two consequences, and they pull in opposite directions:
+
+- **The write path is unblocked at the level that matters.** A placement ID
+  derived from a contract sheet is now valid on *both* hosts, and a floor
+  written against it targets the same placement either side. No hand re-keying,
+  and no risk of re-keying a contract floor onto the wrong placement — which
+  was the specific danger flagged here before.
+- **It does not populate anything by itself.** `tb_mgmt.PROTECTED_FLOOR_MINIMUMS`
+  is *also* empty, so there is no filled-in legacy map to port; the ID stability
+  makes populating safe, it does not do it. The one populated contract map we
+  hold is LL's (`core/ll_mgmt.py`: 9 Dots ≥ $1.70), and that one is keyed on
+  **name tokens**, not IDs — host-independent, and demand-side. So the route to
+  filling `PROTECTED_FLOOR_MINIMUMS` in `core/tbx_mgmt.py` is still the contract
+  sheets (§7 tranche 3), now with the ID lookup made trustworthy.
+
+**Untested assumption — publisher and demand-source IDs.** Teqblaze confirmed
+*placement* IDs and explicitly excluded *inventory* IDs. They said nothing about
+publisher IDs or demand-source IDs, and inventory sits directly between
+publisher and placement in the legacy hierarchy — so the one level they name as
+changed is adjacent to the keys we actually depend on. Our ETL tables key on
+neither placement nor inventory: `pgam_direct.tb_daily_publisher_revenue` keys on
+`publisher_id`, `tb_daily_demand_revenue` on `demand_id`, and
+`tb_daily_publisher_demand_revenue` on the pair. Nothing we have been told
+covers those. Treat their stability as **unverified** (§8.1.10d), and see the
+join-key caution in §7 tranche 1 step 2 — assuming it is the one way to turn a
+clean reconciliation into a fake failure.
 
 **Do not delete or repoint the legacy `tb_*` modules yet** —
 `tb_floor_nudge` and `tb_contract_floor_sentry` still run against the legacy
@@ -78,11 +113,11 @@ host, and until the new platform is verified against real data, that leg is
 the one carrying live floor decisions. Migrate deliberately, per §7, not by
 repointing a base URL.
 
-The reconciliation is also the cheapest possible correctness test we have: if
-both hosts really do serve the same marketplace, then a TBX report and the
-legacy `pgam_direct` tables should agree on impressions and spend for the same
-window. Any material gap means one of the two is wrong about our revenue, and
-that is worth knowing before either drives a write.
+The reconciliation remains the cheapest correctness test we have, and Teqblaze's
+answers sharpen it rather than retire it. Same ClickHouse data (§8.1.10c) means
+the expected result is now **exact agreement on impressions and spend** for the
+same window, not merely "close". Any material gap means one of the two is wrong
+about our revenue, and that is worth knowing before either drives a write.
 
 ---
 
@@ -392,19 +427,42 @@ read-only.
    which is how we learn if the account exposes attributes or metrics the spec
    didn't document.
 
-2. **Reconcile against the legacy platform, before building anything.** The two
-   hosts serve the same marketplace (§1), so pull a settled 7-day window from
-   `/report` at `date × supply_source` and compare impressions and spend against
-   the legacy `pgam_direct` TB tables for the same window. Mind the timezone
-   trap: legacy reporting and `filter.timezone` must be set to the same zone, or
-   the daily buckets disagree for reasons that have nothing to do with the data.
+2. **Reconcile against the legacy platform, before building anything.** Teqblaze
+   states the ClickHouse data was transferred wholesale and the reports should
+   match (§8.1.10c), so this is now a **confirmation test with a stated expected
+   answer** — exact agreement — rather than an open question. Pull a settled
+   7-day window from `/report` at `date × supply_source` and compare impressions
+   and spend against the legacy `pgam_direct` TB tables for the same window.
+
+   Two traps, and the second is the one that will bite:
+
+   - **Timezone.** Legacy reporting and `filter.timezone` must be set to the same
+     zone, or the daily buckets disagree for reasons that have nothing to do with
+     the data.
+   - **Join keys.** Do *not* join on `publisher_id` or `demand_id` on the
+     strength of Teqblaze's ID answer. They confirmed **placement** IDs and
+     explicitly excluded **inventory** IDs; our TB tables key on neither
+     (`publisher_id`, `demand_id`), and those were not covered either way (§1).
+     Joining on an ID that was silently reassigned manufactures row-level
+     divergence out of a perfectly matching dataset — and because (c) makes
+     divergence escalatable, the failure mode is escalating our own join error to
+     the vendor. So **measure the key stability instead of assuming it**: pull the
+     window at `placement` granularity too (the one key we have a commitment on),
+     reconcile on that plus names, and then check separately whether
+     publisher/demand IDs agree with the legacy tables by name. That check is
+     cheap, and its result is the answer to §8.1.10d.
+
    Three outcomes, all informative:
-   - **Agreement** → the new platform is trustworthy for revenue, and the
-     migration is a porting exercise.
+   - **Agreement** → the new platform is trustworthy for revenue, the migration
+     is a porting exercise, and PGAM can consider confirming the legacy shutdown
+     (§1) — not before.
    - **Constant offset** → likely a fee or margin applied at a different stage.
-     Find it before anything downstream inherits it.
-   - **Row-level divergence** → one host is wrong about our revenue. Stop and
-     resolve it before either drives a write. Ask §8.1.10(c).
+     Find it before anything downstream inherits it. Contradicts (c), so it is
+     also a question back to Teqblaze.
+   - **Row-level divergence** → first rule out the two traps above, because both
+     produce exactly this signature. If it survives that, one host is wrong about
+     our revenue: stop, do not work around it, and escalate — Teqblaze has
+     committed to these matching.
 
    Cheapest correctness test available, and it gates everything below.
 
@@ -443,7 +501,13 @@ read-only.
 
 **Tranche 3 — writes, supervised**
 
-10. Populate `PROTECTED_FLOOR_MINIMUMS` from the contract sheets.
+10. Populate `PROTECTED_FLOOR_MINIMUMS` from the contract sheets. Now materially
+    safer than when this doc was written: placement IDs are stable across both
+    hosts (§1), so a placement ID read off a contract sheet or the legacy host
+    resolves to the same placement here, and the re-keying step that could have
+    put a contract floor on the wrong placement is gone. Still hand work — the
+    legacy map is empty too, so there is nothing to copy — and still the
+    prerequisite for anything on the supply side.
 
 11. Confirm the round trip with `--diff-shape` on one supply and one demand
     source. Blocked on §8.1.1.
@@ -463,8 +527,11 @@ read-only.
 - Any autonomous floor writer on the supply side. Contract exposure, an empty
   contract-floor map and an unverified round trip is the exact combination that
   produced the April incidents.
-- Retiring the legacy `tb_*` modules. They still carry live floor decisions, and
-  no ID mapping exists to move their contract minimums across (§8.1.10b).
+- Retiring the legacy `tb_*` modules, or confirming the legacy shutdown to
+  Teqblaze. They still carry live floor decisions, and the legacy tables are the
+  only independent check on TBX's revenue numbers until tranche 1 step 2 passes
+  (§1). Teqblaze will keep them alive as long as we ask (§8.1.10a), so there is
+  no cost to waiting and a permanent cost to not.
 
 ---
 
@@ -579,20 +646,32 @@ These are onboarding unknowns, and two of them gate the write path.
    registered — custom headers, basic auth, a token query param? How often does
    the sync run, and what happens on repeated failure?
 
-10. **Migration off the legacy host.** We understand `api.pgammedia.com` to be
-    the successor to `ssp.pgammedia.com`, serving the same marketplace, with
-    legacy reporting still live. Confirm that, then:
-    **(a)** when is the legacy host's reporting API switched off? We have
-    scheduled jobs reading it daily, and a silent shutdown reads to us as a
-    revenue drop.
-    **(b)** is there an **ID mapping** from legacy inventories/placements to
-    new supply sources/placements — even a one-off export? Without one, every
-    contract floor minimum (9 Dots $1.70 among them) has to be re-derived by
-    hand, and that is the kind of manual re-keying that gets a floor wrong.
-    **(c)** for a given day, should a legacy `adx-report` and a new `/report`
-    return the same impressions and spend? If they can legitimately differ —
-    different timezone default, different dedup, fees applied at a different
-    stage — we need to know where, because we will be comparing them.
+10. **Migration off the legacy host. — ANSWERED 2026-08-20.** All three parts
+    came back; recorded here with what each one changed.
+    **(a) Shutdown timing → our call.** *"The legacy UI and ClickHouse will be
+    disconnected with your confirmation. We will not shut them down without your
+    approval and we can keep them alive for as long as you need, even after the
+    full transfer."* Removes the silent-shutdown risk entirely. Sequencing
+    consequence in §1: do not confirm until tranche 1 step 2 passes.
+    **(b) IDs → placements stable, inventories not.** *"The mapping remains the
+    same. We transferred all placements to the new platform as is, so the IDs and
+    settings didn't change. Inventory IDs are different (they don't impact
+    anything), placement IDs are the same. You don't need to edit or reconnect
+    anything placement-wise."* Unblocks the write path at placement level; see §1
+    for what it does and does not give us, and (d) below for what it left open.
+    **(c) Report parity → yes, same data.** *"Since the data is fully transferred
+    from the old ClickHouse to the new one, you will get the same reports as on
+    the old platform."* Makes the reconciliation a confirmation test with an
+    expected answer of exact agreement.
+    **(d) FOLLOW-UP, still open — publisher and demand-source IDs.** (b) confirms
+    placement IDs and excludes inventory IDs, and inventory sits between publisher
+    and placement. Our daily ETL keys on **neither**: it keys on `publisher_id`
+    and `demand_id`. Are *those* unchanged across the two hosts? Ask it plainly,
+    because a reassignment there breaks every join in
+    `pgam_direct.tb_daily_publisher_revenue`, `tb_daily_demand_revenue` and
+    `tb_daily_publisher_demand_revenue` — silently, by matching the wrong rows
+    rather than by failing. Tranche 1 step 2 measures this for us as a side
+    effect, so the answer is worth having but not worth blocking on.
 
 11. **A sandbox or test account**, so the write path can be exercised without
     touching live money. This is the cheapest way to answer question 1.

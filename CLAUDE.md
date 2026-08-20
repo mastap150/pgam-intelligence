@@ -24,10 +24,19 @@ the playbook.
 ## Two Teqblaze APIs, one marketplace
 
 `ssp.pgammedia.com` is the **old** Teqblaze platform PGAM was on;
-`api.pgammedia.com` is its **successor**, believed to serve the same underlying
-data (legacy reporting still answers). So this is a migration in progress — but
-the two APIs are different systems with non-portable IDs, and conflating them
+`api.pgammedia.com` is its **successor**, serving the same underlying data —
+Teqblaze confirmed on 2026-08-20 that the old ClickHouse was transferred
+wholesale, so reports should match. So this is a migration in progress, and the
+two APIs remain different *systems* even where the data agrees; conflating them
 is the easiest mistake to make here.
+
+**ID portability (answered by Teqblaze 2026-08-20):** placement IDs and their
+settings are **unchanged** across the two hosts; inventory IDs are **new**;
+publisher and demand-source IDs were **not covered either way** — and those are
+what the `pgam_direct.tb_daily_*` ETL keys on, so do not assume them stable
+(`docs/teqblaze-new-platform.md` §8.1.10d). Legacy shutdown happens only on
+PGAM's confirmation, so keep the legacy leg until the report reconciliation
+passes — it is the only independent check on TBX's numbers.
 
 | | legacy "TB" | new "TBX" |
 |---|---|---|
