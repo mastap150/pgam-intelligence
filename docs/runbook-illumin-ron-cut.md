@@ -1,7 +1,23 @@
 # Runbook — pause the five zero-yield Illumin RON demand endpoints
 
-Authorised by Priyesh, 2026-08-19. **This is a manual action.** Nothing in this
-repo can execute it; see "Why this isn't automated" below.
+> **PARKED, 2026-08-20.** Not urgent and nobody should be hand-executing it.
+> The cut frees QPS capacity and **$0 of revenue** — five endpoints earning
+> nothing will still be earning nothing next month. It was written up because it
+> was the first clean output of the new cut rule, which is a poor reason to put
+> it at the front of a queue.
+>
+> Do it when either is true: someone in ad ops has spare time, or the
+> `TBX_EMAIL` / `TBX_PASSWORD` secrets exist and it can run through
+> `set_demand_source_status()` with dry-run, read-after-write verification and a
+> ledger entry — which is a better way to make a live change than a person
+> typing into an API console.
+>
+> Ahead of it, by value: the Advetisi question (~$62k/month of profit,
+> unexplained) and the Verve render loss (~$34k/30d upper bound).
+
+Authorised by Priyesh, 2026-08-19; deprioritised 2026-08-20. **This is a manual
+action.** Nothing in this repo can execute it; see "Why this isn't automated"
+below.
 
 ## What and why
 
