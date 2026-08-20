@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+  <style>
+    body { margin: 0; background: #F6F7FA; }
+    * { box-sizing: border-box; }
+    .r { font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+         font-feature-settings: "cv05" 1, "cv08" 1, "ss03" 1;
+         -webkit-font-smoothing: antialiased; color: #0C1017; }
+    .m { font-family: "JetBrains Mono", ui-monospace, Menlo, monospace; }
+    a { color: #0925A8; } a:hover { color: #0B3CFF; }
+    .lbl { font-size: 11px; font-weight: 500; letter-spacing: .055em;
+           text-transform: uppercase; color: #6B7383; }
+    .card { background: #fff; border: 1px solid #E3E7EF; border-radius: 12px;
+            box-shadow: 0 1px 2px rgba(12,16,23,.04), 0 1px 3px rgba(12,16,23,.03); }
+    .secttl { font-size: 12px; font-weight: 600; letter-spacing: .04em;
+              text-transform: uppercase; color: #0C1017; }
+    .pill { display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px;
+            border-radius: 5px; font-size: 11px; font-weight: 500; white-space: nowrap;
+            border: 1px solid; }
+    .p-live { background:#E7F7EE; color:#0F7A38; border-color:#BFE8CF; }
+    .p-bld  { background:#FFF3E8; color:#8A4513; border-color:#FBDCC0; }
+    .p-drf  { background:#F4F6F9; color:#6B7383; border-color:#E3E7EF; }
+    .p-pau  { background:#F4F6F9; color:#545C6B; border-color:#E3E7EF; }
+    .p-att  { background:#FFF9EC; color:#803F15; border-color:#FBE29C; }
+    .p-imp  { background:#F4F0FF; color:#5B21B6; border-color:#DDD0FA; }
+    .btn { height: 34px; border-radius: 8px; display: inline-flex; align-items: center;
+           justify-content: center; gap: 7px; font-size: 13px; font-weight: 500; padding: 0 12px; }
+    .btn-p { background: #0B3CFF; color: #fff; font-weight: 600;
+             box-shadow: 0 1px 2px rgba(11,60,255,.28); }
+    .btn-s { background: #fff; color: #545C6B; border: 1px solid #E3E7EF; }
+    table { border-collapse: collapse; width: 100%; }
+    th { text-align: left; font-size: 11px; font-weight: 500; letter-spacing: .055em;
+         text-transform: uppercase; color: #6B7383; padding: 9px 12px;
+         border-bottom: 1px solid #E3E7EF; white-space: nowrap; }
+    td { font-size: 13px; padding: 12px; border-bottom: 1px solid #EEF0F5; vertical-align: middle; }
+    tr:last-child td { border-bottom: 0; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 500; }
+    .topbar { height: 52px; background: #0F1521; display: flex; align-items: center;
+              padding: 0 20px; gap: 22px; flex: none; }
+    .nav { height:52px; display:flex; align-items:center; padding:0 12px; font-size:13px;
+           font-weight:400; color:#9098A6; }
+    .nav.on { color:#fff; font-weight:500; box-shadow: inset 0 -2px 0 #0B3CFF; }
+  </style>
+</helmet>
+<div class="r" style="width: 1360px; min-height: 880px; display: flex; flex-direction: column;">
+  <!-- internal chrome: distinct from the agency surface -->
+  <div class="topbar" style="background:#1F2937;">
+    <div style="display:flex; align-items:center; gap:9px;">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M2 15L9 3l7 12H2z" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+      <span style="color:#fff; font-size:13px; font-weight:600; letter-spacing:-.01em;">PGAM Admin</span>
+      <span class="m" style="font-size:10px; color:#F8D06A; border:1px solid #803F15; background:#512710; padding:2px 6px; border-radius:4px; letter-spacing:.04em;">INTERNAL</span>
+    </div>
+    <div style="display:flex; gap:2px;">
+      <div class="nav on">Fulfilment</div><div class="nav">All deals</div>
+      <div class="nav">Pricing</div><div class="nav">Providers</div><div class="nav">Tenants</div>
+    </div>
+    <div style="margin-left:auto; display:flex; align-items:center; gap:12px;">
+      <span class="m" style="font-size:11px; color:#9098A6;">ppatel@pgammedia.com</span>
+    </div>
+  </div>
+
+  <div style="padding:20px 24px 14px; display:flex; align-items:flex-start; gap:16px;">
+    <div style="display:flex; flex-direction:column; gap:4px;">
+      <div style="font-size:24px; font-weight:600; letter-spacing:-.021em;">Fulfilment queue</div>
+      <div style="font-size:13px; color:#545C6B;">3 in queue · 1 claimed by you · median time to Deal ID this week <strong style="font-weight:600; color:#0C1017;">38 min</strong></div>
+    </div>
+    <div style="margin-left:auto; display:flex; gap:16px; align-items:center;">
+      <div style="display:flex; flex-direction:column; gap:2px; text-align:right;">
+        <span class="lbl">Within SLA</span>
+        <span class="num" style="font-size:18px; font-weight:600; color:#0F7A38;">94%</span>
+      </div>
+      <div style="width:1px; height:32px; background:#E3E7EF;"></div>
+      <div style="display:flex; flex-direction:column; gap:2px; text-align:right;">
+        <span class="lbl">Oldest in queue</span>
+        <span class="num" style="font-size:18px; font-weight:600; color:#B94018;">51 min</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid; grid-template-columns:minmax(0,1fr) 400px; gap:18px; padding:0 24px 24px; align-items:start;">
+
+    <!-- queue list -->
+    <div style="display:flex; flex-direction:column; gap:11px;">
+
+      <!-- claimed / active task -->
+      <div class="card" style="border-color:#0B3CFF; box-shadow:0 0 0 3px rgba(11,60,255,.09), 0 1px 3px rgba(12,16,23,.03); padding:0; overflow:hidden;">
+        <div style="padding:14px 18px; border-bottom:1px solid #EEF0F5; display:flex; align-items:center; gap:10px; background:#F4F7FF;">
+          <span class="pill" style="background:#E8EEFF; color:#0925A8; border-color:#D5DEFC;">Claimed by you</span>
+          <span style="font-size:13px; font-weight:600;">Ridgeline · FL CTV · Q4</span>
+          <span style="font-size:12px; color:#6B7383;">Meridian Media</span>
+          <span class="num" style="margin-left:auto; font-size:12px; font-weight:500; color:#B94018;">51 min open</span>
+        </div>
+
+        <div style="padding:16px 18px; display:flex; flex-direction:column; gap:15px;">
+          <!-- the build spec -->
+          <div style="display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:14px;">
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span class="lbl">Route to</span><span style="font-size:13px; font-weight:500;">PubMatic · 17496</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span class="lbl">Format · geo</span><span style="font-size:13px; font-weight:500;">CTV · FL, 4 DMAs</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span class="lbl">Inventory</span><span style="font-size:13px; font-weight:500; color:#803F15;">Attention ≥ 75 · 1,284</span>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:3px;">
+              <span class="lbl">DSP · seat</span><span class="m" style="font-size:12px; font-weight:500;">TTD mrdn-ttd-4471</span>
+            </div>
+          </div>
+
+          <!-- MARGIN — operator only -->
+          <div style="border:1px solid #E3E7EF; border-radius:8px; overflow:hidden;">
+            <div style="padding:9px 14px; background:#F4F6F9; border-bottom:1px solid #E3E7EF; display:flex; align-items:center; gap:8px;">
+              <span class="lbl">Economics</span>
+              <span class="pill" style="height:19px; font-size:10px; background:#FEF2F2; color:#991B1B; border-color:#FADADA;">never shown to agency</span>
+            </div>
+            <div style="display:grid; grid-template-columns:repeat(5, minmax(0,1fr));">
+              <div style="padding:12px 14px; border-right:1px solid #EEF0F5; display:flex; flex-direction:column; gap:3px;">
+                <span class="lbl">Buyer floor</span><span class="num" style="font-size:15px; font-weight:600;">$24.00</span>
+              </div>
+              <div style="padding:12px 14px; border-right:1px solid #EEF0F5; display:flex; flex-direction:column; gap:3px;">
+                <span class="lbl">SSP price</span><span class="num" style="font-size:15px; font-weight:600; color:#545C6B;">−$15.10</span>
+              </div>
+              <div style="padding:12px 14px; border-right:1px solid #EEF0F5; display:flex; flex-direction:column; gap:3px;">
+                <span class="lbl">Take 25.5%</span><span class="num" style="font-size:15px; font-weight:600; color:#545C6B;">−$3.85</span>
+              </div>
+              <div style="padding:12px 14px; border-right:1px solid #EEF0F5; display:flex; flex-direction:column; gap:3px;">
+                <span class="lbl">Data</span><span class="num" style="font-size:15px; font-weight:600; color:#545C6B;">−$0.40</span>
+              </div>
+              <div style="padding:12px 14px; display:flex; flex-direction:column; gap:3px; background:#E7F7EE;">
+                <span class="lbl" style="color:#0F7A38;">PGAM margin</span>
+                <span class="num" style="font-size:15px; font-weight:600; color:#0F7A38;">$4.65 · 19.4%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- checklist -->
+          <div style="display:flex; flex-direction:column; gap:10px;">
+            <span class="lbl">Build steps</span>
+            <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:#545C6B;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" fill="#17A34A"/><path d="M5.4 8.2l1.8 1.8 3.5-3.9" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="text-decoration:line-through; color:#9098A6;">Inventory list generated &amp; pushed</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; font-size:13px; color:#545C6B;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" fill="#17A34A"/><path d="M5.4 8.2l1.8 1.8 3.5-3.9" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span style="text-decoration:line-through; color:#9098A6;">Deal created on seat 17496</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px; font-size:13px; font-weight:500; color:#0C1017;">
+              <svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="5.4" stroke="#0B3CFF" stroke-width="1.5"/></svg>
+              <span>Paste the Deal ID below to finish</span>
+            </div>
+          </div>
+
+          <!-- the one input that matters -->
+          <div style="display:flex; align-items:flex-end; gap:10px; padding-top:2px;">
+            <div style="display:flex; flex-direction:column; gap:5px; flex:1;">
+              <span class="lbl">Deal ID from PubMatic</span>
+              <div class="m" style="height:38px; border:1px solid #0B3CFF; border-radius:8px; background:#fff; display:flex; align-items:center; padding:0 12px; font-size:14px; color:#9098A6; box-shadow:0 0 0 3px rgba(11,60,255,.10);">PM-…</div>
+            </div>
+            <div class="btn btn-p" style="height:38px;">Deliver to buyer</div>
+            <div class="btn btn-s" style="height:38px;">Can't build this</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- open, unclaimed -->
+      <div class="card" style="padding:14px 18px; display:flex; align-items:center; gap:12px;">
+        <span class="pill p-drf">Open</span>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span style="font-size:13px; font-weight:500;">Caldwell Legal · Q4 expansion</span>
+          <span style="font-size:12px; color:#6B7383;">Meridian Media · CTV · Magnite route · 8 min</span>
+        </div>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:14px;">
+          <div style="text-align:right; display:flex; flex-direction:column; gap:2px;">
+            <span class="lbl">Margin</span>
+            <span class="num" style="font-size:13px; font-weight:600; color:#0F7A38;">21.0%</span>
+          </div>
+          <div class="btn btn-s">Claim</div>
+        </div>
+      </div>
+
+      <!-- blocked: unviable floor -->
+      <div class="card" style="padding:14px 18px; display:flex; align-items:center; gap:12px; border-color:#FADADA; background:#FFFBFB;">
+        <span class="pill" style="background:#FEF2F2; color:#991B1B; border-color:#FADADA;">Needs a decision</span>
+        <div style="display:flex; flex-direction:column; gap:2px;">
+          <span style="font-size:13px; font-weight:500;">Northwind Auto · Premium CTV</span>
+          <span style="font-size:12px; color:#991B1B;">Floor $16.00 won't clear — margin would be −$1.20 CPM</span>
+        </div>
+        <div style="margin-left:auto; display:flex; align-items:center; gap:14px;">
+          <div style="text-align:right; display:flex; flex-direction:column; gap:2px;">
+            <span class="lbl">Margin</span>
+            <span class="num" style="font-size:13px; font-weight:600; color:#991B1B;">−7.5%</span>
+          </div>
+          <div class="btn btn-s">Suggest $21</div>
+          <div class="btn btn-s">Override</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- side: provider health -->
+    <div style="display:flex; flex-direction:column; gap:12px;">
+      <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:13px;">
+        <span class="secttl">Providers</span>
+
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:500;">PubMatic · 17496</span>
+            <span class="pill p-live" style="margin-left:auto; height:20px; font-size:10px;">Reads OK</span>
+          </div>
+          <div style="font-size:12px; color:#545C6B; line-height:1.45;">Deal creation is <strong style="font-weight:500;">manual</strong> — no write API yet. 12 built this week, median 41 min.</div>
+        </div>
+        <div style="height:1px; background:#EEF0F5;"></div>
+
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:500;">Magnite · ClearLine</span>
+            <span class="pill p-bld" style="margin-left:auto; height:20px; font-size:10px;">Manual only</span>
+          </div>
+          <div style="font-size:12px; color:#545C6B; line-height:1.45;">7 built this week, ~4 min each. Forecast API still returns 422 — seat ticket open since May.</div>
+        </div>
+        <div style="height:1px; background:#EEF0F5;"></div>
+
+        <div style="display:flex; flex-direction:column; gap:5px;">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <span style="font-size:13px; font-weight:500;">PGAM Direct</span>
+            <span class="pill p-drf" style="margin-left:auto; height:20px; font-size:10px;">Not live</span>
+          </div>
+          <div style="font-size:12px; color:#545C6B; line-height:1.45;">Will mint Deal IDs with attention enforced in-auction. No vendor dependency.</div>
+        </div>
+      </div>
+
+      <div class="card" style="padding:16px; display:flex; flex-direction:column; gap:11px;">
+        <span class="secttl">This week</span>
+        <div style="display:flex; flex-direction:column; gap:9px;">
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span style="font-size:12px; color:#545C6B;">Deals delivered</span>
+            <span class="num" style="font-size:14px; font-weight:600;">19</span>
+          </div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span style="font-size:12px; color:#545C6B;">Median time to Deal ID</span>
+            <span class="num" style="font-size:14px; font-weight:600;">38 min</span>
+          </div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span style="font-size:12px; color:#545C6B;">Blended margin</span>
+            <span class="num" style="font-size:14px; font-weight:600; color:#0F7A38;">19.8%</span>
+          </div>
+          <div style="display:flex; align-items:baseline; justify-content:space-between;">
+            <span style="font-size:12px; color:#545C6B;">Rejected on floor</span>
+            <span class="num" style="font-size:14px; font-weight:600;">2</span>
+          </div>
+        </div>
+        <div style="height:1px; background:#EEF0F5;"></div>
+        <div style="font-size:12px; color:#6B7383; line-height:1.5;">
+          Every deal here is built by hand today. These timings are what a write API would remove.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
