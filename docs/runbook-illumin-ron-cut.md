@@ -117,7 +117,24 @@ secrets, and the ID mapping (`docs/teqblaze-new-platform.md` §8.1.10b) so a
 legacy endpoint number resolves to a new-platform demand source. `set_demand_source_status()`
 in `core/tbx_mgmt.py` is already written and already gated.
 
-Until then: UI for this one-off, and the runbook above.
+### Fastest manual route: the help centre's "Try it out" console
+
+`https://ssp-new.pgammedia.com/help-center/management-api` has an interactive
+console per endpoint, authenticated as the logged-in user. So the pause can be
+executed as an API call by hand, with no credential shared and no clicking
+through UI screens:
+
+1. `POST /demand-sources` with `{"filter": {"search": "Illumin"}}` — does the
+   new platform even have these endpoints, and under what IDs? This answers the
+   ID-mapping question for the five that matter, without waiting on Teqblaze.
+2. If they are there: `POST /demand-sources/{id}/status` with the status field
+   set false, one per endpoint.
+3. If they are not there, the endpoints exist only on the legacy platform and
+   the pause has to happen in the legacy UI.
+
+Either way the +48h / +7d verification above still applies.
+
+Until then: UI or the console for this one-off, and the runbook above.
 
 ## What the platform can't tell us
 

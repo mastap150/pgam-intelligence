@@ -468,6 +468,31 @@ read-only.
 
 ---
 
+## 7.5 The help centre is the spec — don't go looking for more
+
+`https://ssp-new.pgammedia.com/help-center/management-api` (the new platform's
+UI, admin login) renders **exactly** the spec vendored at
+`docs/api/teqblaze-openapi.json`. Confirmed 2026-08-20 from a screenshot: the
+tag list matches in order, `POST /active-hash/update/{hash}` carries the
+identical summary, and the page's "Download OpenApi.json" button produces that
+same file. There is no additional API documentation to obtain.
+
+Two things there are worth knowing:
+
+- **The page has a "Try it out" console.** Anyone logged into the UI can
+  execute an endpoint by hand, authenticated as themselves — no credential
+  shared with anything, no code. That is the fastest way to run a one-off
+  mutation (e.g. `POST /demand-sources/{id}/status`) or to check whether an
+  entity exists on the new platform yet.
+- **Two other spaces exist in the left nav** — "Supply Integrations" and
+  "Admin Knowledge Center" — and neither has been read. Those are the only
+  places new material could still be hiding.
+
+Also visible: a "Login as" selector, which is `POST /login-as/{id}` in the
+spec, so the account in use holds admin scope.
+
+---
+
 ## 8. Questions for Teqblaze
 
 Triaged, because vendor attention is finite. **§8.1 is what to actually send** —
