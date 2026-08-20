@@ -1063,6 +1063,71 @@ def traffic_logger_columns() -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Help centre — the platform documents itself through its own API
+# ---------------------------------------------------------------------------
+#
+# The UI at https://ssp-new.pgammedia.com/help-center/... is a front end over
+# these three endpoints. That matters practically: the documentation is
+# machine-readable, so a session with credentials can pull the whole thing
+# instead of asking someone to copy-paste a page out of a browser. Worth
+# remembering whenever a "can you read this doc page" question comes up.
+
+def help_center(space: str = "management-api") -> Any:
+    """
+    `GET /help-center/{space}` — the article tree for one space.
+
+    `space` is the slug from the UI path, e.g. `management-api` for
+    https://ssp-new.pgammedia.com/help-center/management-api.
+    """
+    return _request("GET", f"/help-center/{space}")
+
+
+def help_center_article(space: str, article_id: str | int) -> Any:
+    """`GET /help-center/{space}/{id}` — one article's full body."""
+    return _request("GET", f"/help-center/{space}/{article_id}")
+
+
+def help_center_search(space: str, query: str) -> Any:
+    """`GET /help-center/{space}/search?query=…`."""
+    return _request("GET", f"/help-center/{space}/search", params={"query": query})
+
+
+def dump_help_center(space: str = "management-api") -> dict:
+    """
+    Walk a space and return `{article_id: article}` for everything in it.
+
+    Used by `scripts/tbx_pull.py` so the platform's own documentation lands in
+    the artifact alongside the data. The tree shape is undocumented in the
+    spec — `data` may be a list or a nested dict — so this handles both and
+    reports what it could not parse rather than silently returning less.
+    """
+    tree = help_center(space)
+    ids: list[str] = []
+
+    def walk(node: Any) -> None:
+        if isinstance(node, dict):
+            if node.get("id") is not None and ("title" in node or "name" in node):
+                ids.append(str(node["id"]))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                walk(item)
+
+    walk(tree)
+    out: dict[str, Any] = {"_tree": tree, "_article_ids": ids}
+    for aid in ids:
+        try:
+            out[aid] = help_center_article(space, aid)
+        except TbxError as exc:
+            out[aid] = {"error": str(exc)[:200]}
+    if not ids:
+        print(f"{_LOG_PREFIX} help centre '{space}': found no article ids in the "
+              f"tree — inspect `_tree` in the output by hand", file=sys.stderr)
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Dashboard
 # ---------------------------------------------------------------------------
 

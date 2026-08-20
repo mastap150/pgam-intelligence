@@ -477,6 +477,30 @@ def pull_recon(df: str, dt: str, log_rows: int) -> None:
               "registering their reporting URL is what unlocks automated recon.")
 
 
+def pull_help_center() -> None:
+    """Pull the platform's own docs, so they land in the artifact with the data.
+
+    Specifically covers the Management API space Priyesh pointed at
+    (https://ssp-new.pgammedia.com/help-center/management-api) — that UI is a
+    front end over `GET /help-center/{space}`, so there is no need for anyone to
+    copy a page out of a browser.
+    """
+    heading("PLATFORM DOCUMENTATION (help centre)")
+    for space in ("management-api", "api", "general"):
+        docs = pull(f"help_center_{space}", tbx.dump_help_center, space)
+        if not docs:
+            continue
+        ids = docs.get("_article_ids") or []
+        print(f"  {OK} space '{space}': {len(ids)} article(s) pulled")
+        for aid in ids[:25]:
+            art = docs.get(aid) or {}
+            body = art.get("data", art) if isinstance(art, dict) else {}
+            title = (body.get("title") or body.get("name") or "?") if isinstance(body, dict) else "?"
+            print(f"      {aid:>8}  {str(title)[:70]}")
+        if len(ids) > 25:
+            print(f"      … {len(ids) - 25} more — full bodies in the JSON artifact")
+
+
 def pull_dictionaries() -> None:
     heading("DICTIONARIES")
     for dict_type in ("countries", "regions", "supply-companies", "demand-companies",
@@ -570,7 +594,7 @@ def main() -> int:
     parser.add_argument("--outdir", help="directory for full per-surface JSON")
     parser.add_argument("--skip", default="",
                         help="comma-separated groups to skip: account, entities, "
-                             "reports, diagnostics, quality, recon, dictionaries")
+                             "reports, diagnostics, quality, recon, dictionaries, docs")
     args = parser.parse_args()
 
     if args.date_from and args.date_to:
@@ -609,6 +633,8 @@ def main() -> int:
         pull_recon(df, dt, args.log_rows)
     if "dictionaries" not in skip:
         pull_dictionaries()
+    if "docs" not in skip:
+        pull_help_center()
 
     passed, total = print_matrix()
     if args.outdir:
