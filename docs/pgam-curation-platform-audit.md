@@ -2210,3 +2210,161 @@ Replaces §19.6 V1–V3:
 
 **B-V1 and B-V5 need no vendor cooperation and can run this week.** B-V5 in
 particular is a gap in institutional knowledge, not a technical unknown.
+
+---
+
+# Addendum C — Capability audit of the two SSP read paths (2026-08-20)
+
+Written after auditing the Magnite and PubMatic **read** surfaces in code
+rather than from the integration notes. Refines §B3 and closes out two of the
+five probes in §B8.
+
+Supersedes nothing in Addendum B's commercial findings. It changes the
+**capability table**, and it moves B-V1 and B-V5 from "probe to run" to
+"answered by the next scheduled import".
+
+## C1. There are TWO Magnite reporting surfaces, and the difference matters
+
+§B3 treated Magnite reporting as one capability. It is two, with different
+auth, different shapes, and — the load-bearing part — different **market
+directions**.
+
+| | `performance-analytics-reporting-service` | `api.magnite.com` |
+|---|---|---|
+| Read in | `pgam-recon/pgam_recon/fetchers/magnite.py` | `pgam-direct/jobs/report-fetchers/…/adapters/magnite.py` |
+| Auth | UI session token, **scraped**, as a URL query param | **OAuth2** client credentials |
+| Call shape | single GET | async: POST query → `query_id` → poll → GET CSV |
+| Dimensions in use | `date,partner` | `date,publisher_id,country` |
+| Metrics in use | `paid_impression, publisher_gross_revenue, ecpm, seller_net_revenue` | `impressions, spend_local, currency` |
+| Direction | **demand-side** (`partner`) — the curation seat | **seller-side** (`publisher_id`) — PGAM as publisher |
+
+The second surface is the better-engineered one: real OAuth, no scraped token,
+an arbitrary dimension list. It is tempting to read that as "so ask it for a
+deal dimension".
+
+**That would be the wrong conclusion.** It is the *seller* direction. A deal
+dimension there would report deals against PGAM's own publisher inventory,
+which is a different population from the deals on the curation seat. The
+curation seat is only reachable through the first surface — the one with the
+scraped token and the known-hostile compatibility matrix.
+
+### C1.1 The compatibility matrix is the real constraint
+
+Magnite's 2024-11-03 "Field Compatibility" update means dimensions and metrics
+are **not freely combinable**. Adding a dimension can invalidate the metric
+set rather than just widen the result — `partner` plus any auction-side metric
+returns `422 column_compatibility`. The recon fetcher's comment records this
+as having "burned us once".
+
+So on the curation-seat surface, "add a `deal` dimension" is not a safe
+widening. It is a request that may return 422, and may return 422 *for the
+metrics we currently depend on for the P&L*.
+
+**Conclusion: a per-deal Magnite read is UNVERIFIED, which is not the same as
+available, and is not the same as impossible.** It is one probe away — but the
+probe must be run against a throwaway metric set, never by editing the live
+P&L query.
+
+## C2. PubMatic per-deal read is the one capability that is genuinely present
+
+`reportingSearch` on buyer 69397 returns an `items[]` array of that seat's own
+deals, and `pgam-recon` has consumed it in production for the P&L since
+2026-05.
+
+The gap is narrower than §B3 implied. It is not "can we read deals" — we
+demonstrably can. It is that the fetcher reads `revenue` and **discards every
+other key on every item**, so no code we have has ever looked at a deal's
+identity fields.
+
+Confirmed, because production depends on it:
+
+- Envelope: `{ metaData: {…}, items: [ … ] }`
+- `revenue` (float) and `strRevenue` (formatted string) per item
+- `revenue: -1.0` is a **not-ready sentinel**, not a restatement
+- `fromDate`/`toDate` must sit **inside** the `request` block; at top level
+  they are silently ignored and the response is lifetime totals
+- `requestType: "MONTHLY"` with a single-day range is the only combination
+  that both honours the dates and returns per-day spend
+
+Not confirmed: how an item spells its deal id, name, or status. Filterable
+keys (`status`, `dealCategory`, `channelType`, `loggedInOwnerId`) tell us the
+API *models* those as deal fields, but filterable is not the same as returned.
+
+## C3. Corrected capability table
+
+| Capability | Magnite | PubMatic | Basis |
+|---|---|---|---|
+| Create a deal | **No path** | **No path** | Unchanged from §B3 |
+| Read aggregate spend | Yes | Yes | Both in production for the P&L |
+| Read **per-deal** | **Unverified** | **Yes** | C1 / C2 |
+| Read deal *metadata* (targeting, floor, DSP seat) | Unverified | **Unknown item shape** | C2 |
+| OAuth (no scraped token) on the **curation** seat | No | No | C1, §B7 |
+
+The last row is the one to keep in view: on both providers, the curation-seat
+read runs on a **scraped session token**. §B7's conclusion stands unchanged —
+do not build writes on that.
+
+## C4. B-V1 and B-V5 are now answered by code, not by a probe
+
+Both were listed in §B8 as needing no vendor cooperation. Neither now needs a
+human to remember to run it.
+
+**B-V1 — dump the full item shape.** `describeItemShape()` in
+`src/lib/curation/discovery.ts` (pgam-dsp-dashboard) takes one saved
+`reportingSearch` body — no credentials, no browser — and reports every key,
+which logical field each resolved to, and which fields nothing matched. Point
+it at one response and the shape question is closed.
+
+It reports key names and **types, never values**. `0145` records that
+`external_deal_id` "is effectively a bearer token for inventory access", and a
+shape report is something that gets pasted into a ticket; including samples
+would make it the quietest available way to leak the seat's deal list.
+
+**B-V5 — are 69397 and 17496 one relationship or two.** Every discovered deal
+is stored with the **seat it came from** (`curation_discovered_deals.source`,
+migration `0147`). The same `external_deal_id` appearing under both sources is
+the evidence they are one seat. The query is a one-liner and the index for it
+exists.
+
+### C4.1 Why identity is resolved rather than assumed
+
+Guessing `dealId` would produce a **silent empty Deal Library against a live,
+working endpoint** — a failure mode indistinguishable from "the seat has no
+deals", and one that would be blamed on the entitlement rather than on us. So
+each field has candidate spellings, every item reports which key matched, and
+an item whose identity resolves to nothing is marked unidentified and **not
+imported** rather than given a fabricated id. The count of dropped rows is
+returned, not logged, for the same reason.
+
+## C5. Revised probe list
+
+Replaces §B8.
+
+| # | Probe | Status |
+|---|---|---|
+| **B-V1** | Dump the full `reportingSearch` item shape | **Implemented** — `describeItemShape()`. Needs one saved response. |
+| **B-V5** | Reconcile 69397 vs 17496 | **Implemented** — per-observation `source`. Needs one import from each seat. |
+| **C-V1** | Ask the curation-seat Magnite surface for a `deal` dimension, against a **throwaway metric set** | Whether per-deal Magnite reads exist at all. Never run this by editing the live P&L query — the compatibility matrix can 422 the metrics recon depends on. |
+| **B-V2** | Send the §B6 ask to PubMatic | Unchanged — OAuth read + any write on a curator seat |
+| **B-V3** | Send the §B6 ask to Magnite; chase the open AM escalation | Unchanged |
+| **B-V4** | Authenticate seat 17496 independently | Unchanged |
+
+**The only input still needed from a person: one saved `reportingSearch`
+response.** Everything downstream of it is built.
+
+## C6. What was deliberately not built
+
+- **No transport in the dashboard.** The Playwright login and `pubtoken` lift
+  already work in `pgam-recon`. Reimplementing them in TypeScript would be a
+  second system for a solved problem, and that fetcher feeds finance P&L — not
+  something to modify as a side effect of a curation feature.
+- **No mapping from PubMatic's status codes to our `DealStatus` union.**
+  `reportingSearch` filters `status 1/2/4/11` as live-ish, but no code list is
+  confirmed. Stored raw. A guessed lifecycle shown to a buyer is worse than a
+  raw number shown to an operator.
+- **No discovered deals in `curation_deals`.** They have no package, no buyer
+  floor and no config. Landing them there would mean either making
+  `package_id` nullable — breaking `0145`'s guarantee that every deal belongs
+  to a buyer strategy — or inventing a package and therefore a floor. A
+  fabricated floor feeding `pricing.ts` and producing a real-looking margin is
+  the worst available outcome.
