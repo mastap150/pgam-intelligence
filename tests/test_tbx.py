@@ -516,6 +516,75 @@ def test_no_credentials_message() -> None:
         tbx.TBX_EMAIL, tbx.TBX_PASSWORD = saved
 
 
+def test_interactive_credentials() -> None:
+    """
+    `set_credentials` must make the client usable without touching the
+    environment, and must not leave a previous account's cached token usable.
+    """
+    print("\ninteractive credentials (--login path)")
+
+    saved_email, saved_pw = tbx.TBX_EMAIL, tbx.TBX_PASSWORD
+    try:
+        tbx.TBX_EMAIL, tbx.TBX_PASSWORD = "", ""
+        check("configured() false before set_credentials", not tbx.configured())
+
+        tbx.set_credentials("ops@example.com", "s3cret")
+        check("configured() true after set_credentials", tbx.configured())
+        check("email applied", tbx.TBX_EMAIL == "ops@example.com")
+        check("password applied", tbx.TBX_PASSWORD == "s3cret")
+
+        # Whitespace around a pasted email is the common mistake; it must not
+        # silently produce a cache key that never matches.
+        tbx.set_credentials("  ops@example.com  ", "s3cret")
+        check("email is stripped", tbx.TBX_EMAIL == "ops@example.com")
+
+        for label, email, pw in (
+            ("empty email rejected", "", "s3cret"),
+            ("empty password rejected", "ops@example.com", ""),
+            ("both empty rejected", "", ""),
+        ):
+            try:
+                tbx.set_credentials(email, pw)
+            except tbx.TbxAuthError:
+                check(label, True)
+            else:
+                check(label, False, "expected TbxAuthError")
+
+        # A cached token belonging to another account must be ignored, or a
+        # --login run would silently read the wrong marketplace.
+        import json as _json
+        import tempfile as _tempfile
+        saved_cache = tbx.TOKEN_CACHE
+        try:
+            fd, path = _tempfile.mkstemp()
+            with open(fd, "w") as fh:
+                _json.dump({"token": "stale-jwt", "expires_at": 2 ** 40,
+                            "base": tbx.TBX_BASE, "email": "someone-else@example.com"}, fh)
+            tbx.TOKEN_CACHE = path
+            tbx.set_credentials("ops@example.com", "s3cret")
+            check("cached token for another account is not reused",
+                  tbx._load_cached_token() == "")
+
+            with open(path, "w") as fh:
+                _json.dump({"token": "our-jwt", "expires_at": 2 ** 40,
+                            "base": tbx.TBX_BASE, "email": "ops@example.com"}, fh)
+            check("cached token for this account is reused",
+                  tbx._load_cached_token() == "our-jwt")
+        finally:
+            tbx.TOKEN_CACHE = saved_cache
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+
+        # Non-interactive stdin must refuse rather than read a piped password.
+        check("prompt_for_credentials refuses without a TTY",
+              not sys.stdin.isatty()
+              and _raises(tbx.TbxAuthError, tbx.prompt_for_credentials))
+    finally:
+        tbx.TBX_EMAIL, tbx.TBX_PASSWORD = saved_email, saved_pw
+
+
 def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
@@ -533,6 +602,7 @@ def main() -> int:
     test_multipart_encoding()
     test_filter_value_writes()
     test_no_credentials_message()
+    test_interactive_credentials()
 
     print()
     if _failures:

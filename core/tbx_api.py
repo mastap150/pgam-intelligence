@@ -187,6 +187,53 @@ def configured() -> bool:
     return bool(TBX_EMAIL and TBX_PASSWORD)
 
 
+def set_credentials(email: str, password: str) -> None:
+    """
+    Supply credentials for this process only.
+
+    For interactive use on a machine that can reach the platform, when the
+    operator would rather not persist the password anywhere — not in `.env`,
+    not in a shell history, not in a CI secret store. Nothing is written to
+    disk except the short-lived JWT in TOKEN_CACHE (mode 0600), which is what
+    every other entry point caches anyway.
+
+    Scheduled jobs should keep using the environment; this exists so a one-off
+    read does not require provisioning a secret first.
+    """
+    global TBX_EMAIL, TBX_PASSWORD
+    email = (email or "").strip()
+    password = password or ""
+    if not email or not password:
+        raise TbxAuthError("set_credentials() needs both an email and a password")
+    TBX_EMAIL, TBX_PASSWORD = email, password
+    # A cached token from a different account must not be reused: the cache is
+    # keyed on (base, email), and _load_cached_token compares against these
+    # globals, so switching identity mid-process invalidates it naturally.
+
+
+def prompt_for_credentials(email: str | None = None) -> None:
+    """
+    Read credentials from a terminal and hand them to `set_credentials`.
+
+    The password is read with `getpass`, so it is not echoed and does not enter
+    shell history. Refuses to run without a TTY rather than silently reading a
+    piped password from stdin — a password arriving on a pipe usually means it
+    came from a file or a command line, which defeats the point.
+    """
+    import getpass
+
+    if not sys.stdin.isatty():
+        raise TbxAuthError(
+            "prompt_for_credentials() needs an interactive terminal. "
+            "Set TBX_EMAIL / TBX_PASSWORD in the environment for non-interactive runs."
+        )
+    email = (email or os.getenv("TBX_EMAIL") or "").strip()
+    if not email:
+        email = input("TBX email: ").strip()
+    password = getpass.getpass(f"TBX password for {email} (not echoed): ")
+    set_credentials(email, password)
+
+
 def _load_cached_token() -> str:
     """Cached JWT if it exists and has >5min of life left, else ''."""
     try:

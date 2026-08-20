@@ -214,15 +214,28 @@ def main() -> int:
     parser.add_argument("--diff-shape", metavar="supply:22|demand:91",
                         help="dump one entity's read→write payload diff and exit")
     parser.add_argument("--json", metavar="PATH", help="write results as JSON")
+    parser.add_argument("--login", action="store_true",
+                        help="prompt for the TBX password on this terminal instead of "
+                             "reading TBX_PASSWORD from the environment")
+    parser.add_argument("--email", help="TBX email to use with --login "
+                                       "(default: $TBX_EMAIL, else prompted)")
     args = parser.parse_args()
 
     print(f"Teqblaze new-platform probe — {tbx.TBX_BASE}")
+
+    if args.login:
+        try:
+            tbx.prompt_for_credentials(args.email)
+        except tbx.TbxAuthError as exc:
+            print(f"\n{exc}", file=sys.stderr)
+            return 2
 
     if not tbx.configured():
         print("\nTBX_EMAIL / TBX_PASSWORD are not set in this environment.\n"
               "  • Render: pgam-intelligence-scheduler → Environment\n"
               "  • local:  a .env alongside the repo\n"
               "  • cloud Claude sessions: claude.ai/code environment settings\n"
+              "  • one-off, nothing persisted: re-run with --login\n"
               "Nothing to probe without them.", file=sys.stderr)
         return 2
 

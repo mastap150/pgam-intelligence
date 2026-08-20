@@ -595,6 +595,13 @@ def main() -> int:
     parser.add_argument("--skip", default="",
                         help="comma-separated groups to skip: account, entities, "
                              "reports, diagnostics, quality, recon, dictionaries, docs")
+    parser.add_argument("--login", action="store_true",
+                        help="prompt for the TBX password on this terminal instead of "
+                             "reading TBX_PASSWORD from the environment. Nothing is "
+                             "written to disk but the short-lived JWT; use this for a "
+                             "one-off pull rather than provisioning a secret.")
+    parser.add_argument("--email", help="TBX email to use with --login "
+                                       "(default: $TBX_EMAIL, else prompted)")
     args = parser.parse_args()
 
     if args.date_from and args.date_to:
@@ -611,8 +618,17 @@ def main() -> int:
     print(f"  window   {df} → {dt}  ({tbx.DEFAULT_TZ})")
     print(f"  mode     READ-ONLY (write path not imported for any mutation)")
 
+    if args.login:
+        try:
+            tbx.prompt_for_credentials(args.email)
+        except tbx.TbxAuthError as exc:
+            print(f"\n{exc}", file=sys.stderr)
+            return 2
     if not tbx.configured():
-        print("\nTBX_EMAIL / TBX_PASSWORD are not set. Nothing to pull.", file=sys.stderr)
+        print("\nTBX_EMAIL / TBX_PASSWORD are not set. Nothing to pull.\n"
+              "Either set them in the environment (or a local .env), or re-run "
+              "with --login to be prompted for the password on this terminal.",
+              file=sys.stderr)
         return 2
     if not tbx.test_connection():
         print("\nAuthentication failed — a 401/403 here is real signal: rotated "
