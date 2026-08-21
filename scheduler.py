@@ -105,6 +105,7 @@ def _import(module_path: str, func_name: str = "run"):
 # tb_segments_etl        | every 60m  | UPSERTs TB pub×demand, pub×country, OS rollups
 # dashboard_alerts       | daily 9am  | posts anomalies + recon drift + DSP health to Slack
 # tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
+# tbx_revenue_etl        | every 60m  | UPSERTs TBX supply/demand/placement rollups (no-op until TBX_* set)
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # tb_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
@@ -178,6 +179,12 @@ def setup_schedule():
     # and pgam_direct.tb_daily_demand_revenue. Two-dim breakdown was tried first
     # but ssp.pgammedia.com times out on the cell-count fan-out.
     tb_revenue_etl         = _import("agents.etl.tb_revenue_etl")
+    # TBX analogue, reading api.pgammedia.com into pgam_direct.tbx_daily_*.
+    # Scheduled ahead of its credentials on purpose: with TBX_EMAIL /
+    # TBX_PASSWORD absent it logs why and returns, so the day those land in
+    # Render the data starts flowing with no redeploy. Separate tables from
+    # tb_daily_* — same marketplace, so a union double counts.
+    tbx_revenue_etl        = _import("agents.etl.tbx_revenue_etl")
     ll_revenue             = _import("agents.alerts.ll_revenue")
     # TB analogue of ll_revenue — hourly Slack snapshot of Teqblaze
     # revenue, pacing, margin, top publishers, and MTD vs $1M combined goal.
@@ -351,6 +358,7 @@ def setup_schedule():
     partner_scheduled_reports = _import("agents.reports.partner_scheduled_reports")
     schedule.every().hour.at(":52").do(_run("partner_scheduled_reports", partner_scheduled_reports))
     _hourly("tb_revenue_etl",     tb_revenue_etl)         # :40
+    _hourly("tbx_revenue_etl",    tbx_revenue_etl)        # :41
     _hourly("ll_revenue",         ll_revenue)             # :44
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
