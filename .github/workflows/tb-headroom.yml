@@ -92,6 +92,14 @@ jobs:
           fi
           echo "DSN present (value not printed)"
 
+      - name: Data freshness and today so far
+        # Runs FIRST on purpose. Everything below reports on windows ending
+        # yesterday, so a stalled ETL would look like a quiet marketplace
+        # rather than a broken pipeline. This step names the newest date per
+        # table before any total is read, and answers "what is today doing"
+        # with an explicitly partial figure compared like-for-like on hours.
+        run: python3 scripts/tb_freshness.py
+
       - name: Size the headroom
         env:
           IN_DAYS: ${{ inputs.days || '30' }}
