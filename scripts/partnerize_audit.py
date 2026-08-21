@@ -21,6 +21,7 @@ This script answers, from the API rather than from a code comment:
   3. What has converted, and WHEN was the click?       --conversions
   4. How many clicks did we actually send?             --clicks
   5. What is sitting unwithdrawn?                      --balance
+  6. What else could we join (a sportsbook?)           --discover
 
 (4) is the decisive one now. The console's aggregate export for
 2026-01-01..2026-08-21 shows ONE conversion (2026-06-28, commission
@@ -76,6 +77,10 @@ USAGE
 
     # include pending/rejected, not just approved
     python3 scripts/partnerize_audit.py --conversions --statuses approved,pending,rejected
+
+    # what programs could we join? is there a sportsbook on Partnerize?
+    python3 scripts/partnerize_audit.py --discover
+    python3 scripts/partnerize_audit.py --discover --discover-keyword bet
 
     # find the publisher id if you don't know it
     python3 scripts/partnerize_audit.py --whoami
@@ -230,6 +235,81 @@ def cmd_participations(publisher_id: str) -> None:
         print(json.dumps(rows, indent=2)[:4000])
     except SystemExit:
         print("     (v3 participations unavailable for this user — rely on v1 above)")
+
+
+def cmd_discover(publisher_id: str, keyword: str | None) -> None:
+    """What else could we join? Answers "is there a sportsbook on here?".
+
+    `discovery/advertisers` returns every campaign available to this
+    partner, grouped by brand, each carrying a per-partner status:
+    AVAILABLE / REQUESTED / INVITED / REJECTED. AVAILABLE and INVITED are
+    the actionable ones.
+
+    Pass a keyword (e.g. --discover-keyword bet) to filter to a vertical.
+    Joining is a WRITE (`POST /v2/publishers/{id}/campaign-requests`) and
+    this script deliberately does not do it — applying to a program is a
+    commercial decision, not a side effect of an audit.
+    """
+    print("== brands & campaigns available to join ==")
+    data = get(f"/v2/publishers/{publisher_id}/discovery/advertisers")
+
+    # The v2 payload nests campaigns under brands; key naming has varied
+    # across revisions, so probe the plausible containers rather than
+    # assuming one and silently rendering nothing.
+    brands = None
+    if isinstance(data, dict):
+        for key in ("advertisers", "brands", "data"):
+            if isinstance(data.get(key), list):
+                brands = data[key]
+                break
+    if brands is None:
+        print(
+            "  Could not locate a brand list in the response. Raw payload below —\n"
+            "  if the shape has changed, the keys to look for are the campaign\n"
+            "  `status` values (AVAILABLE / REQUESTED / INVITED / REJECTED).\n"
+        )
+        print(json.dumps(data, indent=2)[:4000])
+        return
+
+    needle = (keyword or "").strip().lower()
+    shown = 0
+    status_tally: dict[str, int] = {}
+
+    for entry in brands:
+        brand = entry.get("advertiser", entry.get("brand", entry)) or {}
+        name = str(brand.get("name") or brand.get("title") or brand.get("advertiser_name") or "?")
+        campaigns = brand.get("campaigns") or entry.get("campaigns") or []
+
+        rows = []
+        for camp in campaigns:
+            c = camp.get("campaign", camp) or {}
+            status = str(c.get("status") or "?").upper()
+            status_tally[status] = status_tally.get(status, 0) + 1
+            title = str(c.get("title") or c.get("name") or "?")
+            cid = c.get("id") or c.get("campaign_id") or "?"
+            region = c.get("region") or c.get("country") or ""
+            rows.append((status, cid, title, region))
+
+        haystack = (name + " " + " ".join(r[2] for r in rows)).lower()
+        if needle and needle not in haystack:
+            continue
+
+        shown += 1
+        print(f"\n  {name}")
+        for status, cid, title, region in rows:
+            marker = "  <<" if status in ("AVAILABLE", "INVITED") else ""
+            print(f"     [{status:<9}] {str(cid):16} {title} {region}{marker}")
+
+    print(f"\n  brands listed: {shown} of {len(brands)}"
+          + (f" (filtered on {keyword!r})" if needle else ""))
+    if status_tally:
+        print("  campaign statuses across all brands: "
+              + ", ".join(f"{k}={v}" for k, v in sorted(status_tally.items())))
+    print(
+        "\n  AVAILABLE / INVITED (marked <<) are the ones you can act on. To join,\n"
+        "  use the console, or POST /v2/publishers/<id>/campaign-requests — this\n"
+        "  script won't apply on your behalf."
+    )
 
 
 def cmd_camrefs(publisher_id: str) -> None:
@@ -467,6 +547,11 @@ def main() -> None:
     ap.add_argument("--whoami", action="store_true", help="locate the publisher id")
     ap.add_argument("--participations", action="store_true", help="is DAZN still approved?")
     ap.add_argument("--camrefs", action="store_true", help="camrefs held by the account")
+    ap.add_argument("--discover", action="store_true", help="brands/campaigns available to join")
+    ap.add_argument(
+        "--discover-keyword",
+        help="filter --discover to a vertical, e.g. bet / sportsbook / casino",
+    )
     ap.add_argument("--conversions", action="store_true", help="conversions + click dates")
     ap.add_argument("--clicks", action="store_true", help="click volume (the key diagnostic)")
     ap.add_argument("--balance", action="store_true", help="unwithdrawn commission")
@@ -486,7 +571,14 @@ def main() -> None:
         return
 
     ran_any = args.all or any(
-        (args.participations, args.camrefs, args.conversions, args.clicks, args.balance)
+        (
+            args.participations,
+            args.camrefs,
+            args.discover,
+            args.conversions,
+            args.clicks,
+            args.balance,
+        )
     )
     if not ran_any:
         ap.print_help()
@@ -509,6 +601,9 @@ def main() -> None:
         print()
     if args.all or args.camrefs:
         cmd_camrefs(publisher_id)
+        print()
+    if args.all or args.discover:
+        cmd_discover(publisher_id, args.discover_keyword)
         print()
     if args.all or args.clicks:
         cmd_clicks(publisher_id, start, end)
