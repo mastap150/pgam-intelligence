@@ -168,6 +168,41 @@ and shareable report links.
 
 ---
 
+### 2.1 First observed values from the live platform (2026-08-21)
+
+Read off the Performance Overview dashboard rather than the API, since no
+session has had credentials yet — but every tile maps to a metric this client
+already sends, so the same figures are one `/report` call away:
+
+`ssp_requests_sum` 4,385,908,185 · `requests_sum` 4,472,194,800 ·
+`responses_sum` 64,541,190 · `ssp_wins_sum` 4,179,829 · `imps_sum` 3,284,048 ·
+`ssp_price_sum` $2,507.50 · `dsp_price_sum` $3,228.96 · `profit` $721.46 ·
+`margin` 22.34% · `supply_srpm` 0.57 · `demand_srpm` 0.72.
+
+Three things worth carrying forward:
+
+1. **Margin 22.34%** against roughly 31% in the legacy 30-day tables. Either
+   the mix on a part-day differs from a month's average, or margin has moved.
+   Worth a full settled day before treating it as a trend, but it is the
+   largest single discrepancy between the two platforms observed so far.
+
+2. **Render rate 78.6%** (3,284,048 imps ÷ 4,179,829 wins), against the 93–99%
+   band healthy sources run at in our own data. This is the account-wide
+   number, so it is consistent with the per-source render loss the digest
+   already flags — and it means that loss is not confined to a few endpoints.
+
+3. **`demand_srpm` is the QPS metric we derive by hand.** $0.7220/M here
+   against `qps_waste_sentry`'s blended baseline of $0.7804/M over 14 legacy
+   days — close enough to confirm the derivation, and the platform computes it
+   natively per source. When the sentry moves to TBX it should read
+   `demand_srpm` rather than recompute gross ÷ requests, because a
+   platform-computed figure cannot silently disagree with the platform's own
+   reporting the way ours can.
+
+Also note the bid response rate: 64.5M responses against 4.47B bid requests is
+**1.44%**. That is the QPS efficiency picture in one number, and the reason
+traffic shaping matters here.
+
 ## 3. Five surfaces that replace work PGAM currently does by hand
 
 This is the biggest finding in the spec. The platform already computes things
@@ -433,6 +468,24 @@ read-only.
    answer** — exact agreement — rather than an open question. Pull a settled
    7-day window from `/report` at `date × supply_source` and compare impressions
    and spend against the legacy `pgam_direct` TB tables for the same window.
+
+   **Which field is which — settled from a live dashboard, 2026-08-21.** The
+   Performance Overview screen showed Supply Revenue $2,507.50, Demand Spend
+   $3,228.96, Profit $721.46, Margin 22.34%. Those reconcile exactly
+   ($3,228.96 − $2,507.50 = $721.46; 721.46 ÷ 3,228.96 = 22.34%), which pins
+   the mapping the reconciliation needs and which the spec alone left open:
+
+   | new platform | legacy Neon column | meaning |
+   |---|---|---|
+   | `dsp_price_sum` ("Demand Spend") | `gross_revenue` | what DSPs paid |
+   | `ssp_price_sum` ("Supply Revenue") | `pub_payout` | what publishers get |
+   | `profit` | `gross_revenue - pub_payout` | platform-computed |
+
+   Getting this backwards would have compared payout against gross and
+   produced a ~22–31% constant offset — which reads exactly like "a fee
+   applied at a different stage", the second outcome below. That is a wrong
+   diagnosis we would have escalated with confidence, so pin the mapping
+   before running the comparison, not after.
 
    Two traps, and the second is the one that will bite:
 
