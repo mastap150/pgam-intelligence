@@ -226,11 +226,32 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
     if not tbx.configured():
         # Not an error. This job is scheduled ahead of the credentials on
         # purpose, so that adding them to Render is the only step needed.
-        print(f"{_LOG} TBX_EMAIL / TBX_PASSWORD not set — nothing to pull. "
-              f"Set them in the Render dashboard (Environment) for the "
-              f"pgam-intelligence-scheduler worker; this job then starts "
-              f"filling pgam_direct.tbx_daily_* with no redeploy.")
-        return {"ok": True, "skipped": "not_configured"}
+        #
+        # The message names WHICH variable is missing, and checks for the
+        # legacy TB_* equivalents, because TB_EMAIL vs TBX_EMAIL is one
+        # character apart and both are real variables for two different
+        # hosts. Setting the new platform's credentials under the legacy
+        # names is the obvious mistake, it leaves this job silently idle,
+        # and worse — if it overwrote the legacy values it breaks the
+        # legacy leg too. A log line costs nothing and saves a day.
+        import os
+
+        missing = [k for k in ("TBX_EMAIL", "TBX_PASSWORD") if not os.getenv(k)]
+        print(f"{_LOG} not configured — missing {', '.join(missing)}. "
+              f"Nothing pulled.")
+        print(f"{_LOG}   Set them in the Render dashboard (Environment) on the "
+              f"pgam-intelligence-scheduler worker. This job then fills "
+              f"pgam_direct.tbx_daily_* with no code change and no redeploy.")
+
+        legacy_set = [k for k in ("TB_EMAIL", "TB_PASSWORD") if os.getenv(k)]
+        if legacy_set and missing:
+            print(f"{_LOG}   NOTE: {', '.join(legacy_set)} IS set. Those are the "
+                  f"LEGACY host's credentials (ssp.pgammedia.com) and this job "
+                  f"cannot use them — it needs the TBX_ prefix for "
+                  f"api.pgammedia.com. If the new platform's login was entered "
+                  f"under the TB_ names, the legacy ETL is now authenticating "
+                  f"with the wrong credentials and will fail too. Check both.")
+        return {"ok": True, "skipped": "not_configured", "missing": missing}
 
     end = date.today()
     start = end - timedelta(days=max(window_days - 1, 0))
