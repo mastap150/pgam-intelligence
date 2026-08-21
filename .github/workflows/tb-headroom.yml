@@ -18,6 +18,8 @@ name: Marketplace Headroom (legacy TB data in Neon)
 # The log carries revenue figures; it is visible to repo collaborators, same as
 # any other run log here.
 #
+# Rev 5: re-run to answer "can you pull gross revenue right now" — the TBX
+#        leg still has no credentials, so this is the leg that can answer.
 # Rev 4: adds the recommendations digest.
 # Rev 3: adds revenue-change attribution (scripts/tb_whatchanged.py).
 # Rev 2: adds per-partner, partner×country, win→impression render loss, and
