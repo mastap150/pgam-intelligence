@@ -19,7 +19,20 @@ This script answers, from the API rather than from a code comment:
   1. Is the DAZN participation still approved?         --participations
   2. Which camrefs does the account actually hold?     --camrefs
   3. What has converted, and WHEN was the click?       --conversions
-  4. What is sitting unwithdrawn?                      --balance
+  4. How many clicks did we actually send?             --clicks
+  5. What is sitting unwithdrawn?                      --balance
+
+(4) is the decisive one now. The console's aggregate export for
+2026-01-01..2026-08-21 shows ONE conversion (2026-06-28, commission
+14.65946) in 233 days. One conversion in eight months is either thin
+placement or lost attribution, and those need different fixes. Compare
+`--clicks` against the boxingnews ledger over the same window:
+
+    SELECT count(*) FROM affiliate_clicks
+     WHERE operator_id = 'dazn'
+       AND clicked_at >= '2026-01-01' AND clicked_at < '2026-08-06';
+
+Big gap -> attribution loss. Both small -> placement problem, not code.
 
 (3) is the one that settles the revenue question. Every conversion row
 carries both `conversion_time` and the originating `click.set_time`. A
@@ -48,6 +61,12 @@ USAGE
 -----
     # everything, in one pass (recommended first run)
     python3 scripts/partnerize_audit.py --all
+
+    # THE diagnostic: clicks vs conversions, scoped to before the teardown
+    # (after 2026-08-06 the site stopped sending prf.hn traffic on purpose,
+    #  so including those days makes Partnerize's click count look broken)
+    python3 scripts/partnerize_audit.py --clicks --conversions \
+        --start 2026-01-01 --end 2026-08-05
 
     # is the program actually still alive?
     python3 scripts/partnerize_audit.py --participations
@@ -257,10 +276,136 @@ def _click_verdict(click_time: str | None) -> str:
     return f"click {clicked} predates the {TEARDOWN_DATE} teardown (pipeline lag)"
 
 
-def cmd_conversions(publisher_id: str, days: int, statuses: str) -> None:
+def resolve_window(start: str | None, end: str | None, days: int) -> tuple[date, date]:
+    """Report window from explicit --start/--end, else a --days lookback.
+
+    The click-vs-conversion comparison wants an explicit window ending
+    2026-08-05: after the teardown the site stopped sending traffic into
+    the prf.hn tunnel on purpose, so including post-teardown days makes
+    Partnerize's click count look broken when it is merely correct.
+    """
+    try:
+        end_d = date.fromisoformat(end) if end else date.today()
+        start_d = date.fromisoformat(start) if start else end_d - timedelta(days=days)
+    except ValueError as exc:
+        die(f"bad --start/--end (expected YYYY-MM-DD): {exc}")
+    if start_d > end_d:
+        die(f"--start {start_d} is after --end {end_d}")
+    return start_d, end_d
+
+
+# Partnerize pages the reporting endpoints at 300 rows. Cap total pages so a
+# high-volume window can't spin forever; the headline unique_click_count is
+# returned on page 1 regardless, so a cap degrades detail, never the answer.
+PAGE_SIZE = 300
+MAX_PAGES = 40
+
+
+def cmd_clicks(publisher_id: str, start: date, end: date) -> None:
+    """Click volume — the number that separates 'thin placement' from
+    'lost attribution'.
+
+    One conversion in eight months means either we barely send DAZN
+    clicks, or we send plenty and they aren't landing on our camref.
+    Compare `unique_click_count` here against the boxingnews ledger:
+
+        SELECT count(*) FROM affiliate_clicks
+         WHERE operator_id = 'dazn'
+           AND clicked_at >= <start> AND clicked_at < <end>;
+
+    A large gap means attribution loss. Both small means the placements,
+    not the code, are the problem.
+    """
+    print(f"== clicks {start} .. {end} ==")
+    first = get(
+        f"/reporting/report_publisher/publisher/{publisher_id}/click.json",
+        params={"start_date": start.isoformat(), "end_date": end.isoformat()},
+    )
+
+    unique = first.get("unique_click_count")
+    print(f"  unique_click_count: {unique}")
+    print(f"  rows on page 1:     {first.get('count')} (page size {first.get('limit')})")
+
+    # Walk the pages to bucket by month and by referring surface. This is
+    # detail on top of the headline count above, so a truncated walk is
+    # flagged rather than silently treated as complete.
+    rows: list[dict[str, Any]] = list(first.get("clicks", []) or [])
+    pages = 1
+    truncated = False
+    while len(rows) >= PAGE_SIZE * pages:
+        if pages >= MAX_PAGES:
+            truncated = True
+            break
+        page = get(
+            f"/reporting/report_publisher/publisher/{publisher_id}/click.json",
+            params={
+                "start_date": start.isoformat(),
+                "end_date": end.isoformat(),
+                "offset": str(PAGE_SIZE * pages),
+            },
+        )
+        batch = page.get("clicks", []) or []
+        if not batch:
+            break
+        rows.extend(batch)
+        pages += 1
+
+    print(f"  rows walked:        {len(rows)} across {pages} page(s)")
+    if truncated:
+        print(
+            f"  NOTE: stopped at the {MAX_PAGES}-page cap — the breakdowns below "
+            "cover only the rows walked. unique_click_count above is still the "
+            "full-window total."
+        )
+
+    if not rows:
+        print("\n  no click rows returned for this window.")
+        return
+
+    by_month: dict[str, int] = {}
+    by_referer: dict[str, int] = {}
+    pre = post = unknown = 0
+    for entry in rows:
+        click = entry.get("click", entry)
+        set_time = click.get("set_time") or ""
+        month = set_time[:7] or "unknown"
+        by_month[month] = by_month.get(month, 0) + 1
+
+        ref = (click.get("referer") or "(none)")[:70]
+        by_referer[ref] = by_referer.get(ref, 0) + 1
+
+        try:
+            clicked = datetime.strptime(set_time[:10], "%Y-%m-%d").date()
+        except ValueError:
+            unknown += 1
+            continue
+        if clicked >= TEARDOWN_DATE:
+            post += 1
+        else:
+            pre += 1
+
+    print("\n  by month:")
+    for month in sorted(by_month):
+        print(f"    {month}  {by_month[month]:>6}")
+
+    print("\n  top referring surfaces:")
+    for ref, n in sorted(by_referer.items(), key=lambda kv: -kv[1])[:12]:
+        print(f"    {n:>6}  {ref}")
+
+    print(
+        f"\n  before {TEARDOWN_DATE}: {pre}   on/after: {post}"
+        + (f"   undated: {unknown}" if unknown else "")
+    )
+    if post:
+        print(
+            "  >> Clicks recorded by Partnerize ON/AFTER the teardown means the "
+            "prf.hn tunnel is still receiving traffic — i.e. a tracked "
+            "AFFILIATE_DAZN_URL is still set in Vercel."
+        )
+
+
+def cmd_conversions(publisher_id: str, start: date, end: date, statuses: str) -> None:
     """The revenue question: what converted, and when was the click?"""
-    end = date.today()
-    start = end - timedelta(days=days)
     params: dict[str, Any] = {
         "start_date": start.isoformat(),
         "end_date": end.isoformat(),
@@ -323,9 +468,12 @@ def main() -> None:
     ap.add_argument("--participations", action="store_true", help="is DAZN still approved?")
     ap.add_argument("--camrefs", action="store_true", help="camrefs held by the account")
     ap.add_argument("--conversions", action="store_true", help="conversions + click dates")
+    ap.add_argument("--clicks", action="store_true", help="click volume (the key diagnostic)")
     ap.add_argument("--balance", action="store_true", help="unwithdrawn commission")
     ap.add_argument("--all", action="store_true", help="every check")
-    ap.add_argument("--days", type=int, default=90, help="conversion lookback (default 90)")
+    ap.add_argument("--days", type=int, default=90, help="lookback in days (default 90)")
+    ap.add_argument("--start", help="window start, YYYY-MM-DD (overrides --days)")
+    ap.add_argument("--end", help="window end, YYYY-MM-DD (default today)")
     ap.add_argument(
         "--statuses",
         default="approved,pending",
@@ -338,18 +486,23 @@ def main() -> None:
         return
 
     ran_any = args.all or any(
-        (args.participations, args.camrefs, args.conversions, args.balance)
+        (args.participations, args.camrefs, args.conversions, args.clicks, args.balance)
     )
     if not ran_any:
         ap.print_help()
         print(
             "\nNothing selected. Start with:\n"
-            "  python3 scripts/partnerize_audit.py --all"
+            "  python3 scripts/partnerize_audit.py --all\n"
+            "\nFor the click-vs-conversion diagnostic, scope to before the teardown:\n"
+            "  python3 scripts/partnerize_audit.py --clicks --conversions \\\n"
+            "      --start 2026-01-01 --end 2026-08-05"
         )
         return
 
     publisher_id = resolve_publisher_id(args.publisher)
-    print(f"partner/publisher id: {publisher_id}\n")
+    start, end = resolve_window(args.start, args.end, args.days)
+    print(f"partner/publisher id: {publisher_id}")
+    print(f"window: {start} .. {end}\n")
 
     if args.all or args.participations:
         cmd_participations(publisher_id)
@@ -357,8 +510,11 @@ def main() -> None:
     if args.all or args.camrefs:
         cmd_camrefs(publisher_id)
         print()
+    if args.all or args.clicks:
+        cmd_clicks(publisher_id, start, end)
+        print()
     if args.all or args.conversions:
-        cmd_conversions(publisher_id, args.days, args.statuses)
+        cmd_conversions(publisher_id, start, end, args.statuses)
         print()
     if args.all or args.balance:
         cmd_balance(publisher_id)
