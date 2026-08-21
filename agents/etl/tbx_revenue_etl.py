@@ -53,6 +53,7 @@ import argparse
 import sys
 from collections import defaultdict
 from datetime import date, timedelta
+from pathlib import Path
 
 _LOG = "[tbx_revenue_etl]"
 
@@ -201,6 +202,40 @@ def _aggregate(rows: list[dict], attribute: str) -> tuple[list[dict], int]:
     return records, dropped
 
 
+# Path to the DDL. Read from the migration file rather than duplicated here,
+# so there is exactly one definition of these tables — a copy in this module
+# would drift from migrations/ the first time a column is added, and the two
+# would disagree about a revenue table.
+_MIGRATION = (Path(__file__).resolve().parents[2]
+              / "migrations" / "2026_08_21_tbx_daily_revenue.sql")
+
+
+def ensure_tables() -> None:
+    """
+    Create the destination tables if they are absent.
+
+    This repo has no migration runner — `migrations/*.sql` is a record, not
+    something applied on deploy (see agents/etl/msn_insights_etl.py, which
+    ensures its own schema for the same reason). Without this the first
+    authenticated run dies on `relation "pgam_direct.tbx_daily_supply_revenue"
+    does not exist`, which reads as a broken ETL rather than an unapplied
+    migration — and the credentials would get blamed.
+
+    Every statement in the migration is IF NOT EXISTS, so this is idempotent
+    and cheap enough to run on each pass.
+    """
+    from core.neon import connect
+
+    ddl = _MIGRATION.read_text(encoding="utf-8")
+    conn = connect()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(ddl)
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def _write(table: str, id_col: str, name_col: str, records: list[dict]) -> int:
     if not records:
         return 0
@@ -252,6 +287,15 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
                   f"under the TB_ names, the legacy ETL is now authenticating "
                   f"with the wrong credentials and will fail too. Check both.")
         return {"ok": True, "skipped": "not_configured", "missing": missing}
+
+    try:
+        ensure_tables()
+    except Exception as exc:
+        # Fatal: without the tables there is nowhere to put anything, and
+        # continuing would report a per-grain UPSERT failure three times over
+        # for one root cause.
+        print(f"{_LOG} could not ensure destination tables — {exc}")
+        return {"ok": False, "error": f"ensure_tables: {exc}"}
 
     end = date.today()
     start = end - timedelta(days=max(window_days - 1, 0))

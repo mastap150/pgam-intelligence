@@ -58,6 +58,18 @@ TABLES: dict[str, tuple[str, ...]] = {
     "tb_daily_ad_format": ("impressions", "gross_revenue", "pub_payout"),
 }
 
+# The new platform's tables, written by agents/etl/tbx_revenue_etl.py. Listed
+# separately so the report says which LEG is stale rather than just which
+# table: with both platforms live, "TB is current but TBX is empty" and "TBX is
+# current but TB has stopped" are completely different problems, and during the
+# migration either one can happen on its own. Absent is the normal state until
+# TBX_EMAIL / TBX_PASSWORD are set in Render.
+TBX_TABLES: tuple[str, ...] = (
+    "tbx_daily_supply_revenue",
+    "tbx_daily_demand_revenue",
+    "tbx_daily_placement_revenue",
+)
+
 _HDR = "=" * 78
 
 
@@ -111,6 +123,36 @@ def freshness(conn, today: date) -> dict[str, date | None]:
         flag = "" if lag <= 1 else "  ← STALE"
         print(f"  {table:<38} {top.isoformat():<12} {str(lag) + 'd':<7} {cnt:>11,}{flag}")
         latest[table] = top
+
+    # --- new platform leg -------------------------------------------------
+    print()
+    print("  new platform (TBX) — written by agents/etl/tbx_revenue_etl.py")
+    any_tbx = False
+    for table in TBX_TABLES:
+        if not _exists(conn, table):
+            print(f"  {table:<38} {'—':<12} {'—':<7} {'not created':>11}")
+            continue
+        rows = _q(conn, f"SELECT max(report_date) FROM pgam_direct.{table}")
+        top = rows[0][0] if rows else None
+        if top is None:
+            print(f"  {table:<38} {'—':<12} {'—':<7} {'empty':>11}")
+            continue
+        any_tbx = True
+        cnt = _q(conn, f"SELECT count(*) FROM pgam_direct.{table} "
+                       f"WHERE report_date = %s", (top,))[0][0]
+        lag = (today - top).days
+        gross = _q(conn, f"SELECT sum(gross_revenue) FROM pgam_direct.{table} "
+                         f"WHERE report_date = %s", (top,))[0][0] or 0
+        print(f"  {table:<38} {top.isoformat():<12} {str(lag) + 'd':<7} {cnt:>11,}"
+              f"   gross ${float(gross):,.2f}")
+        latest[table] = top
+
+    if not any_tbx:
+        print()
+        print("  TBX leg is not yet producing. Expected until TBX_EMAIL and")
+        print("  TBX_PASSWORD are set on the Render worker — note the TBX_")
+        print("  prefix: TB_EMAIL / TB_PASSWORD are the LEGACY host's and")
+        print("  cannot serve this leg.")
 
     stale = [t for t, d in latest.items() if d is not None and (today - d).days > 1]
     print()
