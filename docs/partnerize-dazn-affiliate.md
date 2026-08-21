@@ -240,6 +240,72 @@ plus a tracked-URL check) is the safer choice, applied to the strip as well —
 but then every operator needs an explicit `active: true`, and that should be
 asserted in a test rather than left to memory.
 
+## Monitoring (added 2026-08-21)
+
+The root cause of this whole episode is that **affiliate attribution had no
+monitoring at all**. `affiliate_clicks` was created with three stated jobs
+(boxingnews `src/lib/affiliate/schema.ts`); the third —
+
+> Alert if click volume drops to zero (broken tracking link)
+
+— was never built. Nothing read the table except the Ticketmaster admin page,
+and pgam-intelligence ran ~30 revenue alert agents with none on affiliate. So
+a live program could be believed dead for six weeks with nothing to contradict
+it.
+
+`agents/alerts/affiliate_health.py` closes that. Daily 08:45 ET, behind
+`PGAM_AFFILIATE_HEALTH_ENABLED`, registered just after the existing
+08:30 ingest-health alert so both boxingnews watchdogs report together.
+Three independent checks, each degrading to a logged skip rather than
+failing the run:
+
+| Check | Needs | Catches |
+|---|---|---|
+| **A. Attribution probe** | outbound HTTPS only | An operator whose `AFFILIATE_<OP>_URL` is unset, so its clicks 302 to the operator's own marketing site and earn nothing |
+| **B. Click-volume regression** | `BOXINGNEWS_DATABASE_URL` | An operator that used to get clicks and now gets none — removed CTA, closed gate, broken link |
+| **C. Conversion reconciliation** | `PARTNERIZE_*` keys | Real click volume against zero conversions — the signature of lost attribution rather than thin demand |
+
+Check A is the important one. It needs no credentials, it would have caught
+`fb59da1` the next morning, and it is the only thing that will catch a
+sportsbook deal going live without its env var wired — the failure that
+`cta-gate.ts` is designed around but cannot report on.
+
+Two implementation details worth knowing:
+
+- **The probe pollutes the table it watches.** The bouncer logs every hit,
+  including the watchdog's. Probes therefore carry `p=monitor`, and check B
+  excludes that placement — otherwise the watchdog would manufacture the
+  click volume it is supposed to be measuring.
+- **`OPERATOR_MARKETING_DOMAINS` mirrors `operators.ts` by hand.** An operator
+  added there but not here is simply not probed, so check A reports how many
+  operators it probed — drift shows up as a short list rather than a silent
+  pass. Ticketmaster is deliberately excluded (different bouncer, different
+  semantics).
+
+Check A classifies each 302 as **tracked** (lands on a known affiliate-network
+host), **untracked** (lands on the operator's own marketing domain), or
+**unknown** (anything else — reported but never alerted on, so a network we
+haven't listed reads as unrecognised rather than broken).
+
+## Finding new programs
+
+`partnerize_audit.py --discover` lists every brand and campaign this partner
+can join, from `GET /v2/publishers/{id}/discovery/advertisers`. Each campaign
+carries a per-partner status — `AVAILABLE`, `REQUESTED`, `INVITED`,
+`REJECTED` — and the command marks the actionable ones:
+
+```bash
+python3 scripts/partnerize_audit.py --discover
+python3 scripts/partnerize_audit.py --discover --discover-keyword bet
+```
+
+This is how to answer "is there a sportsbook on Partnerize we could apply
+to?" without clicking through the console.
+
+Joining is a **write** (`POST /v2/publishers/{id}/campaign-requests`) and the
+script deliberately does not do it — applying to a program is a commercial
+decision, not a side effect of an audit.
+
 ## Restoring it (if the checks confirm the program is live)
 
 In `mastap150/boxingnews`, essentially a revert of `fb59da1`:
