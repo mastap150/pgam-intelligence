@@ -48,6 +48,34 @@ services:
       - key: TB_USER_ID
         value: "45"        # PGAM Media's TB user_id; default for list_inventory scope
 
+      # ── TBX (new Teqblaze platform / api.pgammedia.com) ───────────────────────
+      # The SUCCESSOR to TB above, serving the same data (Teqblaze confirmed the
+      # ClickHouse was transferred wholesale, 2026-08-20) but a different API:
+      # different host, JWT bearer auth, different entity model. Placement IDs
+      # carry across from TB; inventory IDs do not, and publisher/demand-source
+      # IDs are unconfirmed. Both legs run in parallel until reconciled.
+      # Required by core/tbx_api.py. See docs/teqblaze-new-platform.md.
+      - key: TBX_EMAIL
+        sync: false
+      - key: TBX_PASSWORD
+        sync: false
+
+      # Live writes to the new platform are gated at BOTH the call level
+      # (dry_run=True by default) and here. Nothing in core/tbx_mgmt.py can
+      # mutate the platform unless this is "1".
+      #
+      # Do not flip this until scripts/tbx_probe.py --diff-shape confirms the
+      # read→write round trip is lossless AND PROTECTED_FLOOR_MINIMUMS in
+      # core/tbx_mgmt.py is populated with this platform's own IDs. The
+      # update endpoints replace whole objects; a bad payload blanks config.
+      - key: TBX_ALLOW_WRITES
+        value: "0"
+
+      # Belt to TBX_ALLOW_WRITES' braces: "false" lets a caller that passes
+      # dry_run=None perform a live write (still subject to the gate above).
+      - key: TBX_DRY_RUN
+        value: "true"
+
       # ── Notifications ────────────────────────────────────────────────────────
       - key: SLACK_WEBHOOK
         sync: false

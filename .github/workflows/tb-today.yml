@@ -1,0 +1,71 @@
+name: TB Today (freshness + partial day)
+
+# Answers two questions that the headroom report deliberately cannot:
+#
+#   * is the TB ETL current, per table?
+#   * what has today booked so far, compared like-for-like on hours?
+#
+# It exists as its own workflow rather than a step in tb-headroom.yml because
+# that job's log runs to hundreds of lines, and the GitHub API only serves the
+# tail — so a short answer buried at the top of a long log is unreadable to a
+# Claude Code session. Here the whole log IS the answer.
+#
+# READ-ONLY. scripts/tb_freshness.py issues only SELECTs inside a
+# `SET TRANSACTION READ ONLY` transaction.
+#
+# Needs only PGAM_DIRECT_DATABASE_URL, already a repo secret.
+
+on:
+  # Pre-merge escape hatch: workflow_dispatch is only offered for workflows
+  # already on the default branch, so a push trigger scoped to this file lets
+  # it run before merge. REMOVE THIS BLOCK AT MERGE.
+  push:
+    branches:
+      - claude/teqblaze-platform-integration-xhazcl
+    paths:
+      - .github/workflows/tb-today.yml
+      - scripts/tb_freshness.py
+
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "Date to inspect (YYYY-MM-DD). Blank = today UTC."
+        required: false
+        type: string
+
+jobs:
+  today:
+    name: Freshness and today so far
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+      IN_DATE: ${{ github.event.inputs.date }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet "psycopg[binary]>=3.1.0" python-dotenv
+
+      - name: Verify the DSN is present
+        run: |
+          if [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set for this repo."
+            exit 1
+          fi
+          echo "DSN present."
+
+      - name: Freshness and today so far
+        run: |
+          if [ -n "$IN_DATE" ]; then
+            python3 scripts/tb_freshness.py --date "$IN_DATE"
+          else
+            python3 scripts/tb_freshness.py
+          fi

@@ -52,3 +52,6 @@ healthnation-automation/logs/*.log
 * 2.json
 .vercel
 data/compliance_matrix_*.csv
+
+# Seeded design canvas output (regenerated from the .dc.html working files)
+docs/design/**/attentive-buying-deal-desk.html
