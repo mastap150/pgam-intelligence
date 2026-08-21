@@ -350,7 +350,91 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
 
     if failures:
         results["failures"] = failures
+
+    _sanity_check_scope(df, dt)
     return results
+
+
+# Overlap tolerance before the scope check complains. Teqblaze states the two
+# platforms serve the same transferred data, so settled days should agree
+# closely; 25% is loose enough not to fire on timezone edges or a part-written
+# day, tight enough to catch a different account's book.
+_SCOPE_TOLERANCE = 0.25
+
+
+def _sanity_check_scope(date_from: str, date_to: str) -> None:
+    """
+    Warn if TBX gross diverges wildly from the legacy tables on settled days.
+
+    The account this token authenticates as is not self-evident. The platform
+    UI has a company selector and support-user impersonation, so credentials
+    can legitimately resolve to a DIFFERENT advertiser's book than PGAM's —
+    and the resulting numbers would look entirely plausible sitting in a
+    revenue table feeding a P&L. Nothing else in this pipeline would notice.
+
+    Both platforms carry the same transferred data, so overlapping settled
+    days are a free scope test: agreement means the token sees our book,
+    order-of-magnitude divergence means it probably does not.
+
+    Advisory only. It never blocks a write, because the legacy leg can itself
+    be stale or mid-backfill and a false alarm that halts revenue loading is
+    worse than a warning nobody reads. It is not the reconciliation
+    (docs/teqblaze-new-platform.md §7 tranche 1 step 2) — that one is
+    per-entity and authoritative. This is a smoke alarm.
+    """
+    try:
+        from core.neon import connect
+        conn = connect()
+    except Exception as exc:
+        print(f"{_LOG} scope check skipped — Neon unreachable ({exc})")
+        return
+    try:
+        with conn.cursor() as cur:
+            # Settled days only: exclude today, which neither side has finished.
+            cur.execute("""
+                SELECT t.g, l.g
+                FROM (SELECT sum(gross_revenue) AS g
+                      FROM pgam_direct.tbx_daily_supply_revenue
+                      WHERE report_date BETWEEN %(df)s AND %(dt)s
+                        AND report_date < current_date) t,
+                     (SELECT sum(gross_revenue) AS g
+                      FROM pgam_direct.tb_daily_publisher_revenue
+                      WHERE report_date BETWEEN %(df)s AND %(dt)s
+                        AND report_date < current_date) l
+            """, {"df": date_from, "dt": date_to})
+            row = cur.fetchone()
+    except Exception as exc:
+        print(f"{_LOG} scope check skipped — {exc}")
+        return
+    finally:
+        conn.close()
+
+    tbx = float(row[0] or 0) if row else 0.0
+    legacy = float(row[1] or 0) if row else 0.0
+    if not legacy or not tbx:
+        print(f"{_LOG} scope check: not comparable yet "
+              f"(TBX ${tbx:,.2f} vs legacy ${legacy:,.2f} on settled days)")
+        return
+
+    drift = abs(tbx - legacy) / legacy
+    if drift <= _SCOPE_TOLERANCE:
+        print(f"{_LOG} scope check OK: TBX ${tbx:,.2f} vs legacy ${legacy:,.2f} "
+              f"on settled days ({drift:+.1%}) — token sees our book.")
+        return
+
+    print(f"{_LOG} *** SCOPE WARNING *** TBX ${tbx:,.2f} vs legacy "
+          f"${legacy:,.2f} on the same settled days — {drift:.0%} apart.")
+    print(f"{_LOG}   Both platforms hold the same transferred data, so this "
+          f"should be near zero. Most likely causes, in order:")
+    print(f"{_LOG}   1. The TBX credentials resolve to a DIFFERENT account "
+          f"(the UI has a company selector and support-user impersonation). "
+          f"Confirm which company the token sees before trusting these rows "
+          f"for revenue or P&L.")
+    print(f"{_LOG}   2. dsp_price_sum / ssp_price_sum swapped — that gives a "
+          f"constant offset roughly the size of the margin.")
+    print(f"{_LOG}   3. A real discrepancy, which is Teqblaze's to explain.")
+    print(f"{_LOG}   Rows were still written; they are not trusted. Do not "
+          f"repoint a dashboard at them until this is resolved.")
 
 
 if __name__ == "__main__":
