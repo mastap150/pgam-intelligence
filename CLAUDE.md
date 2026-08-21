@@ -21,6 +21,44 @@ The Vercel projects (`pgam-www`, `pgam-direct-web`, `healthnation-web`,
 `closer-web`, `attune-tv-ads`, …) are **separate repos**. See the repo map in
 the playbook.
 
+## Two Teqblaze APIs, one marketplace
+
+`ssp.pgammedia.com` is the **old** Teqblaze platform PGAM was on;
+`api.pgammedia.com` is its **successor**, serving the same underlying data —
+Teqblaze confirmed on 2026-08-20 that the old ClickHouse was transferred
+wholesale, so reports should match. So this is a migration in progress, and the
+two APIs remain different *systems* even where the data agrees; conflating them
+is the easiest mistake to make here.
+
+**ID portability (answered by Teqblaze 2026-08-20):** placement IDs and their
+settings are **unchanged** across the two hosts; inventory IDs are **new**;
+publisher and demand-source IDs were **not covered either way** — and those are
+what the `pgam_direct.tb_daily_*` ETL keys on, so do not assume them stable
+(`docs/teqblaze-new-platform.md` §8.1.10d). Legacy shutdown happens only on
+PGAM's confirmation, so keep the legacy leg until the report reconciliation
+passes — it is the only independent check on TBX's numbers.
+
+| | legacy "TB" | new "TBX" |
+|---|---|---|
+| Host | `ssp.pgammedia.com/api` | `api.pgammedia.com` |
+| Auth | token in the URL path | `POST /login` → Bearer JWT |
+| Modules | `core/tb_api.py`, `core/tb_mgmt.py` | `core/tbx_api.py`, `core/tbx_mgmt.py` |
+| Env | `TB_EMAIL`, `TB_PASSWORD`, `TB_USER_ID` | `TBX_EMAIL`, `TBX_PASSWORD` |
+| Entities | inventory → placement | supply/demand source → placement |
+
+Both are live *today*, and the `tb_*` scheduler jobs (`tb_floor_nudge`,
+`tb_contract_floor_sentry`) still run against the legacy host — do not repoint
+or delete them. The new platform is unverified against real data, so the legacy
+leg is the one currently carrying live floor decisions. Migrate deliberately
+(`docs/teqblaze-new-platform.md` §7), never by swapping a base URL: an ID
+mapping between the two does not exist yet, so contract floor minimums do not
+carry across.
+
+Writes to TBX are gated twice: `dry_run=True` by default on every call, plus
+`TBX_ALLOW_WRITES=1` at the environment level. The prerequisites for opening
+that gate are in `docs/teqblaze-new-platform.md` §6. Spec is vendored at
+`docs/api/teqblaze-openapi.json`; probe with `scripts/tbx_probe.py`.
+
 ## Secrets are not present in this repo, ever
 
 - `.env` is gitignored; `.env.example` holds names with empty placeholder values.

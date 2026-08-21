@@ -1,0 +1,170 @@
+name: TBX Data Pull (new Teqblaze platform)
+
+# Manual runner that reads the new Teqblaze platform (api.pgammedia.com) and
+# reports what it finds.
+#
+# Why this exists: Claude Code cloud sessions are blocked from reaching
+# api.pgammedia.com by the environment's egress policy (every PGAM host is
+# denied — verified 2026-08-19). A GitHub Actions runner has open network, so
+# this workflow is how a session gets real platform data to analyse. Same
+# reasoning as msn-insights.yml, which runs on Actions because Render's tier
+# can't host Chromium.
+#
+# READ-ONLY. TBX_ALLOW_WRITES is never set here, and core/tbx_mgmt.py refuses
+# a live write without it. The two scripts this runs only call read endpoints.
+#
+# Setup — one time, by a repo admin:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     TBX_EMAIL      login for api.pgammedia.com
+#     TBX_PASSWORD   its password
+#
+# Run:  Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow
+#   or  gh workflow run tbx-probe.yml -f days=7
+#
+# NOTE: GitHub only offers workflow_dispatch for workflows that exist on the
+# repository's DEFAULT branch. Until this file lands on main it will not appear
+# in the Actions tab and `gh workflow run` returns 404, even though the file is
+# present on the feature branch. Merge first, then dispatch. Once it is on main
+# you can still target a feature branch with `--ref` to test changes to it.
+#
+# Results land in three places:
+#   • the job log        — full digest, which is what a Claude session reads
+#   • the run summary    — capability matrix table
+#   • the run artifact   — full per-surface JSON
+#
+# The artifact holds commercial revenue data. Retention is set to 7 days
+# deliberately; don't raise it without a reason.
+#
+# No schedule. This is a diagnostic, not a cadence job — matching the
+# manual-only pattern in compliance-daily.yml. If it becomes a recurring
+# pull, the ETL belongs on Render with Neon persistence instead.
+
+on:
+  # Pre-merge escape hatch. workflow_dispatch only works for workflows that
+  # already live on the default branch (dispatching this from the feature
+  # branch returns 404 — verified). A push-triggered workflow, by contrast,
+  # runs from the copy on the pushed ref, so this is the only way to exercise
+  # the pull before #99 merges. Scoped to this branch and to this file, so it
+  # fires only when the file is deliberately touched, not on every commit.
+  #
+  # REMOVE THIS BLOCK AT MERGE — on main, workflow_dispatch is the right door.
+  push:
+    branches:
+      - claude/teqblaze-platform-integration-xhazcl
+    paths:
+      - .github/workflows/tbx-probe.yml
+
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Lookback window in days, ending yesterday"
+        required: false
+        default: "7"
+      log_rows:
+        description: "Rows per table in the job log digest"
+        required: false
+        default: "15"
+      max_sources:
+        description: "Supply sources to walk for placements (0 skips the walk)"
+        required: false
+        default: "25"
+      skip:
+        description: "Comma-separated groups to skip (account,entities,reports,diagnostics,quality,recon,dictionaries)"
+        required: false
+        default: ""
+      diff_shape:
+        description: "Optional write-shape check, e.g. supply:22 or demand:91. Prints the payload, sends nothing."
+        required: false
+        default: ""
+
+concurrency:
+  # The platform's rate limits are undocumented; the legacy API allowed one
+  # concurrent query per user. Never run two pulls at once.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  pull:
+    name: Read every TBX surface
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      # Report timezone; matches the scheduler's TZ and the LL/legacy-TB
+      # reporting convention so numbers are comparable.
+      TBX_TIMEZONE: US/Eastern
+      # Belt and braces: both write gates explicitly shut, so a future edit
+      # to this workflow can't accidentally enable a mutation.
+      TBX_ALLOW_WRITES: "0"
+      TBX_DRY_RUN: "true"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # Only what the TBX client needs. requirements.txt pulls lightgbm,
+        # pandas and playwright, none of which this touches.
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        # Runs BEFORE the credential gate on purpose: it needs no secrets,
+        # so even a run with none configured still proves the client works
+        # on a clean runner with only requests + python-dotenv installed.
+        # If this fails, the bug is ours, not the platform's.
+        run: python3 tests/test_tbx.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL and/or TBX_PASSWORD repo secrets are not set."
+            echo "Add them under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "Credentials present for: ${TBX_EMAIL%%@*}@***"
+
+      - name: Connectivity probe
+        run: python3 scripts/tbx_probe.py --dictionaries
+
+      - name: Pull every surface
+        # Inputs arrive via env, not ${{ }} interpolation into the shell —
+        # dispatch inputs are free text and would otherwise be executed.
+        env:
+          IN_DAYS: ${{ inputs.days || '7' }}
+          IN_LOG_ROWS: ${{ inputs.log_rows || '15' }}
+          IN_MAX_SOURCES: ${{ inputs.max_sources || '25' }}
+          IN_SKIP: ${{ inputs.skip }}
+        run: |
+          python3 scripts/tbx_pull.py \
+            --days "$IN_DAYS" \
+            --log-rows "$IN_LOG_ROWS" \
+            --max-sources "$IN_MAX_SOURCES" \
+            --skip "$IN_SKIP" \
+            --outdir tbx-data
+
+      - name: Write-shape check
+        # Only runs when an entity is named. Prints the read→write payload
+        # diff; sends nothing. This is the gate described in
+        # docs/teqblaze-new-platform.md §6.
+        if: github.event_name == 'workflow_dispatch' && inputs.diff_shape != ''
+        env:
+          IN_DIFF_SHAPE: ${{ inputs.diff_shape }}
+        run: python3 scripts/tbx_probe.py --diff-shape "$IN_DIFF_SHAPE"
+
+      - name: Upload data
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tbx-data-${{ github.run_id }}
+          path: tbx-data/
+          retention-days: 7
+          if-no-files-found: warn

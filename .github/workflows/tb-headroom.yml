@@ -1,0 +1,120 @@
+name: Marketplace Headroom (legacy TB data in Neon)
+
+# Reads the real marketplace data we ALREADY have and sizes the optimisation
+# headroom against each new-platform lever.
+#
+# Why this exists separately from tbx-probe.yml: that one needs TBX_EMAIL /
+# TBX_PASSWORD, which are not set yet. This needs only
+# PGAM_DIRECT_DATABASE_URL, which is already a repo secret (seven other
+# workflows use it), so it can produce real numbers today. The legacy platform
+# is the same marketplace as api.pgammedia.com, so headroom measured here is
+# headroom on the new platform's levers — see docs/teqblaze-new-platform.md §1.
+#
+# READ-ONLY. scripts/tb_headroom.py issues only SELECTs, inside a
+# `SET TRANSACTION READ ONLY` transaction, so a mistaken query cannot write.
+#
+# Results go to the job log, which is how a Claude Code session reads them back
+# (this sandbox is blocked from Neon and from every PGAM host by egress policy).
+# The log carries revenue figures; it is visible to repo collaborators, same as
+# any other run log here.
+#
+# Rev 5: re-run to answer "can you pull gross revenue right now" — the TBX
+#        leg still has no credentials, so this is the leg that can answer.
+# Rev 4: adds the recommendations digest.
+# Rev 3: adds revenue-change attribution (scripts/tb_whatchanged.py).
+# Rev 2: adds per-partner, partner×country, win→impression render loss, and
+#        an explicit first-7d vs last-7d trend block.
+#
+# Run:  Actions → this workflow → Run workflow  (once it is on the default
+#       branch — workflow_dispatch only works from there). Before then, touching
+#       this file and pushing fires it via the push trigger below.
+
+on:
+  # Pre-merge escape hatch, same reasoning as tbx-probe.yml: push-triggered
+  # workflows run from the pushed ref, workflow_dispatch does not.
+  # REMOVE THIS BLOCK AT MERGE.
+  push:
+    branches:
+      - claude/teqblaze-platform-integration-xhazcl
+    paths:
+      - .github/workflows/tb-headroom.yml
+
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Lookback window in days, ending yesterday"
+        required: false
+        default: "30"
+      pivot:
+        description: "Optional date (YYYY-MM-DD) to attribute a revenue change either side of"
+        required: false
+        default: ""
+
+concurrency:
+  group: tb-headroom
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  analyse:
+    name: Size the headroom
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # `requests` is needed even though nothing here calls an API: the QPS
+        # sentry imports core.partner_freeze to read the cross-platform freeze
+        # list, and that module imports requests. Without it the import fails,
+        # the sentry warns and treats the freeze list as EMPTY, and a frozen
+        # partner can be recommended for a cut. Propose-only, so no write
+        # happened — but the recommendation was wrong and said so in a warning
+        # that is easy to miss.
+        run: pip install --quiet "psycopg[binary]>=3.1.0" python-dotenv requests
+
+      - name: Verify the DSN is present
+        run: |
+          if [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set for this repo."
+            exit 1
+          fi
+          echo "DSN present (value not printed)"
+
+      - name: Data freshness and today so far
+        # Runs FIRST on purpose. Everything below reports on windows ending
+        # yesterday, so a stalled ETL would look like a quiet marketplace
+        # rather than a broken pipeline. This step names the newest date per
+        # table before any total is read, and answers "what is today doing"
+        # with an explicitly partial figure compared like-for-like on hours.
+        run: python3 scripts/tb_freshness.py
+
+      - name: Size the headroom
+        env:
+          IN_DAYS: ${{ inputs.days || '30' }}
+        run: python3 scripts/tb_headroom.py --days "$IN_DAYS"
+
+      - name: Daily recommendations digest
+        # Read-only. --post is deliberately omitted: this run prints, it does
+        # not notify a channel from a feature branch.
+        run: python3 -m agents.alerts.marketplace_digest
+
+      - name: Attribute the revenue change
+        # Answers "what caused it", which is the half a bare percentage can't.
+        # Skipped when no pivot is given.
+        env:
+          # On a push there are no dispatch inputs, so fall back to the date the
+          # eCPM step-change appears in the data.
+          IN_PIVOT: ${{ inputs.pivot || '2026-08-11' }}
+        run: python3 scripts/tb_whatchanged.py --pivot "$IN_PIVOT" --days 14
