@@ -66,7 +66,8 @@ that gate are in `docs/teqblaze-new-platform.md` §6. Spec is vendored at
   machine (playbook: "`.env` files stay local, never committed").
 - **Cloud sessions (claude.ai/code) start from a fresh clone and therefore
   have zero project credentials.** A cloud session cannot read, verify, or
-  rotate a real key unless it was injected into the environment (below).
+  rotate a real key unless it was supplied for that session — see "Cloud
+  sessions and credentials" below.
 
 Do not claim to have a credential without checking `env` first.
 
@@ -97,17 +98,52 @@ Notes:
 - Team id defaults to PGAM's (`team_8j7qA4FwBXkobcMfdhJj1umB`); override with
   `--team` or `$VERCEL_TEAM_ID`.
 
-## Making credentials available to every cloud session
+## Cloud sessions and credentials
 
-To stop re-supplying secrets each session, add them once as **environment
-variables on the Claude Code environment** (claude.ai/code → environment
-settings). They are then injected into every future session container and
-readable as ordinary env vars. `VERCEL_TOKEN` is the highest-value one: with
-it present, any session can run the sync script above unattended.
+A cloud session cannot reach a secret unless it is in the environment
+configuration, and **that configuration is not a secrets store.** Anthropic's
+docs are explicit on both points:
 
-Treat that as granting standing access — scope tokens narrowly and rotate on
-offboarding, per the playbook's secret-handling rules.
-Docs: https://code.claude.com/docs/en/claude-code-on-the-web
+> Anyone who uses the environment can read the values, and cloud environments
+> have no dedicated secrets store, so don't add API keys or other credentials.
+
+and, in the carries-over table: *Static API tokens and credentials — available
+in cloud sessions: **No** — no dedicated secrets store exists yet.* The
+environment dialog itself warns that values are visible to anyone using the
+environment.
+
+So there is no clean way to give cloud sessions standing credentials today.
+Pick per credential:
+
+- **Default — supply it per session.** Paste or `export` the value when a
+  session actually needs it. Costs a step each time; leaves nothing at rest.
+- **Environment variable, eyes open.** Technically works: values are injected
+  as ordinary env vars at session startup. But they sit in plaintext config
+  that every user of the environment can read. Only for tokens whose blast
+  radius you accept, scoped as narrowly as the provider allows, and rotated on
+  offboarding per the playbook's secret-handling rules. A Vercel token is
+  broad — it can write env vars across every project on the team — so weigh it
+  accordingly rather than treating it as the obvious default.
+
+Never commit a credential to this repo to get it into a session. `.env` is
+gitignored for a reason, and the playbook records a real leak (2026-07-02) from
+exactly that shortcut.
+
+### Where the environment variables live
+
+There is no settings page and no direct URL — only the selector:
+
+1. At claude.ai/code, click the cloud icon showing the environment name, in the
+   row above the message box (PGAM's is `PGAM`).
+2. Hover the environment in the **Cloud** section, click the gear icon.
+3. Use the **Environment variables** box: `.env` format, one `KEY=value` per
+   line. Quote any value containing `#` or spanning lines — unquoted, `#`
+   starts a comment.
+
+Each session copies the values **once at startup**, so edits reach only
+sessions started afterwards; a running session keeps what it began with.
+
+Docs: https://code.claude.com/docs/en/cloud-environments#set-environment-variables
 
 ## Claude usage efficiency policy
 
