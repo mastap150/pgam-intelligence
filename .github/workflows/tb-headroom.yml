@@ -75,7 +75,14 @@ jobs:
           python-version: "3.11"
 
       - name: Install dependencies
-        run: pip install --quiet "psycopg[binary]>=3.1.0" python-dotenv
+        # `requests` is needed even though nothing here calls an API: the QPS
+        # sentry imports core.partner_freeze to read the cross-platform freeze
+        # list, and that module imports requests. Without it the import fails,
+        # the sentry warns and treats the freeze list as EMPTY, and a frozen
+        # partner can be recommended for a cut. Propose-only, so no write
+        # happened — but the recommendation was wrong and said so in a warning
+        # that is easy to miss.
+        run: pip install --quiet "psycopg[binary]>=3.1.0" python-dotenv requests
 
       - name: Verify the DSN is present
         run: |
