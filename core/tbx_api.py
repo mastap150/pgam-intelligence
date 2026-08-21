@@ -334,8 +334,29 @@ def force_refresh_token() -> str:
     return get_token(force=True)
 
 
-def logout() -> bool:
-    """POST /logout and drop the local cache. Best-effort."""
+def logout(i_know_this_affects_other_processes: bool = False) -> bool:
+    """
+    POST /logout and drop the local cache. Requires an explicit opt-in.
+
+    Teqblaze confirmed (2026-08-21) that multiple /login calls for the same
+    user do NOT invalidate earlier tokens — so a scheduled job and an ad-hoc
+    script can authenticate in parallel quite safely. /logout is the exception:
+    it can affect the session, so one process calling it can strip the token
+    out from under another.
+
+    That makes this the one call in this module that breaks something outside
+    itself while looking like tidy cleanup. It is gated on a deliberately
+    awkward keyword so it cannot be reached by reflex or by a `finally:` block
+    someone adds later. There is no operational reason to call it — tokens
+    expire on their own in 60 minutes.
+    """
+    if not i_know_this_affects_other_processes:
+        print(f"{_LOG_PREFIX} logout() refused: it can invalidate tokens held "
+              f"by other processes (a scheduled ETL, another session). Tokens "
+              f"expire after 60 minutes on their own. Pass "
+              f"i_know_this_affects_other_processes=True only if that is "
+              f"genuinely what you want.", file=sys.stderr)
+        return False
     try:
         _request("POST", "/logout", retry_auth=False)
     except TbxError as exc:

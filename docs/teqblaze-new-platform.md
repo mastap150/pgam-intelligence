@@ -625,6 +625,79 @@ These are onboarding unknowns, and two of them gate the write path.
 
 ### 8.1 Only Teqblaze can answer these
 
+> **Answered 2026-08-21.** Questions 1–6 came back. Summary of what each one
+> changed, then the originals below for context.
+>
+> **1. `/update` is PATCH-like for direct fields — but not for relationships.**
+> Omitted direct fields are *not* cleared. Relationships and nested objects are
+> the exception and must be sent every time, unchanged or not:
+> supply needs `companies` and a complete `source`; demand needs `companies`,
+> `geo_settings`, `banner_filter`, `video_filter`, `operation_systems`,
+> `qps_limit` and `api_sync` (`null` to remove), plus `supply_sources` when
+> GLOBAL_LEVEL and `seat` when DEMAND_SEATS_EDIT. Read-only, to strip from a
+> GET response: exactly `id`, `has_inactive_company`, `uuid`.
+>
+> This inverts the hazard this module was built around. The assumption was
+> whole-object replace, so the danger looked like "omitting anything blanks
+> it" — safe to over-include. Reality is worse: most omissions are harmless
+> and a specific handful are destructive, so a minimal-diff update looks
+> correct, passes a test against a direct field, and silently drops a
+> relationship the one time it matters. `assert_required_update_fields()`
+> now refuses such a body before it leaves the process.
+>
+> It also corrected a live bug. `_READ_ONLY_FIELDS` had been guessed as
+> `margin_type`/`margin_min`/`margin_max` for supply and `operation_systems`
+> for demand. All four were wrong, and `operation_systems` is not read-only at
+> all but *required* — stripping it would have dropped an OS targeting list on
+> every demand write.
+>
+> **2. Their optimisers ARE enabled on some sources, transferred from the old
+> platform.** Readable per-source in the GET response: `is_smart_floor`,
+> `is_dynamic_margin`, `qps_limit.qps_optimization_by`. Teqblaze named Dexerto
+> (supply source 7) as an example that carries them. So "check before writing"
+> is not hypothetical — any floor or QPS writer must read these first and skip
+> a source where the platform is already acting, or we get the April thrash
+> with a partner in the loop.
+>
+> **3. A dedicated read-only role: yes**, they will create one in User
+> Management, separate from an individual's dashboard account. This is the
+> credential that should live in Render long-term.
+>
+> **4. Rate limit: 300 requests/minute per user**, by `user_id` or IP, HTTP 429
+> over. No documented concurrency cap. Our `TBX_MIN_INTERVAL=0.25` serialises
+> to ~240/min, comfortably under; the retry path already backs off on 429.
+>
+> **5. JWT TTL 60 minutes, and parallel logins are safe** — multiple `/login`
+> calls for the same user do not invalidate earlier tokens, so a scheduled ETL
+> and an ad-hoc script can both authenticate without fighting. `/logout` is the
+> exception and *can* affect the session. `tbx_api.logout()` is therefore gated
+> behind an explicit keyword: it is the one call here that breaks something
+> outside itself while looking like tidy cleanup, and tokens expire on their
+> own anyway.
+>
+> **6. The report hash — UNRESOLVED, and worth testing before trusting either
+> reading.** Teqblaze says the hash is a *sharing* hash generated only by
+> `POST /share/report`, with a 7-day TTL, and that `/active-hash/update/{hash}`
+> is a separate mechanism for temporary value lists (FilterList, Deal values,
+> Adapter bundles) — that last part we accept and have corrected.
+>
+> But the answer does not square with their own spec, which labels the
+> `/report/{hash}` path parameter **"Request data hash"** and exposes
+> `POST /share/report` alongside `GET /share/{hash}` — i.e. sharing looks like
+> its own pair of endpoints, with `/report/{hash}` being something else.
+> `POST /report/{hash}` is also the *only* report endpoint in the spec; there is
+> no bare `POST /report`, so if the hash could only come from `/share/report`
+> then every report would require creating a share first, which is implausible.
+>
+> Most likely the support answer described sharing rather than paging. We
+> currently send an md5 of the canonical request body, which matches the spec's
+> label. **Do not rewrite this on one sentence** — it is empirically settled by
+> the first authenticated call: if `POST /report/{md5}` returns data, our
+> reading holds; if it 404s, theirs does and `share_report()` becomes a
+> prerequisite. That check belongs in `scripts/tbx_probe.py --reports`, before
+> any ETL output is trusted.
+
+
 **Blocking the write path — ask first**
 
 1. **Do the `/update` endpoints replace the whole object or patch it?**

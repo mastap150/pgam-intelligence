@@ -63,6 +63,10 @@ from typing import Any
 from core import tbx_api as tbx
 from core.tbx_api import TbxError
 
+
+class TbxWriteError(TbxError):
+    """A write was refused before it left this process."""
+
 _LOG = "[tbx_mgmt]"
 
 # ---------------------------------------------------------------------------
@@ -360,10 +364,78 @@ def list_companies(search: str | None = None, per_page: int = 250) -> list[dict]
 
 # Fields the read schema returns but the write schema rejects. See the module
 # docstring's shape caveat.
+# Teqblaze named these exactly (2026-08-21): the only fields to strip when
+# using a GET response as the basis for an update are id, has_inactive_company
+# and uuid. Same three for both entity kinds.
+#
+# This replaces a guess that was wrong in the dangerous direction. It stripped
+# margin_type / margin_min / margin_max from supply — ordinary writable fields —
+# and operation_systems from demand, which is not read-only at all but one of
+# the REQUIRED fields below. Stripping it would have dropped an OS targeting
+# list on every demand update.
 _READ_ONLY_FIELDS = {
-    "supply_source": ("id", "margin_type", "margin_min", "margin_max"),
-    "demand_source": ("id", "operation_systems"),
+    "supply_source": ("id", "has_inactive_company", "uuid"),
+    "demand_source": ("id", "has_inactive_company", "uuid"),
 }
+
+# Fields that must be present in an update body even when unchanged, per
+# Teqblaze 2026-08-21. The /update endpoints are PATCH-like for direct model
+# fields — omitting one leaves it alone — but relationships and nested objects
+# do NOT follow that rule, and these have to be sent every time.
+#
+# This is the real hazard, and it is the opposite of what this module was
+# built to guard. The original assumption was whole-object replace, so the
+# danger looked like "omitting anything blanks it". Actually most omissions are
+# harmless and a specific handful are destructive, which is worse: it means a
+# minimal-diff update looks correct, works in testing on a field that happens
+# to be direct, and silently drops a relationship the one time it matters.
+_REQUIRED_UPDATE_FIELDS = {
+    # `source` must be the complete nested object, not a partial.
+    "supply_source": ("companies", "source"),
+    # `qps_limit` / `api_sync` take null to remove, but must be present.
+    # `supply_sources` is required when the demand is GLOBAL_LEVEL, and `seat`
+    # when DEMAND_SEATS_EDIT — both are conditional, so they are checked
+    # against the entity being updated rather than demanded unconditionally.
+    "demand_source": ("companies", "geo_settings", "banner_filter",
+                      "video_filter", "operation_systems", "qps_limit",
+                      "api_sync"),
+}
+
+# Conditionally required: (field, the key whose presence in the GET response
+# implies the field is in play). Checked only when the source object already
+# carries the marker, since demanding them unconditionally would block updates
+# to entities they do not apply to.
+_CONDITIONAL_UPDATE_FIELDS = {
+    "demand_source": (("supply_sources", "GLOBAL_LEVEL"), ("seat", "DEMAND_SEATS_EDIT")),
+}
+
+
+def assert_required_update_fields(body: dict, kind: str, original: dict | None = None) -> None:
+    """
+    Refuse an update body that omits a field Teqblaze requires.
+
+    Raised rather than warned: the failure mode is a silently dropped
+    relationship on live inventory — an allowed-supply list, a geo floor map,
+    an OS targeting set. That is not something to discover from a revenue
+    graph a week later.
+    """
+    missing = [f for f in _REQUIRED_UPDATE_FIELDS.get(kind, ()) if f not in body]
+
+    if original:
+        blob = str(original)
+        for field, marker in _CONDITIONAL_UPDATE_FIELDS.get(kind, ()):
+            if marker in blob and field not in body:
+                missing.append(f"{field} (required: {marker})")
+
+    if missing:
+        raise TbxWriteError(
+            f"{kind} update body omits field(s) Teqblaze requires even when "
+            f"unchanged: {', '.join(missing)}. The /update endpoints are "
+            f"PATCH-like for direct fields but NOT for relationships and "
+            f"nested objects — omitting these drops them. Build the body from "
+            f"the GET response with _strip_read_only(), do not hand-assemble a "
+            f"minimal diff."
+        )
 
 
 def _strip_read_only(entity: dict, kind: str) -> dict:

@@ -215,18 +215,90 @@ def test_key_loss_guard() -> None:
 
 
 def test_read_only_stripping() -> None:
+    """
+    Teqblaze named the read-only set exactly (2026-08-21): id,
+    has_inactive_company, uuid — and nothing else, for either entity kind.
+
+    These assertions previously encoded a guess that stripped margin_* from
+    supply and operation_systems from demand. Both were wrong, and the second
+    was wrong in the damaging direction: operation_systems is one of the fields
+    that must be PRESENT in every demand update, so stripping it would have
+    dropped an OS targeting list on each write.
+    """
     print("\nread-only field stripping")
-    supply = {"id": 22, "name": "s", "margin_type": "fixed", "margin_min": 10,
+    supply = {"id": 22, "uuid": "abc", "has_inactive_company": False,
+              "name": "s", "margin_type": "fixed", "margin_min": 10,
               "margin_max": 50, "status": True, "source": {"floor_price": 1.0}}
     stripped = tbm._strip_read_only(supply, "supply_source")
-    check("supply read-only fields dropped",
-          set(stripped) == {"name", "status", "source"}, str(sorted(stripped)))
+    check("supply strips exactly id/uuid/has_inactive_company",
+          set(stripped) == {"name", "margin_type", "margin_min", "margin_max",
+                            "status", "source"}, str(sorted(stripped)))
+    check("margin fields SURVIVE — they are writable",
+          {"margin_type", "margin_min", "margin_max"} <= set(stripped))
     check("original not mutated", "id" in supply)
 
-    demand = {"id": 91, "name": "d", "operation_systems": [1, 2], "is_schain": True}
+    demand = {"id": 91, "uuid": "def", "has_inactive_company": True,
+              "name": "d", "operation_systems": [1, 2], "is_schain": True}
     stripped = tbm._strip_read_only(demand, "demand_source")
-    check("demand read-only fields dropped",
-          set(stripped) == {"name", "is_schain"}, str(sorted(stripped)))
+    check("demand strips exactly id/uuid/has_inactive_company",
+          set(stripped) == {"name", "operation_systems", "is_schain"},
+          str(sorted(stripped)))
+    check("operation_systems SURVIVES — it is required, not read-only",
+          "operation_systems" in stripped)
+
+
+def test_required_update_fields() -> None:
+    """A body missing a required relationship must be refused, not sent."""
+    print("\nrequired update fields")
+
+    full_supply = {"companies": [3], "source": {"floor_price": 1.0}, "name": "s"}
+    try:
+        tbm.assert_required_update_fields(full_supply, "supply_source")
+        check("complete supply body accepted", True)
+    except Exception as exc:
+        check("complete supply body accepted", False, str(exc))
+
+    for omit in ("companies", "source"):
+        body = {k: v for k, v in full_supply.items() if k != omit}
+        check(f"supply body missing {omit} refused",
+              _raises(tbm.TbxWriteError, tbm.assert_required_update_fields,
+                      body, "supply_source"))
+
+    full_demand = {"companies": [3], "geo_settings": {}, "banner_filter": [],
+                   "video_filter": [], "operation_systems": [], "qps_limit": None,
+                   "api_sync": None}
+    try:
+        tbm.assert_required_update_fields(full_demand, "demand_source")
+        check("complete demand body accepted", True)
+    except Exception as exc:
+        check("complete demand body accepted", False, str(exc))
+
+    check("qps_limit=None counts as present (null removes it)",
+          "qps_limit" in full_demand and full_demand["qps_limit"] is None)
+
+    for omit in ("companies", "geo_settings", "banner_filter", "video_filter",
+                 "operation_systems", "qps_limit", "api_sync"):
+        body = {k: v for k, v in full_demand.items() if k != omit}
+        check(f"demand body missing {omit} refused",
+              _raises(tbm.TbxWriteError, tbm.assert_required_update_fields,
+                      body, "demand_source"))
+
+    # Conditionals only bite when the entity actually carries the marker.
+    check("supply_sources not demanded when not GLOBAL_LEVEL",
+          tbm.assert_required_update_fields(
+              full_demand, "demand_source", {"level": "SOURCE_LEVEL"}) is None)
+    check("supply_sources demanded when GLOBAL_LEVEL",
+          _raises(tbm.TbxWriteError, tbm.assert_required_update_fields,
+                  full_demand, "demand_source", {"level": "GLOBAL_LEVEL"}))
+    check("seat demanded when DEMAND_SEATS_EDIT",
+          _raises(tbm.TbxWriteError, tbm.assert_required_update_fields,
+                  full_demand, "demand_source", {"perm": "DEMAND_SEATS_EDIT"}))
+
+
+def test_logout_is_gated() -> None:
+    """logout() can strip a token from another process — it must not be casual."""
+    print("\nlogout gating")
+    check("logout() refuses without the explicit opt-in", tbx.logout() is False)
 
 
 def test_write_gates() -> None:
@@ -593,6 +665,8 @@ def main() -> int:
     test_deep_merge()
     test_key_loss_guard()
     test_read_only_stripping()
+    test_required_update_fields()
+    test_logout_is_gated()
     test_write_gates()
     test_validation_guards()
     test_roughly_equal()
