@@ -746,6 +746,29 @@ def setup_schedule():
         )
 
     # ─────────────────────────────────────────────────────────────────
+    # BoxingNews affiliate attribution watchdog
+    # ─────────────────────────────────────────────────────────────────
+    # Daily 08:45 ET, just after the ingest-health alert so both
+    # boxingnews watchdogs land together.
+    #
+    # Deliberately NOT nested under BOXINGNEWS_REVIEW_ENABLED: the
+    # agent's primary check probes the live click bouncer over plain
+    # HTTPS and needs neither the boxingnews DSN nor Partnerize keys, so
+    # it stays useful on hosts where the review agent is parked. The
+    # DB-backed and Partnerize-backed checks degrade to a logged skip
+    # when their credentials are absent.
+    #
+    # Exists because affiliate attribution had no monitoring at all:
+    # affiliate_clicks was built to "alert if click volume drops to
+    # zero" and nothing ever read it, which is how a live DAZN
+    # Partnerize program was believed dead for six weeks in 2026-08.
+    if _os.getenv("PGAM_AFFILIATE_HEALTH_ENABLED", "1") == "1":
+        affiliate_health = _import("agents.alerts.affiliate_health")
+        schedule.every().day.at("08:45").do(
+            _run("affiliate_health", affiliate_health)
+        )
+
+    # ─────────────────────────────────────────────────────────────────
     # Outbound SDR — daily lead loader (Apollo → HubSpot → Instantly)
     # ─────────────────────────────────────────────────────────────────
     # Weekday 09:00 ET. The agent itself is dry-run by default
