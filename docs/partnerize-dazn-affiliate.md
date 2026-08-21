@@ -72,9 +72,11 @@ Its stated premise:
    DAZN ending, suspending, or repricing the participation. The only
    Partnerize mail in the last 180 days is the payout alert below.
 2. **The account is still being paid.** On **2026-08-21 08:00 UTC**
-   Partnerize sent *"Funds are available to withdraw"*, and the console
-   shows a DAZN subscription conversion attributed to boxingnews. A
-   terminated participation does not accrue withdrawable commission.
+   Partnerize sent *"Funds are available to withdraw"* against a DAZN
+   subscription conversion attributed to boxingnews. A terminated
+   participation does not release funds. Note the conversion itself is dated
+   **2026-06-28**, not August — see the aggregate-report section below, which
+   is the authoritative read on volume and timing.
 3. **The likely source of the confusion is a 403, not a termination.** The
    deleted `dazn.ts` documented one already:
 
@@ -140,6 +142,103 @@ Note that `ar:` adrefs surface as `advertiser_reference` on the conversion
 record, and the report's `multipivot` filter supports only `campaign`,
 `product` and `publisher_reference` — so filter adrefs client-side (the
 script prints the field) rather than server-side.
+
+## What the aggregate report actually shows (2026-08-21)
+
+Daily aggregate export from the console, 2026-01-01 -> 2026-08-21 (233 days):
+
+| | |
+|---|---|
+| Total conversions | **1** |
+| Total partner commission | **14.65946** |
+| Total order value | 0 |
+| Date of the only conversion | **2026-06-28** |
+| Conversions on/after the 2026-08-06 teardown | **0** |
+
+This materially changes the reading:
+
+- **The conversion predates the teardown by 39 days.** Today's "Funds are
+  available to withdraw" alert is that single June commission clearing DAZN's
+  validation window (~7.5 weeks) and becoming payable. It is *not* evidence of
+  current attribution.
+- **It still refutes "terminated".** Partnerize does not release funds on a
+  dead participation, and no termination notice exists. But it is weaker
+  evidence than a fresh conversion would have been.
+- **Zero conversions since 2026-08-06 is not diagnostic.** At a base rate of
+  1 conversion per 233 days, the expected count over the 15 days since the
+  teardown is ~0.06. Observing 0 tells us nothing either way.
+- **The teardown cost almost no realized revenue.** The baseline was ~1
+  conversion per 8 months. This is not an emergency; treat restoring it as
+  buying back optionality, not recovering revenue.
+- `total_order_value` is 0 while commission is non-zero, and
+  `percentage_average_partner_commission` is `Infinity` — i.e. DAZN pays a
+  **flat CPA bounty per subscription**, not a revenue share. The export
+  carries no currency column; confirm GBP vs USD in the console (the 5-decimal
+  value suggests an FX conversion into the reporting currency).
+
+### The real question is clicks, not conversions
+
+One conversion in eight months has two very different explanations:
+
+- **(A) Placement/demand** — we barely send DAZN clicks, or we send clicks
+  from readers who will not subscribe.
+- **(B) Attribution loss** — we send plenty of clicks and they are not landing
+  on camref `1101l3MQmm`.
+
+Distinguish them by comparing two numbers over **2026-01-01 to 2026-08-05**
+(scope it pre-teardown; after that we deliberately stopped sending `prf.hn`
+traffic, so a post-Aug-6 gap is expected, not a bug):
+
+1. **Partnerize's count** — the clicks report, same export screen as the
+   aggregate: `/reporting/report_publisher/publisher/{id}/click.json`.
+2. **Our count** — the boxingnews click ledger, which the bouncer writes
+   independently of Partnerize:
+
+   ```sql
+   SELECT date_trunc('month', clicked_at) AS month, count(*)
+     FROM affiliate_clicks
+    WHERE operator_id = 'dazn'
+      AND clicked_at >= '2026-01-01' AND clicked_at < '2026-08-06'
+    GROUP BY 1 ORDER BY 1;
+   ```
+
+A large gap points at (B) and the wrap is worth fixing properly. Both numbers
+small points at (A), and the fix is editorial placement, not code.
+
+The June 28 conversion's `advertiser_reference` (the `ar:` adref) identifies
+which surface converted — schedule, event page, how-to-watch, or article body.
+The aggregate export does not carry it; `partnerize_audit.py --conversions`
+prints it.
+
+## Two gating bugs found while tracing this
+
+Both matter more than DAZN does, because sportsbook CPA is $50-200/signup
+against DAZN's ~15/subscription, and Priyesh had DraftKings / BetMGM /
+BetRivers applications in flight as of 2026-08-19.
+
+`operators.ts` documents `active` as "defaults to true when omitted", and the
+sportsbook entries (fanduel, draftkings, bet365-uk, betmgm) all omit it. Two
+consumers then read that `undefined` in **opposite** directions:
+
+1. **`src/lib/affiliate/select.ts`** (affiliate strip on preview/recap
+   articles) filters `active !== false`, so `undefined` counts as **active** —
+   and it applies **no `isOperatorTracked` check**. With the
+   `AFFILIATE_*_URL` vars unset, `resolveOperatorUrl` returns the operator's
+   marketing homepage, so the strip pushes readers to **unattributed**
+   sportsbook homepages. That is precisely what `cta-gate.ts` was written to
+   prevent, and the strip bypasses it.
+
+2. **`src/lib/betting/cta-gate.ts`** (betting hub: `/betting`,
+   `/betting/preview/*`, `/betting/props/*`) requires `active === true`
+   strictly, so `undefined` counts as **inactive**. Deliberate fail-closed,
+   and defensible — but it means that when a sportsbook deal lands and the
+   env var is set, those CTAs stay dark until someone also adds
+   `active: true`. A landmine timed to the exact moment the deals land.
+
+Pick one default and make both consumers agree. Fail-closed (`active === true`
+plus a tracked-URL check) is the safer choice, applied to the strip as well —
+but then every operator needs an explicit `active: true`, and that should be
+asserted in a test rather than left to memory.
 
 ## Restoring it (if the checks confirm the program is live)
 
