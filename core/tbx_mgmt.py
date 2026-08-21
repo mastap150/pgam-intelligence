@@ -42,13 +42,18 @@ not identical:
   * `SupplySourceResource` adds `id` and source-level `margin_type` /
     `margin_min` / `margin_max`, none of which `SupplySourceRequest`
     accepts.
-  * `DemandSourceResource` adds `id` and `operation_systems`, neither of
-    which `DemandSourceRequest` accepts.
+  * `DemandSourceResource` adds `id`, `operation_systems` and `uuid`, none of
+    which `DemandSourceRequest` accepts. `uuid` is the asymmetric one — the
+    *supply* write schema does accept it — and it was missing from the strip
+    list until 2026-08-21.
 
-`_strip_read_only` drops exactly those. Whether the platform tolerates the
-round-trip in practice is unverified — `scripts/tbx_probe.py --diff-shape`
-prints the GET → update-payload diff for one entity so it can be checked
-against a real account before any live write.
+`_strip_read_only` drops exactly those, and `read_only_fields_from_spec()`
+recomputes the set from the vendored spec so the two cannot drift silently
+(`tests/test_tbx.py` asserts they agree). Whether the platform tolerates the
+round-trip in practice is still unverified — `scripts/tbx_probe.py
+--diff-shape` prints the GET → update-payload diff for one entity, and checks
+its keys against the write schema, so it can be validated against a real
+account before any live write.
 """
 
 from __future__ import annotations
@@ -360,10 +365,86 @@ def list_companies(search: str | None = None, per_page: int = 250) -> list[dict]
 
 # Fields the read schema returns but the write schema rejects. See the module
 # docstring's shape caveat.
+#
+# Derived from the vendored spec by set difference — `SupplySourceResource` -
+# `SupplySourceRequest` and `DemandSourceResource` - `DemandSourceRequest`.
+# `write_schema_fields()` below recomputes that from the spec on demand, which
+# is how `uuid` was caught: it is returned on a demand source and rejected on
+# the way back in, and only the supply schema accepts it. Keep this tuple and
+# the spec in agreement — `python3 tests/test_tbx.py` fails if they diverge.
 _READ_ONLY_FIELDS = {
     "supply_source": ("id", "margin_type", "margin_min", "margin_max"),
-    "demand_source": ("id", "operation_systems"),
+    "demand_source": ("id", "operation_systems", "uuid"),
 }
+
+# The OpenAPI request schema each entity's `/update` endpoint accepts. Used to
+# check an outgoing payload's keys before it is sent.
+_WRITE_SCHEMA = {
+    "supply_source": "SupplySourceRequest",
+    "demand_source": "DemandSourceRequest",
+}
+_READ_SCHEMA = {
+    "supply_source": "SupplySourceResource",
+    "demand_source": "DemandSourceResource",
+}
+
+_SPEC_PATH = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "docs", "api", "teqblaze-openapi.json",
+)
+_schema_cache: dict[str, frozenset[str]] = {}
+
+
+def _spec_properties(schema_name: str) -> frozenset[str]:
+    """Top-level property names of one schema in the vendored OpenAPI spec."""
+    if schema_name in _schema_cache:
+        return _schema_cache[schema_name]
+    try:
+        with open(_SPEC_PATH) as handle:
+            spec = json.load(handle)
+        props = (spec.get("components", {}).get("schemas", {})
+                 .get(schema_name, {}).get("properties") or {})
+        fields = frozenset(props.keys())
+    except (OSError, ValueError, AttributeError) as exc:
+        # A missing or unreadable spec must not break the write path; the
+        # checks that use this degrade to "unknown", which callers treat as
+        # "no opinion" rather than "approved".
+        print(f"{_LOG} WARN: could not read {_SPEC_PATH} ({exc}); "
+              f"payload key checks are unavailable", file=sys.stderr)
+        fields = frozenset()
+    _schema_cache[schema_name] = fields
+    return fields
+
+
+def write_schema_fields(kind: str) -> frozenset[str]:
+    """Field names the platform's write schema accepts for `kind`."""
+    return _spec_properties(_WRITE_SCHEMA.get(kind, ""))
+
+
+def read_only_fields_from_spec(kind: str) -> frozenset[str]:
+    """
+    Fields the read schema returns that the write schema does not accept.
+
+    The authority for `_READ_ONLY_FIELDS`. Returns an empty set when the spec
+    cannot be read, so a caller can tell "nothing to strip" from "don't know"
+    only by checking `write_schema_fields()` too.
+    """
+    return _spec_properties(_READ_SCHEMA.get(kind, "")) - write_schema_fields(kind)
+
+
+def unknown_write_keys(payload: dict, kind: str) -> list[str]:
+    """
+    Keys in `payload` that the write schema for `kind` does not declare.
+
+    A non-empty result means the update would send fields the platform did
+    not advertise accepting — most likely a 422, which fails safe, but on a
+    lenient server it could also be silently ignored, which does not. Returns
+    `[]` when the spec is unreadable rather than guessing.
+    """
+    accepted = write_schema_fields(kind)
+    if not accepted:
+        return []
+    return sorted(k for k in payload if k not in accepted)
 
 
 def _strip_read_only(entity: dict, kind: str) -> dict:
@@ -450,6 +531,20 @@ def _apply_update(
             f"merge, don't bypass this check."
         )
 
+    # The other direction: keys the write schema never declared. `_assert_no_
+    # key_loss` only compares the payload against the *stripped* body, so it
+    # cannot see a field the platform will reject — every key it checks is one
+    # we just put there. Warned, not refused: an undeclared key most likely
+    # 422s (which fails safe and changes nothing), whereas hard-refusing on a
+    # vendored spec that has fallen behind the platform would block every
+    # write for a reason that is ours, not theirs.
+    unknown = unknown_write_keys(payload, kind)
+    if unknown:
+        print(f"{_LOG} WARN  {action}  {kind}={entity_id} — payload carries "
+              f"{unknown}, which {_WRITE_SCHEMA[kind]} does not declare. Either "
+              f"add them to _READ_ONLY_FIELDS or re-vendor the spec.",
+              file=sys.stderr)
+
     before_slice = {k: current.get(k) for k in changes}
     after_slice = {k: payload.get(k) for k in changes}
 
@@ -463,6 +558,7 @@ def _apply_update(
             "entity_type": kind, "entity_id": entity_id,
             "before": before_slice, "after": after_slice,
             "applied": False, "dry_run": True, "payload": payload,
+            "unknown_keys": unknown,
         }
 
     if not writes_enabled():
@@ -513,6 +609,7 @@ def _apply_update(
         "entity_type": kind, "entity_id": entity_id,
         "before": before_slice, "after": after_slice,
         "applied": True, "verify_ok": verify_ok, "verify_diff": verify_diff,
+        "unknown_keys": unknown,
     }
 
 

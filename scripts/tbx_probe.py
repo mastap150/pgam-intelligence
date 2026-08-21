@@ -194,11 +194,50 @@ def diff_shape(spec: str) -> int:
     expected = set(tbm._READ_ONLY_FIELDS.get(kind, ()))
     print(f"\nDROPPED by _strip_read_only: {dropped}")
     print(f"  expected read-only fields:  {sorted(expected)}")
+
+    verdicts: list[str] = []
+
+    # Direction 1 — did we drop something we did not mean to? Only ever fires
+    # if _strip_read_only grows a bug: it pops exactly `expected`, so on
+    # today's code this is a regression guard, not a discovery.
     unexpected = [k for k in dropped if k not in expected]
     if unexpected:
         print(f"  {FAIL} UNEXPECTED drops: {unexpected} — do NOT enable writes")
+        verdicts.append("unexpected drops")
+
+    # Direction 2 — is the account returning fields the write schema does not
+    # accept? This is the one that finds real problems, because it compares the
+    # LIVE response against the spec rather than against our own strip list.
+    # It is how `uuid` on a demand source was caught. Anything here has to be
+    # added to _READ_ONLY_FIELDS (or the spec re-vendored) before writes.
+    accepted = tbm.write_schema_fields(kind)
+    if not accepted:
+        print(f"  {SKIP} write schema for {kind} unreadable — cannot check "
+              f"payload keys against the spec")
+    else:
+        undeclared = tbm.unknown_write_keys(payload, kind)
+        print(f"\n  payload keys vs {tbm._WRITE_SCHEMA[kind]}: "
+              f"{len(payload)} sent, {len(accepted)} accepted by the schema")
+        if undeclared:
+            print(f"  {FAIL} NOT ACCEPTED by the write schema: {undeclared}")
+            print(f"      → add to core.tbx_mgmt._READ_ONLY_FIELDS[{kind!r}], "
+                  f"or re-vendor docs/api/teqblaze-openapi.json if the "
+                  f"platform has moved on. Do NOT enable writes first.")
+            verdicts.append("undeclared payload keys")
+        else:
+            print(f"  {OK} every payload key is declared by the write schema")
+
+        # Informational: schema fields the account did not return. Harmless
+        # for a full-replace update (we cannot send what we were not given)
+        # but worth seeing, because it says which levers this account lacks.
+        absent = sorted(accepted - set(payload))
+        if absent:
+            print(f"  {SKIP} not returned by this account: {absent}")
+
+    if verdicts:
+        print(f"\n  {FAIL} round trip is NOT lossless: {', '.join(verdicts)}")
         return 1
-    print(f"  {OK} round trip looks lossless")
+    print(f"\n  {OK} round trip looks lossless")
     return 0
 
 

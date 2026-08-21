@@ -17,17 +17,14 @@ Two things block a Claude Code cloud session from verifying it directly:
    proxy (verified 2026-08-19). Credentials alone would not help; a cloud
    session cannot reach the platform at all.
 
-So verification runs on **GitHub Actions**, which has open network. Setup is
-two steps, in this order:
+So verification runs on **GitHub Actions**, which has open network. One step
+remains: **add the secrets** — Settings → Secrets and variables → Actions → New
+repository secret: `TBX_EMAIL` and `TBX_PASSWORD`. (The workflow itself is on
+`main` as of #99, so it appears in the Actions tab and is dispatchable; the
+pre-merge push trigger it carried has been removed.)
 
-1. **Add the secrets** — Settings → Secrets and variables → Actions → New
-   repository secret: `TBX_EMAIL` and `TBX_PASSWORD`.
-2. **Land the workflow on `main`.** GitHub only offers `workflow_dispatch` for
-   workflows present on the default branch, so `.github/workflows/tbx-probe.yml`
-   is not dispatchable — and does not appear in the Actions tab — while it lives
-   only on a feature branch. Merge, then run.
-
-Then: Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow.
+Then: Actions → "TBX Data Pull (new Teqblaze platform)" → Run workflow. What to
+create in the admin, and where each credential belongs, is §5.5.
 
 The workflow is read-only. It publishes results three ways: the full
 digest in the job log (which is how a session reads them back), a capability
@@ -392,13 +389,91 @@ spend their budget on judgement instead of heartbeats.
 | `tests/test_tbx.py` | 80 offline checks — payload assembly, clamps, merge semantics, key-loss guard, both write gates, argument validation. No network, no credentials. |
 | `docs/api/teqblaze-openapi.json` | The spec, vendored so future sessions don't need the upload. |
 
-Nothing is wired into `scheduler.py`. That is deliberate — wiring an autonomous
-writer against an unverified platform is a separate decision.
+No **writer** is wired into `scheduler.py`. That is deliberate — wiring an
+autonomous writer against an unverified platform is a separate decision.
+
+One **reader** is: `tbx_revenue_etl` runs hourly (`scheduler.py`, :41) and
+UPSERTs `pgam_direct.tbx_daily_{supply,demand,placement}_revenue`. It no-ops
+with a log line while `TBX_EMAIL` / `TBX_PASSWORD` are absent, which is what
+makes it safe to schedule ahead of its credentials — but it also means the hour
+those land in Render, an ETL starts running with no further deploy. That is the
+intended behaviour; it is listed here so it is not a surprise. It self-migrates
+its tables (`migrations/2026_08_21_tbx_daily_revenue.sql`), reads only, and
+never imports `core.tbx_mgmt`.
 
 Setup: add `TBX_EMAIL` + `TBX_PASSWORD` in the **Render** dashboard
 (Environment → Add Environment Variable) on `pgam-intelligence-scheduler`.
 Declared in `render.yaml` with `sync: false`, and in `.env.example` for local
 dev. Not Vercel — see `CLAUDE.md`.
+
+---
+
+## 5.5 Credential handover — one user, two gates
+
+The ask that keeps coming up is "create a user and share the credentials so a
+session can do the read/write setup". Two things about this environment shape
+the answer.
+
+**A cloud session cannot reach the platform at all.** Egress to
+`api.pgammedia.com` is denied by the environment's network policy — re-verified
+2026-08-21, `CONNECT tunnel failed, response 403`, same as every PGAM host. So
+credentials pasted into a cloud session buy nothing: the client cannot log in,
+the probe cannot run, and the reconciliation cannot be attempted. Everything a
+session can do against this platform without credentials it has already done
+(spec-derived vocabulary, offline tests, payload assembly). Everything that
+needs the live host runs through **Actions → TBX Data Pull**, on a runner with
+open network, reading `TBX_EMAIL` / `TBX_PASSWORD` from repo secrets.
+
+**And a cloud environment is not a secrets store.** Its variables are readable
+by anyone using the environment (`CLAUDE.md`, "Cloud sessions and credentials").
+So the credential goes to the two places that are secret stores, and nowhere
+else:
+
+| Where | What it powers | How |
+|---|---|---|
+| GitHub **Actions secrets** | `tbx_probe.py`, `tbx_pull.py`, `--diff-shape` | Settings → Secrets and variables → Actions → `TBX_EMAIL`, `TBX_PASSWORD` |
+| **Render** env on `pgam-intelligence-scheduler` | hourly `tbx_revenue_etl` | Environment → Add Environment Variable (declared `sync: false` in `render.yaml`) |
+
+Not the Claude cloud environment. Not `.env` in a commit — the playbook records
+a real leak from exactly that shortcut (2026-07-02).
+
+### What to create in the admin
+
+**One user is enough, and read-only is the right start.** The write path is
+gated twice in code (`dry_run=True` per call, `TBX_ALLOW_WRITES=1` per
+environment) and its prerequisites are unmet: `PROTECTED_FLOOR_MINIMUMS` is
+empty and the round trip is unverified (§6). A write-capable credential would
+sit in two secret stores for weeks with nothing authorised to use it. Ask
+Teqblaze for the read-only permission set (§8.1.3) and give it:
+
+- a **dedicated API user**, not a person's dashboard login — so it can be
+  rotated without locking anyone out, and so the ledger's actor is honest;
+- **reporting + entity read** scope. `GET /permissions` is the first thing the
+  probe calls, and a 403 on a module means the account lacks it rather than the
+  endpoint being wrong;
+- an **address we control** (an alias, not a personal mailbox).
+
+Then, when tranche 3 actually starts, create a **second, write-capable user**
+rather than upgrading the first. Two accounts keep the hourly ETL's token and a
+supervised write session's token independent — which matters because we still
+do not know whether a second `/login` invalidates the first token (§8.1.5). The
+client now caches per account (`_token_cache_path()`), so two users on one host
+no longer overwrite each other's JWT; supporting two credential *pairs* in the
+env is a small change and should be made at that point, not before.
+
+### First run, in order
+
+1. Add the two Actions secrets.
+2. **Actions → TBX Data Pull → Run workflow**, defaults. Read the job log: the
+   capability matrix says which modules the account actually licenses. This is
+   also the run that tells us whether the read-only scope is too tight.
+3. Same workflow with `diff_shape: supply:<id>`, then `demand:<id>`. This is the
+   §6 gate; it sends nothing.
+4. Only then: `TBX_EMAIL` / `TBX_PASSWORD` into Render, which starts the hourly
+   ETL, followed by the tranche 1 step 2 reconciliation.
+
+Nothing in that sequence needs `TBX_ALLOW_WRITES`, and nothing in it needs a
+credential to enter a Claude session.
 
 ---
 
@@ -411,14 +486,33 @@ guard that, and one of them needs human confirmation:
 
 1. `_strip_read_only` drops the fields the read schema returns but the write
    schema rejects — `id` and source-level `margin_type`/`margin_min`/`margin_max`
-   on supply; `id` and `operation_systems` on demand.
+   on supply; `id`, `operation_systems` and `uuid` on demand.
+
+   `uuid` was **missing from that list until 2026-08-21**. It is the one field
+   the two entities disagree about: `SupplySourceRequest` accepts `uuid`,
+   `DemandSourceRequest` does not, so a demand-source round trip was posting a
+   field the write schema never declared. Found by set-differencing the vendored
+   spec rather than by reading the code, which is why the check below is now
+   automated: `tests/test_tbx.py` recomputes the read-only set from the spec on
+   every run and fails if the hand-maintained tuple has drifted.
 2. `_assert_no_key_loss` refuses the write if the merged payload would drop any
-   key that was present before.
-3. **Unverified:** whether the platform actually accepts the round trip.
+   key that was present before. Note what it cannot see: it compares the payload
+   against the *stripped* body, so every key it checks is one we just put there.
+   It catches a merge bug, not a field the platform will reject.
+3. `unknown_write_keys` covers the other direction — keys in the outgoing
+   payload that the write schema does not declare. Warned, not refused: an
+   undeclared key most likely 422s, which fails safe and changes nothing,
+   whereas hard-refusing on a vendored spec that has fallen behind the platform
+   would block every write for a reason that is ours. The warning goes to stderr
+   and rides along on the result as `unknown_keys`.
+4. **Unverified:** whether the platform actually accepts the round trip.
    `python3 scripts/tbx_probe.py --diff-shape supply:<id>` prints the GET
-   response beside the exact payload an update would POST. If anything beyond
-   the known read-only fields appears under `DROPPED`, do not set
-   `TBX_ALLOW_WRITES`.
+   response beside the exact payload an update would POST, and now checks both
+   directions against a real account: fields dropped that we did not mean to
+   drop, and fields the live response carries that `SupplySourceRequest` /
+   `DemandSourceRequest` will not accept. The second is what finds the next
+   `uuid` — the account, not the spec, is the authority on what comes back. Any
+   finding under either heading means do not set `TBX_ALLOW_WRITES`.
 
 Also unverified: `POST /filter-lists/{id}/import-values`. The spec documents it
 as a file/CSV import; `import_filter_values` sends `{"values": [...]}`, which is

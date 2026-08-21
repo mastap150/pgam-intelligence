@@ -76,7 +76,8 @@ TBX_BASE     = os.getenv("TBX_API_BASE", "https://api.pgammedia.com").rstrip("/"
 TBX_EMAIL    = os.getenv("TBX_EMAIL", "")
 TBX_PASSWORD = os.getenv("TBX_PASSWORD", "")
 
-TOKEN_CACHE  = os.getenv("TBX_TOKEN_CACHE", "/tmp/pgam_tbx_token.json")
+_TOKEN_CACHE_DEFAULT = "/tmp/pgam_tbx_token.json"
+TOKEN_CACHE  = os.getenv("TBX_TOKEN_CACHE", _TOKEN_CACHE_DEFAULT)
 
 # Default report timezone. PGAM books revenue in ET, matching the
 # scheduler's TZ and the LL/legacy-TB reporting convention.
@@ -234,10 +235,32 @@ def prompt_for_credentials(email: str | None = None) -> None:
     set_credentials(email, password)
 
 
+def _token_cache_path() -> str:
+    """
+    Token cache file for the account currently configured.
+
+    Correctness never depended on the filename — the blob records
+    `(base, email)` and `_load_cached_token` refuses a mismatch. What a
+    per-account filename buys is *coexistence*: a read-only reporting user
+    and a write-capable user on the same host would otherwise overwrite
+    each other's token on every call and re-login constantly. If a second
+    `/login` invalidates the first token (unconfirmed — §8.1.5 of
+    docs/teqblaze-new-platform.md), that churn is a mutual logout rather
+    than merely wasted calls.
+
+    An explicit `TBX_TOKEN_CACHE` is honoured exactly as given.
+    """
+    if TOKEN_CACHE != _TOKEN_CACHE_DEFAULT:
+        return TOKEN_CACHE
+    ident = hashlib.sha256(f"{TBX_BASE}|{TBX_EMAIL}".encode()).hexdigest()[:8]
+    root, ext = os.path.splitext(_TOKEN_CACHE_DEFAULT)
+    return f"{root}_{ident}{ext}"
+
+
 def _load_cached_token() -> str:
     """Cached JWT if it exists and has >5min of life left, else ''."""
     try:
-        with open(TOKEN_CACHE) as f:
+        with open(_token_cache_path()) as f:
             blob = json.load(f)
     except (OSError, ValueError):
         return ""
@@ -259,10 +282,11 @@ def _save_token(token: str, expires_in: int | float | None) -> None:
         "base": TBX_BASE,
         "email": TBX_EMAIL,
     }
+    path = _token_cache_path()
     try:
-        with open(TOKEN_CACHE, "w") as f:
+        with open(path, "w") as f:
             json.dump(blob, f)
-        os.chmod(TOKEN_CACHE, 0o600)
+        os.chmod(path, 0o600)
     except OSError as exc:
         print(f"{_LOG_PREFIX} WARN: could not cache token — {exc}", file=sys.stderr)
 
@@ -328,7 +352,7 @@ def get_token(force: bool = False) -> str:
 def force_refresh_token() -> str:
     """Discard the cached JWT and log in again."""
     try:
-        os.remove(TOKEN_CACHE)
+        os.remove(_token_cache_path())
     except OSError:
         pass
     return get_token(force=True)
@@ -341,7 +365,7 @@ def logout() -> bool:
     except TbxError as exc:
         print(f"{_LOG_PREFIX} logout: {exc}")
     try:
-        os.remove(TOKEN_CACHE)
+        os.remove(_token_cache_path())
     except OSError:
         pass
     return True
