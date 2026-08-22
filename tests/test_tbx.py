@@ -275,6 +275,42 @@ def test_unknown_write_keys() -> None:
           tbm.unknown_write_keys({"whatever": 1}, "not_a_kind") == [])
 
 
+def test_recon_classifier() -> None:
+    """
+    The reconciliation's verdict logic (scripts/tbx_recon.py).
+
+    This is the function that decides whether the two platforms agree, and its
+    three answers send you to three different places — ship it, ask Teqblaze
+    about a fee, or stop and escalate. Worth pinning offline.
+    """
+    print("\nrecon classifier")
+    from scripts import tbx_recon as recon
+
+    verdict, _ = recon._classify([(100, 100), (200, 200), (50, 50)])
+    check("identical series → AGREEMENT", verdict == "AGREEMENT")
+
+    verdict, _ = recon._classify([(100, 100.00005), (200, 200.0001)])
+    check("numeric(14,4) rounding still agrees", verdict == "AGREEMENT")
+
+    verdict, detail = recon._classify([(100, 78), (200, 156), (50, 39)])
+    check("same ratio every day → CONSTANT OFFSET", verdict == "CONSTANT OFFSET")
+    check("constant offset reports the size", "22.00%" in detail, detail)
+
+    verdict, _ = recon._classify([(100, 80), (200, 190), (50, 25)])
+    check("scattered gaps → ROW-LEVEL DIVERGENCE",
+          verdict == "ROW-LEVEL DIVERGENCE")
+
+    verdict, _ = recon._classify([(100, 130)])
+    check("one day cannot be a constant offset",
+          verdict == "ROW-LEVEL DIVERGENCE")
+
+    verdict, _ = recon._classify([(0, 0), (0, 5)])
+    check("zero legacy side is not divided by", verdict == "NO DATA")
+
+    verdict, _ = recon._classify([])
+    check("empty window → NO DATA", verdict == "NO DATA")
+
+
 def test_write_gates() -> None:
     print("\nwrite gates")
     check("writes disabled by default", tbm.writes_enabled() is False)
@@ -641,6 +677,7 @@ def main() -> int:
     test_read_only_stripping()
     test_strip_list_matches_spec()
     test_unknown_write_keys()
+    test_recon_classifier()
     test_write_gates()
     test_validation_guards()
     test_roughly_equal()

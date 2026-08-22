@@ -611,6 +611,21 @@ read-only.
      our revenue: stop, do not work around it, and escalate — Teqblaze has
      committed to these matching.
 
+   **Run it with `python3 scripts/tbx_recon.py`.** That script is this step,
+   implemented: it reports coverage first (so a partial day cannot slip into the
+   window), then day totals on both legs with a verdict per metric, then the
+   name-keyed demand comparison that measures §8.1.10d instead of assuming it.
+   It classifies the result as one of the three outcomes above and says what to
+   do about each. Read-only, and it needs only `PGAM_DIRECT_DATABASE_URL` —
+   both legs are already in Neon, so this runs anywhere with warehouse access
+   and does not need to reach either platform.
+
+   One gap worth knowing: it cannot reconcile at **placement** grain, which is
+   the grain with the only real ID commitment behind it. `tbx_daily_placement_
+   revenue` exists but the legacy ETL lands no placement table, so that
+   comparison needs a live pull from the legacy API rather than a warehouse
+   query. The name-keyed demand check is the substitute.
+
    Cheapest correctness test available, and it gates everything below.
 
 3. ETL the new report into Neon `pgam_direct` beside the legacy TB tables, at
