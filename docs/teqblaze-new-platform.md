@@ -697,6 +697,57 @@ read-only.
 
 ---
 
+## 7.4 Internal reporting: where the P&L's TB row comes from
+
+Mapped 2026-08-21, because "sync TBX to internal reporting" turns out to be a
+narrower change than it sounds and a riskier one than it looks.
+
+`admin.pgammedia.com/admin/pnl` and `/admin/finance` are **not** served by
+`pgam-direct` (which serves the rest of that host) but by **`pgam-dsp-dashboard`**
+(`src/app/admin/pnl`, `src/app/admin/finance`). They read the **`finance`**
+schema on a *separate* Neon database — `FINANCE_DATABASE_URL`, not
+`PGAM_DIRECT_DATABASE_URL`.
+
+The P&L's TB row is defined as:
+
+    TB Gross = DSP Spend (advertiser-paid through Teqblaze)
+    TB GP    = the "Profit" column on the TB report
+
+stored in `finance.daily_pnl_inputs.tb_gross_usd` / `tb_gross_profit_usd`, and
+written by **`pnl_sync.py` in the `mastap150/pgam-recon` repo** (workflow
+`pnl-sync.yml`, daily 10:15 UTC, COALESCE-upsert over a trailing 7 days). A
+Vercel cron in `pgam-dsp-dashboard`
+(`/api/v1/cron/pnl-sync-watchdog`) re-fires that workflow whenever
+`tb_gross_usd` comes back NULL. The fields are also inline-editable in the UI,
+so a hand-entered value can sit in any day indefinitely.
+
+**The consequence that matters: TBX reports the same marketplace that row
+already counts.** Adding TBX as an additional P&L stream would double-count
+every impression — the same trap the ETL avoids by keeping `tbx_daily_*`
+separate from `tb_daily_*` (§5). The only coherent change is *repointing* the
+existing TB row's source, and the mapping is already in Neon:
+
+| P&L field | from `pgam_direct.tbx_daily_supply_revenue` |
+|---|---|
+| `tb_gross_usd` | `sum(gross_revenue)` — i.e. `dsp_price_sum` |
+| `tb_gross_profit_usd` | `sum(gross_revenue - pub_payout)` — i.e. dsp − ssp |
+
+`scripts/tbx_pnl_check.py` reports what that repointing *would* do, without
+doing it: gaps TBX could fill (days the P&L holds NULL — the safe half),
+days where both exist and by how much they differ, and a verdict sharing
+`tbx_recon.py`'s classifier. Read-only against both databases.
+
+Sequencing, and it is not optional: this is the company's profit reporting, and
+the playbook's rule is "do not guess on P&L". Run `tbx_recon.py` (does TBX match
+the legacy host?) **before** `tbx_pnl_check.py` (does TBX match the P&L?). A
+disagreement in the second with agreement in the first means the P&L row is
+stale or hand-entered — a different problem with a different fix. The writer,
+when it is authorised, belongs in `pgam-recon` beside the existing `pnl_sync`:
+one writer per table, or this becomes the two-controllers-on-one-lever problem
+from §6 with the P&L in the middle.
+
+---
+
 ## 7.5 The help centre is the spec — don't go looking for more
 
 `https://ssp-new.pgammedia.com/help-center/management-api` (the new platform's
