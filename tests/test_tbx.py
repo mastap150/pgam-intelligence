@@ -346,6 +346,122 @@ def test_pnl_check_exit_codes() -> None:
           _rc({d: (None, None) for d in days}) == 1)
 
 
+def test_report_hash_is_server_minted() -> None:
+    """
+    The report hash comes from the platform, never from us.
+
+    The first version of this client sent an md5 of the request body as the
+    path hash, and every call 422'd with "Hash not found, or no longer
+    available" — which is what left pgam_direct.tbx_daily_* empty while the
+    ETL reported success. These pin the corrected sequence so it cannot
+    regress silently: the failure mode is not a crash, it is an empty table.
+    """
+    print("\nreport hash is server-minted")
+
+    calls: list[tuple[str, str]] = []
+    saved = tbx._request
+
+    def fake(method, path, payload=None, **kw):
+        calls.append((method, path))
+        if path == "/share/report":
+            return {"hash": "server-minted-abc123"}
+        return {"data": [{"date": "2026-08-20"}], "total": {}, "meta": {"last_page": 1}}
+
+    try:
+        tbx._request = fake
+        tbx._HASH_CACHE.clear()
+
+        payload = tbx.build_report_payload(
+            "2026-08-14", "2026-08-20",
+            attributes=["date"], metrics=["imps_sum"])
+
+        check("mint calls POST /share/report",
+              tbx.mint_report_hash(payload) == "server-minted-abc123")
+        check("the minted hash is cached, not re-requested",
+              tbx.mint_report_hash(payload) == "server-minted-abc123"
+              and [c for c in calls if c[1] == "/share/report"].__len__() == 1)
+        check("refresh=True mints again",
+              tbx.mint_report_hash(payload, refresh=True) == "server-minted-abc123"
+              and [c for c in calls if c[1] == "/share/report"].__len__() == 2)
+
+        calls.clear()
+        tbx._HASH_CACHE.clear()
+        tbx.report("2026-08-14", "2026-08-20",
+                   attributes=["date"], metrics=["imps_sum"])
+        paths = [p for _, p in calls]
+        check("report() mints before reading",
+              paths[0] == "/share/report", str(paths[:2]))
+        check("report() addresses the SERVER hash",
+              "/report/server-minted-abc123" in paths, str(paths))
+        check("report() never addresses the local md5",
+              not any(p.startswith("/report/" + tbx._request_hash(
+                  tbx.build_report_payload("2026-08-14", "2026-08-20",
+                                           attributes=["date"],
+                                           metrics=["imps_sum"])))
+                      for p in paths))
+    finally:
+        tbx._request = saved
+        tbx._HASH_CACHE.clear()
+
+
+def test_stale_hash_is_reminted_once() -> None:
+    """A hash that expires mid-report must retry, not end the run."""
+    print("\nstale hash recovery")
+
+    check("a 422 naming the hash is recognised as stale",
+          tbx._is_stale_hash(tbx.TbxError(
+              "x", status=422,
+              body='{"message":"Hash not found, or no longer available"}')))
+    check("a 422 about something else is not",
+          not tbx._is_stale_hash(tbx.TbxError(
+              "x", status=422, body='{"message":"metrics field is required"}')))
+    check("a 500 is not a stale hash",
+          not tbx._is_stale_hash(tbx.TbxError("x", status=500, body="hash")))
+
+    state = {"mints": 0, "reads": 0}
+    saved = tbx._request
+
+    def fake(method, path, payload=None, **kw):
+        if path == "/share/report":
+            state["mints"] += 1
+            return {"hash": f"h{state['mints']}"}
+        state["reads"] += 1
+        if state["reads"] == 1:                      # first read: hash has gone
+            raise tbx.TbxError("expired", status=422,
+                               body='{"errors":{"hash":["Hash not found"]}}')
+        return {"data": [], "total": {}, "meta": {"last_page": 1}}
+
+    try:
+        tbx._request = fake
+        tbx._HASH_CACHE.clear()
+        tbx.report("2026-08-14", "2026-08-20",
+                   attributes=["date"], metrics=["imps_sum"])
+        check("re-minted after the stale 422", state["mints"] == 2)
+        check("and retried the read", state["reads"] == 2)
+    except Exception as exc:                          # noqa: BLE001
+        check("stale hash recovered without raising", False, f"{type(exc).__name__}: {exc}")
+    finally:
+        tbx._request = saved
+        tbx._HASH_CACHE.clear()
+
+    # A non-hash error must still propagate rather than being swallowed.
+    def always_422(method, path, payload=None, **kw):
+        if path == "/share/report":
+            return {"hash": "h"}
+        raise tbx.TbxError("bad request", status=422,
+                           body='{"message":"metrics field is required"}')
+
+    try:
+        tbx._request = always_422
+        tbx._HASH_CACHE.clear()
+        expect_raises("a non-hash 422 still propagates", tbx.TbxError,
+                      tbx.report, "2026-08-14", "2026-08-20",
+                      attributes=["date"], metrics=["imps_sum"])
+    finally:
+        tbx._request = saved
+        tbx._HASH_CACHE.clear()
+
+
 def test_write_gates() -> None:
     print("\nwrite gates")
     check("writes disabled by default", tbm.writes_enabled() is False)
@@ -706,6 +822,8 @@ def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
     test_request_hash()
+    test_report_hash_is_server_minted()
+    test_stale_hash_is_reminted_once()
     test_floor_clamps()
     test_deep_merge()
     test_key_loss_guard()

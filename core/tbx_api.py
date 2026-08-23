@@ -648,14 +648,94 @@ def country_ids(codes_or_names: list[str]) -> list[int]:
 
 def _request_hash(payload: dict) -> str:
     """
-    Deterministic hash for a report request.
+    Deterministic fingerprint of a report request — a LOCAL cache key only.
 
-    `/report/{hash}` keys a server-side result set so that paging through one
-    query stays consistent. Deriving it from the canonical payload means the
-    same query reuses the same hash across pages and across runs.
+    This is **not** the value `/report/{hash}` wants. An earlier version of
+    this client sent this md5 as the path hash and every call came back:
+
+        HTTP 422 {"message": "Hash not found, or no longer available"}
+
+    observed 2026-08-23 from the Render ETL, which is the empirical answer to
+    §8.1.6 of docs/teqblaze-new-platform.md: the hash is **server-minted**,
+    not client-derived. `POST /active-hash/update/{hash}` existing to extend a
+    TTL is the corroborating detail — a pure function of the body could not
+    expire. See `mint_report_hash`.
+
+    Kept because it is still the right key for caching a minted hash against
+    the query that produced it: identical payload, reuse the hash; different
+    payload, mint a new one.
     """
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.md5(canonical.encode()).hexdigest()
+
+
+# Minted hashes, keyed by `_request_hash(payload)` → (server_hash, minted_at).
+# Process-local: a hash belongs to a session, and the cache dying with the
+# process is correct rather than unfortunate.
+_HASH_CACHE: dict[str, tuple[str, float]] = {}
+
+# How long to trust a minted hash before minting again. The platform's real
+# TTL is undocumented (§8.1.6 asks for it); 5 minutes is short enough to be
+# safe and long enough to cover paging through one report. A stale hash is
+# not fatal either way — `_report_pages` re-mints once on a 422.
+_HASH_TTL = float(os.getenv("TBX_HASH_TTL", "300"))
+
+
+def mint_report_hash(payload: dict, refresh: bool = False) -> str:
+    """
+    Ask the platform for a report hash: `POST /share/report` → `{"hash": ...}`.
+
+    This is the only endpoint in the spec that turns a `ReportRequest` into a
+    hash, and `/report/{hash}`, `/report/chart/{hash}` and
+    `/report/export/{hash}` all address a result set by one. So the sequence
+    is mint → read, not compute → read.
+
+    Inferred from the spec plus the 422 above rather than confirmed by
+    Teqblaze; §8.1.6 still asks them to state the contract, and the TTL in
+    particular is a guess.
+    """
+    key = _request_hash(payload)
+    if not refresh:
+        cached = _HASH_CACHE.get(key)
+        if cached and (time.time() - cached[1]) < _HASH_TTL:
+            return cached[0]
+
+    body = _request("POST", "/share/report", payload=payload)
+    hsh = (body or {}).get("hash")
+    if not hsh:
+        raise TbxError(
+            f"POST /share/report returned no hash: {str(body)[:300]}. Without "
+            f"one there is nothing to address /report/{{hash}} with."
+        )
+    _HASH_CACHE[key] = (str(hsh), time.time())
+    return str(hsh)
+
+
+def _is_stale_hash(exc: TbxError) -> bool:
+    """True when a 422 is the platform saying the hash has gone."""
+    return exc.status == 422 and "hash" in (exc.body or "").lower()
+
+
+def _report_call(path_tmpl: str, payload: dict, page_payload: dict | None = None):
+    """
+    One hash-addressed report call, re-minting once if the hash has expired.
+
+    A hash can expire mid-page: the TTL is unknown and a wide report can take
+    longer to walk than the platform keeps the result set. Re-minting on that
+    422 turns a run-ending error into a retry; anything else propagates.
+    """
+    hsh = mint_report_hash(payload)
+    try:
+        return _request("POST", path_tmpl.format(hash=hsh),
+                        payload=page_payload if page_payload is not None else payload)
+    except TbxError as exc:
+        if not _is_stale_hash(exc):
+            raise
+        print(f"{_LOG_PREFIX} report hash expired mid-call — re-minting once",
+              file=sys.stderr)
+        hsh = mint_report_hash(payload, refresh=True)
+        return _request("POST", path_tmpl.format(hash=hsh),
+                        payload=page_payload if page_payload is not None else payload)
 
 
 def build_report_payload(
@@ -755,14 +835,12 @@ def report(
         date_from, date_to, attributes, metrics,
         date_granularity, timezone, filters, sort,
     )
-    hsh = _request_hash(payload)
-
     rows: list[dict] = []
     totals: dict = {}
     page = 1
     while page <= max_pages:
-        body = _request("POST", f"/report/{hsh}",
-                        payload={**payload, "per_page": per_page, "page": page})
+        body = _report_call("/report/{hash}", payload,
+                            {**payload, "per_page": per_page, "page": page})
         rows.extend(body.get("data") or [])
         totals = body.get("total") or totals
         meta = body.get("meta") or {}
@@ -790,7 +868,7 @@ def report_chart(
         date_from, date_to, ["date"], metrics,
         date_granularity, timezone, filters,
     )
-    return _request("POST", f"/report/chart/{_request_hash(payload)}", payload=payload)
+    return _report_call("/report/chart/{hash}", payload)
 
 
 def report_columns() -> dict:
@@ -811,15 +889,20 @@ def export_report(
 ) -> Any:
     """`POST /report/export/{hash}` — server-side export of the same query."""
     payload = build_report_payload(date_from, date_to, attributes, metrics, **kwargs)
-    return _request("POST", f"/report/export/{_request_hash(payload)}", payload=payload)
+    return _report_call("/report/export/{hash}", payload)
 
 
 def keep_hash_alive(request_hash: str) -> dict:
     """
     `POST /active-hash/update/{hash}` — extend a cached result set's TTL.
 
-    Only needed for a long paging walk over a very large report, where the
-    server-side result set could expire mid-walk.
+    Takes a hash the platform minted (`mint_report_hash`), not the local
+    fingerprint from `_request_hash` — this endpoint's existence is part of
+    why we know the hash is server-side state in the first place.
+
+    Rarely needed directly: `_report_call` re-mints on the 422 a dead hash
+    produces, which handles the same situation without having to predict it.
+    Useful when you want to keep a known-expensive result set warm instead.
     """
     return _request("POST", f"/active-hash/update/{request_hash}")
 

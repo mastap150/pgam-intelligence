@@ -835,10 +835,31 @@ These are onboarding unknowns, and two of them gate the write path.
    does, a scheduled job and an ad-hoc script running together will knock each
    other out, and we need either separate users or a shared token cache.
 
-6. **`POST /report/{hash}` — what is the hash?** Client-generated or must it
-   come from the server first? We currently send an md5 of the canonical
-   request body so paging is stable. What is the cached result set's TTL, and
-   when is `POST /active-hash/update/{hash}` actually required?
+6. **`POST /report/{hash}` — what is the hash? — MOSTLY ANSWERED 2026-08-23,
+   by the platform rejecting us.** The first live run of `tbx_revenue_etl`
+   returned, on all three grains:
+
+       HTTP 422 {"message": "Hash not found, or no longer available",
+                 "errors": {"hash": ["Hash not found, or no longer available"]}}
+
+   So the hash is **server-minted, not client-derived** — our md5 of the
+   canonical body was never going to resolve. Note the failure shape: the ETL
+   logged three failures and still reported success, leaving
+   `pgam_direct.tbx_daily_*` existing and empty. An empty table is a quieter
+   symptom than a crash and it is what the recon surfaced first.
+
+   `POST /share/report` is the only endpoint in the spec that turns a
+   `ReportRequest` into a `{"hash": ...}`, so the sequence is mint → read, and
+   `core/tbx_api.py` now does that (`mint_report_hash`). Corroborating detail:
+   `POST /active-hash/update/{hash}` extends a TTL, and a pure function of the
+   request body could not expire.
+
+   **Still to confirm with Teqblaze**, because the above is inferred from the
+   spec rather than stated by them: (a) is `/share/report` really the intended
+   mint for `/report/{hash}`, or is it only for the share-a-link feature and
+   there is another door? (b) what is the minted hash's TTL — we assume 5
+   minutes and re-mint once on a 422, which works but is a guess; (c) when is
+   `/active-hash/update/{hash}` actually required rather than optional?
 
 **Commercial / data**
 
