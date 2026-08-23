@@ -1,9 +1,0 @@
-Inter cv05,cv08,ss03 | JetBrains Mono for IDs
-ink #0C1017 / ink2 #545C6B / ink3 #6B7383
-line #EEF0F5 (interior) / line2 #E3E7EF (edges) / bg #F6F7FA
-r-sm 6 r-md 8 r-lg 10 r-xl 12
-sh-card 0 1px 2px rgba(12,16,23,.04), 0 1px 3px rgba(12,16,23,.03)
-pb-9 #0B3CFF  pb-11 #0925A8  pb-2 #E8EEFF  pb-1 #F4F7FF  pb-3 #D5DEFC
-am-9 #E67A1F  am-2 #FDEFCA  am-1 #FFF9EC  am-11 #803F15  am-3 #FBE29C
-green #17A34A/#E7F7EE  red #DC2626/#FEF2F2  orange #D96D00/#FFF3E8  amber-semantic #B45309/#FEF6E7
-weights 400/500/600 ONLY
