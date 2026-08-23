@@ -311,6 +311,41 @@ def test_recon_classifier() -> None:
     check("empty window → NO DATA", verdict == "NO DATA")
 
 
+def test_pnl_check_exit_codes() -> None:
+    """
+    The P&L check's exit code is load-bearing, so pin it.
+
+    `.github/workflows/tbx-neon-reports.yml` branches on it: 0 renders a green
+    "agree", 1 raises a warning, anything else fails the job as a fault. If
+    these drift, the workflow reports the wrong thing with total confidence —
+    which is worse than not running at all.
+    """
+    print("\npnl check exit codes")
+    import contextlib
+    import io
+    from datetime import date, timedelta
+
+    from scripts import tbx_pnl_check as chk
+
+    days = [date(2026, 8, 15) + timedelta(d) for d in range(3)]
+    tbx = {d: (1000.0, 220.0) for d in days}
+
+    def _rc(pnl: dict) -> int:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return chk.report(tbx, pnl, days)
+
+    check("matching numbers exit 0",
+          _rc({d: (1000.0, 220.0) for d in days}) == 0)
+    check("rounding-level difference still exits 0",
+          _rc({d: (1000.0001, 220.0) for d in days}) == 0)
+    check("divergence exits 1",
+          _rc({d: (1200.0, 260.0) for d in days}) == 1)
+    check("nothing comparable exits 1, not 0",
+          _rc({}) == 1)
+    check("a NULL P&L row counts as a gap, not a disagreement",
+          _rc({d: (None, None) for d in days}) == 1)
+
+
 def test_write_gates() -> None:
     print("\nwrite gates")
     check("writes disabled by default", tbm.writes_enabled() is False)
@@ -678,6 +713,7 @@ def main() -> int:
     test_strip_list_matches_spec()
     test_unknown_write_keys()
     test_recon_classifier()
+    test_pnl_check_exit_codes()
     test_write_gates()
     test_validation_guards()
     test_roughly_equal()

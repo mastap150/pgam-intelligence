@@ -732,6 +732,19 @@ existing TB row's source, and the mapping is already in Neon:
 | `tb_gross_usd` | `sum(gross_revenue)` — i.e. `dsp_price_sum` |
 | `tb_gross_profit_usd` | `sum(gross_revenue - pub_payout)` — i.e. dsp − ssp |
 
+Both reports run on **Actions → TBX Neon reports (recon + P&L impact)**
+(`.github/workflows/tbx-neon-reports.yml`), for the same reason `tbx-probe.yml`
+exists: a cloud session cannot hold a database credential, so without a
+workflow every run of these needs a person at a terminal with `.env`. The
+secrets live in Actions (`PGAM_DIRECT_DATABASE_URL` required,
+`FINANCE_DATABASE_URL` optional — without it the recon still runs and the P&L
+check skips), and the verdict comes back in the run summary.
+
+Exit codes are the verdict in both scripts: `0` agree, `1` look at it, `2`
+misconfigured. The workflow surfaces a `1` as a **warning with the job still
+green**, and fails only on `2` or an unexpected code — a red run should mean
+the tooling broke, not that the platforms disagree.
+
 `scripts/tbx_pnl_check.py` reports what that repointing *would* do, without
 doing it: gaps TBX could fill (days the P&L holds NULL — the safe half),
 days where both exist and by how much they differ, and a verdict sharing

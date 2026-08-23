@@ -1,0 +1,239 @@
+name: TBX Neon reports (recon + P&L impact)
+
+# Runs the two trust gates for the Teqblaze migration on a GitHub runner:
+#
+#   scripts/tbx_recon.py      do the legacy platform and the new one agree
+#                             about our revenue? (§7 tranche 1 step 2 — the
+#                             test that gates confirming the legacy shutdown)
+#   scripts/tbx_pnl_check.py  would sourcing the P&L's TB row from the new
+#                             platform change any number that is already
+#                             there? (§7.4)
+#
+# Why this exists, and it is the same reason tbx-probe.yml exists: a Claude
+# Code cloud session cannot hold a database credential. Cloud environments
+# have no secrets store — a DSN pasted into one sits in plaintext config that
+# every user of the environment can read. So without this workflow, every run
+# of these reports needs a person at a terminal with .env, and the analysis
+# stalls waiting on that. Here the secrets live in Actions where they belong,
+# the reports run on a runner, and the output comes back in the job log and
+# the run summary.
+#
+# BOTH SCRIPTS ARE READ-ONLY. Every statement runs inside SET TRANSACTION
+# READ ONLY. They read Neon; they never call a Teqblaze endpoint, and they
+# never write anything anywhere. Repointing the P&L's TB row is a separate,
+# deliberate act in pgam-recon (PNL_TB_SOURCE) — nothing here can do it.
+#
+# Setup — one time, by a repo admin:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     PGAM_DIRECT_DATABASE_URL   Neon DSN for pgam_direct (the TBX + legacy
+#                                rollups). Required.
+#     FINANCE_DATABASE_URL       Neon DSN for the finance schema, which holds
+#                                daily_pnl_inputs. Optional — without it the
+#                                recon still runs and the P&L check skips.
+#   A read-only Postgres role is sufficient and preferable for both.
+#
+# Run:  Actions → "TBX Neon reports (recon + P&L impact)" → Run workflow
+#
+# Exit codes are the verdict, not just success/failure — both scripts use the
+# same contract:
+#   0  the numbers agree
+#   1  they do not, or there was nothing comparable — look at the report
+#   2  misconfigured (a DSN missing, a bad argument)
+# So a divergence is surfaced as a WARNING with the job still green, while a
+# misconfiguration FAILS. Those are different problems and a red X should mean
+# "the tooling is broken", not "the platforms disagree".
+#
+# No schedule, deliberately — matching tbx-probe.yml and compliance-daily.yml.
+# These are diagnostics answering a question that is live right now, not a
+# cadence job. A recurring run against an unchanging answer is the cost
+# pattern CLAUDE.md's usage policy calls out. Once the migration settles and
+# the recon is worth watching continuously, the right home is the Render
+# scheduler with Neon persistence, not a cron here.
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Window length in days"
+        required: false
+        default: "7"
+      end:
+        description: "Last day of the window (YYYY-MM-DD). Blank = yesterday; today is never settled."
+        required: false
+        default: ""
+      reports:
+        description: "Which reports to run"
+        required: false
+        default: "both"
+        type: choice
+        options: ["both", "recon", "pnl"]
+
+concurrency:
+  group: tbx-neon-reports
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  reports:
+    name: Reconcile and measure P&L impact
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      FINANCE_DATABASE_URL: ${{ secrets.FINANCE_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+      # Neither script writes, but the TBX write gates are shut here too, so a
+      # future edit to this file cannot reach a mutation by accident.
+      TBX_ALLOW_WRITES: "0"
+      TBX_DRY_RUN: "true"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # Only what these two scripts need. requirements.txt pulls lightgbm,
+        # pandas and playwright, none of which this touches. requests and
+        # python-dotenv are for the offline test suite below, which imports
+        # core.tbx_api.
+        run: pip install --quiet "psycopg[binary]" python-dotenv requests
+
+      - name: Offline sanity checks
+        # Before the credential gate, on purpose: needs no secrets, so even a
+        # run with none configured still proves the client and the report
+        # classifiers work on a clean runner. A failure here is ours, not the
+        # data's.
+        run: python3 tests/test_tbx.py
+
+      - name: Check which databases are reachable
+        id: dsn
+        run: |
+          if [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set. Both reports read the TBX rollups from pgam_direct, so neither can run without it."
+            echo "Add it under Settings → Secrets and variables → Actions."
+            exit 1
+          fi
+          echo "pgam_direct: configured"
+          if [ -z "$FINANCE_DATABASE_URL" ]; then
+            echo "finance: NOT configured — the P&L impact check will be skipped"
+            echo "finance=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "finance: configured"
+            echo "finance=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Reconcile legacy vs new platform
+        id: recon
+        if: inputs.reports == 'both' || inputs.reports == 'recon'
+        # Inputs arrive via env rather than ${{ }} interpolation into the
+        # shell — dispatch inputs are free text and would otherwise be
+        # executed. Same reasoning as tbx-probe.yml.
+        env:
+          IN_DAYS: ${{ inputs.days || '7' }}
+          IN_END: ${{ inputs.end }}
+        run: |
+          set +e
+          if [ -n "$IN_END" ]; then
+            python3 scripts/tbx_recon.py --days "$IN_DAYS" --end "$IN_END" \
+              | tee recon.txt
+          else
+            python3 scripts/tbx_recon.py --days "$IN_DAYS" | tee recon.txt
+          fi
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Measure P&L impact
+        id: pnl
+        if: |
+          (inputs.reports == 'both' || inputs.reports == 'pnl')
+          && steps.dsn.outputs.finance == 'true'
+        env:
+          IN_DAYS: ${{ inputs.days || '7' }}
+          IN_END: ${{ inputs.end }}
+        run: |
+          set +e
+          if [ -n "$IN_END" ]; then
+            python3 scripts/tbx_pnl_check.py --days "$IN_DAYS" --end "$IN_END" \
+              | tee pnl.txt
+          else
+            python3 scripts/tbx_pnl_check.py --days "$IN_DAYS" | tee pnl.txt
+          fi
+          rc=${PIPESTATUS[0]}
+          set -e
+          echo "rc=$rc" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Summarise
+        if: always()
+        env:
+          RECON_RC: ${{ steps.recon.outputs.rc }}
+          PNL_RC: ${{ steps.pnl.outputs.rc }}
+          FINANCE_OK: ${{ steps.dsn.outputs.finance }}
+        run: |
+          verdict () {   # $1 = exit code, $2 = label
+            case "$1" in
+              0)  echo "| $2 | ✅ agree | numbers match |" ;;
+              1)  echo "| $2 | ⚠️ look | divergence, offset, or nothing comparable |" ;;
+              2)  echo "| $2 | ❌ config | a DSN or argument is wrong |" ;;
+              "") echo "| $2 | – skipped | |" ;;
+              *)  echo "| $2 | ❌ error | exit $1 |" ;;
+            esac
+          }
+          {
+            echo "## TBX Neon reports"
+            echo
+            echo "| report | verdict | meaning |"
+            echo "|---|---|---|"
+            verdict "$RECON_RC" "Legacy vs new (tbx_recon)"
+            verdict "$PNL_RC" "P&L impact (tbx_pnl_check)"
+            echo
+            if [ "$FINANCE_OK" != "true" ]; then
+              echo "_FINANCE_DATABASE_URL is not set, so the P&L impact check did not run._"
+              echo
+            fi
+            echo "Full reports are in the job log and the run artifact."
+            echo "Both scripts are read-only; nothing was written."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          # Annotations, so the outcome is visible without opening the log.
+          # Explicit `if` rather than `[ ... ] && echo`: bash exempts an
+          # and-list from `set -e` today, but as the last line of a step that
+          # exemption is what stands between a passing job and a spurious
+          # failure. Not worth leaving as a subtlety for the next editor.
+          if [ "$RECON_RC" = "1" ]; then
+            echo "::warning::tbx_recon found a divergence or had nothing to compare — read the report before trusting TBX numbers."
+          fi
+          if [ "$PNL_RC" = "1" ]; then
+            echo "::warning::tbx_pnl_check found the P&L and TBX disagree, or had nothing comparable — do not repoint PNL_TB_SOURCE on this."
+          fi
+
+          # Fail only on a real fault. A divergence is an answer, not a bug:
+          # a red run should mean the tooling broke.
+          for rc in "$RECON_RC" "$PNL_RC"; do
+            case "$rc" in
+              ""|0|1) ;;
+              *) echo "::error::a report exited $rc — treating as a fault, not a finding"; exit 1 ;;
+            esac
+          done
+          exit 0
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tbx-neon-reports-${{ github.run_id }}
+          path: |
+            recon.txt
+            pnl.txt
+          # These hold commercial revenue figures. 7 days deliberately, matching
+          # tbx-probe.yml; don't raise it without a reason.
+          retention-days: 7
+          if-no-files-found: warn
