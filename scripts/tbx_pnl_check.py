@@ -45,6 +45,10 @@ Three things it reports, in the order that matters:
 3. **A verdict**, reusing `tbx_recon`'s classifier so both reports speak the
    same language.
 
+Exit code carries the verdict, like `tbx_recon.py`: 0 = the numbers agree,
+1 = they do not (or there was nothing to compare), 2 = misconfigured. So a
+caller can branch on the outcome without parsing the report.
+
 Usage:
     python3 scripts/tbx_pnl_check.py                 # 7 settled days
     python3 scripts/tbx_pnl_check.py --days 30
@@ -158,7 +162,9 @@ def report(tbx: dict, pnl: dict, days: list[date]) -> int:
         print("  No day has both a TBX number and a non-zero P&L TB number.")
         print("  Nothing to compare — come back once the ETL has run over a")
         print("  window the P&L also covers.")
-        return 0
+        # Not agreement: the impact test could not run. Exit 1 so a caller
+        # flags it for a look rather than reading silence as a clean result.
+        return 1
 
     print(f"  {'date':<12} {'P&L gross':>13} {'TBX gross':>13} {'Δ':>9}"
           f" {'P&L GP':>13} {'TBX GP':>13} {'Δ':>9}")
@@ -200,6 +206,10 @@ def report(tbx: dict, pnl: dict, days: list[date]) -> int:
     kinds = set(verdicts.values()) - {"NO DATA"}
     print()
     if kinds == {"AGREEMENT"}:
+        _agreed = True
+    else:
+        _agreed = False
+    if kinds == {"AGREEMENT"}:
         print("  TBX reproduces what the P&L already holds. Sourcing the TB row")
         print("  from TBX would change no number that is currently there, and")
         print("  would fill the gaps in section 1. That is the case for making")
@@ -217,7 +227,10 @@ def report(tbx: dict, pnl: dict, days: list[date]) -> int:
         print("      If they disagree there too, the problem is upstream of the P&L.")
         print("    • Same timezone on both? The P&L books ET; so does the TBX ETL")
         print("      unless TBX_TIMEZONE was changed.")
-    return 0
+    # Exit code carries the verdict, matching scripts/tbx_recon.py: 0 means the
+    # numbers agree, 1 means look at them. A caller — a person or the
+    # tbx-neon-reports workflow — can branch on it without parsing this text.
+    return 0 if _agreed else 1
 
 
 def main() -> int:
