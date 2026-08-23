@@ -22,10 +22,9 @@ name: TBX Data Pull (new Teqblaze platform)
 #   or  gh workflow run tbx-probe.yml -f days=7
 #
 # NOTE: GitHub only offers workflow_dispatch for workflows that exist on the
-# repository's DEFAULT branch. Until this file lands on main it will not appear
-# in the Actions tab and `gh workflow run` returns 404, even though the file is
-# present on the feature branch. Merge first, then dispatch. Once it is on main
-# you can still target a feature branch with `--ref` to test changes to it.
+# repository's DEFAULT branch. This file is on main (#99), so it appears in the
+# Actions tab. To test an edit on a feature branch, dispatch with `--ref` —
+# GitHub reads the workflow from that ref once the entry itself exists on main.
 #
 # Results land in three places:
 #   • the job log        — full digest, which is what a Claude session reads
@@ -40,20 +39,9 @@ name: TBX Data Pull (new Teqblaze platform)
 # pull, the ETL belongs on Render with Neon persistence instead.
 
 on:
-  # Pre-merge escape hatch. workflow_dispatch only works for workflows that
-  # already live on the default branch (dispatching this from the feature
-  # branch returns 404 — verified). A push-triggered workflow, by contrast,
-  # runs from the copy on the pushed ref, so this is the only way to exercise
-  # the pull before #99 merges. Scoped to this branch and to this file, so it
-  # fires only when the file is deliberately touched, not on every commit.
-  #
-  # REMOVE THIS BLOCK AT MERGE — on main, workflow_dispatch is the right door.
-  push:
-    branches:
-      - claude/teqblaze-platform-integration-xhazcl
-    paths:
-      - .github/workflows/tbx-probe.yml
-
+  # workflow_dispatch only. #99 merged, so this file lives on the default
+  # branch and the Actions tab is the right door; the pre-merge push trigger
+  # it carried (scoped to the now-deleted integration branch) is gone.
   workflow_dispatch:
     inputs:
       days:

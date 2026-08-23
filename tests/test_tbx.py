@@ -223,10 +223,92 @@ def test_read_only_stripping() -> None:
           set(stripped) == {"name", "status", "source"}, str(sorted(stripped)))
     check("original not mutated", "id" in supply)
 
-    demand = {"id": 91, "name": "d", "operation_systems": [1, 2], "is_schain": True}
+    demand = {"id": 91, "name": "d", "operation_systems": [1, 2],
+              "uuid": "abc-123", "is_schain": True}
     stripped = tbm._strip_read_only(demand, "demand_source")
     check("demand read-only fields dropped",
           set(stripped) == {"name", "is_schain"}, str(sorted(stripped)))
+    check("demand uuid is stripped (accepted on supply, rejected on demand)",
+          "uuid" not in stripped)
+
+
+def test_strip_list_matches_spec() -> None:
+    """
+    The strip list must equal what the vendored spec says is read-only.
+
+    Hand-maintained tuples drift from the spec silently, and the cost of the
+    drift is a rejected — or worse, a partially applied — write. `uuid` on a
+    demand source was exactly this: returned by the read schema, absent from
+    the write schema, and missing from the strip list.
+    """
+    print("\nstrip list vs vendored spec")
+    for kind in ("supply_source", "demand_source"):
+        accepted = tbm.write_schema_fields(kind)
+        check(f"{kind}: write schema readable from the spec", bool(accepted))
+        if not accepted:
+            continue
+        from_spec = tbm.read_only_fields_from_spec(kind)
+        declared = set(tbm._READ_ONLY_FIELDS[kind])
+        check(f"{kind}: strip list matches the spec",
+              declared == from_spec,
+              f"declared={sorted(declared)} spec={sorted(from_spec)}")
+
+
+def test_unknown_write_keys() -> None:
+    print("\nundeclared payload keys")
+    check("a clean supply payload has no undeclared keys",
+          tbm.unknown_write_keys({"name": "s", "status": True}, "supply_source") == [])
+    check("a read-only field left in is flagged",
+          tbm.unknown_write_keys({"name": "s", "margin_type": "fixed"},
+                                 "supply_source") == ["margin_type"])
+    check("demand uuid is flagged when left in",
+          "uuid" in tbm.unknown_write_keys({"name": "d", "uuid": "x"}, "demand_source"))
+    check("uuid is NOT flagged on supply (its write schema accepts it)",
+          tbm.unknown_write_keys({"name": "s", "uuid": "x"}, "supply_source") == [])
+    check("a stripped live entity round-trips clean",
+          tbm.unknown_write_keys(
+              tbm._strip_read_only(
+                  {k: None for k in tbm._spec_properties("DemandSourceResource")},
+                  "demand_source"),
+              "demand_source") == [])
+    check("unknown kind yields no opinion rather than a false pass",
+          tbm.unknown_write_keys({"whatever": 1}, "not_a_kind") == [])
+
+
+def test_recon_classifier() -> None:
+    """
+    The reconciliation's verdict logic (scripts/tbx_recon.py).
+
+    This is the function that decides whether the two platforms agree, and its
+    three answers send you to three different places — ship it, ask Teqblaze
+    about a fee, or stop and escalate. Worth pinning offline.
+    """
+    print("\nrecon classifier")
+    from scripts import tbx_recon as recon
+
+    verdict, _ = recon._classify([(100, 100), (200, 200), (50, 50)])
+    check("identical series → AGREEMENT", verdict == "AGREEMENT")
+
+    verdict, _ = recon._classify([(100, 100.00005), (200, 200.0001)])
+    check("numeric(14,4) rounding still agrees", verdict == "AGREEMENT")
+
+    verdict, detail = recon._classify([(100, 78), (200, 156), (50, 39)])
+    check("same ratio every day → CONSTANT OFFSET", verdict == "CONSTANT OFFSET")
+    check("constant offset reports the size", "22.00%" in detail, detail)
+
+    verdict, _ = recon._classify([(100, 80), (200, 190), (50, 25)])
+    check("scattered gaps → ROW-LEVEL DIVERGENCE",
+          verdict == "ROW-LEVEL DIVERGENCE")
+
+    verdict, _ = recon._classify([(100, 130)])
+    check("one day cannot be a constant offset",
+          verdict == "ROW-LEVEL DIVERGENCE")
+
+    verdict, _ = recon._classify([(0, 0), (0, 5)])
+    check("zero legacy side is not divided by", verdict == "NO DATA")
+
+    verdict, _ = recon._classify([])
+    check("empty window → NO DATA", verdict == "NO DATA")
 
 
 def test_write_gates() -> None:
@@ -593,6 +675,9 @@ def main() -> int:
     test_deep_merge()
     test_key_loss_guard()
     test_read_only_stripping()
+    test_strip_list_matches_spec()
+    test_unknown_write_keys()
+    test_recon_classifier()
     test_write_gates()
     test_validation_guards()
     test_roughly_equal()
