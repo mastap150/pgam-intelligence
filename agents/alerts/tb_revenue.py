@@ -28,7 +28,17 @@ from datetime import datetime, date
 
 import pytz
 
-from core.api import fetch_tb as fetch, tb_configured, today, yesterday, n_days_ago, sf, fmt_usd, fmt_n, pct
+# Sourced per day across the platform migration rather than from one host.
+# This agent read the LEGACY API until 2026-08-24 and had been posting
+# $0.00 across the board since the marketplace moved — the host is retired,
+# so every fetch came back empty and the alert reported a dead platform as a
+# dead day.
+#
+# `core.tb_unified` reads the same Neon rollups `/admin/pnl` reads, so the
+# Slack number and the P&L number agree by construction instead of by
+# coincidence. See that module for the cutover rule.
+from core.tb_unified import fetch, configured as tb_configured
+from core.api import today, yesterday, n_days_ago, sf, fmt_usd, fmt_n, pct
 
 ET             = pytz.timezone("US/Eastern")
 BREAKDOWN      = "DATE"
@@ -351,8 +361,10 @@ def run():
 
     # ── 0. TB credentials check ──────────────────────────────────────────────
     if not tb_configured():
-        print("[tb_revenue] TB API not configured yet — set TB_API_BASE_URL, "
-              "TB_CLIENT_KEY, TB_SECRET_KEY in .env to enable.")
+        print("[tb_revenue] no warehouse DSN — set PGAM_DIRECT_DATABASE_URL "
+              "(or DATABASE_URL). This agent reads the Neon rollups now, not "
+              "the retired legacy API, so TB_* credentials are no longer what "
+              "it needs.")
         return
 
     # ── 1. Cooldown check ────────────────────────────────────────────────────
@@ -362,11 +374,14 @@ def run():
         return
 
     # ── 2. Fetch today + yesterday DATE-breakdown ────────────────────────────
-    # TB API allows only one concurrent query per user — add a small pause between
-    # sequential calls so the server's "in-progress" lock has time to clear.
-    _TB_INTER_CALL_SLEEP = 5   # seconds between TB fetches
+    # Was 5s between calls, for the legacy API's one-concurrent-query-per-user
+    # lock. These are warehouse reads now, so there is no lock to wait on and
+    # nothing to be polite to — four sequential 5s sleeps were pure latency.
+    _TB_INTER_CALL_SLEEP = 0
 
-    print(f"[tb_revenue] Fetching today ({today_str}) and yesterday ({yest_str})…")
+    from core.tb_unified import describe_window
+    print(f"[tb_revenue] Fetching today ({today_str}) and yesterday ({yest_str})… "
+          f"sources: {describe_window(yest_str, today_str)}")
     try:
         today_rows = fetch(BREAKDOWN, METRICS, today_str, today_str)
         time.sleep(_TB_INTER_CALL_SLEEP)

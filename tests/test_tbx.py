@@ -1534,6 +1534,84 @@ def test_tbx_etl_entity_id_suffix() -> None:
     check("carrying the revenue", records and records[0]["gross_revenue"] == 10.5,
           str(records))
 
+def test_tb_unified_routes_each_day_to_the_right_platform() -> None:
+    """One rule for "what did TB earn on day D", shared by every surface."""
+    print("\ntb_unified: per-day platform routing")
+
+    from core import tb_unified as u
+
+    for var in ("TB_SPLIT_START", "TB_TBX_CUTOVER"):
+        os.environ.pop(var, None)
+
+    check("a pre-cutover day is legacy only",
+          u.legs_for(date(2026, 8, 19)) == (True, False))
+    check("the split day is BOTH — each host served part of it",
+          u.legs_for(date(2026, 8, 20)) == (True, True))
+    check("the cutover day is tbx only",
+          u.legs_for(date(2026, 8, 21)) == (False, True))
+    check("and so is everything after",
+          u.legs_for(date(2026, 12, 25)) == (False, True))
+
+    # The window is what makes summing safe. Outside it exactly one leg is
+    # live, so the fold cannot double-count even though it adds.
+    for day in (date(2026, 8, 1), date(2026, 8, 19),
+                date(2026, 8, 21), date(2026, 9, 1)):
+        legs = u.legs_for(day)
+        check(f"{day} draws on exactly one platform", sum(legs) == 1, str(legs))
+
+    os.environ["TB_SPLIT_START"] = "2026-08-17"
+    check("the split window is widenable — 18 Aug becomes a split day",
+          u.legs_for(date(2026, 8, 18)) == (True, True))
+    os.environ["TB_SPLIT_START"] = "rubbish"
+    check("and a bad value falls back to the measured default",
+          u.legs_for(date(2026, 8, 20)) == (True, True))
+    os.environ.pop("TB_SPLIT_START", None)
+
+    check("the window description names the source per day",
+          u.describe_window("2026-08-19", "2026-08-21") ==
+          "2026-08-19:legacy 2026-08-20:legacy+tbx 2026-08-21:tbx",
+          u.describe_window("2026-08-19", "2026-08-21"))
+
+
+def test_tb_unified_folds_a_split_day_and_never_double_counts() -> None:
+    """The fold adds both legs on a split day and one leg everywhere else."""
+    print("\ntb_unified: fold arithmetic")
+
+    from core import tb_unified as u
+
+    for var in ("TB_SPLIT_START", "TB_TBX_CUTOVER"):
+        os.environ.pop(var, None)
+
+    def row(day, name, gross, payout=0.0, imps=0.0, bids=0.0, wins=0.0):
+        return {"report_date": date.fromisoformat(day), "entity_name": name,
+                "IMPRESSIONS": imps, "BIDS": bids, "WINS": wins,
+                "GROSS_REVENUE": gross, "PUB_PAYOUT": payout}
+
+    legacy = [row("2026-08-19", None, 8000.0), row("2026-08-20", None, 4900.20),
+              row("2026-08-21", None, 999.0)]      # legacy lingering post-cutover
+    tbx = [row("2026-08-19", None, 13.76), row("2026-08-20", None, 2605.45),
+           row("2026-08-21", None, 5587.06)]
+
+    saved = u._rows
+    try:
+        u._rows = lambda table, name_col, s_, e_, by: (
+            legacy if table == u.LEGACY_TABLE else tbx)
+        out = {r["DATE"]: r["GROSS_REVENUE"]
+               for r in u.fetch("DATE", [], "2026-08-19", "2026-08-21")}
+    finally:
+        u._rows = saved
+
+    check("a pre-cutover day takes legacy and ignores TBX's trickle",
+          out["2026-08-19"] == 8000.0, str(out))
+    check("the split day is the SUM of both hosts",
+          abs(out["2026-08-20"] - (4900.20 + 2605.45)) < 0.01, str(out))
+    check("a post-cutover day takes TBX and ignores a lingering legacy row",
+          out["2026-08-21"] == 5587.06, str(out))
+    check("nothing is double-counted: the total is the sum of the three "
+          "attributed days, not of all six rows",
+          abs(sum(out.values()) - (8000.0 + 4900.20 + 2605.45 + 5587.06)) < 0.01,
+          str(sum(out.values())))
+
 def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
@@ -1552,6 +1630,8 @@ def main() -> int:
     test_tbx_auto_revert_gates()
     test_tbx_etl_chunks_by_day()
     test_tbx_etl_entity_id_suffix()
+    test_tb_unified_routes_each_day_to_the_right_platform()
+    test_tb_unified_folds_a_split_day_and_never_double_counts()
     test_floor_clamps()
     test_deep_merge()
     test_key_loss_guard()
