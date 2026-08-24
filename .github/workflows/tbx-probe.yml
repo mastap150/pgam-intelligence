@@ -72,6 +72,14 @@ on:
         description: "End of the reachability probe. Blank = yesterday."
         required: false
         default: ""
+      backfill_dry_from:
+        description: "Dry-run the revenue ETL from this date (YYYY-MM-DD). Pulls exactly what a backfill would land and reports per-day coverage. Writes NOTHING. Also skips the full pull."
+        required: false
+        default: ""
+      backfill_dry_to:
+        description: "End of the ETL dry run. Blank = today."
+        required: false
+        default: ""
 
 concurrency:
   # The platform's rate limits are undocumented; the legacy API allowed one
@@ -157,9 +165,39 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Backfill dry run
+        # Exercises the real ETL path — _fetch_daily, the (rows, totals)
+        # unpacking, _aggregate, entity-id resolution, all three grains — and
+        # prints what each day would land. Strictly read-only: `--dry-run`
+        # skips both the DDL and the UPSERT, and core.neon is imported inside
+        # those functions, so this needs no database and no psycopg. That is
+        # what keeps it inside this workflow's read-only contract.
+        #
+        # It answers a different question from the reachability probe above.
+        # That one asks whether the platform serves a day at all; this one
+        # asks whether our pipeline turns that day into the right records.
+        if: inputs.backfill_dry_from != ''
+        env:
+          IN_BF_FROM: ${{ inputs.backfill_dry_from }}
+          IN_BF_TO: ${{ inputs.backfill_dry_to }}
+        run: |
+          set -o pipefail
+          args="--from $IN_BF_FROM --dry-run"
+          [ -n "$IN_BF_TO" ] && args="$args --to $IN_BF_TO"
+          python3 -m agents.etl.tbx_revenue_etl $args 2>&1 | tee bf.log
+          {
+            echo "### Backfill dry run — from ${IN_BF_FROM}"
+            echo ""
+            echo "**Nothing was written.** This is what a live backfill would land."
+            echo ""
+            echo '```'
+            grep -E "would upsert|no rows for|outside the day|FAILED|pulling" bf.log || cat bf.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Pull every surface
-        # Skipped when the reachability probe ran — see above.
-        if: inputs.reach_from == ''
+        # Skipped when either targeted probe ran — see above.
+        if: inputs.reach_from == '' && inputs.backfill_dry_from == ''
         # Inputs arrive via env, not ${{ }} interpolation into the shell —
         # dispatch inputs are free text and would otherwise be executed.
         env:
