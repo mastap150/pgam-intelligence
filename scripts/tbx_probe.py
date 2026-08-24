@@ -241,6 +241,120 @@ def diff_shape(spec: str) -> int:
     return 0
 
 
+def reachability(date_from: str, date_to: str | None) -> int:
+    """
+    How far back will this platform actually serve?
+
+    The one question a backfill depends on, asked in the cheapest possible
+    way: one single-day report per day, smallest useful attribute+metric set,
+    and a check of the `date` on every row that comes back.
+
+    Why it needs asking at all. A multi-day request is answered `200` with
+    only the most recent ~5 days in it — no error, no flag, no short-window
+    marker (reference A5.1). What was never established is what that window
+    is anchored to:
+
+      * anchored to `date_to`  -> any historical day is reachable one day at
+                                  a time, and a backfill of any age works.
+      * anchored to *today*    -> days older than the window are gone for
+                                  good, and a backfill has a deadline.
+
+    Both readings fit the original observation, which was made on a query
+    ending at the present day. A single-day request per day distinguishes
+    them: under the first reading every day answers, under the second only
+    the recent ones do.
+
+    Reads nothing but reports and writes nothing anywhere.
+    """
+    from datetime import date as _date, timedelta as _td
+
+    try:
+        start = _date.fromisoformat(date_from)
+        end = _date.fromisoformat(date_to) if date_to else (
+            _date.today() - _td(days=1))
+    except ValueError as exc:
+        print(f"bad date: {exc}", file=sys.stderr)
+        return 2
+    if start > end:
+        print(f"--reach-from {start} is after {end}", file=sys.stderr)
+        return 2
+
+    span = (end - start).days + 1
+    print(f"\n── Day reachability ──────────────────────────────────────")
+    print(f"  {start} → {end} ({span} day(s)), one request each\n")
+
+    reachable: list[str] = []
+    empty: list[str] = []
+    mismatched: list[str] = []
+    failed: list[str] = []
+
+    day = start
+    while day <= end:
+        iso = day.isoformat()
+        try:
+            rows, totals = tbx.report(
+                iso, iso,
+                attributes=["date"],
+                metrics=["imps_sum", "dsp_price_sum"],
+            )
+        except Exception as exc:                       # noqa: BLE001
+            failed.append(iso)
+            print(f"  {iso}  ERROR  {type(exc).__name__}: {str(exc)[:90]}")
+            day += _td(days=1)
+            continue
+
+        own = [r for r in rows
+               if str(r.get("date") or r.get("report_date") or "")[:10] == iso]
+        other = len(rows) - len(own)
+        imps = totals.get("imps_sum") if isinstance(totals, dict) else None
+        gross = totals.get("dsp_price_sum") if isinstance(totals, dict) else None
+
+        if own:
+            reachable.append(iso)
+            print(f"  {iso}  OK     imps={imps or '?'}  gross={gross or '?'}")
+        elif other:
+            # The platform answered a single-day request with other dates.
+            # That is the anchored-to-today reading showing itself.
+            mismatched.append(iso)
+            print(f"  {iso}  DRIFT  {other} row(s) came back for other dates "
+                  f"— the window is NOT anchored to date_to")
+        else:
+            empty.append(iso)
+            print(f"  {iso}  EMPTY  no rows")
+
+        day += _td(days=1)
+
+    print(f"\n  reachable {len(reachable)} · empty {len(empty)} · "
+          f"drifted {len(mismatched)} · failed {len(failed)}")
+
+    # An empty day is genuinely ambiguous: the platform drops all-zero rows,
+    # so "no revenue that day" and "too old to serve" look identical. What
+    # disambiguates is the shape across the range, not any single day.
+    if mismatched:
+        print("\n  VERDICT: the truncation window is anchored to TODAY.\n"
+              "  Days older than it cannot be backfilled from this platform "
+              "at all. Whatever is missing needs recovering now, and anything\n"
+              "  older than the window is already unrecoverable here.")
+        return 1
+    if reachable and empty and reachable[0] > empty[-1]:
+        print("\n  VERDICT: likely anchored to TODAY — the older end of the "
+              "range is empty and the recent end is not.\n"
+              "  Confirm against a day you know had revenue before treating "
+              "an empty day as a dead one.")
+        return 1
+    if reachable:
+        print("\n  VERDICT: historical days ARE reachable one at a time. The "
+              "window is anchored to date_to, not to today,\n"
+              "  so a backfill of any age works as long as it is chunked by "
+              "day. Record this in teqblaze-new-platform.md §8.1.")
+        return 0
+    print("\n  VERDICT: nothing came back for any day. Either the account "
+          "has no data in this range, or reporting is\n"
+          "  scoped away from it. Check --dictionaries and the account's "
+          "permissions before concluding anything about truncation.")
+    return 1
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -252,6 +366,12 @@ def main() -> int:
                         help="also probe the lookup tables")
     parser.add_argument("--diff-shape", metavar="supply:22|demand:91",
                         help="dump one entity's read→write payload diff and exit")
+    parser.add_argument("--reach-from", metavar="YYYY-MM-DD",
+                        help="probe day-by-day reachability from this date and "
+                             "exit — answers whether a backfill of that age is "
+                             "possible at all")
+    parser.add_argument("--reach-to", metavar="YYYY-MM-DD",
+                        help="end of the reachability probe (default: yesterday)")
     parser.add_argument("--json", metavar="PATH", help="write results as JSON")
     parser.add_argument("--login", action="store_true",
                         help="prompt for the TBX password on this terminal instead of "
@@ -286,6 +406,9 @@ def main() -> int:
 
     if args.diff_shape:
         return diff_shape(args.diff_shape)
+
+    if args.reach_from:
+        return reachability(args.reach_from, args.reach_to)
 
     results: dict = {"base": tbx.TBX_BASE}
     probe_entities(results)

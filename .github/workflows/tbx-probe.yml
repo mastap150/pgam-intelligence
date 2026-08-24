@@ -64,6 +64,14 @@ on:
         description: "Optional write-shape check, e.g. supply:22 or demand:91. Prints the payload, sends nothing."
         required: false
         default: ""
+      reach_from:
+        description: "Day-reachability probe from this date (YYYY-MM-DD). Set this to SKIP the full pull — one small request per day, answers whether a backfill that far back is possible."
+        required: false
+        default: ""
+      reach_to:
+        description: "End of the reachability probe. Blank = yesterday."
+        required: false
+        default: ""
 
 concurrency:
   # The platform's rate limits are undocumented; the legacy API allowed one
@@ -123,7 +131,35 @@ jobs:
       - name: Connectivity probe
         run: python3 scripts/tbx_probe.py --dictionaries
 
+      - name: Day reachability
+        # Answers the one question a backfill depends on — how far back this
+        # platform will actually serve — in one small request per day. When
+        # this input is set the full pull is skipped: the pull walks every
+        # surface and takes tens of minutes, which is the wrong instrument
+        # for a single yes/no.
+        #
+        # Exit 1 is a real verdict here ("anchored to today", i.e. old days
+        # are unrecoverable), not a tooling failure, so it does not fail the
+        # job — read the verdict.
+        if: inputs.reach_from != ''
+        env:
+          IN_REACH_FROM: ${{ inputs.reach_from }}
+          IN_REACH_TO: ${{ inputs.reach_to }}
+        run: |
+          args="--reach-from $IN_REACH_FROM"
+          [ -n "$IN_REACH_TO" ] && args="$args --reach-to $IN_REACH_TO"
+          python3 scripts/tbx_probe.py $args | tee reach.log || true
+          {
+            echo "### Day reachability — from ${IN_REACH_FROM}"
+            echo ""
+            echo '```'
+            cat reach.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Pull every surface
+        # Skipped when the reachability probe ran — see above.
+        if: inputs.reach_from == ''
         # Inputs arrive via env, not ${{ }} interpolation into the shell —
         # dispatch inputs are free text and would otherwise be executed.
         env:
