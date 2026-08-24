@@ -1479,6 +1479,61 @@ def test_tbx_etl_chunks_by_day() -> None:
           rows == [] and off == 1, f"rows={rows} off={off}")
     check("and the day is reported as having no rows", missing == ["2026-08-21"])
 
+def test_tbx_etl_entity_id_suffix() -> None:
+    """The report gives names with the id as a '#NNNN' suffix, not id fields."""
+    print("\ntbx revenue ETL: entity id resolution")
+
+    from agents.etl.tbx_revenue_etl import _entity, _aggregate
+
+    # The shape measured against the live account on 2026-08-24. Before this
+    # was handled, every row of every grain was dropped as unresolvable and
+    # the ETL landed nothing while reporting success.
+    live = {"date": "2026-08-21", "placement": "01net.it_300x250 #8766"}
+    check("the id is taken from the '#NNNN' suffix",
+          _entity(live, "placement") == (8766, "01net.it_300x250"),
+          str(_entity(live, "placement")))
+
+    vendor = {"demand_source": "Magnite - RON Prebid Server In App #1752"}
+    check("and from the vendor reference's own example form",
+          _entity(vendor, "demand_source")[0] == 1752,
+          str(_entity(vendor, "demand_source")))
+
+    check("the suffix is stripped from the stored name",
+          _entity(vendor, "demand_source")[1] ==
+          "Magnite - RON Prebid Server In App",
+          str(_entity(vendor, "demand_source")))
+
+    check("only the TRAILING #NNNN is the id — a '#' inside the name is not",
+          _entity({"placement": "Weird #12 Name #345"}, "placement") ==
+          (345, "Weird #12 Name"),
+          str(_entity({"placement": "Weird #12 Name #345"}, "placement")))
+
+    check("a name with no suffix stays unresolvable rather than guessing",
+          _entity({"supply_source": "No Suffix"}, "supply_source") ==
+          (None, "No Suffix"),
+          str(_entity({"supply_source": "No Suffix"}, "supply_source")))
+
+    # The other documented shapes must keep working.
+    check("an {id, name} object still resolves",
+          _entity({"demand_source": {"id": 7, "name": "Obj"}}, "demand_source")
+          == (7, "Obj"))
+    check("a flattened x_id column still resolves",
+          _entity({"demand_source_id": 9, "demand_source": "Flat"},
+                  "demand_source")[0] == 9)
+
+    # End to end: a live-shaped row must aggregate rather than drop.
+    records, dropped = _aggregate(
+        [{"date": "2026-08-21", "placement": "01net.it_300x250 #8766",
+          "imps_sum": "100", "dsp_price_sum": "10.5", "ssp_price_sum": "7.0",
+          "requests_sum": "1000", "ssp_wins_sum": "200"}],
+        "placement")
+    check("a live-shaped row survives aggregation", dropped == 0 and len(records) == 1,
+          f"dropped={dropped} records={records}")
+    check("keyed on the parsed id",
+          records and records[0]["entity_id"] == 8766, str(records))
+    check("carrying the revenue", records and records[0]["gross_revenue"] == 10.5,
+          str(records))
+
 def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
@@ -1496,6 +1551,7 @@ def main() -> int:
     test_tbx_auto_revert_is_always_within_the_delta_cap()
     test_tbx_auto_revert_gates()
     test_tbx_etl_chunks_by_day()
+    test_tbx_etl_entity_id_suffix()
     test_floor_clamps()
     test_deep_merge()
     test_key_loss_guard()

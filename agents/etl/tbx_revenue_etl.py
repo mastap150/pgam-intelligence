@@ -50,6 +50,7 @@ Backfill: `python -m agents.etl.tbx_revenue_etl --backfill 30`
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections import defaultdict
 from datetime import date, timedelta
@@ -148,6 +149,23 @@ def _entity(row: dict, attribute: str) -> tuple[int | None, str | None]:
         raw_id = (row.get(f"{attribute}_id") or row.get(f"{attribute}Id")
                   or (val if isinstance(val, (int, float)) else None))
         name = row.get(f"{attribute}_name") or (val if isinstance(val, str) else None)
+
+    if raw_id is None and isinstance(val, str):
+        # The shape this platform actually uses. Measured 2026-08-24 against
+        # the live account: a report row carries the dimension as a display
+        # NAME with the entity id appended as a "#NNNN" suffix, and no
+        # separate id field at all —
+        #
+        #     {'date': '2026-08-21', 'placement': '01net.it_300x250 #8766'}
+        #
+        # which is the same convention the vendor reference shows for a
+        # source ("Magnite - RON Prebid Server In App #1752"). Without this
+        # every row is unresolvable and the whole pull is dropped, which is
+        # exactly what happened: 12,830 rows in, zero records out.
+        trailing = re.search(r"\s*#(\d+)\s*$", val)
+        if trailing:
+            raw_id = trailing.group(1)
+            name = val[:trailing.start()].strip() or val
 
     if raw_id is None and isinstance(val, str):
         # Some accounts return "1234 - Partner Name" in the dimension column.
@@ -443,6 +461,15 @@ def run(window_days: int = WINDOW_DAYS,
             print(f"{_LOG} {attribute}: DRY RUN — would upsert {n} record(s) "
                   f"across {len(days_covered)} day(s): "
                   f"{', '.join(days_covered) if days_covered else '(none)'}")
+            # Per-day gross, so the parse can be checked against the
+            # platform's own totals without a second call. If a day here
+            # matches what `--reach-from` reported for it, nothing was
+            # dropped and the ids resolved.
+            by_day: dict[str, float] = defaultdict(float)
+            for rec in records:
+                by_day[str(rec["report_date"])] += rec["gross_revenue"]
+            for day in sorted(by_day):
+                print(f"{_LOG} {attribute}:   {day}  gross ${by_day[day]:,.2f}")
         else:
             try:
                 n = _write(table, id_col, name_col, records)
