@@ -50,6 +50,7 @@ Backfill: `python -m agents.etl.tbx_revenue_etl --backfill 30`
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from collections import defaultdict
 from datetime import date, timedelta
@@ -62,8 +63,23 @@ _LOG = "[tbx_revenue_etl]"
 # side has not backfilled is a comparison of coverage, not of data.
 WINDOW_DAYS = 14
 
-# One request per grain per run. The report endpoint takes a date range, so
-# unlike the legacy host there is no need to chunk by day.
+# One request per grain PER DAY. The report endpoint accepts a date range and
+# answers 200 for any span you ask for, but it silently returns only the most
+# recent ~5 days of it — no error, no flag, no short-window marker (reference
+# A5.1). A 14-day pull therefore lands 5 days and reports success, and the
+# nine missing days look like nine days of zero revenue.
+#
+# So the range parameter cannot be trusted for anything wider than the
+# truncation window, and the truncation window is undocumented and could
+# narrow. Asking for one day at a time and checking the `date` on every row
+# that comes back is the only form that cannot silently under-report. It is
+# the same reason `tb_revenue_etl` sets CHUNK_DAYS = 1 against the legacy
+# host, arrived at independently.
+#
+# Cost: N requests per grain for an N-day window instead of 1. A 14-day run
+# is 42 calls. That is the price of a total that is either right or loud.
+CHUNK_DAYS = 1
+
 GRAINS: tuple[tuple[str, str, str], ...] = (
     # (attribute, destination table, id column)
     ("supply_source", "tbx_daily_supply_revenue", "supply_id"),
@@ -133,6 +149,23 @@ def _entity(row: dict, attribute: str) -> tuple[int | None, str | None]:
         raw_id = (row.get(f"{attribute}_id") or row.get(f"{attribute}Id")
                   or (val if isinstance(val, (int, float)) else None))
         name = row.get(f"{attribute}_name") or (val if isinstance(val, str) else None)
+
+    if raw_id is None and isinstance(val, str):
+        # The shape this platform actually uses. Measured 2026-08-24 against
+        # the live account: a report row carries the dimension as a display
+        # NAME with the entity id appended as a "#NNNN" suffix, and no
+        # separate id field at all —
+        #
+        #     {'date': '2026-08-21', 'placement': '01net.it_300x250 #8766'}
+        #
+        # which is the same convention the vendor reference shows for a
+        # source ("Magnite - RON Prebid Server In App #1752"). Without this
+        # every row is unresolvable and the whole pull is dropped, which is
+        # exactly what happened: 12,830 rows in, zero records out.
+        trailing = re.search(r"\s*#(\d+)\s*$", val)
+        if trailing:
+            raw_id = trailing.group(1)
+            name = val[:trailing.start()].strip() or val
 
     if raw_id is None and isinstance(val, str):
         # Some accounts return "1234 - Partner Name" in the dimension column.
@@ -254,8 +287,72 @@ def _write(table: str, id_col: str, name_col: str, records: list[dict]) -> int:
     return len(records)
 
 
-def run(window_days: int = WINDOW_DAYS) -> dict:
-    """Pull each grain from TBX and UPSERT it into Neon."""
+def _fetch_daily(attribute: str, start: date, end: date) -> tuple[list[dict], list[str], int]:
+    """
+    Pull `[start, end]` one day at a time.
+
+    Returns `(rows, days_with_no_rows, rows_discarded_off_window)`.
+
+    Every row is checked against the day it was requested for. A row carrying
+    another date is discarded and counted, never folded into the requested
+    day — misattributing a day's revenue is worse than missing it, because a
+    missing day is visible in the table and a misattributed one is not.
+
+    A day with no rows is reported but is not an error: the platform drops
+    all-zero rows (reference A5.2), so a genuinely dead day and a truncated
+    response look the same from here. What separates them is that truncation
+    cannot happen to a one-day request, which is the whole point of chunking.
+    """
+    from core import tbx_api as tbx
+
+    rows: list[dict] = []
+    missing: list[str] = []
+    off_window = 0
+
+    day = start
+    while day <= end:
+        iso = day.isoformat()
+        day_rows, _totals = tbx.report(
+            date_from=iso,
+            date_to=iso,
+            attributes=["date", attribute],
+            metrics=list(METRICS),
+        )
+        kept = 0
+        for row in day_rows:
+            raw = str(row.get("date") or row.get("report_date") or "")[:10]
+            if raw and raw != iso:
+                off_window += 1
+                continue
+            rows.append(row)
+            kept += 1
+        if kept == 0:
+            missing.append(iso)
+        day += timedelta(days=CHUNK_DAYS)
+
+    return rows, missing, off_window
+
+
+def run(window_days: int = WINDOW_DAYS,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        dry_run: bool = False) -> dict:
+    """
+    Pull each grain from TBX and UPSERT it into Neon.
+
+    `date_from`/`date_to` (YYYY-MM-DD, inclusive) name an explicit window and
+    override `window_days`. A repair is always for particular *dates* — "the
+    TB column is blank from the 21st" — and expressing that as a trailing-day
+    count means recomputing the count every day it goes unfixed, and getting
+    it wrong the day someone runs yesterday's command. The tables UPSERT on
+    (report_date, entity_id), so naming the same window twice is free.
+
+    `dry_run=True` pulls from the platform and reports exactly what it would
+    land, without touching Neon. That is the cheap way to answer the question
+    that actually blocks a backfill — *can this platform still serve the days
+    we are missing?* — before any row is written. It is a read against the
+    platform either way; only the warehouse write is skipped.
+    """
     from core import tbx_api as tbx
 
     if not tbx.configured():
@@ -289,7 +386,8 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
         return {"ok": True, "skipped": "not_configured", "missing": missing}
 
     try:
-        ensure_tables()
+        if not dry_run:
+            ensure_tables()
     except Exception as exc:
         # Fatal: without the tables there is nowhere to put anything, and
         # continuing would report a per-grain UPSERT failure three times over
@@ -297,10 +395,26 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
         print(f"{_LOG} could not ensure destination tables — {exc}")
         return {"ok": False, "error": f"ensure_tables: {exc}"}
 
-    end = date.today()
-    start = end - timedelta(days=max(window_days - 1, 0))
+    if date_from or date_to:
+        try:
+            start = date.fromisoformat(date_from) if date_from else date.today()
+            end = date.fromisoformat(date_to) if date_to else date.today()
+        except ValueError as exc:
+            print(f"{_LOG} bad date bound — {exc}")
+            return {"ok": False, "error": f"bad date: {exc}"}
+        if start > end:
+            print(f"{_LOG} --from {start} is after --to {end}")
+            return {"ok": False, "error": "from after to"}
+        span = (end - start).days + 1
+        print(f"{_LOG} pulling {start}..{end} ({span}d, explicit) "
+              f"from {tbx.TBX_BASE}")
+    else:
+        end = date.today()
+        start = end - timedelta(days=max(window_days - 1, 0))
+        span = window_days
+        print(f"{_LOG} pulling {start}..{end} ({span}d trailing) "
+              f"from {tbx.TBX_BASE}")
     df, dt = start.isoformat(), end.isoformat()
-    print(f"{_LOG} pulling {df}..{dt} ({window_days}d) from {tbx.TBX_BASE}")
 
     results: dict[str, object] = {"ok": True}
     total_dropped = 0
@@ -309,12 +423,7 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
     for attribute, table, id_col in GRAINS:
         name_col = id_col.replace("_id", "_name")
         try:
-            rows = tbx.report(
-                date_from=df,
-                date_to=dt,
-                attributes=["date", attribute],
-                metrics=list(METRICS),
-            )
+            rows, missing_days, off_window = _fetch_daily(attribute, start, end)
         except Exception as exc:
             # One grain failing must not cost the others. A partial load is
             # worth more than none, and the failure is named rather than
@@ -324,15 +433,51 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
             results["ok"] = False
             continue
 
+        if off_window:
+            # The platform answered a single-day request with other dates.
+            # Those rows are discarded rather than attributed to the day we
+            # asked for, which would put one day's revenue on another.
+            print(f"{_LOG} {attribute}: {off_window} row(s) came back outside "
+                  f"the day requested and were discarded")
+        if missing_days:
+            print(f"{_LOG} {attribute}: no rows for {len(missing_days)} day(s): "
+                  f"{', '.join(missing_days[:8])}"
+                  f"{' …' if len(missing_days) > 8 else ''}")
+
+        if dry_run and rows:
+            # What the platform actually returns, once, when a dry run is
+            # diagnosing a drop. Guessing at the row shape from the spec is
+            # how the tuple bug survived; print the keys instead.
+            sample = rows[0]
+            print(f"{_LOG} {attribute}: sample row keys = {sorted(sample.keys())}")
+            print(f"{_LOG} {attribute}: sample dimension values = "
+                  f"{ {k: v for k, v in sample.items() if not k.endswith('_sum')} }")
+
         records, dropped = _aggregate(rows, attribute)
         total_dropped += dropped
-        try:
-            n = _write(table, id_col, name_col, records)
-        except Exception as exc:
-            print(f"{_LOG} {attribute}: Neon UPSERT failed — {exc}")
-            failures.append(f"{attribute} upsert: {exc}")
-            results["ok"] = False
-            continue
+        if dry_run:
+            n = len(records)
+            days_covered = sorted({str(r["report_date"]) for r in records})
+            print(f"{_LOG} {attribute}: DRY RUN — would upsert {n} record(s) "
+                  f"across {len(days_covered)} day(s): "
+                  f"{', '.join(days_covered) if days_covered else '(none)'}")
+            # Per-day gross, so the parse can be checked against the
+            # platform's own totals without a second call. If a day here
+            # matches what `--reach-from` reported for it, nothing was
+            # dropped and the ids resolved.
+            by_day: dict[str, float] = defaultdict(float)
+            for rec in records:
+                by_day[str(rec["report_date"])] += rec["gross_revenue"]
+            for day in sorted(by_day):
+                print(f"{_LOG} {attribute}:   {day}  gross ${by_day[day]:,.2f}")
+        else:
+            try:
+                n = _write(table, id_col, name_col, records)
+            except Exception as exc:
+                print(f"{_LOG} {attribute}: Neon UPSERT failed — {exc}")
+                failures.append(f"{attribute} upsert: {exc}")
+                results["ok"] = False
+                continue
 
         gross = sum(r["gross_revenue"] for r in records)
         note = f", {dropped} row(s) dropped (unresolvable id/date)" if dropped else ""
@@ -358,6 +503,14 @@ if __name__ == "__main__":
         description="Land TBX (api.pgammedia.com) daily revenue into Neon")
     parser.add_argument("--backfill", type=int, default=None,
                         help=f"pull this many trailing days (default {WINDOW_DAYS})")
+    parser.add_argument("--from", dest="date_from", metavar="YYYY-MM-DD",
+                        help="explicit start date (inclusive); overrides --backfill")
+    parser.add_argument("--to", dest="date_to", metavar="YYYY-MM-DD",
+                        help="explicit end date (inclusive); defaults to today")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="pull and report coverage without writing to Neon")
     args = parser.parse_args()
-    outcome = run(window_days=args.backfill or WINDOW_DAYS)
+    outcome = run(window_days=args.backfill or WINDOW_DAYS,
+                  date_from=args.date_from, date_to=args.date_to,
+                  dry_run=args.dry_run)
     sys.exit(0 if outcome.get("ok") else 1)

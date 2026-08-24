@@ -106,6 +106,8 @@ def _import(module_path: str, func_name: str = "run"):
 # dashboard_alerts       | daily 9am  | posts anomalies + recon drift + DSP health to Slack
 # tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
 # tbx_revenue_etl        | every 60m  | UPSERTs TBX supply/demand/placement rollups (no-op until TBX_* set)
+# tbx_demand_geo_floor   | daily 09:45| TBX per-DSP x country floor PROPOSALS to Slack; never writes
+# tbx_auto_revert        | daily 10:15| undoes TBX geo-floor writes that did harm; propose-only by default
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # tb_revenue             | every 60m  | any time (55-min cooldown inside agent)
 # revenue_pace           | every 4h   | weekdays 9 AM–8 PM ET (guard inside)
@@ -238,6 +240,19 @@ def setup_schedule():
     tb_contract_floor_sentry = _import("agents.optimization.tb_contract_floor_sentry")
     revenue_health_monitor = _import("agents.alerts.revenue_health_monitor")
     tb_floor_nudge_agent   = _import("agents.optimization.tb_floor_nudge")
+    # First dynamic optimizer on the NEW platform (api.pgammedia.com):
+    # per-DSP x country bid floors. Propose-only — it needs --apply,
+    # TBX_ALLOW_WRITES=1 and PGAM_OPTIMIZER_AUTO_APPLY=1 together, and the
+    # scheduled call passes none of them, so this run posts to Slack and
+    # writes nothing. Also no-ops with a log line while TBX_EMAIL /
+    # TBX_PASSWORD are absent, same as tbx_revenue_etl.
+    tbx_demand_geo_floor   = _import("agents.optimization.tbx_demand_geo_floor")
+    # The safety net under the line above. Runs after it so a write and its
+    # review never interleave inside one scheduler tick. Propose-only for the
+    # same reason: it needs --apply, which the scheduled call does not pass.
+    # Unlike the optimizer it does NOT require PGAM_OPTIMIZER_AUTO_APPLY —
+    # see the module docstring on why the net is not gated by the accelerator.
+    tbx_auto_revert        = _import("agents.optimization.tbx_auto_revert")
     optimal_price_sweep_weekly = _import("scripts.optimal_price_sweep")
     train_floor_model      = _import("scripts.train_floor_model")
     margin_health          = _import("agents.alerts.margin_health")
@@ -683,6 +698,8 @@ def setup_schedule():
     schedule.every(4).hours.do(        _run("tb_floor_nudge",          tb_floor_nudge_agent))     # every 4h — +10% nudge w/ auto-rollback
     schedule.every(4).hours.do(        _run("revenue_guardian",        revenue_guardian))         # every 4h — verify+act with rollback safety net
     schedule.every().hour.do(          _run("tb_contract_floor_sentry",tb_contract_floor_sentry)) # hourly — restore any contract-floor violation
+    schedule.every().day.at("09:45").do(_run("tbx_demand_geo_floor",   tbx_demand_geo_floor))    # daily — TBX per-DSP x country floor PROPOSALS to Slack (never writes)
+    schedule.every().day.at("10:15").do(_run("tbx_auto_revert",        tbx_auto_revert))         # daily — reverts TBX geo-floor writes that did harm (propose-only; needs --apply)
     schedule.every(6).hours.do(        _run("revenue_health_monitor", revenue_health_monitor))    # every 6h — kill switch on aggregate revenue drop
     schedule.every().monday.at("06:00").do(_run("optimal_price_weekly", optimal_price_sweep_weekly))  # Mon — catch any new placements
     # ── Weekly: retrain floor elasticity ML model (Sun 05:00 ET) ─────────────

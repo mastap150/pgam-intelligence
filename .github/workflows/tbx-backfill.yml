@@ -1,0 +1,151 @@
+name: TBX backfill (land daily revenue into Neon)
+
+# Pulls a named date range from the new Teqblaze platform (api.pgammedia.com)
+# and UPSERTs it into pgam_direct.tbx_daily_* — the tables /admin/pnl and the
+# SSP recon sheet read.
+#
+# Why this exists as a workflow rather than a Render shell: the hourly ETL on
+# Render covers a trailing window and is the steady state. A repair is for
+# specific *dates* — "the TB column is blank from 21 Aug" — and needs to be
+# run once, on demand, by whoever noticed. Same reasoning as tbx-probe.yml:
+# a Claude Code cloud session cannot reach api.pgammedia.com (egress 403) and
+# cannot hold a database credential, so the runner is where this belongs.
+#
+# THIS ONE WRITES. tbx-probe.yml and tbx-neon-reports.yml are read-only; this
+# is not. It writes to our own warehouse, never to Teqblaze — the ETL imports
+# nothing from core/tbx_mgmt and TBX_ALLOW_WRITES is pinned off below — but a
+# bad range still lands bad rows in a table the P&L reads.
+#
+# So `dry_run` defaults to **true**. A dry run pulls from the platform and
+# prints exactly which days came back, without touching Neon. Run it that way
+# first: it answers the question that actually decides whether a backfill is
+# possible at all — can the platform still serve the days we are missing? —
+# before any row is written. The UPSERT is on (report_date, entity_id), so
+# re-running a range you have already landed is free.
+#
+# Setup — one time, by a repo admin. All three already exist if tbx-probe.yml
+# and tbx-neon-reports.yml have been run:
+#   TBX_EMAIL / TBX_PASSWORD      login for api.pgammedia.com
+#   PGAM_DIRECT_DATABASE_URL      Neon DSN for pgam_direct. Needs WRITE here —
+#                                 the read-only role the reports use is not
+#                                 enough, which is the one difference from
+#                                 tbx-neon-reports.yml.
+#
+# NOTE: workflow_dispatch is only offered for workflows on the DEFAULT branch.
+# Until this file is merged to main it will not appear in the Actions tab. The
+# equivalent, from any shell with the credentials:
+#
+#   python3 -m agents.etl.tbx_revenue_etl --from 2026-08-21 --dry-run
+#   python3 -m agents.etl.tbx_revenue_etl --from 2026-08-21
+
+on:
+  workflow_dispatch:
+    inputs:
+      date_from:
+        description: "First day to pull, YYYY-MM-DD (inclusive)"
+        required: true
+      date_to:
+        description: "Last day to pull, YYYY-MM-DD (inclusive). Blank = today."
+        required: false
+        default: ""
+      dry_run:
+        description: "Report coverage without writing to Neon"
+        type: boolean
+        required: false
+        default: true
+
+concurrency:
+  # The platform's rate limits are undocumented and the legacy API allowed one
+  # concurrent query per user. Shares a group with the probe so the two can
+  # never hit the account at once.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    name: Backfill tbx_daily_* for a date range
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      # Matches the scheduler's TZ so backfilled days line up with the days
+      # the hourly run lands. A backfill in a different timezone from the
+      # steady state produces a seam nobody can explain later.
+      TBX_TIMEZONE: US/Eastern
+      # This job has no business writing to Teqblaze. Both gates shut, so a
+      # future edit cannot accidentally enable one.
+      TBX_ALLOW_WRITES: "0"
+      TBX_DRY_RUN: "true"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet "psycopg[binary]" python-dotenv requests
+
+      - name: Offline sanity checks
+        # Before the credential gate: needs no secrets, and a failure here is
+        # ours rather than the platform's.
+        run: python3 tests/test_tbx.py
+
+      - name: Verify credentials are present
+        run: |
+          missing=""
+          [ -z "$TBX_EMAIL" ] && missing="$missing TBX_EMAIL"
+          [ -z "$TBX_PASSWORD" ] && missing="$missing TBX_PASSWORD"
+          if [ "${{ inputs.dry_run }}" != "true" ] && [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            missing="$missing PGAM_DIRECT_DATABASE_URL"
+          fi
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repo secret(s):$missing"
+            exit 1
+          fi
+          echo "Credentials present for: ${TBX_EMAIL%%@*}@***"
+
+      - name: Backfill
+        # Inputs arrive via env rather than ${{ }} interpolation into the
+        # shell — dispatch inputs are free text and would otherwise execute.
+        env:
+          IN_FROM: ${{ inputs.date_from }}
+          IN_TO: ${{ inputs.date_to }}
+          IN_DRY: ${{ inputs.dry_run }}
+        run: |
+          set -o pipefail
+          args="--from $IN_FROM"
+          [ -n "$IN_TO" ] && args="$args --to $IN_TO"
+          [ "$IN_DRY" = "true" ] && args="$args --dry-run"
+          echo "Running: agents.etl.tbx_revenue_etl $args"
+          python3 -m agents.etl.tbx_revenue_etl $args 2>&1 | tee backfill.log
+
+      - name: Summarise coverage
+        if: always()
+        # The per-day coverage lines are the actual result. A backfill that
+        # "succeeded" while every day came back empty is the failure mode this
+        # surfaces — the platform truncates silently, so a green run proves
+        # nothing on its own.
+        run: |
+          {
+            echo "### TBX backfill — ${{ inputs.date_from }} → ${{ inputs.date_to || 'today' }}"
+            echo ""
+            if [ "${{ inputs.dry_run }}" = "true" ]; then
+              echo "**Dry run — nothing was written to Neon.**"
+            else
+              echo "**Live — rows were UPSERTed into \`pgam_direct.tbx_daily_*\`.**"
+            fi
+            echo ""
+            echo '```'
+            grep -E "would upsert|upserted|no rows for|outside the day|FAILED|not configured" backfill.log || \
+              echo "(no coverage lines — see the job log)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
