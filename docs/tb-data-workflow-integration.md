@@ -397,56 +397,32 @@ revert.
 ## 10. Backfilling TB data from 21 Aug
 
 Both `/admin/pnl` and the SSP recon sheet lose their TB column from **21
-August** onward. This is the backfill, and it has a deadline — see the warning
-at the end.
+August**. Measured on 2026-08-24, the three missing days hold about **$20.1k
+of gross** on the new platform — see the reachability table below. The data is
+there; nothing has been reading it.
 
 ### Why it stopped on the 21st
 
-Nothing in the pipeline broke. The **credential** did. `/admin/finance` and
-the legacy ETL authenticate with `TB_ACCESS_TOKEN`, a static token minted by
-hand in the TB dashboard roughly monthly, because Teqblaze suspended
-`POST /create_token` for our login on 2026-05-11 with a 403 *"Account don't
-have access"* (`core/tb_api.py`, `get_token`). Every lapse between rotations
-is a day with no TB column, and the token silently ageing out on the 20th is
-exactly the shape of what the P&L shows.
+**The traffic moved and nothing was reading where it moved to.** The legacy
+host is retired, `api.pgammedia.com` carries the marketplace now, and
+`tbx_revenue_etl` — the one job pointed at the new platform — crashes on every
+grain (see the two bugs below). Legacy runs full through the 20th, TBX runs
+full from the 20th; the column went blank at the seam.
 
-So there are two repairs, and they are independent:
+An earlier draft of this section blamed `TB_ACCESS_TOKEN` ageing out, on the
+strength of the date matching. That was wrong, and it is a useful wrong: the
+static-token path is genuinely fragile (Teqblaze suspended `POST /create_token`
+for our login on 2026-05-11, so it is hand-minted roughly monthly —
+`core/tb_api.py`, `get_token`), which made it a plausible culprit. But a dead
+token and a completed cutover produce the same blank column on the same day,
+and only the reachability data separates them.
 
-1. **Immediate** — mint a fresh dashboard token, set `TB_ACCESS_TOKEN`, and
-   backfill the legacy tables. Restores the missing days now.
-2. **Structural** — stand up the TBX leg (§5, §6), which logs in with the
-   credentials themselves and needs no hand-minted token. Stops it recurring.
+**There is no legacy repair to do.** Do not mint a token and do not run the
+`tb_*` ETLs against `ssp.pgammedia.com` — that host is gone, and the days in
+question were never on it. The whole repair is on the TBX side.
 
-Do the first today. The second is what this branch is for.
 
-### Legacy backfill — restores the days that are missing now
-
-```bash
-# 1. Mint a token: TB dashboard -> the same place it was minted last month.
-export TB_ACCESS_TOKEN=<fresh token>
-
-# 2. Confirm it reads before landing anything.
-python3 -m scripts.tb_freshness
-
-# 3. Backfill. Aug 21 -> today is 4 days; take 7 for overlap, the tables
-#    UPSERT on (report_date, entity_id) so re-reading a day is free.
-python3 -m agents.etl.tb_revenue_etl   --backfill 7
-python3 -m agents.etl.tb_segments_etl  --backfill 7
-python3 -m agents.etl.tb_hour_etl      --backfill 7
-python3 -m agents.etl.country_revenue_etl --backfill 7
-```
-
-`tb_revenue_etl` already chunks one day per request (`CHUNK_DAYS = 1`), so a
-7-day backfill is 14 round trips at ~17s — about four minutes. That is not
-slowness to optimise away; it is the same reason the TBX ETL now chunks too.
-
-Then re-run the recon so the SSP sheet picks the days up. That lives in the
-**pgam-recon** repo, not this one — use its own runner over the same window
-(`python -m pgam_recon.cli --help` for the flag; this branch did not touch
-it). The recon reads the same Neon tables the ETLs above just filled, so the
-order matters: backfill first, recon second.
-
-### TBX backfill — only after §5 passes
+### TBX backfill — the whole repair
 
 ```bash
 # prove the days are reachable first — writes nothing
@@ -499,23 +475,57 @@ store". That was wrong. It matters in the right direction: nothing is waiting
 on a credential handover, and the ETL bug above was the only thing standing
 between the platform and the warehouse.
 
-### ⚠️ The backfill window is closing
+### Measured 2026-08-24: what the platform will actually serve
 
-Per the vendor reference (A5.1), a report request returns at most the most
-recent ~5 days ending at `date_to`. Whether that window is anchored to
-`date_to` or to *today* has not been established on this account — the
-observation was made on a query ending at the present day, so both readings
-fit the evidence.
+`python3 scripts/tbx_probe.py --reach-from 2026-08-10 --reach-to 2026-08-23`,
+run on a GitHub runner (`tbx-probe.yml`, `reach_from` input). One single-day
+report per day. Result:
 
-**If it is anchored to today, TBX can no longer reach 21 August after roughly
-26 August.** The legacy host is not affected — `tb_revenue_etl` has always
-chunked by day and reads history fine — so the legacy backfill above is not
-racing anything. But it means:
+| day | rows | impressions | gross (`dsp_price_sum`) |
+|---|---|---|---|
+| 2026-08-10 … 08-16 | — | — | none |
+| 2026-08-17 | yes | 40,166 | $5.79 |
+| 2026-08-18 | yes | 57,763 | $29.91 |
+| 2026-08-19 | yes | 33,436 | $13.76 |
+| 2026-08-20 | yes | 3,966,503 | $2,605.45 |
+| 2026-08-21 | yes | 6,325,162 | **$5,587.11** |
+| 2026-08-22 | yes | 7,782,718 | **$10,796.13** |
+| 2026-08-23 | yes | 6,470,029 | **$3,763.56** |
 
-- Run the legacy backfill first and do not wait on the TBX leg for it.
-- The single cheapest experiment that settles the question, once credentials
-  exist, is one call: ask for a single day two weeks back and see whether rows
-  come back. `python3 scripts/tbx_probe.py` is the place for it. Record the
-  answer in `teqblaze-new-platform.md` §8.1 either way — it decides whether
-  TBX can ever serve history or only a rolling window, and that in turn
-  decides whether the legacy leg can be retired at all.
+**21 August is reachable, and it holds real money.** The three missing days
+are roughly **$20.1k of gross** sitting in the platform and absent from the
+P&L. Nothing about the backfill is blocked; it just has to be run.
+
+### What this says about the truncation window — and about the 21st
+
+The earlier worry was that the ~5-day window might be anchored to *today*,
+putting the 21st out of reach around the 26th. The measurement says the
+reachable span is 17–23 Aug, seven days ending yesterday, with everything
+before it empty. Taken at face value that is an anchored-to-today window of
+about a week, and the 21st would age out around the 28th.
+
+But the shape argues for a different reading. A truncation window has a hard
+edge — full data, then nothing. What is actually there is three days of
+*trickle* (40k, 58k, 33k impressions, single- and double-digit dollars)
+followed by a 100× jump to millions of impressions on the 20th. That is not
+an edge, it is a **ramp**, and it lines up exactly with the other half of the
+picture: the legacy P&L column runs full until the 20th and goes blank from
+the 21st.
+
+So the better explanation is a **cutover**, not an expiry:
+
+```
+legacy  ████████████████████████░░░░░░░   full through 08-20, then nothing
+TBX     ░░░░░░░░░░░░░░░░░░▁▁▁████████     trickle 08-17..19, full from 08-20
+```
+
+Traffic moved to `api.pgammedia.com` around 20–21 August. The 17th–19th are
+migration trickle; the days before that are empty because there was no
+traffic on this platform yet, not because the platform refuses to serve them.
+Under that reading there is no deadline on single-day requests at all.
+
+**Both readings point at the same action**, which is why this is recorded
+rather than resolved: back the days up now. What separates them, if anyone
+needs to know later, is one call — re-run the probe over the same range in a
+week. If 17–19 Aug have gone empty, it is a rolling window; if they still
+answer, it was a cutover and history is permanently available.
