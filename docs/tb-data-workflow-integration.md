@@ -449,8 +449,17 @@ order matters: backfill first, recon second.
 ### TBX backfill — only after §5 passes
 
 ```bash
-python3 -m agents.etl.tbx_revenue_etl --backfill 7
+# prove the days are reachable first — writes nothing
+python3 -m agents.etl.tbx_revenue_etl --from 2026-08-21 --dry-run
+
+# then land them
+python3 -m agents.etl.tbx_revenue_etl --from 2026-08-21
 ```
+
+Or without a shell: **Actions → "TBX backfill (land daily revenue into Neon)"**,
+`date_from = 2026-08-21`, `dry_run` on for the first pass. That workflow only
+appears in the Actions tab once this branch is merged — GitHub offers
+`workflow_dispatch` for workflows on the default branch only.
 
 **This command did not work before this branch**, in two separate ways, and
 both are worth knowing because both failed quietly:
@@ -458,9 +467,17 @@ both are worth knowing because both failed quietly:
 1. It passed `tbx.report(...)`'s `(rows, totals)` tuple straight into
    `_aggregate`, which iterates it expecting dicts — `AttributeError: 'list'
    object has no attribute 'get'`, caught by the per-grain handler, logged as
-   a grain failure. Every grain, every run. The job has never landed a row.
-   Nobody saw it because it no-ops without `TBX_EMAIL`/`TBX_PASSWORD`, which
-   are still unset.
+   a grain failure. Every grain, every run. **The job has never landed a
+   row.**
+
+   This is the whole reason `pgam_direct.tbx_daily_*` is empty, and it is
+   worth being precise about, because the record says otherwise: PR #106's
+   commit message states "with TBX credentials now in Render the ETL is
+   landing rows". The credentials part is right — see below — but the landing
+   part was assumed, not checked. The rows never arrived, and the per-grain
+   handler turned a hard crash into three log lines an hour that nobody was
+   reading.
+
 2. It asked for its whole 14-day window in one call. The platform answers 200
    and returns the most recent ~5 days, silently. So even once fixed, a
    `--backfill 30` would have landed 5 days and printed success, and the 25
@@ -469,6 +486,18 @@ both are worth knowing because both failed quietly:
 Both are fixed here: the tuple is unpacked, and `_fetch_daily` asks one day at
 a time and discards any row whose `date` is not the day requested rather than
 attributing it to the wrong day.
+
+### The credentials already exist
+
+Verified 2026-08-24 by dispatching `tbx-probe.yml` on this branch: the
+"Verify credentials are present" gate **passed**, and the connectivity probe
+against `api.pgammedia.com` **succeeded**. So `TBX_EMAIL` and `TBX_PASSWORD`
+are live GitHub Actions secrets, the login works, and the platform answers.
+
+Earlier notes in this branch said the credentials were "in neither secret
+store". That was wrong. It matters in the right direction: nothing is waiting
+on a credential handover, and the ETL bug above was the only thing standing
+between the platform and the warehouse.
 
 ### ⚠️ The backfill window is closing
 
