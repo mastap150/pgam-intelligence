@@ -315,8 +315,26 @@ def _fetch_daily(attribute: str, start: date, end: date) -> tuple[list[dict], li
     return rows, missing, off_window
 
 
-def run(window_days: int = WINDOW_DAYS) -> dict:
-    """Pull each grain from TBX and UPSERT it into Neon."""
+def run(window_days: int = WINDOW_DAYS,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        dry_run: bool = False) -> dict:
+    """
+    Pull each grain from TBX and UPSERT it into Neon.
+
+    `date_from`/`date_to` (YYYY-MM-DD, inclusive) name an explicit window and
+    override `window_days`. A repair is always for particular *dates* — "the
+    TB column is blank from the 21st" — and expressing that as a trailing-day
+    count means recomputing the count every day it goes unfixed, and getting
+    it wrong the day someone runs yesterday's command. The tables UPSERT on
+    (report_date, entity_id), so naming the same window twice is free.
+
+    `dry_run=True` pulls from the platform and reports exactly what it would
+    land, without touching Neon. That is the cheap way to answer the question
+    that actually blocks a backfill — *can this platform still serve the days
+    we are missing?* — before any row is written. It is a read against the
+    platform either way; only the warehouse write is skipped.
+    """
     from core import tbx_api as tbx
 
     if not tbx.configured():
@@ -350,7 +368,8 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
         return {"ok": True, "skipped": "not_configured", "missing": missing}
 
     try:
-        ensure_tables()
+        if not dry_run:
+            ensure_tables()
     except Exception as exc:
         # Fatal: without the tables there is nowhere to put anything, and
         # continuing would report a per-grain UPSERT failure three times over
@@ -358,10 +377,26 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
         print(f"{_LOG} could not ensure destination tables — {exc}")
         return {"ok": False, "error": f"ensure_tables: {exc}"}
 
-    end = date.today()
-    start = end - timedelta(days=max(window_days - 1, 0))
+    if date_from or date_to:
+        try:
+            start = date.fromisoformat(date_from) if date_from else date.today()
+            end = date.fromisoformat(date_to) if date_to else date.today()
+        except ValueError as exc:
+            print(f"{_LOG} bad date bound — {exc}")
+            return {"ok": False, "error": f"bad date: {exc}"}
+        if start > end:
+            print(f"{_LOG} --from {start} is after --to {end}")
+            return {"ok": False, "error": "from after to"}
+        span = (end - start).days + 1
+        print(f"{_LOG} pulling {start}..{end} ({span}d, explicit) "
+              f"from {tbx.TBX_BASE}")
+    else:
+        end = date.today()
+        start = end - timedelta(days=max(window_days - 1, 0))
+        span = window_days
+        print(f"{_LOG} pulling {start}..{end} ({span}d trailing) "
+              f"from {tbx.TBX_BASE}")
     df, dt = start.isoformat(), end.isoformat()
-    print(f"{_LOG} pulling {df}..{dt} ({window_days}d) from {tbx.TBX_BASE}")
 
     results: dict[str, object] = {"ok": True}
     total_dropped = 0
@@ -393,13 +428,20 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
 
         records, dropped = _aggregate(rows, attribute)
         total_dropped += dropped
-        try:
-            n = _write(table, id_col, name_col, records)
-        except Exception as exc:
-            print(f"{_LOG} {attribute}: Neon UPSERT failed — {exc}")
-            failures.append(f"{attribute} upsert: {exc}")
-            results["ok"] = False
-            continue
+        if dry_run:
+            n = len(records)
+            days_covered = sorted({str(r["report_date"]) for r in records})
+            print(f"{_LOG} {attribute}: DRY RUN — would upsert {n} record(s) "
+                  f"across {len(days_covered)} day(s): "
+                  f"{', '.join(days_covered) if days_covered else '(none)'}")
+        else:
+            try:
+                n = _write(table, id_col, name_col, records)
+            except Exception as exc:
+                print(f"{_LOG} {attribute}: Neon UPSERT failed — {exc}")
+                failures.append(f"{attribute} upsert: {exc}")
+                results["ok"] = False
+                continue
 
         gross = sum(r["gross_revenue"] for r in records)
         note = f", {dropped} row(s) dropped (unresolvable id/date)" if dropped else ""
@@ -425,6 +467,14 @@ if __name__ == "__main__":
         description="Land TBX (api.pgammedia.com) daily revenue into Neon")
     parser.add_argument("--backfill", type=int, default=None,
                         help=f"pull this many trailing days (default {WINDOW_DAYS})")
+    parser.add_argument("--from", dest="date_from", metavar="YYYY-MM-DD",
+                        help="explicit start date (inclusive); overrides --backfill")
+    parser.add_argument("--to", dest="date_to", metavar="YYYY-MM-DD",
+                        help="explicit end date (inclusive); defaults to today")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="pull and report coverage without writing to Neon")
     args = parser.parse_args()
-    outcome = run(window_days=args.backfill or WINDOW_DAYS)
+    outcome = run(window_days=args.backfill or WINDOW_DAYS,
+                  date_from=args.date_from, date_to=args.date_to,
+                  dry_run=args.dry_run)
     sys.exit(0 if outcome.get("ok") else 1)
