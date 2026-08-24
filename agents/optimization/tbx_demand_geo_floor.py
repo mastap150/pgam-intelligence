@@ -47,9 +47,17 @@ April floor incidents argued for.
 What it refuses to touch
 ------------------------
 * **A DSP whose `is_smart_floor` is on.** That is Teqblaze's own floor
-  optimizer. Two optimizers on one floor is the April thrash again, this time
-  with a vendor on the other side. One owner per lever; if we want this DSP,
-  turn theirs off first, deliberately.
+  optimizer, and two optimizers on one floor is the April thrash again with a
+  vendor on the other side. Worth being precise about this one: in the
+  vendored spec `is_smart_floor` is declared on
+  `SupplySource_IndirectSuppliersResource` and **not** on
+  `DemandSourceResource`, so as documented today it cannot appear here and the
+  check never fires. It stays because the account, not the spec, is the
+  authority on what comes back — the vendored copy has already been caught
+  behind the platform once (`uuid`, 2026-08-21) — and because a check that
+  costs one dict lookup is the wrong place to economise. The demand side's own
+  vendor automation is `qps_limit.qps_limit_type = "dynamic"`, which is a QPS
+  lever, not a floor one, and does not conflict with this agent.
 * **A frozen partner** — `core.partner_freeze`, enforced inside
   `set_demand_geo_bid_floors` via the `demand_name` passthrough.
 * **A DSP whose report name does not resolve to exactly one demand-source
@@ -308,8 +316,10 @@ def build_proposals(
         name = (source.get("name") or source.get("title") or name).strip()
 
         if source.get("is_smart_floor"):
-            # Teqblaze's own floor optimizer owns this DSP's floors. Writing
-            # here would put two optimizers on one lever.
+            # Teqblaze's own floor optimizer owns this DSP's floors. The spec
+            # declares this field on supply sources only, so this is a guard
+            # against the live response carrying more than the vendored copy
+            # documents rather than a case seen today — see the module header.
             skips.append(f"[{sid}] {name}: is_smart_floor is on — vendor owns this lever")
             continue
 

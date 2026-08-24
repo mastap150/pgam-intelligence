@@ -225,11 +225,19 @@ The scheduled 09:45 run passes none of them. It posts proposals to Slack and
 writes nothing — which is how the LL optimizers were introduced, and what the
 April incidents argued for.
 
-**What it refuses.** A DSP with `is_smart_floor` on (Teqblaze's own optimizer
-owns that lever — one owner per lever, or it is the April thrash with a vendor
-in the loop). A frozen partner, via `core.partner_freeze`. A report name that
-resolves to zero or more than one demand source — a floor on the wrong DSP is
-silent, and an ambiguous name is not worth guessing at.
+**What it refuses.** A frozen partner, via `core.partner_freeze`. A report
+name that resolves to zero or more than one demand source — a floor on the
+wrong DSP is silent, and an ambiguous name is not worth guessing at. And a DSP
+with `is_smart_floor` on, which needs a caveat: the vendored spec declares
+that field on `SupplySource_IndirectSuppliersResource` and **not** on
+`DemandSourceResource`, so as documented it cannot appear here. The check
+stays because the live account, not the spec, is the authority on what comes
+back — the vendored copy has already been caught behind the platform once
+(`uuid`, 2026-08-21). The demand side's own vendor automation is
+`qps_limit.qps_limit_type = "dynamic"`, a QPS lever rather than a floor one,
+which does not conflict with this agent. **The one-owner-per-lever rule bites
+on the supply side**, and it is one more reason a supply-side floor writer
+comes last.
 
 **Before `--apply` is ever justified**, `teqblaze-new-platform.md` §6's round
 trip has to pass: `python3 scripts/tbx_probe.py --diff-shape demand:<id>`,
