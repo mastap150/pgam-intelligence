@@ -745,6 +745,22 @@ misconfigured. The workflow surfaces a `1` as a **warning with the job still
 green**, and fails only on `2` or an unexpected code — a red run should mean
 the tooling broke, not that the platforms disagree.
 
+**Status, 2026-08-24.** The repointing switch exists and is wired on both
+surfaces — `PNL_TB_SOURCE` for `/admin/pnl` and now `RECON_TB_SOURCE` for
+`/admin/finance`, each `legacy` (default) | `compare` | `tbx`, each independent
+of the other. `pgam-recon` gained a TBX client of its own
+(`pgam_recon/fetchers/tbx.py`) because the finance column needs per-partner
+grain the Neon rollup does not carry, and `pnl_sync`'s TBX reading now falls
+back to that client when the rollup is unavailable — the same host over a
+different wire, labelled in the note, not the cross-platform fallback
+`_resolve_tb` refuses. The operational sequence is
+`docs/tb-data-workflow-integration.md`; what is written below still governs
+*why*, and the ordering rule at the end of this section is unchanged.
+
+The remaining blocker is unchanged too, and it is not code: `TBX_EMAIL` /
+`TBX_PASSWORD` are in neither secret store, so the hourly ETL has been
+no-opping and neither switch can be moved off `legacy`.
+
 `scripts/tbx_pnl_check.py` reports what that repointing *would* do, without
 doing it: gaps TBX could fill (days the P&L holds NULL — the safe half),
 days where both exist and by how much they differ, and a verdict sharing

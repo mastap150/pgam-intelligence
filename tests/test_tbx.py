@@ -346,30 +346,92 @@ def test_pnl_check_exit_codes() -> None:
           _rc({d: (None, None) for d in days}) == 1)
 
 
-def test_report_hash_is_server_minted() -> None:
-    """
-    The report hash comes from the platform, never from us.
+def _reset_report_transport() -> None:
+    """Clear the sticky transport decision `_report_call` caches per process."""
+    tbx._EMPTY_HASH_OK = None
+    tbx._HASH_CACHE.clear()
 
-    The first version of this client sent an md5 of the request body as the
-    path hash, and every call 422'd with "Hash not found, or no longer
-    available" — which is what left pgam_direct.tbx_daily_* empty while the
-    ETL reported success. These pin the corrected sequence so it cannot
-    regress silently: the failure mode is not a crash, it is an empty table.
-    """
-    print("\nreport hash is server-minted")
 
-    calls: list[tuple[str, str]] = []
+def test_report_prefers_the_empty_hash_form() -> None:
+    """
+    `POST /report/` — trailing slash, nothing after it — is the cheap path.
+
+    It is one call instead of mint-then-read, and it does not stake the run
+    on a hash TTL nobody has documented. These pin that it is what gets tried
+    first, because the regression is silent in the direction that costs
+    money: mint-then-read still *works*, it just doubles the request count on
+    an hourly ETL and reintroduces the TTL.
+    """
+    print("\nreport transport: empty hash first")
+
+    calls: list[str] = []
     saved = tbx._request
 
     def fake(method, path, payload=None, **kw):
-        calls.append((method, path))
+        calls.append(path)
         if path == "/share/report":
             return {"hash": "server-minted-abc123"}
         return {"data": [{"date": "2026-08-20"}], "total": {}, "meta": {"last_page": 1}}
 
     try:
         tbx._request = fake
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
+        tbx.report("2026-08-14", "2026-08-20",
+                   attributes=["date"], metrics=["imps_sum"])
+        check("report() posts to /report/ with an empty hash",
+              calls[0] == "/report/", str(calls))
+        check("no hash was minted", "/share/report" not in calls, str(calls))
+        check("one call, not two", len(calls) == 1, str(calls))
+
+        # Pagination must not re-ask the transport question per page.
+        calls.clear()
+        pages = {"n": 0}
+
+        def paged(method, path, payload=None, **kw):
+            calls.append(path)
+            pages["n"] += 1
+            return {"data": [{"date": "2026-08-20"}], "total": {},
+                    "meta": {"last_page": 3}}
+
+        tbx._request = paged
+        _reset_report_transport()
+        tbx.report("2026-08-14", "2026-08-20",
+                   attributes=["date"], metrics=["imps_sum"], max_pages=3)
+        check("every page uses the empty-hash form",
+              calls == ["/report/"] * 3, str(calls))
+    finally:
+        tbx._request = saved
+        _reset_report_transport()
+
+
+def test_report_falls_back_to_minting() -> None:
+    """
+    If the empty-hash form is rejected, mint-then-read still has to work.
+
+    The first version of this client sent an md5 of the request body as the
+    path hash, and every call 422'd with "Hash not found, or no longer
+    available" — which is what left pgam_direct.tbx_daily_* empty while the
+    ETL reported success. The failure mode is not a crash, it is an empty
+    table, so the corrected sequence stays pinned even though it is no longer
+    the default.
+    """
+    print("\nreport transport: mint fallback")
+
+    calls: list[str] = []
+    saved = tbx._request
+
+    def fake(method, path, payload=None, **kw):
+        calls.append(path)
+        if path == "/report/":
+            raise tbx.TbxError("no hash", status=422,
+                               body='{"message":"Hash not found, or no longer available"}')
+        if path == "/share/report":
+            return {"hash": "server-minted-abc123"}
+        return {"data": [{"date": "2026-08-20"}], "total": {}, "meta": {"last_page": 1}}
+
+    try:
+        tbx._request = fake
+        _reset_report_transport()
 
         payload = tbx.build_report_payload(
             "2026-08-14", "2026-08-20",
@@ -379,33 +441,70 @@ def test_report_hash_is_server_minted() -> None:
               tbx.mint_report_hash(payload) == "server-minted-abc123")
         check("the minted hash is cached, not re-requested",
               tbx.mint_report_hash(payload) == "server-minted-abc123"
-              and [c for c in calls if c[1] == "/share/report"].__len__() == 1)
+              and calls.count("/share/report") == 1)
         check("refresh=True mints again",
               tbx.mint_report_hash(payload, refresh=True) == "server-minted-abc123"
-              and [c for c in calls if c[1] == "/share/report"].__len__() == 2)
+              and calls.count("/share/report") == 2)
 
         calls.clear()
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
         tbx.report("2026-08-14", "2026-08-20",
                    attributes=["date"], metrics=["imps_sum"])
-        paths = [p for _, p in calls]
-        check("report() mints before reading",
-              paths[0] == "/share/report", str(paths[:2]))
+        check("the empty-hash form is tried first", calls[0] == "/report/", str(calls))
+        check("then it mints", "/share/report" in calls, str(calls))
         check("report() addresses the SERVER hash",
-              "/report/server-minted-abc123" in paths, str(paths))
+              "/report/server-minted-abc123" in calls, str(calls))
         check("report() never addresses the local md5",
-              not any(p.startswith("/report/" + tbx._request_hash(
-                  tbx.build_report_payload("2026-08-14", "2026-08-20",
-                                           attributes=["date"],
-                                           metrics=["imps_sum"])))
-                      for p in paths))
+              not any(c.startswith("/report/" + tbx._request_hash(payload))
+                      for c in calls))
+
+        # Sticky: a second report must not re-pay the rejected empty-hash call.
+        calls.clear()
+        tbx.report("2026-08-01", "2026-08-02",
+                   attributes=["date"], metrics=["imps_sum"])
+        check("the rejection is remembered for the process",
+              "/report/" not in calls, str(calls))
     finally:
         tbx._request = saved
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
+
+
+def test_a_query_error_is_not_a_transport_error() -> None:
+    """
+    A 422 naming a bad metric must not trigger the mint fallback.
+
+    Minting a hash for the same body would produce the same 422 one call
+    later, and the second error is the one the caller would see — so the
+    real complaint ("unknown report metric") would be reported as a hash
+    problem. Only a hash-shaped rejection is grounds to switch transport.
+    """
+    print("\nreport transport: query errors propagate")
+
+    calls: list[str] = []
+    saved = tbx._request
+
+    def fake(method, path, payload=None, **kw):
+        calls.append(path)
+        raise tbx.TbxError("bad request", status=422,
+                           body='{"message":"metrics field is required"}')
+
+    try:
+        tbx._request = fake
+        _reset_report_transport()
+        expect_raises("a non-hash 422 propagates from the empty-hash call",
+                      tbx.TbxError, tbx.report, "2026-08-14", "2026-08-20",
+                      attributes=["date"], metrics=["imps_sum"])
+        check("and it did not mint a hash to ask again",
+              "/share/report" not in calls, str(calls))
+        check("the transport is not marked broken by a query error",
+              tbx._EMPTY_HASH_OK is not False)
+    finally:
+        tbx._request = saved
+        _reset_report_transport()
 
 
 def test_stale_hash_is_reminted_once() -> None:
-    """A hash that expires mid-report must retry, not end the run."""
+    """A minted hash that expires mid-report must retry, not end the run."""
     print("\nstale hash recovery")
 
     check("a 422 naming the hash is recognised as stale",
@@ -422,6 +521,10 @@ def test_stale_hash_is_reminted_once() -> None:
     saved = tbx._request
 
     def fake(method, path, payload=None, **kw):
+        if path == "/report/":
+            # Force the mint path, which is the one under test here.
+            raise tbx.TbxError("no hash", status=422,
+                               body='{"message":"Hash not found"}')
         if path == "/share/report":
             state["mints"] += 1
             return {"hash": f"h{state['mints']}"}
@@ -433,7 +536,7 @@ def test_stale_hash_is_reminted_once() -> None:
 
     try:
         tbx._request = fake
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
         tbx.report("2026-08-14", "2026-08-20",
                    attributes=["date"], metrics=["imps_sum"])
         check("re-minted after the stale 422", state["mints"] == 2)
@@ -442,10 +545,13 @@ def test_stale_hash_is_reminted_once() -> None:
         check("stale hash recovered without raising", False, f"{type(exc).__name__}: {exc}")
     finally:
         tbx._request = saved
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
 
-    # A non-hash error must still propagate rather than being swallowed.
+    # A non-hash error from the hash-addressed read must still propagate.
     def always_422(method, path, payload=None, **kw):
+        if path == "/report/":
+            raise tbx.TbxError("no hash", status=422,
+                               body='{"message":"Hash not found"}')
         if path == "/share/report":
             return {"hash": "h"}
         raise tbx.TbxError("bad request", status=422,
@@ -453,13 +559,218 @@ def test_stale_hash_is_reminted_once() -> None:
 
     try:
         tbx._request = always_422
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
         expect_raises("a non-hash 422 still propagates", tbx.TbxError,
                       tbx.report, "2026-08-14", "2026-08-20",
                       attributes=["date"], metrics=["imps_sum"])
     finally:
         tbx._request = saved
-        tbx._HASH_CACHE.clear()
+        _reset_report_transport()
+
+
+def test_tbx_demand_geo_floor_proposals() -> None:
+    """
+    The first dynamic optimizer on this platform, offline.
+
+    Every check here is a way a floor writer costs money quietly rather than
+    loudly: a floor on the wrong DSP, a floor above what the DSP clears, a
+    second optimizer fighting the vendor's own, a country set replaced instead
+    of merged. None of those raise.
+    """
+    print("\ntbx demand geo floor: proposals")
+
+    from agents.optimization import tbx_demand_geo_floor as agent
+
+    countries = {"usa": 1, "gbr": 2, "can": 3, "bra": 4}
+
+    def row(source: str, country: str, imps: int, spend: float) -> dict:
+        return {"demand_source": source, "country": country,
+                "imps_sum": str(imps), "dsp_price_sum": f"{spend:.2f}",
+                "ssp_price_sum": "0", "requests_sum": str(imps * 10)}
+
+    by_name = {"alpha dsp": [10], "beta dsp": [20], "twin dsp": [30, 31]}
+    by_id = {10: {"id": 10, "name": "Alpha DSP"},
+             20: {"id": 20, "name": "Beta DSP"},
+             30: {"id": 30, "name": "Twin DSP"},
+             31: {"id": 31, "name": "Twin DSP"}}
+
+    details = {
+        # No floors set at all.
+        10: {"id": 10, "name": "Alpha DSP", "geo_settings": {}},
+        # Teqblaze's own optimizer owns this one.
+        20: {"id": 20, "name": "Beta DSP", "is_smart_floor": True,
+             "geo_settings": {}},
+    }
+    fetch = lambda sid: details.get(sid, {"id": sid})   # noqa: E731
+
+    # $10.00 eCPM in the US -> proposed 0.85 * 10.00 = $8.50, no prior floor
+    # so the delta cap has nothing to clamp against.
+    rows = [row("Alpha DSP", "USA", 100_000, 1000.00)]
+    props, skips = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("a clean pair produces one proposal", len(props) == 1, str(props))
+    if props:
+        pick = props[0]["picks"][0]
+        check("floor = FLOOR_PCT x observed eCPM",
+              abs(pick["proposed"] - 8.50) < 0.01, str(pick))
+        check("keyed by the platform's numeric country id",
+              props[0]["floors_by_country_id"] == {1: pick["proposed"]},
+              str(props[0]["floors_by_country_id"]))
+
+    # The vendor's own floor optimizer owns Beta. One owner per lever.
+    rows = [row("Beta DSP", "USA", 100_000, 1000.00)]
+    props, skips = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("is_smart_floor DSPs are skipped", not props, str(props))
+    check("and the skip says why",
+          any("is_smart_floor" in sk for sk in skips), str(skips))
+
+    # An ambiguous name must never be guessed at — that is a floor on the
+    # wrong DSP, and it is silent.
+    rows = [row("Twin DSP", "USA", 100_000, 1000.00)]
+    props, skips = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("an ambiguous demand name is skipped", not props, str(props))
+    check("and counted as ambiguous",
+          any("ambiguous" in sk for sk in skips), str(skips))
+
+    rows = [row("Nobody At All", "USA", 100_000, 1000.00)]
+    props, skips = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("an unknown demand name is skipped, not guessed", not props)
+
+    # Volume and quality bars.
+    rows = [row("Alpha DSP", "USA", 10, 5.00)]                # under min imps
+    props, _ = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("a low-volume pair is not priced", not props, str(props))
+
+    rows = [row("Alpha DSP", "USA", 100_000, 1.00)]           # $0.01 eCPM
+    props, _ = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("a junk-eCPM pair is not priced", not props, str(props))
+
+    # Geo allowlist.
+    rows = [row("Alpha DSP", "BRA", 100_000, 1000.00)]
+    props, _ = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("a country outside the allowlist is ignored", not props, str(props))
+
+    # The delta cap. Current $1.00, observed eCPM $10.00 -> wants $8.50,
+    # must land at $1.25 (+25%), not $8.50.
+    details[10] = {"id": 10, "name": "Alpha DSP",
+                   "geo_settings": {"bid_floor": [{"country_id": 1, "value": "1.00"}]}}
+    rows = [row("Alpha DSP", "USA", 100_000, 1000.00)]
+    props, _ = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("the delta cap trims a large move",
+          bool(props) and abs(props[0]["picks"][0]["proposed"] - 1.25) < 0.001,
+          str(props))
+    check("and the clamp is recorded on the proposal",
+          bool(props) and props[0]["picks"][0]["clamps"], str(props))
+
+    # A floor already at or above what the DSP clears must not be touched:
+    # raising it further removes them from the auction.
+    details[10] = {"id": 10, "name": "Alpha DSP",
+                   "geo_settings": {"bid_floor": [{"country_id": 1, "value": "9.00"}]}}
+    props, _ = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("no proposal when the current floor already exceeds the target",
+          not props, str(props))
+
+    # Never a cut, even when the observed eCPM has collapsed.
+    rows = [row("Alpha DSP", "USA", 100_000, 100.00)]         # $1.00 eCPM
+    props, _ = agent.build_proposals(rows, by_name, by_id, countries, fetch)
+    check("a collapsed eCPM produces no floor cut", not props, str(props))
+
+    # A GET that fails is a skip with a reason, not a crash and not a
+    # proposal built on a blank config.
+    def boom(sid):
+        raise RuntimeError("503")
+
+    details[10] = {"id": 10, "name": "Alpha DSP", "geo_settings": {}}
+    rows = [row("Alpha DSP", "USA", 100_000, 1000.00)]
+    props, skips = agent.build_proposals(rows, by_name, by_id, countries, boom)
+    check("a failed detail read is a skip, not a crash", not props)
+    check("and names the source", any("[10]" in sk for sk in skips), str(skips))
+
+
+def test_tbx_demand_geo_floor_write_path() -> None:
+    """apply_proposals must merge, never replace, and must respect the gates."""
+    print("\ntbx demand geo floor: write path")
+
+    from agents.optimization import tbx_demand_geo_floor as agent
+
+    calls: list[dict] = []
+    saved = tbm.set_demand_geo_bid_floors
+
+    def fake(**kw):
+        calls.append(kw)
+        return {"applied": not kw.get("dry_run"), "clamps": []}
+
+    proposals = [{
+        "demand_source_id": 10,
+        "demand_name": "Alpha DSP",
+        "floors_by_country_id": {1: 8.50},
+        "picks": [{"country": "USA", "country_id": 1, "current": 0.0,
+                   "proposed": 8.50, "observed_ecpm": 10.0, "imps": 100_000,
+                   "spend": 1000.0, "clamps": []}],
+        "spend_in_scope": 1000.0,
+    }]
+
+    try:
+        tbm.set_demand_geo_bid_floors = fake
+        agent.apply_proposals(proposals, dry_run=True)
+        check("the writer is called once per proposal", len(calls) == 1)
+        check("replace=False — countries we did not price are left alone",
+              calls and calls[0].get("replace") is False, str(calls))
+        check("demand_name is passed so partner_freeze can refuse",
+              calls and calls[0].get("demand_name") == "Alpha DSP", str(calls))
+        check("dry_run is honoured", calls and calls[0].get("dry_run") is True)
+        check("the actor is the agent, not 'manual'",
+              calls and calls[0].get("actor") == "tbx_demand_geo_floor")
+    finally:
+        tbm.set_demand_geo_bid_floors = saved
+
+    # A refusal from partner_freeze is recorded, not counted as applied.
+    calls.clear()
+
+    def refuse(**kw):
+        return {"applied": False, "refused": "partner_freeze"}
+
+    try:
+        tbm.set_demand_geo_bid_floors = refuse
+        actions = agent.apply_proposals(proposals, dry_run=False)
+        check("a freeze refusal is recorded on the action",
+              actions and actions[0].get("refused") == "partner_freeze",
+              str(actions))
+        check("and is not reported as applied",
+              actions and actions[0].get("applied") is False)
+    finally:
+        tbm.set_demand_geo_bid_floors = saved
+
+
+def test_tbx_demand_geo_floor_gates() -> None:
+    """--apply alone must not be enough to write."""
+    print("\ntbx demand geo floor: autonomy gates")
+
+    from agents.optimization import tbx_demand_geo_floor as agent
+
+    os.environ.pop("PGAM_OPTIMIZER_AUTO_APPLY", None)
+    check("the fleet autonomy gate is closed by default",
+          agent.auto_apply_enabled() is False)
+    os.environ["PGAM_OPTIMIZER_AUTO_APPLY"] = "1"
+    check("and opens on exactly '1'", agent.auto_apply_enabled() is True)
+    os.environ["PGAM_OPTIMIZER_AUTO_APPLY"] = "yes"
+    check("'yes' does not open it", agent.auto_apply_enabled() is False)
+    os.environ.pop("PGAM_OPTIMIZER_AUTO_APPLY", None)
+
+    # Unconfigured platform: a scheduled run must return rather than raise.
+    saved = tbx.configured
+    try:
+        tbx.configured = lambda: False
+        outcome = agent.run(dry_run=True)
+        check("no credentials is a clean no-op",
+              outcome.get("ok") is True and "skipped" in outcome, str(outcome))
+    finally:
+        tbx.configured = saved
+
+    check("FLOOR_PCT is below 1.0 — a floor at the clearing price is a block",
+          agent.FLOOR_PCT < 1.0, str(agent.FLOOR_PCT))
+    check("the per-run source cap is bounded", 0 < agent.MAX_SOURCES_PER_RUN <= 50)
+    check("the per-source country cap is bounded",
+          0 < agent.MAX_COUNTRIES_PER_SOURCE <= 25)
 
 
 def test_write_gates() -> None:
@@ -822,8 +1133,13 @@ def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
     test_request_hash()
-    test_report_hash_is_server_minted()
+    test_report_prefers_the_empty_hash_form()
+    test_report_falls_back_to_minting()
+    test_a_query_error_is_not_a_transport_error()
     test_stale_hash_is_reminted_once()
+    test_tbx_demand_geo_floor_proposals()
+    test_tbx_demand_geo_floor_write_path()
+    test_tbx_demand_geo_floor_gates()
     test_floor_clamps()
     test_deep_merge()
     test_key_loss_guard()

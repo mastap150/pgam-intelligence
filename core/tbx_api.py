@@ -716,26 +716,77 @@ def _is_stale_hash(exc: TbxError) -> bool:
     return exc.status == 422 and "hash" in (exc.body or "").lower()
 
 
+# Whether the empty-hash form works on this account. None = not yet tried.
+# Process-local and sticky: once one call has answered the question there is
+# no reason to keep paying a failed request per page to re-ask it.
+_EMPTY_HASH_OK: bool | None = None
+
+# Set TBX_REPORT_HASH_MODE to pin the transport when diagnosing:
+#   auto  (default) empty hash, falling back to mint-then-read
+#   empty only the empty-hash form; a failure is a failure
+#   mint  only mint-then-read, skipping the empty-hash attempt
+_HASH_MODE = (os.getenv("TBX_REPORT_HASH_MODE") or "auto").strip().lower()
+
+
 def _report_call(path_tmpl: str, payload: dict, page_payload: dict | None = None):
     """
-    One hash-addressed report call, re-minting once if the hash has expired.
+    One report call. Prefers `POST /report/` — trailing slash, empty hash.
 
-    A hash can expire mid-page: the TTL is unknown and a wide report can take
-    longer to walk than the platform keeps the result set. Re-minting on that
-    422 turns a run-ending error into a retry; anything else propagates.
+    There are two ways to address a report on this platform and they cost
+    different amounts:
+
+      * **Empty hash** — `POST /report/` with the query in the body. One call.
+        Verified live against the platform, including pagination and the
+        `total` block. This is the form the vendor's own reference documents.
+      * **Mint then read** — `POST /share/report` for a hash, then
+        `POST /report/{hash}`. Two calls, and it stakes the run on a TTL
+        nobody has documented (§8.1.6 still asks Teqblaze for it).
+
+    So: try the cheap, verified one; fall back to minting if the account or
+    the endpoint turns out to need it. The result is remembered for the
+    process, so the fallback costs one extra request in total rather than one
+    per page. A stale minted hash mid-pagination is still re-minted once —
+    that path did not stop being possible, it stopped being the default.
+
+    What is NOT tried is a client-computed hash. That was the original bug
+    here: every call came back `422 "Hash not found, or no longer available"`
+    because the platform only honours hashes it minted itself.
     """
+    global _EMPTY_HASH_OK
+
+    body = page_payload if page_payload is not None else payload
+    empty_path = path_tmpl.format(hash="")
+
+    if _HASH_MODE != "mint" and _EMPTY_HASH_OK is not False:
+        try:
+            result = _request("POST", empty_path, payload=body)
+            if _EMPTY_HASH_OK is None:
+                _EMPTY_HASH_OK = True
+            return result
+        except TbxError as exc:
+            if _HASH_MODE == "empty":
+                raise
+            # Only a hash-shaped rejection is grounds to try the other
+            # transport. A 422 naming an unknown metric is a bug in the
+            # query, and minting a hash for the same body would just produce
+            # the same 422 one call later.
+            if not (_is_stale_hash(exc) or exc.status == 404):
+                raise
+            _EMPTY_HASH_OK = False
+            print(f"{_LOG_PREFIX} POST {empty_path} rejected ({exc.status}) — "
+                  f"falling back to mint-then-read for the rest of this process",
+                  file=sys.stderr)
+
     hsh = mint_report_hash(payload)
     try:
-        return _request("POST", path_tmpl.format(hash=hsh),
-                        payload=page_payload if page_payload is not None else payload)
+        return _request("POST", path_tmpl.format(hash=hsh), payload=body)
     except TbxError as exc:
         if not _is_stale_hash(exc):
             raise
         print(f"{_LOG_PREFIX} report hash expired mid-call — re-minting once",
               file=sys.stderr)
         hsh = mint_report_hash(payload, refresh=True)
-        return _request("POST", path_tmpl.format(hash=hsh),
-                        payload=page_payload if page_payload is not None else payload)
+        return _request("POST", path_tmpl.format(hash=hsh), payload=body)
 
 
 def build_report_payload(
