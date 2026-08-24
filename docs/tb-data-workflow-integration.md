@@ -459,9 +459,45 @@ both are worth knowing because both failed quietly:
    `--backfill 30` would have landed 5 days and printed success, and the 25
    missing days would have read as 25 days of zero revenue.
 
-Both are fixed here: the tuple is unpacked, and `_fetch_daily` asks one day at
-a time and discards any row whose `date` is not the day requested rather than
-attributing it to the wrong day.
+3. **Every row was then dropped as unresolvable.** With the first two fixed,
+   a dry run pulled 12,830 rows across the three grains and turned them into
+   **zero** records. `_entity` looked for an id — an `{id, name}` object, a
+   flattened `x_id` column, a numeric scalar — and the report has none of
+   them. A row is:
+
+   ```
+   {'date': '2026-08-21', 'placement': '01net.it_300x250 #8766'}
+   ```
+
+   The dimension is a display **name** with the entity id appended as a
+   `#NNNN` suffix. That is the vendor's own convention — the API reference
+   shows the same form for a source, `"Magnite - RON Prebid Server In App
+   #1752"` — so it was documented all along and simply not implemented.
+
+All three are fixed: the tuple is unpacked, `_fetch_daily` asks one day at a
+time and discards any row whose `date` is not the day requested rather than
+attributing it to the wrong day, and `_entity` parses the trailing `#NNNN`.
+Only a *trailing* suffix counts, so a `#` inside a partner name is not
+mistaken for an id.
+
+### Verified end to end, 2026-08-24
+
+A dry run for 21 Aug on a runner, after the fixes:
+
+```
+[tbx_revenue_etl] placement: 2554 row(s) -> 2554 upserted, gross $5,586.71
+```
+
+Nothing dropped, and **$5,586.71** against the **$5,587.11** the reachability
+probe independently reported for that day — 0.007%, which is rounding across
+2,554 rows. Two different code paths agreeing on the platform's own total is
+the check that the ids resolved and no row went missing; it costs no extra
+call, which is why the dry run prints per-day gross.
+
+Lesson worth keeping: each of these three bugs hid the next. The tuple crash
+masked the truncation, and fixing both revealed the parse. Nothing short of
+running it against the live account would have found them, and the first two
+were each "obviously the bug" at the time.
 
 ### The credentials already exist
 
