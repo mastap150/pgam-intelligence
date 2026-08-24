@@ -426,6 +426,15 @@ def run(window_days: int = WINDOW_DAYS,
                   f"{', '.join(missing_days[:8])}"
                   f"{' …' if len(missing_days) > 8 else ''}")
 
+        if dry_run and rows:
+            # What the platform actually returns, once, when a dry run is
+            # diagnosing a drop. Guessing at the row shape from the spec is
+            # how the tuple bug survived; print the keys instead.
+            sample = rows[0]
+            print(f"{_LOG} {attribute}: sample row keys = {sorted(sample.keys())}")
+            print(f"{_LOG} {attribute}: sample dimension values = "
+                  f"{ {k: v for k, v in sample.items() if not k.endswith('_sum')} }")
+
         records, dropped = _aggregate(rows, attribute)
         total_dropped += dropped
         if dry_run:
