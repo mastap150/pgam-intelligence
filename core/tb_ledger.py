@@ -53,6 +53,8 @@ Public API
 from __future__ import annotations
 
 import json
+import time
+import uuid
 import os
 import sys
 from datetime import datetime, timezone, timedelta
@@ -65,6 +67,34 @@ os.makedirs(os.path.dirname(LEDGER_PATH), exist_ok=True)
 
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _new_id() -> str:
+    """
+    Short, sortable, unique id for one ledger entry.
+
+    Same shape as `core.floor_ledger._new_id` — millisecond timestamp in hex
+    plus six random hex chars — so the two ledgers' ids read alike.
+    """
+    return f"{int(time.time() * 1000):x}{uuid.uuid4().hex[:6]}"
+
+
+def entry_key(entry: dict) -> str:
+    """
+    A stable identity for a ledger entry, for readers that need to refer back
+    to one — an auto-revert linking itself to the write it undid, say.
+
+    Entries written before `id` existed do not have one, and the file is
+    append-only so they never will. For those, fall back to a fingerprint of
+    the fields that together identify a write. It is not guaranteed unique the
+    way `id` is — two identical writes in the same second collide — but it is
+    stable across reads, which is what a dedupe check needs.
+    """
+    existing = entry.get("id")
+    if existing:
+        return str(existing)
+    return "fp:" + "|".join(str(entry.get(k, "")) for k in
+                            ("ts", "actor", "action", "entity_type", "entity_id"))
 
 
 # ─── Write ───────────────────────────────────────────────────────────────────
@@ -92,6 +122,7 @@ def record(
     tolerable but should be alerted on.
     """
     entry = {
+        "id":          _new_id(),
         "ts":          _now_iso(),
         "actor":       actor,
         "action":      action,

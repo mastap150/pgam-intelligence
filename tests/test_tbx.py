@@ -26,6 +26,8 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -1129,6 +1131,354 @@ def test_interactive_credentials() -> None:
         tbx.TBX_EMAIL, tbx.TBX_PASSWORD = saved_email, saved_pw
 
 
+
+def test_tbx_auto_revert_candidates() -> None:
+    """Which ledger writes are ours to undo — and which are emphatically not."""
+    print("\ntbx auto-revert: candidate selection")
+
+    from agents.optimization import tbx_auto_revert as agent
+
+    now = datetime(2026, 8, 24, 12, 0, tzinfo=timezone.utc)
+
+    def entry(**kw):
+        base = {
+            "id": kw.pop("id", f"e{len(kw)}"),
+            "ts": kw.pop("ts", "2026-08-20T09:45:00+00:00"),
+            "actor": kw.pop("actor", "tbx_demand_geo_floor"),
+            "action": kw.pop("action", "set_demand_geo_bid_floors"),
+            "entity_type": kw.pop("entity_type", "tbx_demand_source"),
+            "entity_id": kw.pop("entity_id", 10),
+            "applied": kw.pop("applied", True),
+            "dry_run": kw.pop("dry_run", False),
+            "before": {"geo_settings": {"bid_floor": [{"country_id": 1, "value": 1.00}]}},
+            "after": {"geo_settings": {"bid_floor": [{"country_id": 1, "value": 1.25}]}},
+        }
+        base.update(kw)
+        return base
+
+    ours = entry(id="w1")
+    cands, _skips = agent.find_candidates([ours], now=now)
+    check("our own optimizer's applied write is a candidate", len(cands) == 1, str(cands))
+    check("and it carries the prior floors to restore",
+          cands and cands[0]["before_floors"] == {1: 1.00}, str(cands))
+
+    # Exclusions, one at a time.
+    cases = [
+        ("a dry run is not a candidate", entry(id="w2", dry_run=True)),
+        ("an unapplied write is not a candidate", entry(id="w3", applied=False)),
+        ("a human's manual write is not ours to undo", entry(id="w4", actor="manual")),
+        ("another agent's write is not ours to undo",
+         entry(id="w5", actor="tbx_qps_waste_sentry")),
+        ("a revert is never itself reverted",
+         entry(id="w6", actor="tbx_auto_revert_20260820")),
+        ("a legacy-platform entry is out of scope",
+         entry(id="w7", entity_type="tb_placement")),
+        ("a different action is out of scope",
+         entry(id="w8", action="set_demand_status")),
+        ("a write older than the window is out of scope",
+         entry(id="w9", ts="2026-07-01T09:45:00+00:00")),
+    ]
+    for label, bad in cases:
+        cands, _ = agent.find_candidates([bad], now=now)
+        check(label, len(cands) == 0, str(cands))
+
+    # A no-op write (floors identical before and after) has nothing to undo.
+    noop = entry(id="w10")
+    noop["after"] = {"geo_settings": {"bid_floor": [{"country_id": 1, "value": 1.00}]}}
+    cands, _ = agent.find_candidates([noop], now=now)
+    check("a write that changed no floor is not a candidate", len(cands) == 0)
+
+    # Already reverted -> never reverted twice.
+    link = {
+        "id": "r1", "ts": "2026-08-22T10:15:00+00:00",
+        "actor": "tbx_auto_revert_20260822", "action": "auto_revert_link",
+        "entity_type": "tbx_demand_source", "entity_id": 10,
+        "applied": True, "dry_run": False,
+        "extra": {"reverted_from": "w1"},
+    }
+    cands, _ = agent.find_candidates([ours, link], now=now)
+    check("a write already reverted is not reverted again", len(cands) == 0, str(cands))
+
+    # Third-party write after ours -> escalate, never clobber.
+    intruder = entry(id="w11", entity_id=10, actor="manual",
+                     ts="2026-08-21T14:00:00+00:00")
+    cands, skips = agent.find_candidates([ours, intruder], now=now)
+    check("a third party writing after us blocks the revert",
+          len(cands) == 0, str(cands))
+    check("and it is escalated as a skip, not dropped silently",
+          any("manual" in s and "human" in s.lower() for s in skips), str(skips))
+
+
+def test_tbx_auto_revert_harm_rule() -> None:
+    """What counts as harm, measured in settled days."""
+    print("\ntbx auto-revert: harm rule")
+
+    from agents.optimization import tbx_auto_revert as agent
+
+    change_ts = datetime(2026, 8, 18, 9, 45, tzinfo=timezone.utc)
+    candidate = {"ledger_id": "w1", "ts": change_ts, "demand_source_id": 10,
+                 "before_floors": {1: 1.0}, "after_floors": {1: 1.25},
+                 "actor": "tbx_demand_geo_floor"}
+    today = date(2026, 8, 23)   # settled days run through the 23rd
+
+    def index(pre_profit, post_profit, pre_imps=100_000.0, post_imps=100_000.0):
+        out = {}
+        for i in range(agent.PRE_DAYS):
+            day = (change_ts.date() - timedelta(days=i + 1)).isoformat()
+            out[(10, day)] = {"imps": pre_imps, "gross": pre_profit * 4,
+                              "payout": pre_profit * 3, "profit": pre_profit}
+        day = change_ts.date() + timedelta(days=1)
+        while day <= today:
+            out[(10, day.isoformat())] = {
+                "imps": post_imps, "gross": post_profit * 4,
+                "payout": post_profit * 3, "profit": post_profit}
+            day += timedelta(days=1)
+        return out
+
+    v = agent.assess(candidate, index(100.0, 100.0), today=today)
+    check("flat profit is left alone", v["revert"] is False, str(v))
+
+    v = agent.assess(candidate, index(100.0, 95.0), today=today)
+    check("a 5% dip is inside tolerance", v["revert"] is False, str(v))
+
+    v = agent.assess(candidate, index(100.0, 70.0), today=today)
+    check("a 30% profit drop triggers a revert", v["revert"] is True, str(v))
+    check("and the reason names the numbers", "profit" in v["why"], v["why"])
+
+    v = agent.assess(candidate, index(100.0, 120.0), today=today)
+    check("a floor that improved profit is kept", v["revert"] is False, str(v))
+
+    # Fill collapse fires even when profit holds.
+    v = agent.assess(candidate, index(100.0, 100.0, post_imps=20_000.0), today=today)
+    check("an 80% impression collapse triggers even at flat profit",
+          v["revert"] is True, str(v))
+    check("and says so", "impressions" in v["why"], v["why"])
+
+    # Too small to act on.
+    v = agent.assess(candidate, index(1.0, 0.0), today=today)
+    check("a source below the pre-window profit floor is left alone",
+          v["revert"] is False, str(v))
+    check("and says why", "below" in v["why"], v["why"])
+
+    # Not enough settled days yet.
+    v = agent.assess(candidate, index(100.0, 0.0), today=date(2026, 8, 19))
+    check(f"one settled day is not enough (MIN_POST_DAYS={agent.MIN_POST_DAYS})",
+          v["revert"] is False, str(v))
+    v = agent.assess(candidate, index(100.0, 0.0), today=date(2026, 8, 18))
+    check("no settled day since the write is not enough",
+          v["revert"] is False, str(v))
+
+    # A total wipeout: the platform drops all-zero rows, so the post window is
+    # simply absent from the index. That must read as zero, not as no-data.
+    wiped = index(100.0, 0.0)
+    for key in [k for k in wiped if k[1] > change_ts.date().isoformat()]:
+        del wiped[key]
+    v = agent.assess(candidate, wiped, today=today)
+    check("a DSP with no post rows at all reads as zero, not as missing data",
+          v["revert"] is True, str(v))
+
+    # No pre-change data -> nothing to compare against, so do nothing.
+    v = agent.assess(candidate, {}, today=today)
+    check("no pre-change data means no revert", v["revert"] is False, str(v))
+
+
+def test_tbx_auto_revert_write_path() -> None:
+    """The revert primitive: exact restore, correct gates, loud refusals."""
+    print("\ntbx auto-revert: write path")
+
+    from agents.optimization import tbx_auto_revert as agent
+
+    calls: list[dict] = []
+    saved = tbm.set_demand_geo_bid_floors
+
+    candidate = {"ledger_id": "w1", "ts": datetime(2026, 8, 18, tzinfo=timezone.utc),
+                 "demand_source_id": 10, "demand_name": "Alpha DSP",
+                 "before_floors": {1: 1.0, 2: 2.0},
+                 "after_floors": {1: 1.25, 2: 2.5, 3: 4.0},
+                 "actor": "tbx_demand_geo_floor"}
+    verdict = {"revert": True, "why": "profit $100/day → $60/day"}
+
+    def fake(**kw):
+        calls.append(kw)
+        return {"applied": not kw.get("dry_run"), "clamps": []}
+
+    try:
+        tbm.set_demand_geo_bid_floors = fake
+        action = agent.revert_one(candidate, verdict, dry_run=True)
+        check("the writer is called once", len(calls) == 1)
+        check("replace=True — a revert restores the snapshot exactly",
+              calls and calls[0].get("replace") is True, str(calls))
+        check("country 3, which the forward run added, is dropped by replacing",
+              calls and 3 not in calls[0]["floors_by_country_id"], str(calls))
+        check("the prior values are what get written",
+              calls and calls[0]["floors_by_country_id"] == {1: 1.0, 2: 2.0},
+              str(calls))
+        check("demand_name is passed so partner_freeze can refuse",
+              calls and calls[0].get("demand_name") == "Alpha DSP")
+        check("the actor marks it as an auto-revert",
+              calls and calls[0]["actor"].startswith("tbx_auto_revert"))
+        check("the reason cites the write being undone",
+              calls and "w1" in calls[0]["reason"], str(calls))
+        check("dry run is not reported as applied", action["applied"] is False)
+    finally:
+        tbm.set_demand_geo_bid_floors = saved
+
+    # A freeze refusal must surface, not vanish — the harm is still live.
+    try:
+        tbm.set_demand_geo_bid_floors = lambda **kw: {
+            "applied": False, "refused": "partner_freeze"}
+        action = agent.revert_one(candidate, verdict, dry_run=True)
+        check("a freeze refusal is recorded on the action",
+              action.get("refused") == "partner_freeze", str(action))
+        summary = agent.slack_summary([action], [], 1, applied=True)
+        check("and Slack says the harmful floors are still live",
+              "still live" in summary, summary)
+    finally:
+        tbm.set_demand_geo_bid_floors = saved
+
+    # A clamp on the way back means the entity landed in a third state.
+    try:
+        tbm.set_demand_geo_bid_floors = lambda **kw: {
+            "applied": True, "clamps": ["global min: $0.0000 → $0.0100"]}
+        action = agent.revert_one(candidate, verdict, dry_run=True)
+        check("a clamped revert is flagged inexact", action.get("inexact") is True,
+              str(action))
+        summary = agent.slack_summary([action], [], 1, applied=True)
+        check("and Slack shows the clamp", "clamped on the way back" in summary,
+              summary)
+    finally:
+        tbm.set_demand_geo_bid_floors = saved
+
+
+def test_tbx_auto_revert_is_always_within_the_delta_cap() -> None:
+    """Undoing a capped raise must never itself be blocked by the cap."""
+    print("\ntbx auto-revert: the delta cap cannot trap a revert")
+
+    delta = tbm.MAX_FLOOR_DELTA
+    prior = 1.00
+    raised, _ = tbm.clamp_floor(prior * 100, current=prior)   # ask for the moon
+    check(f"a forward raise is capped at +{delta:.0%}",
+          abs(raised - prior * (1 + delta)) < 1e-6, f"{raised}")
+
+    back, reasons = tbm.clamp_floor(prior, current=raised)
+    check("and reverting to the prior value is permitted, uncapped",
+          abs(back - prior) < 1e-6, f"{back} reasons={reasons}")
+
+    # The general statement: undoing (1+d) needs a cut of d/(1+d), which is
+    # strictly less than d for any d > 0. So a single-step revert always fits.
+    check("the arithmetic holds for the configured cap",
+          delta / (1 + delta) < delta, f"delta={delta}")
+
+
+def test_tbx_auto_revert_gates() -> None:
+    """--apply alone must not write; the fleet gate deliberately does not apply."""
+    print("\ntbx auto-revert: gates")
+
+    from agents.optimization import tbx_auto_revert as agent
+
+    saved_conf = tbx.configured
+    try:
+        tbx.configured = lambda: False
+        outcome = agent.run(dry_run=True)
+        check("no credentials is a clean no-op",
+              outcome.get("ok") is True and "skipped" in outcome, str(outcome))
+    finally:
+        tbx.configured = saved_conf
+
+    # --apply without the platform gate falls back to propose-only.
+    os.environ.pop("TBX_ALLOW_WRITES", None)
+    check("the platform write gate is closed by default",
+          tbm.writes_enabled() is False)
+
+    saved_iter = tb_ledger.iter_entries
+    saved_report = agent.daily_rows
+    try:
+        tbx.configured = lambda: True
+        tb_ledger.iter_entries = lambda since=None: iter([])
+        agent.daily_rows = lambda s, e: []
+        outcome = agent.run(dry_run=False)
+        check("--apply with TBX_ALLOW_WRITES unset does not write",
+              outcome.get("reverts", 0) == 0, str(outcome))
+    finally:
+        tbx.configured = saved_conf
+        tb_ledger.iter_entries = saved_iter
+        agent.daily_rows = saved_report
+
+    check("the fleet autonomy gate is NOT among this agent's gates — a revert "
+          "restores a prior state and must survive the accelerator being cut",
+          "PGAM_OPTIMIZER_AUTO_APPLY" not in
+          Path(agent.__file__).read_text().split('"""')[2],
+          "found the fleet gate in the agent body")
+
+    check("the per-run revert cap is bounded", 0 < agent.MAX_REVERTS_PER_RUN <= 10)
+    check("the profit trigger is a real threshold, not a hair",
+          0.05 <= agent.DROP_THRESHOLD_PCT <= 0.5)
+    check("at least two settled days are required before acting",
+          agent.MIN_POST_DAYS >= 2)
+
+
+def test_tbx_etl_chunks_by_day() -> None:
+    """The ETL must not trust a multi-day range, and must unpack the report."""
+    print("\ntbx revenue ETL: day chunking")
+
+    from agents.etl import tbx_revenue_etl as etl
+
+    check("the ETL chunks one day at a time", etl.CHUNK_DAYS == 1)
+
+    asked: list[tuple[str, str]] = []
+
+    def fake_report(date_from, date_to, attributes, metrics):
+        asked.append((date_from, date_to))
+        # The platform's real shape: (rows, totals). Passing the tuple
+        # straight to _aggregate is the bug this pins.
+        return ([{"date": date_from, "demand_source": "Alpha",
+                  "demand_source_id": 7, "imps_sum": "100",
+                  "dsp_price_sum": "10.0", "ssp_price_sum": "7.0",
+                  "requests_sum": "1000", "ssp_wins_sum": "200"}],
+                {"imps_sum": "100"})
+
+    saved = tbx.report
+    try:
+        tbx.report = fake_report
+        rows, missing, off = etl._fetch_daily(
+            "demand_source", date(2026, 8, 21), date(2026, 8, 24))
+    finally:
+        tbx.report = saved
+
+    check("a 4-day window is 4 single-day requests, not one range request",
+          len(asked) == 4, str(asked))
+    check("each request asks for exactly one day",
+          all(a == b for a, b in asked), str(asked))
+    check("the days requested are the days asked for",
+          [a for a, _ in asked] == ["2026-08-21", "2026-08-22",
+                                    "2026-08-23", "2026-08-24"], str(asked))
+    check("the (rows, totals) tuple is unpacked, not fed to _aggregate whole",
+          len(rows) == 4 and all(isinstance(r, dict) for r in rows), str(rows)[:200])
+    check("no day is reported missing when every day answered", missing == [])
+
+    records, dropped = etl._aggregate(rows, "demand_source")
+    check("and the rows aggregate to one record per day",
+          len(records) == 4 and dropped == 0, str(records)[:200])
+
+    # A row carrying a date other than the one requested is discarded, never
+    # attributed to the requested day.
+    def wrong_date(date_from, date_to, attributes, metrics):
+        return ([{"date": "2026-08-19", "demand_source_id": 7,
+                  "imps_sum": "100", "dsp_price_sum": "10.0",
+                  "ssp_price_sum": "7.0", "requests_sum": "1", "ssp_wins_sum": "1"}],
+                {})
+
+    try:
+        tbx.report = wrong_date
+        rows, missing, off = etl._fetch_daily(
+            "demand_source", date(2026, 8, 21), date(2026, 8, 21))
+    finally:
+        tbx.report = saved
+
+    check("a row for another date is discarded, not misattributed",
+          rows == [] and off == 1, f"rows={rows} off={off}")
+    check("and the day is reported as having no rows", missing == ["2026-08-21"])
+
 def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
@@ -1140,6 +1490,12 @@ def main() -> int:
     test_tbx_demand_geo_floor_proposals()
     test_tbx_demand_geo_floor_write_path()
     test_tbx_demand_geo_floor_gates()
+    test_tbx_auto_revert_candidates()
+    test_tbx_auto_revert_harm_rule()
+    test_tbx_auto_revert_write_path()
+    test_tbx_auto_revert_is_always_within_the_delta_cap()
+    test_tbx_auto_revert_gates()
+    test_tbx_etl_chunks_by_day()
     test_floor_clamps()
     test_deep_merge()
     test_key_loss_guard()

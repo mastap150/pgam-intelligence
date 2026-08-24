@@ -62,8 +62,23 @@ _LOG = "[tbx_revenue_etl]"
 # side has not backfilled is a comparison of coverage, not of data.
 WINDOW_DAYS = 14
 
-# One request per grain per run. The report endpoint takes a date range, so
-# unlike the legacy host there is no need to chunk by day.
+# One request per grain PER DAY. The report endpoint accepts a date range and
+# answers 200 for any span you ask for, but it silently returns only the most
+# recent ~5 days of it — no error, no flag, no short-window marker (reference
+# A5.1). A 14-day pull therefore lands 5 days and reports success, and the
+# nine missing days look like nine days of zero revenue.
+#
+# So the range parameter cannot be trusted for anything wider than the
+# truncation window, and the truncation window is undocumented and could
+# narrow. Asking for one day at a time and checking the `date` on every row
+# that comes back is the only form that cannot silently under-report. It is
+# the same reason `tb_revenue_etl` sets CHUNK_DAYS = 1 against the legacy
+# host, arrived at independently.
+#
+# Cost: N requests per grain for an N-day window instead of 1. A 14-day run
+# is 42 calls. That is the price of a total that is either right or loud.
+CHUNK_DAYS = 1
+
 GRAINS: tuple[tuple[str, str, str], ...] = (
     # (attribute, destination table, id column)
     ("supply_source", "tbx_daily_supply_revenue", "supply_id"),
@@ -254,6 +269,52 @@ def _write(table: str, id_col: str, name_col: str, records: list[dict]) -> int:
     return len(records)
 
 
+def _fetch_daily(attribute: str, start: date, end: date) -> tuple[list[dict], list[str], int]:
+    """
+    Pull `[start, end]` one day at a time.
+
+    Returns `(rows, days_with_no_rows, rows_discarded_off_window)`.
+
+    Every row is checked against the day it was requested for. A row carrying
+    another date is discarded and counted, never folded into the requested
+    day — misattributing a day's revenue is worse than missing it, because a
+    missing day is visible in the table and a misattributed one is not.
+
+    A day with no rows is reported but is not an error: the platform drops
+    all-zero rows (reference A5.2), so a genuinely dead day and a truncated
+    response look the same from here. What separates them is that truncation
+    cannot happen to a one-day request, which is the whole point of chunking.
+    """
+    from core import tbx_api as tbx
+
+    rows: list[dict] = []
+    missing: list[str] = []
+    off_window = 0
+
+    day = start
+    while day <= end:
+        iso = day.isoformat()
+        day_rows, _totals = tbx.report(
+            date_from=iso,
+            date_to=iso,
+            attributes=["date", attribute],
+            metrics=list(METRICS),
+        )
+        kept = 0
+        for row in day_rows:
+            raw = str(row.get("date") or row.get("report_date") or "")[:10]
+            if raw and raw != iso:
+                off_window += 1
+                continue
+            rows.append(row)
+            kept += 1
+        if kept == 0:
+            missing.append(iso)
+        day += timedelta(days=CHUNK_DAYS)
+
+    return rows, missing, off_window
+
+
 def run(window_days: int = WINDOW_DAYS) -> dict:
     """Pull each grain from TBX and UPSERT it into Neon."""
     from core import tbx_api as tbx
@@ -309,12 +370,7 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
     for attribute, table, id_col in GRAINS:
         name_col = id_col.replace("_id", "_name")
         try:
-            rows = tbx.report(
-                date_from=df,
-                date_to=dt,
-                attributes=["date", attribute],
-                metrics=list(METRICS),
-            )
+            rows, missing_days, off_window = _fetch_daily(attribute, start, end)
         except Exception as exc:
             # One grain failing must not cost the others. A partial load is
             # worth more than none, and the failure is named rather than
@@ -323,6 +379,17 @@ def run(window_days: int = WINDOW_DAYS) -> dict:
             failures.append(f"{attribute}: {exc}")
             results["ok"] = False
             continue
+
+        if off_window:
+            # The platform answered a single-day request with other dates.
+            # Those rows are discarded rather than attributed to the day we
+            # asked for, which would put one day's revenue on another.
+            print(f"{_LOG} {attribute}: {off_window} row(s) came back outside "
+                  f"the day requested and were discarded")
+        if missing_days:
+            print(f"{_LOG} {attribute}: no rows for {len(missing_days)} day(s): "
+                  f"{', '.join(missing_days[:8])}"
+                  f"{' …' if len(missing_days) > 8 else ''}")
 
         records, dropped = _aggregate(rows, attribute)
         total_dropped += dropped

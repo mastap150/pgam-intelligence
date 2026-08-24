@@ -261,9 +261,10 @@ exist on TBX yet:
    `qps_limit.qps_optimization_by` first: that is Teqblaze's own QPS tuner and
    the same one-owner-per-lever rule applies.
 3. **Dead demand** — pause sources with sustained zero fill.
-4. **Auto-revert** — the LL side's `auto_revert_harmful` is what makes the
-   rest of its fleet safe to run unattended. Nothing here should move to
-   `PGAM_OPTIMIZER_AUTO_APPLY=1` before its TBX equivalent exists.
+4. ~~**Auto-revert**~~ — **built**, see §9. It is what makes the rest of the
+   fleet safe to run unattended, and nothing here should move to
+   `PGAM_OPTIMIZER_AUTO_APPLY=1` before it has been watched through at least
+   one real write-and-review cycle.
 5. **Supply-side floors** — last, and not before `PROTECTED_FLOOR_MINIMUMS` is
    populated from the contract sheets.
 
@@ -278,12 +279,214 @@ exist on TBX yet:
   reference, but not by us, and not on this account. The fallback exists for
   exactly that reason.
 - **Silent date truncation.** A 21-day request came back holding only the most
-  recent 5 days — no error, no flag. The recon fetcher asks one day at a time
-  and checks the `date` column on every row. `core/tbx_api.py`'s `report()`
-  still takes a range, so **historical backfills through it are not currently
-  trustworthy**; group by `date` and check what came back.
+  recent 5 days — no error, no flag. Every caller that lands data now chunks
+  by day and checks the `date` on each row: the recon fetcher, and as of this
+  branch `agents/etl/tbx_revenue_etl` too (it previously asked for its whole
+  14-day window in one call, so it would have landed 5 days and reported
+  success). **`core/tbx_api.report()` still takes a range and is still
+  truncated** — it is the raw client and the range is the platform's own
+  parameter. Anything built on it that spans more than a couple of days must
+  do its own chunking; group by `date` and check what came back.
 - **All-zero rows are dropped by the platform.** Two reports built with
   different metric sets are not row-comparable. Grand totals are unaffected.
 - **`PROTECTED_FLOOR_MINIMUMS` is empty.** Until it is populated with TBX's own
   IDs, only the $0.01 zero-out guard and the ±25% delta cap apply — enough to
   stop a zero-out, not enough to stop a $0.05 write on a $1.70 contract floor.
+
+---
+
+## 9. Auto-revert — the net under the optimizer
+
+`agents/optimization/tbx_auto_revert.py`. Scheduled daily at 10:15, half an
+hour after the optimizer, so a write and its review never land in one tick.
+
+It re-reads the geo-floor writes `tbx_demand_geo_floor` made, measures what
+happened to each DSP afterwards, and restores the pre-change floors if the
+change did harm.
+
+### The measurement grain is the whole design
+
+The LL agent this mirrors compares **hourly** revenue and can act six hours
+after a bad write. The TBX report has no `hour` attribute — `date` is the
+finest grain the platform offers — and today is never settled. So:
+
+```
+write lands on day D
+day D is partial            -> unusable
+day D+1 settles overnight   -> first usable post-day
+run on day D+2              -> earliest possible revert
+```
+
+**Two days, against six hours on LL.** Three things follow, and they are the
+reason this section is longer than the agent deserves:
+
+- `MIN_POST_DAYS` is 2, not 1. A single day against a 7-day baseline is mostly
+  day-of-week noise, and a false revert is itself a harmful write.
+- **The forward agent's caps are what actually bound the damage** — the ±25%
+  delta cap, `FLOOR_PCT` below 1.0, the per-run source cap. Do not loosen any
+  of them on the theory that auto-revert will catch it. Over a two-day
+  detection window it will not catch it; it will only end it.
+- If Teqblaze ever exposes an hour attribute, the day constants become hour
+  constants and this gets much sharper. That is a question worth adding to
+  `teqblaze-new-platform.md` §8.1.
+
+### What counts as harm
+
+Either trigger is enough, both measured as per-settled-day rates so an uneven
+window length cannot skew them:
+
+| trigger | threshold | why this one |
+|---|---|---|
+| profit rate drop | >20% below pre | profit is what the floor is *for* — `dsp_price_sum − ssp_price_sum` |
+| impression rate drop | >50% below pre | a floor that zeroes a DSP is harm even if the survivors are profitable |
+
+Sources with less than $50 of profit across the 7-day baseline are left alone
+— too small to distinguish a real drop from noise.
+
+A DSP that produces **no rows at all** post-change reads as *zero*, not as
+missing data. That is deliberate and it is the case that matters most: the
+platform drops all-zero rows, so a total wipeout looks exactly like an absent
+partner. Treating it as no-data would make the worst outcome the one the agent
+cannot see.
+
+### What it refuses to do
+
+- **Revert a write it did not make.** Only `tbx_demand_geo_floor` writes are
+  candidates. A human's manual floor change is theirs.
+- **Revert twice, or revert its own reverts.** Each revert writes an
+  `auto_revert_link` ledger entry carrying `reverted_from`, and the next run
+  reads it. That is also why `core/tb_ledger.record` now stamps an `id` —
+  entries written before it exists fall back to a fingerprint via
+  `tb_ledger.entry_key`.
+- **Clobber a third party.** The revert restores a whole snapshot
+  (`replace=True`), which is the only way to undo a country the forward run
+  *added*. That makes it dangerous if anyone else has written to the same
+  demand source since — so if anyone has, the agent escalates to Slack instead
+  of writing.
+- **Override a partner freeze.** `set_demand_geo_bid_floors` refuses frozen
+  partners and this agent does not route around it — but a freeze blocking a
+  revert is reported loudly, because the harm is still live and now needs
+  hands.
+
+### Gates — deliberately not the optimizer's three
+
+```
+--apply              on the command line (default: propose only)
+TBX_ALLOW_WRITES=1   the platform-wide write gate
+```
+
+**`PGAM_OPTIMIZER_AUTO_APPLY` intentionally does not gate this agent.** That
+gate authorises taking *new* positions. A revert only restores one the
+platform was already in and a human already lived with. Gating the net behind
+the accelerator means that closing the accelerator mid-incident — the exact
+reflex someone has on seeing a bad write — also disables the thing that undoes
+it. `TBX_ALLOW_WRITES` stays the master switch: with it off, nothing here
+writes either.
+
+One property worth knowing rather than rediscovering: **the delta cap can
+never trap a revert.** Undoing a raise of `(1+d)` requires a cut of
+`d/(1+d)`, which is strictly smaller than `d` for any positive `d`. A
+single-step revert of a capped raise always fits inside the same cap.
+`test_tbx_auto_revert_is_always_within_the_delta_cap` pins it. The one clamp
+that *can* bite on the way back is `GLOBAL_MIN_FLOOR` raising a prior $0.00 to
+$0.01; the agent flags that run as `inexact` rather than reporting a clean
+revert.
+
+---
+
+## 10. Backfilling TB data from 21 Aug
+
+Both `/admin/pnl` and the SSP recon sheet lose their TB column from **21
+August** onward. This is the backfill, and it has a deadline — see the warning
+at the end.
+
+### Why it stopped on the 21st
+
+Nothing in the pipeline broke. The **credential** did. `/admin/finance` and
+the legacy ETL authenticate with `TB_ACCESS_TOKEN`, a static token minted by
+hand in the TB dashboard roughly monthly, because Teqblaze suspended
+`POST /create_token` for our login on 2026-05-11 with a 403 *"Account don't
+have access"* (`core/tb_api.py`, `get_token`). Every lapse between rotations
+is a day with no TB column, and the token silently ageing out on the 20th is
+exactly the shape of what the P&L shows.
+
+So there are two repairs, and they are independent:
+
+1. **Immediate** — mint a fresh dashboard token, set `TB_ACCESS_TOKEN`, and
+   backfill the legacy tables. Restores the missing days now.
+2. **Structural** — stand up the TBX leg (§5, §6), which logs in with the
+   credentials themselves and needs no hand-minted token. Stops it recurring.
+
+Do the first today. The second is what this branch is for.
+
+### Legacy backfill — restores the days that are missing now
+
+```bash
+# 1. Mint a token: TB dashboard -> the same place it was minted last month.
+export TB_ACCESS_TOKEN=<fresh token>
+
+# 2. Confirm it reads before landing anything.
+python3 -m scripts.tb_freshness
+
+# 3. Backfill. Aug 21 -> today is 4 days; take 7 for overlap, the tables
+#    UPSERT on (report_date, entity_id) so re-reading a day is free.
+python3 -m agents.etl.tb_revenue_etl   --backfill 7
+python3 -m agents.etl.tb_segments_etl  --backfill 7
+python3 -m agents.etl.tb_hour_etl      --backfill 7
+python3 -m agents.etl.country_revenue_etl --backfill 7
+```
+
+`tb_revenue_etl` already chunks one day per request (`CHUNK_DAYS = 1`), so a
+7-day backfill is 14 round trips at ~17s — about four minutes. That is not
+slowness to optimise away; it is the same reason the TBX ETL now chunks too.
+
+Then re-run the recon so the SSP sheet picks the days up. That lives in the
+**pgam-recon** repo, not this one — use its own runner over the same window
+(`python -m pgam_recon.cli --help` for the flag; this branch did not touch
+it). The recon reads the same Neon tables the ETLs above just filled, so the
+order matters: backfill first, recon second.
+
+### TBX backfill — only after §5 passes
+
+```bash
+python3 -m agents.etl.tbx_revenue_etl --backfill 7
+```
+
+**This command did not work before this branch**, in two separate ways, and
+both are worth knowing because both failed quietly:
+
+1. It passed `tbx.report(...)`'s `(rows, totals)` tuple straight into
+   `_aggregate`, which iterates it expecting dicts — `AttributeError: 'list'
+   object has no attribute 'get'`, caught by the per-grain handler, logged as
+   a grain failure. Every grain, every run. The job has never landed a row.
+   Nobody saw it because it no-ops without `TBX_EMAIL`/`TBX_PASSWORD`, which
+   are still unset.
+2. It asked for its whole 14-day window in one call. The platform answers 200
+   and returns the most recent ~5 days, silently. So even once fixed, a
+   `--backfill 30` would have landed 5 days and printed success, and the 25
+   missing days would have read as 25 days of zero revenue.
+
+Both are fixed here: the tuple is unpacked, and `_fetch_daily` asks one day at
+a time and discards any row whose `date` is not the day requested rather than
+attributing it to the wrong day.
+
+### ⚠️ The backfill window is closing
+
+Per the vendor reference (A5.1), a report request returns at most the most
+recent ~5 days ending at `date_to`. Whether that window is anchored to
+`date_to` or to *today* has not been established on this account — the
+observation was made on a query ending at the present day, so both readings
+fit the evidence.
+
+**If it is anchored to today, TBX can no longer reach 21 August after roughly
+26 August.** The legacy host is not affected — `tb_revenue_etl` has always
+chunked by day and reads history fine — so the legacy backfill above is not
+racing anything. But it means:
+
+- Run the legacy backfill first and do not wait on the TBX leg for it.
+- The single cheapest experiment that settles the question, once credentials
+  exist, is one call: ask for a single day two weeks back and see whether rows
+  come back. `python3 scripts/tbx_probe.py` is the place for it. Record the
+  answer in `teqblaze-new-platform.md` §8.1 either way — it decides whether
+  TBX can ever serve history or only a rolling window, and that in turn
+  decides whether the legacy leg can be retired at all.
