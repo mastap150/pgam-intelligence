@@ -32,6 +32,10 @@ on:
         description: "Date to inspect (YYYY-MM-DD). Blank = today UTC."
         required: false
         type: string
+      unified_from:
+        description: "Also print core.tb_unified's per-day resolution from this date — the figures the Slack alert posts and the P&L row holds."
+        required: false
+        type: string
 
 jobs:
   today:
@@ -43,6 +47,7 @@ jobs:
       PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
       PYTHONUNBUFFERED: "1"
       IN_DATE: ${{ github.event.inputs.date }}
+      IN_UNIFIED_FROM: ${{ github.event.inputs.unified_from }}
 
     steps:
       - uses: actions/checkout@v4
@@ -69,3 +74,10 @@ jobs:
           else
             python3 scripts/tb_freshness.py
           fi
+
+      - name: Unified TB resolution
+        # Proves against the real warehouse that the Slack alert and the P&L
+        # resolve the same figures — same two rollups, same cutover rule, so
+        # agreement should be exact. Read-only, no platform call.
+        if: inputs.unified_from != ''
+        run: python3 scripts/tb_unified_check.py --from "$IN_UNIFIED_FROM"
