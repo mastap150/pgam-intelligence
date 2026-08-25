@@ -1,0 +1,81 @@
+name: TBX Supply Gap
+
+# Which publishers were earning on the legacy host before 2026-08-21 and are
+# earning nothing on TBX after it.
+#
+# This exists because the migration cost ~2.6M impressions a day — 41% of the
+# profit drop measured in docs/tb-data-workflow-integration.md §12 — and that
+# component, unlike price and margin, has a recoverable cause. Nothing was
+# answering "which publishers", which is the form the question has to take
+# before anyone can act on it.
+#
+# Scheduled daily rather than left as a diagnostic on purpose: a publisher can
+# stop sending at any point, not only at the cutover, and the report is
+# designed to read clean once the roster is whole. When it has read clean for
+# a week, delete the schedule — it is a migration instrument, not a cadence
+# job.
+#
+# The step FAILS while supply is missing. That is deliberate: a red daily run
+# is the only thing that keeps this visible, and it goes green the moment the
+# gap closes. Do not "fix" it by dropping the exit code.
+#
+# READ-ONLY. scripts/tbx_supply_gap.py issues only SELECTs inside a
+# `SET TRANSACTION READ ONLY` transaction, and never touches the platform —
+# both legs are read from Neon.
+
+on:
+  schedule:
+    - cron: "40 11 * * *"      # 07:40 ET — after recon-daily (10:13 UTC)
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Window length either side of the cutover (default 4)"
+        required: false
+        default: "4"
+      quiet_pct:
+        description: "Impression drop that counts as QUIET (default 60)"
+        required: false
+        default: "60"
+
+permissions:
+  contents: read
+
+jobs:
+  gap:
+    name: Supply that did not survive the cutover
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+      IN_DAYS: ${{ inputs.days || '4' }}
+      IN_QUIET: ${{ inputs.quiet_pct || '60' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet "psycopg2-binary>=2.9" python-dotenv
+
+      - name: Offline checks
+        # Before the DSN gate, so a run with no secret still proves the
+        # classifier works — same ordering as tbx-probe.yml.
+        run: python3 tests/test_tbx_supply_gap.py
+
+      - name: Verify the DSN is present
+        run: |
+          if [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set for this repo."
+            exit 1
+          fi
+          echo "DSN present."
+
+      - name: Which supply stopped arriving
+        run: |
+          python3 scripts/tbx_supply_gap.py \
+            --days "$IN_DAYS" --quiet-pct "$IN_QUIET"

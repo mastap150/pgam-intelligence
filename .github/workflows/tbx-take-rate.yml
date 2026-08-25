@@ -1,0 +1,84 @@
+name: TBX Take Rate
+
+# Which supply sources moved their margin, measured against their OWN history.
+#
+# Margin fell ten points at the cutover and held — 22% of the profit drop in
+# docs/tb-data-workflow-integration.md §12, and the component that does not
+# behave like the market: 2026-08-22 had the best CPM of the period and the
+# second-worst margin. A take rate moving independently of price and volume
+# is a revenue-share setting, and settings have owners.
+#
+# Whole-book margin cannot separate "every publisher a little" from "a few a
+# lot", which is why this is per source and compares each against its own
+# trailing median rather than the book's.
+#
+# The step FAILS when something moved. A margin shift is worth a red run —
+# it is money, it has a cause, and it goes green when the book is steady
+# again. Unlike the supply gap this is NOT a migration instrument: keep it.
+#
+# READ-ONLY. scripts/tbx_take_rate.py issues only SELECTs inside a
+# `SET TRANSACTION READ ONLY` transaction and never calls the platform.
+
+on:
+  schedule:
+    - cron: "50 11 * * *"      # 07:50 ET — after recon-daily, beside the gap report
+  workflow_dispatch:
+    inputs:
+      lookback:
+        description: "Trailing days for each source's median (default 14)"
+        required: false
+        default: "14"
+      threshold:
+        description: "Percentage-POINT deviation that flags (default 3)"
+        required: false
+        default: "3"
+      min_revenue:
+        description: "Ignore days below this gross — thin days swing wildly (default 25)"
+        required: false
+        default: "25"
+
+permissions:
+  contents: read
+
+jobs:
+  take_rate:
+    name: Take rate by supply source
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      PYTHONUNBUFFERED: "1"
+      IN_LOOKBACK: ${{ inputs.lookback || '14' }}
+      IN_THRESHOLD: ${{ inputs.threshold || '3' }}
+      IN_MIN_REVENUE: ${{ inputs.min_revenue || '25' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet "psycopg2-binary>=2.9" python-dotenv
+
+      - name: Offline checks
+        # Before the DSN gate, so a run with no secret still proves the
+        # classifier works — same ordering as tbx-probe.yml.
+        run: python3 tests/test_tbx_take_rate.py
+
+      - name: Verify the DSN is present
+        run: |
+          if [ -z "$PGAM_DIRECT_DATABASE_URL" ]; then
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set for this repo."
+            exit 1
+          fi
+          echo "DSN present."
+
+      - name: Which sources moved their take rate
+        run: |
+          python3 scripts/tbx_take_rate.py \
+            --lookback "$IN_LOOKBACK" \
+            --threshold "$IN_THRESHOLD" \
+            --min-revenue "$IN_MIN_REVENUE"
