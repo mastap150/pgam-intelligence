@@ -642,8 +642,81 @@ of both legs, not either one.
 - **`ent_payout`** fails with `password authentication failed for user
   'neondb_owner'`. That is a credential, not code; no change in either repo
   reaches it. It needs a fresh Neon DSN.
-- **Margin steps down at the boundary** — roughly 30% on legacy days against
-  20–24% on TBX days. That may be a real change in the marketplace or a
-  difference in what each platform counts as payout. It is not a bug in the
-  plumbing above, but it is the first thing to check once a full week of TBX
-  days exists to compare against a full week of legacy ones.
+- **Revenue and margin both step down at the boundary, and that is the one
+  finding here nobody should file away.** Legacy days run ~$8,000 gross at
+  ~30% margin on ~9.3M impressions. TBX days run $2,863–$10,796 at 20–24% on
+  5.5–7.8M. The 24th is a complete day and came to $2,863 — a third of a
+  normal legacy day.
+
+  Nothing above explains it, because the plumbing is now verified end to end:
+  the same figures come back from two independent implementations reading two
+  different stores. So it is one of two things, and they need different
+  responses:
+
+  1. **Real.** Traffic and monetization genuinely fell after the migration —
+    impressions are down ~40% as well as CPM, which fits.
+  2. **The TBX ETL is under-collecting.** It would have to be dropping whole
+    supply sources rather than truncating dates, since impressions fall too.
+
+  The cheapest discriminator is the platform's own dashboard for 21–24 Aug:
+  if it shows ~$8,000 days, the ETL is short and the P&L is understated by
+  roughly $5,000 a day. Do that before treating any of these numbers as a
+  business result. Note that the three TBX grains agree with each other
+  ($2,863.54 / $2,873.95 / $2,888.83 on the 24th), which rules out a bug in
+  one grain but says nothing about a source missing from all three.
+
+### Verified against real data, 2026-08-25
+
+All three surfaces were run over the cutover boundary and read back. They
+agree to the cent, which matters because the rule is implemented three times
+against two different stores — agreement is the only evidence that the three
+copies have not drifted.
+
+`tb-today.yml` with `unified_from=2026-08-15`, which is what the Slack alert
+posts and what `pnl_sync` writes:
+
+```
+day          source              gross       payout       profit   margin         imps
+2026-08-17   legacy           8,077.50     5,614.14     2,463.36    30.5%    9,768,515
+2026-08-18   legacy           7,975.46     5,502.35     2,473.11    31.0%    9,686,876
+2026-08-19   legacy           8,011.13     5,546.89     2,464.24    30.8%    8,713,946
+2026-08-20   legacy+tbx       7,505.66     5,389.68     2,115.98    28.2%    9,689,743
+2026-08-21   tbx              5,587.06     4,354.53     1,232.53    22.1%    6,325,162
+2026-08-22   tbx             10,796.09     8,594.18     2,201.91    20.4%    7,782,718
+2026-08-23   tbx              3,763.55     2,858.16       905.39    24.1%    6,470,029
+2026-08-24   tbx              2,863.54     2,302.53       561.01    19.6%    5,571,183
+```
+
+`pnl-sync --date last:10` resolves the same figures by its own path, and
+names the leg per day:
+
+```
+2026-08-18: TB Gross $7975.46 · TB GP $2473.11
+  · tb: [legacy-rollup] legacy neon rollup (pre-cutover day; TBX not used)
+2026-08-20: TB Gross $7505.66 · TB GP $2115.98
+  · tb: [split] legacy 4900.20 + tbx 2605.46 = 7505.66 gross
+        gp 1528.10 + 587.88 = 2115.98
+2026-08-24: TB Gross $2863.54 · TB GP $561.01
+  · tb: [tbx] tbx neon rollup
+```
+
+**The split day is the check that matters.** Legacy contributed $4,900.20 on
+the 20th against ~$8,000 on the 19th, and the two legs together come to one
+normal day — 9.69M impressions, not ~19M. If TBX held a transferred copy of
+the same day rather than the remainder of it, the sum would be double. It is
+not, so the two legs partition the day and adding them is correct.
+
+`/admin/finance`, dry-run over the boundary: pre-cutover days reconcile at
+`+0.00` against the SSP dashboards with the PGAM column sourced from
+`tb_legacy_rollup` (Freewheel $10,655.38, TripleLift $8,045.47, Stirista
+$1,060.34 on the 19th — all `$0.00` before this change), the 20th sums both
+legs, and the 21st onward comes from TBX alone.
+
+**One bug this found.** On a post-cutover day the log printed
+`teqblaze_legacy_rollup: 10 unmatched demand partner(s)` — for a day that
+fetcher returns from before it opens a connection. One instance serves every
+date in a range, and the early return was clearing `last_totals` but not
+`last_unmatched`, so the previous day's list was reported against the later
+one. No revenue was affected; the claim was. Fixed by resetting both at the
+top of `fetch()`, which also covers the no-DSN and query-failure exits —
+those left `last_totals` stale too, and `emit_tb_comparison` reads it.
