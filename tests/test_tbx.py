@@ -1612,6 +1612,54 @@ def test_tb_unified_folds_a_split_day_and_never_double_counts() -> None:
           abs(sum(out.values()) - (8000.0 + 4900.20 + 2605.45 + 5587.06)) < 0.01,
           str(sum(out.values())))
 
+def test_the_slack_agent_consumes_tb_unified_rows() -> None:
+    """The seam between tb_unified and the alert that reads it.
+
+    Repointing the agent's data source is only half the change: the rows
+    have to be the shape it folds. This suite already exists because a
+    shape mismatch at exactly this kind of boundary — a (rows, totals)
+    tuple where dicts were expected — silently produced zero records for
+    weeks.
+    """
+    print("\nslack agent: consumes tb_unified rows")
+
+    import types
+
+    # The agent imports pytz at module scope for ET formatting. Not needed
+    # for the pure folds under test, and not installed in every checkout.
+    if "pytz" not in sys.modules:
+        stub = types.ModuleType("pytz")
+        stub.timezone = lambda name: None
+        sys.modules["pytz"] = stub
+
+    from agents.alerts import tb_revenue as agent
+
+    # Exactly what core.tb_unified.fetch returns — a split day, summed.
+    rows = [{"DATE": "2026-08-20", "PUBLISHER": None, "IMPRESSIONS": 9_689_743.0,
+             "BIDS": 50_000_000.0, "WINS": 12_000_000.0,
+             "GROSS_REVENUE": 7505.66, "PUB_PAYOUT": 5389.68}]
+    got = agent._sum_metrics(rows)
+    check("gross survives the fold", abs(got["revenue"] - 7505.66) < 0.01, str(got))
+    check("payout survives the fold", abs(got["payout"] - 5389.68) < 0.01, str(got))
+    check("impressions survive the fold", got["impressions"] == 9_689_743.0, str(got))
+    check("the denominator maps through — legacy 'bids', TBX 'requests', "
+          "one key", got["bids"] == 50_000_000.0, str(got))
+
+    # Margin is what the alert actually posts, so check the derived figure
+    # rather than only the inputs.
+    margin = (got["revenue"] - got["payout"]) / got["revenue"] * 100
+    check("and the margin it posts is the P&L's margin for that day",
+          abs(margin - 28.2) < 0.1, f"{margin:.2f}%")
+
+    pubs = agent._parse_pub_rows(
+        [{"DATE": "2026-08-20", "PUBLISHER": "Some Publisher",
+          "IMPRESSIONS": 1000.0, "BIDS": 5000.0, "WINS": 900.0,
+          "GROSS_REVENUE": 12.5, "PUB_PAYOUT": 9.0}])
+    check("the entity name comes through under PUBLISHER",
+          pubs and pubs[0]["name"] == "Some Publisher", str(pubs))
+    check("and eCPM is computed from it", pubs and abs(pubs[0]["ecpm"] - 12.5) < 0.01,
+          str(pubs))
+
 def main() -> int:
     print("tests/test_tbx.py — new Teqblaze platform client (offline)")
     test_report_payload()
@@ -1632,6 +1680,7 @@ def main() -> int:
     test_tbx_etl_entity_id_suffix()
     test_tb_unified_routes_each_day_to_the_right_platform()
     test_tb_unified_folds_a_split_day_and_never_double_counts()
+    test_the_slack_agent_consumes_tb_unified_rows()
     test_floor_clamps()
     test_deep_merge()
     test_key_loss_guard()
