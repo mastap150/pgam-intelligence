@@ -135,13 +135,22 @@ untrustworthy — worse in a greeting, because it reads as a promise.
 
 ## Three directions
 
-| | Scope | Cost | Leaves |
-|---|---|---|---|
-| **1 · Refined B** | Ship B, fill the fold, add Spend, set the type scale | ~1 day | No trend; Attention inert |
-| **2 · Premium DSP** *(recommended)* | + performance chart, + real campaign table | ~3–4 days | Attention still a tile |
-| **3 · PGAM Intelligence** | + Attention panel, + typed insights | ~1 week | Insight copy needs review |
+All three are **built** on `/ss-dashboard-concept`, switchable from the concept
+banner. Heights measured at 1440×900 (subtract ~110px for the banner, which is a
+review affordance and would not ship).
 
-They are strictly additive — one branch, not three. Stage: ship 1, then 2, then 3.
+| | Adds | Height | Leaves |
+|---|---|--:|---|
+| **1 · Refined B** | Total spend on the strip, type scale, Campaigns wrapper. Nothing new built. | 901px | No trend; Attention inert |
+| **2 · Premium DSP** *(recommended)* | + metric-switched chart, + sortable table with search and paging | 1,255px | Attention still a tile |
+| **3 · PGAM Intelligence** | + Attention per campaign, + ranked recommendations that size the opportunity | 2,002px | Insight copy needs review |
+
+They are strictly nested (1 ⊂ 2 ⊂ 3) — one branch, not three. Stage: ship 1, then
+2, then 3. The staging is now about release risk, not about what still needs
+writing.
+
+Option 1 does deliver the empty-fold fix: 901px against a 900px viewport, where B
+stops around 475px.
 
 ## Prioritised changes
 
@@ -167,14 +176,37 @@ saved views · benchmark line on Attention once a real benchmark exists.
 
 ## Concept route
 
-`/ss-dashboard-concept`, branch `claude/dsp-dashboard-ui-comparison-bsae62`.
-Additive: one new file, no existing route / component / API / token / shared
-stylesheet modified. `/ss-dashboard1` at 768px is byte-identical before and after.
-Every figure, series point, delta and insight is derived from the ledger — the
+`/ss-dashboard-concept`, branch `claude/dsp-dashboard-ui-comparison-bsae62`,
+PR `mastap150/pgam-dsp-dashboard#550`. Additive: one new file, no existing route /
+component / API / token / shared stylesheet modified. `/ss-dashboard1` at 768px is
+byte-identical before and after, verified per commit. Every figure, series point,
+delta, projection and recommendation is derived from the ledger — the
 `ledger-types.ts` no-display-constants rule holds.
 
+Two rules govern the recommendation engine, and both cost real design decisions:
+
+- **No projection without its basis.** Every forward-looking figure names the rate
+  it assumes and drives a standing footnote: *"estimates, not commitments."*
+- **Opportunities state what blocks them.** The scale recommendation reads the
+  wallet runway and says the seven days out loud; recommending more spend without
+  that would be confident and wrong.
+
+Two places where the naive answer was wrong:
+
+- The scale opportunity is ranked by **efficiency, not size**. Sorting by raw
+  available leads picked the campaign with the most unspent budget — which was the
+  line with the *worst* cost per lead, i.e. telling an advertiser to pour money
+  into their least efficient campaign.
+- Where the recommended campaign is retargeting, the copy says the pool is finite
+  and the marginal lead costs more than the average. The efficiency-spread insight
+  likewise declines to say "move the money": brand and retargeting buy different
+  things.
+
 Responsive ramp measured: 2 columns at 390px, 3 at 768 and 1024, 5 at 1440, no
-horizontal overflow at any width.
+horizontal overflow at any width. Three bugs were found by driving the page rather
+than screenshotting it: `hidden` losing to Tailwind's `.flex` on specificity, a
+stale search filter persisting invisibly after switching down a tier, and a
+`setState`-in-effect page clamp that rendered a stranded empty page for one frame.
 
 ### Reproducing the screenshots
 
