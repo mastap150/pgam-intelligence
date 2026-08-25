@@ -608,7 +608,8 @@ function lede(slide, text, onDark, y, w) {
     [
       { text: "Advertising & Partnerships", options: { breakLine: true, color: D_SOFT } },
       { text: "PGAM Media", options: { breakLine: true, color: D_SOFT } },
-      { text: "advertise@destination.com", options: { breakLine: true, color: D_INK, bold: true } },
+      { text: "info@pgammedia.com", options: { breakLine: true, color: D_INK, bold: true,
+          hyperlink: { url: "mailto:info@pgammedia.com?subject=Destination.com%20enquiry" } } },
       { text: "pgammedia.com", options: { color: D_SOFT } },
     ],
     { x: 8.9, y: 3.80, w: 3.5, h: 1.3, fontFace: BODY, fontSize: 12, margin: 0, lineSpacing: 19 }

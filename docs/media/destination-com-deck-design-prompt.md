@@ -199,8 +199,25 @@ Three numbered steps: tell us the audience you actually want (region, interest,
 trip stage, or a combination) and we size it in a day; we come back with a
 costed plan, availability, and traffic and viewability detail under NDA; test
 on a single issue or a two-week flight with full reporting within 72 hours of
-the last send. Contact block in mono: Destination.com — Advertising &
-Partnerships, PGAM Media, advertise@destination.com, pgammedia.com.
+the last send. Under the steps, a mono contact block: Destination.com —
+Advertising & Partnerships, PGAM Media, pgammedia.com, info@pgammedia.com.
+
+Beside the steps, an enquiry form headed "Tell us what you want to reach",
+with fields for name, company, email, an audience select (whole list, each
+interest segment, planning/booking stage, "not sure yet — advise me"), an
+"interested in" select (newsletter sponsorship, segment or solo send, site
+display, Trip Planner placement, sponsored guide, region hub sponsorship,
+commerce partnership, something else), and an optional message. Validate
+name, company and email on submit, marking bad fields with aria-invalid and
+replacing the helper text with what to fix.
+
+The artifact CSP blocks POSTs to every external host, so the form cannot
+submit to a server: on a valid submit, compose a mailto to
+info@pgammedia.com with a subject of "Destination.com enquiry — {company} —
+{product}" and the fields as aligned label/value lines in the body, and set
+window.location.href to it. Say so in the helper text under the button —
+that it opens the viewer's mail client — and offer the plain address as a
+fallback. Never imply the form sends anything by itself.
 
 Finish with a small mono footnote, in the deck itself: newsletter subscriber
 counts, open and click rates, and all segment splits are internal projections

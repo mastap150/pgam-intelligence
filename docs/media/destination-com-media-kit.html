@@ -31,6 +31,8 @@
   --deep-rule:  rgba(242,237,228,.16);
   --deep-terra: #e08048;
   --deep-gold:  #d4a843;
+  --deep-input: rgba(242,237,228,.06);
+  --deep-input-hi: rgba(242,237,228,.10);
 
   --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
   --sans:  'Inter', system-ui, -apple-system, sans-serif;
@@ -335,7 +337,8 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 1px solid var(--
 
 /* ── Close ──────────────────────────────────────────────────── */
 .close { display: grid; gap: 2.5rem; }
-@media (min-width: 900px) { .close { grid-template-columns: 1.2fr .8fr; align-items: start; gap: 4rem; } }
+@media (min-width: 900px) { .close { grid-template-columns: .92fr 1.08fr; align-items: start; gap: 3.25rem; } }
+.close > div:first-child { display: grid; gap: 2rem; align-content: start; }
 .steps { counter-reset: step; display: grid; gap: 1rem; }
 .steps li {
   counter-increment: step; display: grid; grid-template-columns: auto 1fr;
@@ -346,8 +349,58 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 1px solid var(--
   font-family: var(--mono); font-size: .75rem; color: var(--deep-terra); letter-spacing: .08em;
 }
 .steps li span { color: var(--deep-ink); font-size: .9375rem; line-height: 1.5; }
-.contact { display: grid; gap: .35rem; font-family: var(--mono); font-size: .8125rem; color: var(--deep-soft); }
-.contact strong { color: var(--deep-ink); font-weight: 500; letter-spacing: .04em; }
+/* ── Enquiry form (close sheet) ──────────────────────────────── */
+.contact { display: grid; gap: .3rem; font-family: var(--mono); font-size: .75rem;
+  color: var(--deep-soft); padding-top: 1.25rem; border-top: 1px solid var(--deep-rule); }
+.contact strong { color: var(--deep-ink); font-weight: 500; letter-spacing: .03em; }
+.contact a { color: var(--deep-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+.enq { display: grid; gap: 1rem; align-content: start; }
+.enq__head {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--deep-terra);
+  padding-bottom: .7rem; border-bottom: 1px solid var(--deep-rule);
+}
+.enq__grid { display: grid; gap: .8rem; grid-template-columns: 1fr 1fr; }
+.field { display: grid; gap: .3rem; min-width: 0; }
+.field--wide { grid-column: 1 / -1; }
+.field > span {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--deep-soft);
+}
+.field > span em { font-style: normal; text-transform: none; letter-spacing: 0; opacity: .75; }
+.field input, .field select, .field textarea {
+  font-family: var(--sans); font-size: .875rem; color: var(--deep-ink);
+  background: var(--deep-input);
+  border: 1px solid var(--deep-rule); border-radius: 2px;
+  padding: .5rem .6rem; width: 100%; min-width: 0;
+  transition: border-color .15s, background .15s;
+}
+.field textarea { resize: vertical; line-height: 1.45; }
+.field select { appearance: none; cursor: pointer; }
+.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--deep-soft); }
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: 2px solid var(--deep-terra); outline-offset: 1px;
+  background: var(--deep-input-hi); border-color: transparent;
+}
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--deep-terra); }
+/* the option list is painted by the OS, so it needs its own colours */
+.field select option { background: var(--deep-2); color: var(--deep-ink); }
+.enq__send {
+  justify-self: start; font-family: var(--sans); font-size: .875rem; font-weight: 600;
+  letter-spacing: .01em; color: var(--deep); background: var(--deep-terra);
+  border: 0; border-radius: 2px; padding: .6rem 1.4rem; cursor: pointer;
+  transition: filter .15s;
+}
+.enq__send:hover { filter: brightness(1.08); }
+.enq__send:active { filter: brightness(.95); }
+.enq__note {
+  font-family: var(--mono); font-size: .6875rem; line-height: 1.7;
+  color: var(--deep-soft); max-width: 46ch;
+}
+.enq__note a { color: var(--deep-ink); text-decoration: underline; text-underline-offset: 2px; }
+.enq__note[data-state="error"] { color: var(--deep-terra); }
+@media (max-width: 560px) { .enq__grid { grid-template-columns: 1fr; } }
 .footnote {
   margin-top: clamp(2.5rem, 6vh, 4rem); padding-top: 1.25rem;
   border-top: 1px solid var(--deep-rule);
@@ -699,6 +752,7 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 1px solid var(--
       <h2 class="title" id="t7">Let's build the plan against a segment, not a guess.</h2>
 
       <div class="close">
+        <div>
         <ol class="steps">
           <li><span>Tell us the audience you actually want — a region, an interest, a trip stage, or a combination. We size it against the list and the site in a day.</span></li>
           <li><span>We come back with a costed plan, availability, and the traffic and viewability detail under NDA.</span></li>
@@ -707,10 +761,68 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 1px solid var(--
 
         <div class="contact">
           <p><strong>Destination.com — Advertising &amp; Partnerships</strong></p>
-          <p>PGAM Media</p>
-          <p>advertise@destination.com</p>
-          <p>pgammedia.com</p>
+          <p>PGAM Media &nbsp;·&nbsp; pgammedia.com</p>
+          <p><a href="mailto:info@pgammedia.com">info@pgammedia.com</a></p>
         </div>
+        </div>
+
+        <form class="enq" id="enq" novalidate>
+          <p class="enq__head">Tell us what you want to reach</p>
+
+          <div class="enq__grid">
+            <label class="field">
+              <span>Name</span>
+              <input type="text" name="name" autocomplete="name" required>
+            </label>
+            <label class="field">
+              <span>Company</span>
+              <input type="text" name="company" autocomplete="organization" required>
+            </label>
+            <label class="field field--wide">
+              <span>Email</span>
+              <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <label class="field">
+              <span>Audience</span>
+              <select name="audience">
+                <option>Whole list</option>
+                <option>Points &amp; miles</option>
+                <option>Adventure &amp; outdoors</option>
+                <option>Beach &amp; islands</option>
+                <option>Food &amp; wine</option>
+                <option>Culture &amp; city breaks</option>
+                <option>Luxury &amp; slow travel</option>
+                <option>Budget &amp; backpacking</option>
+                <option>Planning / booking stage</option>
+                <option>Not sure yet — advise me</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Interested in</span>
+              <select name="product">
+                <option>Newsletter sponsorship</option>
+                <option>Segment or solo send</option>
+                <option>Site display</option>
+                <option>Trip Planner placement</option>
+                <option>Sponsored guide</option>
+                <option>Region hub sponsorship</option>
+                <option>Commerce partnership</option>
+                <option>Something else</option>
+              </select>
+            </label>
+            <label class="field field--wide">
+              <span>Anything else <em>(optional)</em></span>
+              <textarea name="message" rows="2"></textarea>
+            </label>
+          </div>
+
+          <button type="submit" class="enq__send">Send enquiry</button>
+          <p class="enq__note" id="enqNote">
+            Opens your email client with this filled in, addressed to
+            <a href="mailto:info@pgammedia.com">info@pgammedia.com</a>. Prefer to write
+            it yourself? That address works just as well.
+          </p>
+        </form>
       </div>
 
       <p class="footnote">Newsletter subscriber counts, open and click rates, and all segment splits in this document are internal projections for planning purposes and are not independently audited. Site traffic, viewability, and geography detail are shared on request under NDA. Rate card pricing is indicative and excludes agency commission, volume, and annual commitment terms.</p>
@@ -746,6 +858,50 @@ tbody tr:last-child th, tbody tr:last-child td { border-bottom: 1px solid var(--
       });
     }, { threshold: 0.5 });
     sections.forEach(function (s) { io.observe(s); });
+  }
+
+  /* Enquiry form. The artifact CSP blocks POSTs to any external host, so the
+     form composes the message and hands it to the viewer's mail client. */
+  var enq = document.getElementById('enq');
+  var note = document.getElementById('enqNote');
+  if (enq) {
+    var noteHTML = note.innerHTML;
+    enq.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = enq.elements;
+      var required = ['name', 'company', 'email'];
+      var missing = null;
+      required.forEach(function (n) {
+        var el = f[n];
+        var ok = el.value.trim() && (n !== 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value.trim()));
+        el.setAttribute('aria-invalid', ok ? 'false' : 'true');
+        if (!ok && !missing) missing = el;
+      });
+      if (missing) {
+        note.dataset.state = 'error';
+        note.textContent = 'Add your name, company, and a valid email address, then send.';
+        missing.focus();
+        return;
+      }
+      note.dataset.state = '';
+      note.innerHTML = noteHTML;
+
+      var v = function (n) { return f[n].value.trim(); };
+      var subject = 'Destination.com enquiry — ' + v('company') + ' — ' + v('product');
+      var lines = [
+        'Name:     ' + v('name'),
+        'Company:  ' + v('company'),
+        'Email:    ' + v('email'),
+        'Audience: ' + v('audience'),
+        'Product:  ' + v('product'),
+      ];
+      if (v('message')) lines.push('', v('message'));
+      lines.push('', '— sent from the Destination.com media kit');
+
+      window.location.href = 'mailto:info@pgammedia.com'
+        + '?subject=' + encodeURIComponent(subject)
+        + '&body=' + encodeURIComponent(lines.join('\n'));
+    });
   }
 
   document.addEventListener('keydown', function (e) {
