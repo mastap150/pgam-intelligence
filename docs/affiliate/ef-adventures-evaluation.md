@@ -236,10 +236,20 @@ exclusive-access inventory, and a $4 article against a $250 payout.
 
 ## What the rate answers, and what it doesn't
 
-**Answered:** $250 flat CPA via CJ. On a $3,000–$6,000 tour that is an effective **4–8%**,
-at the top of the travel band, and flat means a cheaper tour pays exactly the same. For
-comparison, the Expedia/Partnerize hotel line destination.com already runs pays 4% — about
-$48 on a $1,200 booking. This is **5× that per conversion.**
+**Answered:** $250 flat CPA via CJ. Against the Expedia/Partnerize hotel line
+destination.com already runs — 4%, about $48 on a $1,200 booking — this is **5× that per
+conversion.**
+
+As a percentage it depends heavily on which tour converts, and the spread is wider than
+first assumed here. Verified while researching the Tour de France article: **EF's Tour de
+France itineraries start at $9,499 per person**, where $250 is ~2.6%. The standard European
+hiking and biking tours are the $3,000–$5,000 band, where it is 5–8%. Flat CPA means the
+cheaper tours are the better-value conversions for us, which inverts the usual instinct to
+push the premium product.
+
+Also corrected: EF's Tour de France 2027 presale takes a **$1,000 fully refundable
+deposit**, not the "$150 down" from the general payment-plan creatives. Those are two
+different offers and the CJ link copy does not distinguish them.
 
 **Still open, and these matter more than the rate did:**
 
