@@ -783,6 +783,29 @@ Schedule it daily until it reads clean, then delete it.
 Worth roughly $700/day of profit at legacy economics, and unlike the other
 two effects it is a fix rather than a negotiation. **Do this one first.**
 
+### 1c. Dexerto did not move — it stopped (traced 2026-08-25)
+
+The obvious innocent explanation for a source vanishing is that TBX broke it
+out under names legacy never used. `--trace dexerto` rules that out:
+
+- **Dexerto Display still exists on TBX under its own name**, serving
+  22,069 / 23,635 / 23,056 impressions on 22–24 Aug against 2,285,965/day
+  before the cutover. Dexerto Video likewise, at 107–649/day. Nothing was
+  renamed; a live, correctly-named source is delivering 1% of its volume.
+- **No other name on either host contains "dexerto".**
+- **The arithmetic closes it.** All 357 TBX sources with no legacy
+  counterpart total **1,042,210 imps/day between them** — less than half of
+  what Dexerto Display alone lost (2,255,536/day). Even if every one of them
+  were secretly Dexerto traffic, they could not account for it.
+
+Those 357 are a long tail of small domains, not a re-split of existing
+supply: the largest is Cox Media Group at 566,833/day (a different
+publisher), and the domain-style entries are 24k–38k/day each. Some of it is
+probably genuinely new inventory.
+
+So this is a supply problem with a publisher, not a naming artifact, and it
+is the single largest recoverable item on this page.
+
 ### 2. Take-rate sentry — BUILT 2026-08-25, and the margin is three partners
 
 `scripts/tbx_take_rate.py` + `.github/workflows/tbx-take-rate.yml`.
