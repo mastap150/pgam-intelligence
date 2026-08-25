@@ -642,81 +642,162 @@ of both legs, not either one.
 - **`ent_payout`** fails with `password authentication failed for user
   'neondb_owner'`. That is a credential, not code; no change in either repo
   reaches it. It needs a fresh Neon DSN.
-- **Revenue and margin both step down at the boundary, and that is the one
-  finding here nobody should file away.** Legacy days run ~$8,000 gross at
-  ~30% margin on ~9.3M impressions. TBX days run $2,863–$10,796 at 20–24% on
-  5.5–7.8M. The 24th is a complete day and came to $2,863 — a third of a
-  normal legacy day.
+- **Revenue and margin both step down at the boundary — and as of 2026-08-25
+  the pipeline is ruled out as the cause.** See §12.
 
-  Nothing above explains it, because the plumbing is now verified end to end:
-  the same figures come back from two independent implementations reading two
-  different stores. So it is one of two things, and they need different
-  responses:
+---
 
-  1. **Real.** Traffic and monetization genuinely fell after the migration —
-    impressions are down ~40% as well as CPM, which fits.
-  2. **The TBX ETL is under-collecting.** It would have to be dropping whole
-    supply sources rather than truncating dates, since impressions fall too.
+## 12. The step-down is real — measured against the platform, 2026-08-25
 
-  The cheapest discriminator is the platform's own dashboard for 21–24 Aug:
-  if it shows ~$8,000 days, the ETL is short and the P&L is understated by
-  roughly $5,000 a day. Do that before treating any of these numbers as a
-  business result. Note that the three TBX grains agree with each other
-  ($2,863.54 / $2,873.95 / $2,888.83 on the 24th), which rules out a bug in
-  one grain but says nothing about a source missing from all three.
+§11 left two readings open: a genuine post-migration decline, or a TBX ETL
+missing supply sources. A `tbx-probe --reach-from 2026-08-17 --reach-to
+2026-08-25` read the platform directly, one request per day, and settles it.
 
-### Verified against real data, 2026-08-25
+| day | platform gross | Neon holds | platform imps |
+|---|---|---|---|
+| 2026-08-20 | 2,605.45 | 2,605.46 | 3,966,503 |
+| 2026-08-21 | 5,587.11 | 5,587.06 | 6,325,162 |
+| 2026-08-22 | 10,796.13 | 10,796.09 | 7,782,718 |
+| 2026-08-23 | 3,763.56 | 3,763.55 | 6,470,029 |
+| 2026-08-24 | 3,742.93 | 3,742.75 | 6,752,225 |
 
-All three surfaces were run over the cutover boundary and read back. They
-agree to the cent, which matters because the rule is implemented three times
-against two different stores — agreement is the only evidence that the three
-copies have not drifted.
+**The ETL is sound.** Five settled days agree to the cent. Nothing is being
+dropped, and the decline downstream of it is the marketplace, not the
+pipeline.
 
-`tb-today.yml` with `unified_from=2026-08-15`, which is what the Slack alert
-posts and what `pnl_sync` writes:
+### Correction: a day is not settled at midnight UTC
 
-```
-day          source              gross       payout       profit   margin         imps
-2026-08-17   legacy           8,077.50     5,614.14     2,463.36    30.5%    9,768,515
-2026-08-18   legacy           7,975.46     5,502.35     2,473.11    31.0%    9,686,876
-2026-08-19   legacy           8,011.13     5,546.89     2,464.24    30.8%    8,713,946
-2026-08-20   legacy+tbx       7,505.66     5,389.68     2,115.98    28.2%    9,689,743
-2026-08-21   tbx              5,587.06     4,354.53     1,232.53    22.1%    6,325,162
-2026-08-22   tbx             10,796.09     8,594.18     2,201.91    20.4%    7,782,718
-2026-08-23   tbx              3,763.55     2,858.16       905.39    24.1%    6,470,029
-2026-08-24   tbx              2,863.54     2,302.53       561.01    19.6%    5,571,183
-```
+§11 as first written called 2026-08-24 "a complete day" at $2,863.54. It was
+not complete — that reading was taken at 01:27 UTC, and the report timezone
+is `US/Eastern`, so the day had four hours left to run. The hourly ETL
+restated it to $3,742.75 as the remaining hours landed, which is the correct
+behaviour.
 
-`pnl-sync --date last:10` resolves the same figures by its own path, and
-names the leg per day:
+The mistake is worth keeping because it is built into the schedule, not into
+one bad reading. `recon-daily` fires at 10:13 UTC and chains `pnl-sync`; that
+is safely past the 04:00/05:00 UTC close. But nothing *enforces* it, any
+manual run before the close silently books a partial day as final, and the
+figure is 24% low at 21:00 ET. See §13 item 3.
 
-```
-2026-08-18: TB Gross $7975.46 · TB GP $2473.11
-  · tb: [legacy-rollup] legacy neon rollup (pre-cutover day; TBX not used)
-2026-08-20: TB Gross $7505.66 · TB GP $2115.98
-  · tb: [split] legacy 4900.20 + tbx 2605.46 = 7505.66 gross
-        gp 1528.10 + 587.88 = 2115.98
-2026-08-24: TB Gross $2863.54 · TB GP $561.01
-  · tb: [tbx] tbx neon rollup
-```
+### What the numbers actually say
 
-**The split day is the check that matters.** Legacy contributed $4,900.20 on
-the 20th against ~$8,000 on the 19th, and the two legs together come to one
-normal day — 9.69M impressions, not ~19M. If TBX held a transferred copy of
-the same day rather than the remainder of it, the sum would be double. It is
-not, so the two legs partition the day and adding them is correct.
+| day | source | gross | profit | margin | imps | CPM |
+|---|---|---|---|---|---|---|
+| 08-17 | legacy | 8,077.50 | 2,463.36 | 30.5% | 9,768,515 | $0.83 |
+| 08-18 | legacy | 7,975.46 | 2,473.11 | 31.0% | 9,686,876 | $0.82 |
+| 08-19 | legacy | 8,011.13 | 2,464.24 | 30.8% | 8,713,946 | $0.92 |
+| 08-20 | both | 7,505.66 | 2,115.98 | 28.2% | 9,689,743 | $0.77 |
+| 08-21 | tbx | 5,587.06 | 1,232.53 | 22.1% | 6,325,162 | $0.88 |
+| 08-22 | tbx | 10,796.09 | 2,201.91 | 20.4% | 7,782,718 | $1.39 |
+| 08-23 | tbx | 3,763.55 | 905.39 | 24.1% | 6,470,029 | $0.58 |
+| 08-24 | tbx | 3,742.75 | 781.56 | 20.9% | 6,752,225 | $0.55 |
 
-`/admin/finance`, dry-run over the boundary: pre-cutover days reconcile at
-`+0.00` against the SSP dashboards with the PGAM column sourced from
-`tb_legacy_rollup` (Freewheel $10,655.38, TripleLift $8,045.47, Stirista
-$1,060.34 on the 19th — all `$0.00` before this change), the 20th sums both
-legs, and the 21st onward comes from TBX alone.
+Daily profit fell from ~$2,467 (17–19 Aug) to ~$840 (23–24). Decomposing the
+$1,685 gap on the 24th against the legacy baseline:
 
-**One bug this found.** On a post-cutover day the log printed
-`teqblaze_legacy_rollup: 10 unmatched demand partner(s)` — for a day that
-fetcher returns from before it opens a connection. One instance serves every
-date in a range, and the early return was clearing `last_totals` but not
-`last_unmatched`, so the previous day's list was reported against the later
-one. No revenue was affected; the claim was. Fixed by resetting both at the
-top of `fetch()`, which also covers the no-DSN and query-failure exits —
-those left `last_totals` stale too, and `emit_tb_comparison` reads it.
+| effect | contribution | share |
+|---|---|---|
+| volume — 9.39M → 6.75M imps | −$694 | 41% |
+| price — $0.859 → $0.554 CPM | −$630 | 37% |
+| margin — 30.6% → 20.9% | −$363 | 22% |
+
+Each points somewhere different, which is why they are worth separating:
+
+- **Volume** is 2.6M impressions a day that stopped arriving at the cutover.
+  Supply that did not survive the migration is the first thing to rule out —
+  it is the most recoverable of the three.
+- **Price** is the marketplace, and the hardest to act on directly. Floors are
+  the lever, and the tooling for that already exists and is gated shut.
+- **Margin** is the interesting one. It fell ~10 points and *stayed* there,
+  and it does not track price or volume — 08-22 had the best CPM of the period
+  and the second-worst margin. A take rate that moves independently of what
+  the inventory sells for points at revenue-share configuration on the new
+  platform, not at market conditions. That is a settings question with a
+  definite answer, worth ~$364/day at current volume.
+
+**08-22 is unexplained and should not be averaged away.** 7.78M impressions
+at $1.39 CPM against $0.55–0.62 on either side. Either a repeatable demand
+pattern worth finding, or a reporting artifact worth discounting; nothing
+currently distinguishes them.
+
+---
+
+## 13. What to automate next
+
+Ordered by what the numbers in §12 actually justify, not by what is easiest.
+Each names the existing piece it builds on — none of this is greenfield.
+
+### 1. Migration-gap watchdog — the 41% of the loss with a recoverable cause
+
+2.6M impressions a day stopped arriving at the cutover. The question nobody
+has asked in a form a machine can answer is *which publishers*. Every supply
+source that earned on `tb_daily_publisher_revenue` before 08-21 and has no
+row in `tbx_daily_supply_revenue` after it is inventory that did not survive
+the migration.
+
+`scripts/tbx_recon.py` already joins the two legs on name — this is that join
+with the direction reversed, asking who is missing rather than who disagrees.
+Schedule it daily until it reads clean, then delete it.
+
+Worth roughly $700/day of profit at legacy economics, and unlike the other
+two effects it is a fix rather than a negotiation. **Do this one first.**
+
+### 2. Take-rate sentry, per supply source
+
+Margin fell ~10 points at the cutover and held, independent of price and
+volume (§12). Whole-book margin cannot say whether that is every publisher
+moving a little or a few moving a lot, and those need different responses.
+
+Alert when a supply source's daily margin deviates more than 3pp from its own
+trailing 14-day median. `tbx_daily_supply_revenue` already carries gross and
+payout per source per day, so this is a query and a Slack post. It would have
+fired on 2026-08-21.
+
+### 3. Refuse to book an unsettled day
+
+The §12 correction, made structural. A day is not final until the
+`US/Eastern` close, and at 21:00 ET it reads ~24% low.
+
+- `pnl_sync` should decline to write a day whose ET close has not passed,
+  rather than booking a partial as final.
+- The Slack alert should label a same-day figure `partial`.
+- `tb_unified` should expose settled-ness so both get it from one place, the
+  way they already get the per-day host rule from one place.
+
+No revenue in this one — it is the difference between a number being wrong
+and a number saying it is provisional. It caught me out yesterday and the
+schedule only avoids it by luck.
+
+### 4. Daily platform-vs-warehouse assertion
+
+§12 took a manual probe dispatch and a wait. It should be a line in a log
+every morning: one single-day report per settled day, compared against Neon,
+alerting past 1%. `--reach-from` is already exactly this call; it needs the
+comparison and a schedule.
+
+The value is not catching a broken ETL — it is being able to tell "the
+pipeline broke" from "revenue fell" in seconds. Those look identical on a
+dashboard and have nothing in common as problems.
+
+### 5. Explain the outliers automatically
+
+`scripts/tb_whatchanged.py` does revenue-change attribution and nothing calls
+it on a schedule. Trigger it on any day more than 40% from the trailing
+median and post the top movers. 08-22 has been sitting unexplained since it
+happened.
+
+### 6. Floors — later, deliberately
+
+`tbx_demand_geo_floor` and `tbx_auto_revert` are built and gated shut, and
+CPM being down 35% is exactly the case floors address. Do not open the gate
+yet:
+
+- The auto-revert needs two settled days to measure harm (the TBX report has
+  no `hour` attribute), so the blast radius of a bad write is two days wide.
+- The book is still moving from the migration. Tuning floors against a
+  marketplace that is changing underneath the agent means the baseline it
+  measures against is not a baseline.
+
+Revisit once item 1 has landed and the book has been stable for a week. The
+prerequisites for `TBX_ALLOW_WRITES=1` are in
+`docs/teqblaze-new-platform.md` §6.
