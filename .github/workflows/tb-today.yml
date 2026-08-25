@@ -103,6 +103,8 @@ jobs:
           pip install --quiet "psycopg2-binary>=2.9"
           if [ "$IN_SUPPLY_GAP" = "rosters" ]; then
             python3 scripts/tbx_supply_gap.py --rosters 15
+          elif [ "${IN_SUPPLY_GAP#trace:}" != "$IN_SUPPLY_GAP" ]; then
+            python3 scripts/tbx_supply_gap.py --trace "${IN_SUPPLY_GAP#trace:}"
           else
             python3 scripts/tbx_supply_gap.py --days "$IN_SUPPLY_GAP" || true
           fi
