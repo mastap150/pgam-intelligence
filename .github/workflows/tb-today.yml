@@ -40,6 +40,10 @@ on:
         description: "Also run the cutover supply-gap report: which publishers earned on legacy and earn nothing on TBX. Set to a window length in days, e.g. 4."
         required: false
         type: string
+      take_rate:
+        description: "Also run the take-rate sentry: which supply sources moved their margin against their own median. Set to a lookback in days, e.g. 14."
+        required: false
+        type: string
 
 jobs:
   today:
@@ -53,6 +57,7 @@ jobs:
       IN_DATE: ${{ github.event.inputs.date }}
       IN_UNIFIED_FROM: ${{ github.event.inputs.unified_from }}
       IN_SUPPLY_GAP: ${{ github.event.inputs.supply_gap }}
+      IN_TAKE_RATE: ${{ github.event.inputs.take_rate }}
 
     steps:
       - uses: actions/checkout@v4
@@ -101,3 +106,13 @@ jobs:
           else
             python3 scripts/tbx_supply_gap.py --days "$IN_SUPPLY_GAP" || true
           fi
+
+      - name: Take rate by supply source
+        # Same pre-merge reasoning as the supply-gap step above:
+        # workflow_dispatch is only offered for workflows already on the
+        # default branch, so this is how the sentry gets run against real
+        # data before tbx-take-rate.yml exists there.
+        if: inputs.take_rate != ''
+        run: |
+          pip install --quiet "psycopg2-binary>=2.9"
+          python3 scripts/tbx_take_rate.py --lookback "$IN_TAKE_RATE" || true
