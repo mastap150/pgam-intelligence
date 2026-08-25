@@ -115,4 +115,8 @@ jobs:
         if: inputs.take_rate != ''
         run: |
           pip install --quiet "psycopg2-binary>=2.9"
-          python3 scripts/tbx_take_rate.py --lookback "$IN_TAKE_RATE" || true
+          if [ "$IN_TAKE_RATE" = "cutover" ]; then
+            python3 scripts/tbx_take_rate.py --vs-legacy 2026-08-21 || true
+          else
+            python3 scripts/tbx_take_rate.py --lookback "$IN_TAKE_RATE" || true
+          fi

@@ -138,6 +138,88 @@ def assess(series: dict[str, list[tuple[date, float, float]]], target: date,
     return out
 
 
+def across_cutover(conn, cutover: date, days: int,
+                   min_revenue: float) -> list[dict]:
+    """Each source's margin before the cutover against after it.
+
+    This is the comparison the sentry above structurally cannot make. It
+    compares TBX to TBX, so it can only see drift once a TBX baseline exists
+    — and the ten points §12 is about went AT the cutover, where the baseline
+    is on the other host. Per-source margins have been stable since; the
+    step is in the step.
+
+    Joined on the suffix-stripped name, for the reason recorded in
+    `tbx_supply_gap`: the legacy report appends the entity id to the display
+    name ('Foo #190') and stores that whole string in its id column too, so
+    the bare name is the only workable key.
+    """
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from tbx_supply_gap import split_name_id
+
+    before = [cutover - timedelta(days=n) for n in range(days, 0, -1)]
+    after = [cutover + timedelta(days=n) for n in range(days)]
+
+    def side(table, name_col, window):
+        agg: dict[str, list[float]] = {}
+        for name, gross, payout in _q(conn, f"""
+            SELECT {name_col}, sum(gross_revenue), sum(pub_payout)
+              FROM pgam_direct.{table}
+             WHERE report_date = ANY(%(d)s) AND {name_col} IS NOT NULL
+             GROUP BY 1
+        """, {"d": window}):
+            key, _ = split_name_id(str(name))
+            e = agg.setdefault(key, [0.0, 0.0, str(name)])
+            e[0] += float(gross or 0)
+            e[1] += float(payout or 0)
+        return agg
+
+    pre = side("tb_daily_publisher_revenue", "publisher_name", before)
+    post = side(TABLE, "supply_name", after)
+
+    out = []
+    for key, (g_pre, p_pre, disp) in pre.items():
+        if key not in post or g_pre < min_revenue:
+            continue
+        g_post, p_post, _ = post[key]
+        if g_post < min_revenue:
+            continue
+        m_pre, m_post = margin(g_pre, p_pre), margin(g_post, p_post)
+        if m_pre is None or m_post is None:
+            continue
+        delta = m_post - m_pre
+        out.append({
+            "name": disp, "margin_before": m_pre, "margin_after": m_post,
+            "delta_points": delta,
+            "gross_after_per_day": g_post / len(after),
+            # What the margin change alone costs per day, holding the
+            # post-cutover gross fixed. Isolates the take rate from the
+            # volume and price effects §12 measures separately.
+            "profit_delta_usd": (g_post / len(after)) * delta / 100.0,
+        })
+    out.sort(key=lambda r: r["profit_delta_usd"])
+    return out
+
+
+def render_cutover(rows: list[dict], cutover: date, days: int) -> None:
+    print(_HDR)
+    print(f"TAKE RATE ACROSS THE CUTOVER — {days}d either side of {cutover}")
+    print(_HDR)
+    print("  legacy margin vs TBX margin, same source, joined on name\n")
+    if not rows:
+        print("  No source clears the revenue floor on both sides.")
+        return
+    print(f"  {'supply source':<34} {'before':>8} {'after':>8} "
+          f"{'Δ pts':>8} {'$/day':>10}")
+    print(f"  {'-' * 34} {'-' * 8} {'-' * 8} {'-' * 8} {'-' * 10}")
+    for r in rows:
+        print(f"  {str(r['name'])[:34]:<34} "
+              f"{r['margin_before']:>7.1f}% {r['margin_after']:>7.1f}% "
+              f"{r['delta_points']:>+8.1f} {r['profit_delta_usd']:>+10.2f}")
+    total = sum(r["profit_delta_usd"] for r in rows)
+    print(f"\n  margin effect across matched sources: ${total:>+10,.2f}/day")
+    print(_HDR)
+
+
 def render(rows: list[dict], target: date, lookback: int,
            threshold: float) -> None:
     flagged = [r for r in rows if r["flagged"]]
@@ -173,8 +255,13 @@ def render(rows: list[dict], target: date, lookback: int,
     book_now = sum(r["gross_now"] for r in rows)
     book_profit = sum(r["gross_now"] - r["payout_now"] for r in rows)
     if book_now:
-        print(f"\n  whole book on {target}: {book_profit / book_now * 100:.1f}% "
-              f"on ${book_now:,.2f} gross")
+        # NOT the whole book: only sources that cleared the revenue floor and
+        # had enough history to assess. Saying "whole book" here would invite
+        # a comparison against the day's real gross and quietly lose the
+        # difference.
+        print(f"\n  assessed sources on {target}: "
+              f"{book_profit / book_now * 100:.1f}% on ${book_now:,.2f} gross "
+              f"({len(rows)} of the book)")
     print(_HDR)
     if flagged:
         print("\n  A take rate that moves while price and volume do not is a")
@@ -193,6 +280,10 @@ def main() -> int:
     p.add_argument("--min-revenue", type=float, default=25.0,
                    help="ignore days below this gross (default 25)")
     p.add_argument("--date", help="settled day to assess (default: latest)")
+    p.add_argument("--vs-legacy", metavar="CUTOVER",
+                   help="instead of drift, compare each source's margin "
+                        "before and after this cutover date — the step the "
+                        "trailing-median mode structurally cannot see")
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
@@ -218,6 +309,22 @@ def main() -> int:
     try:
         with conn.cursor() as cur:
             cur.execute("SET TRANSACTION READ ONLY")
+
+        if args.vs_legacy:
+            try:
+                cut = date.fromisoformat(args.vs_legacy)
+            except ValueError:
+                print(f"--vs-legacy {args.vs_legacy!r} is not YYYY-MM-DD",
+                      file=sys.stderr)
+                return 2
+            xrows = across_cutover(conn, cut, 4, args.min_revenue)
+            if args.json:
+                print(json.dumps(xrows, indent=2, default=str))
+            else:
+                render_cutover(xrows, cut, 4)
+            return 1 if any(r["delta_points"] <= -args.threshold
+                            for r in xrows) else 0
+
         rows = _q(conn, f"""
             SELECT supply_name, report_date,
                    sum(gross_revenue), sum(pub_payout)
