@@ -1,0 +1,918 @@
+<title>Destination.com Media Kit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   TOKENS — destination.com live brand system
+   (source: destination_com_homepage.html :root)
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --ink:        #1a1714;
+  --ink-mid:    #3d3530;
+  --ink-soft:   #6b5f58;
+  --ink-faint:  #a09484;
+  --paper:      #faf7f2;
+  --sand:       #f5f0e8;
+  --sand-dark:  #ede5d6;
+  --rule:       rgba(26,23,20,.14);
+  --rule-soft:  rgba(26,23,20,.07);
+  --terra:      #c4622d;
+  --terra-dark: #a0471c;
+  --gold:       #a8802a;
+  --panel:      #ffffff;
+
+  /* committed dark panels — identical in both themes by design */
+  --deep:       #1a2634;
+  --deep-2:     #16202c;
+  --deep-ink:   #f2ede4;
+  --deep-soft:  #9aa9b8;
+  --deep-rule:  rgba(242,237,228,.16);
+  --deep-terra: #e08048;
+  --deep-gold:  #d4a843;
+  --deep-input: rgba(242,237,228,.06);
+  --deep-input-hi: rgba(242,237,228,.10);
+
+  --serif: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --sans:  'Inter', system-ui, -apple-system, sans-serif;
+  --mono:  'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --rail: 74px;
+  --pad:  clamp(1.5rem, 5vw, 5.5rem);
+  --maxw: 1180px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink:       #f2ede4;
+    --ink-mid:   #d8cfc1;
+    --ink-soft:  #a2988a;
+    --ink-faint: #7a7166;
+    --paper:     #14120f;
+    --sand:      #1c1a16;
+    --sand-dark: #24211c;
+    --rule:      rgba(242,237,228,.16);
+    --rule-soft: rgba(242,237,228,.08);
+    --terra:     #e08048;
+    --terra-dark:#c4622d;
+    --gold:      #d4a843;
+    --panel:     #201d19;
+    --deep:      #111922;
+    --deep-2:    #0d141b;
+  }
+}
+:root[data-theme="dark"] {
+  --ink:       #f2ede4;
+  --ink-mid:   #d8cfc1;
+  --ink-soft:  #a2988a;
+  --ink-faint: #7a7166;
+  --paper:     #14120f;
+  --sand:      #1c1a16;
+  --sand-dark: #24211c;
+  --rule:      rgba(242,237,228,.16);
+  --rule-soft: rgba(242,237,228,.08);
+  --terra:     #e08048;
+  --terra-dark:#c4622d;
+  --gold:      #d4a843;
+  --panel:     #201d19;
+  --deep:      #111922;
+  --deep-2:    #0d141b;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   BASE
+   ───────────────────────────────────────────────────────────── */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 { margin: 0; text-wrap: balance; font-weight: 500; }
+p { margin: 0; }
+ul { margin: 0; padding: 0; list-style: none; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--terra); outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+
+/* ── Compass rail ───────────────────────────────────────────── */
+.rail {
+  position: fixed; top: 0; left: 0; bottom: 0; width: var(--rail);
+  border-right: 1px solid var(--rule);
+  background: var(--paper);
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: space-between; padding: 1.25rem 0;
+  z-index: 50;
+}
+.rail__mark {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--terra);
+}
+.rail__ticks { display: flex; flex-direction: column; gap: .55rem; align-items: center; }
+.rail__tick {
+  width: 22px; height: 2px; background: var(--rule);
+  border: 0; padding: 0; cursor: pointer; display: block;
+  transition: background .2s, width .2s;
+}
+.rail__tick:hover { background: var(--ink-soft); width: 28px; }
+.rail__tick[aria-current="true"] { background: var(--terra); width: 32px; }
+.rail__meta {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--ink-faint);
+  writing-mode: vertical-rl; transform: rotate(180deg);
+}
+@media (max-width: 820px) { .rail { display: none; } :root { --rail: 0px; } }
+
+/* ── Sheets ─────────────────────────────────────────────────── */
+main { margin-left: var(--rail); }
+.sheet {
+  position: relative;
+  padding: clamp(3rem, 8vh, 6rem) var(--pad);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+.sheet--sand { background: var(--sand); }
+.sheet--deep {
+  background: var(--deep);
+  color: var(--deep-ink);
+  border-bottom-color: var(--deep-rule);
+}
+.sheet__inner { max-width: var(--maxw); margin: 0 auto; }
+
+@media (min-width: 821px) and (min-height: 620px) {
+  html { scroll-snap-type: y proximity; }
+  .sheet { scroll-snap-align: start; min-height: 100vh; display: flex; align-items: center; }
+  .sheet__inner { width: 100%; }
+}
+
+/* ── Shared type devices ────────────────────────────────────── */
+.eyebrow {
+  font-family: var(--mono); font-size: .6875rem; font-weight: 500;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--terra);
+  display: flex; align-items: baseline; gap: .75rem;
+}
+.eyebrow::after { content: ""; flex: 1; height: 1px; background: var(--rule); }
+.sheet--deep .eyebrow { color: var(--deep-terra); }
+.sheet--deep .eyebrow::after { background: var(--deep-rule); }
+
+.num {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .16em;
+  color: var(--ink-faint);
+}
+.sheet--deep .num { color: var(--deep-soft); }
+
+h2.title {
+  font-family: var(--serif); font-weight: 500;
+  font-size: clamp(1.85rem, 4vw, 3rem);
+  line-height: 1.08; letter-spacing: -.015em;
+  margin: 1.4rem 0 0;
+  max-width: 22ch;
+}
+.lede {
+  font-size: clamp(1rem, 1.4vw, 1.1875rem); line-height: 1.55;
+  color: var(--ink-mid); max-width: 58ch; margin-top: 1.25rem;
+}
+.sheet--deep .lede { color: var(--deep-ink); }
+.body { color: var(--ink-soft); max-width: 62ch; }
+.sheet--deep .body { color: var(--deep-soft); }
+.mono-note {
+  font-family: var(--mono); font-size: .75rem; line-height: 1.7;
+  color: var(--ink-faint); letter-spacing: .01em;
+}
+.sheet--deep .mono-note { color: var(--deep-soft); }
+
+/* ── COVER ──────────────────────────────────────────────────── */
+.cover { background: var(--deep); color: var(--deep-ink); border-bottom: 0; }
+.cover__grid {
+  display: grid; gap: clamp(2.5rem, 6vw, 5rem);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) { .cover__grid { grid-template-columns: 1.35fr .9fr; align-items: end; } }
+.wordmark {
+  font-family: var(--serif); font-weight: 700;
+  font-size: clamp(2.5rem, 7vw, 5.25rem); line-height: .96;
+  letter-spacing: -.03em;
+}
+.wordmark span { color: var(--deep-terra); }
+.cover__kicker {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .24em;
+  text-transform: uppercase; color: var(--deep-gold); margin-bottom: 1.75rem;
+}
+.cover__claim {
+  font-family: var(--serif); font-style: italic; font-weight: 500;
+  font-size: clamp(1.125rem, 2vw, 1.5rem); line-height: 1.4;
+  color: var(--deep-ink); margin-top: 1.75rem; max-width: 30ch;
+}
+.cover__facts { display: flex; flex-direction: column; gap: 0; }
+.cover__fact {
+  display: flex; justify-content: space-between; gap: 1.5rem;
+  padding: .8rem 0; border-top: 1px solid var(--deep-rule);
+  font-family: var(--mono); font-size: .75rem; letter-spacing: .04em;
+}
+.cover__fact:last-child { border-bottom: 1px solid var(--deep-rule); }
+.cover__fact dt { color: var(--deep-soft); text-transform: uppercase; letter-spacing: .14em; font-size: .6875rem; }
+.cover__fact dd { margin: 0; color: var(--deep-ink); text-align: right; }
+
+/* ── Two-column content ─────────────────────────────────────── */
+.cols {
+  display: grid; gap: clamp(2rem, 5vw, 4.5rem); margin-top: clamp(2rem, 5vh, 3.5rem);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 900px) { .cols { grid-template-columns: 1fr 1fr; } .cols--wide { grid-template-columns: 1fr 1.25fr; } }
+
+/* ── Definition list blocks ─────────────────────────────────── */
+.deflist { display: flex; flex-direction: column; }
+.deflist > div {
+  padding: 1.05rem 0; border-top: 1px solid var(--rule-soft);
+  display: grid; gap: .3rem;
+}
+.deflist > div:first-child { border-top: 1px solid var(--rule); }
+.sheet--deep .deflist > div { border-top-color: var(--deep-rule); }
+.deflist dt {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--terra);
+}
+.sheet--deep .deflist dt { color: var(--deep-terra); }
+.deflist dd { margin: 0; color: var(--ink-mid); font-size: .9375rem; line-height: 1.5; }
+.sheet--deep .deflist dd { color: var(--deep-ink); }
+
+/* ── Pillars ────────────────────────────────────────────────── */
+.pillars { display: grid; gap: 1px; background: var(--rule); margin-top: 2.5rem; }
+@media (min-width: 760px) { .pillars { grid-template-columns: repeat(4, 1fr); } }
+.pillar { background: var(--panel); padding: 1.5rem 1.35rem; display: grid; gap: .6rem; align-content: start; }
+.pillar h3 { font-family: var(--serif); font-size: 1.1875rem; line-height: 1.2; }
+.pillar p { font-size: .875rem; color: var(--ink-soft); line-height: 1.55; }
+.pillar__tag {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--gold);
+}
+
+/* ── Big stats ──────────────────────────────────────────────── */
+.stats { display: grid; gap: 1px; background: var(--deep-rule); margin-top: clamp(2rem, 5vh, 3rem); }
+@media (min-width: 700px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+.stat { background: var(--deep-2); padding: clamp(1.5rem, 3vw, 2.25rem); display: grid; gap: .45rem; }
+.stat__fig {
+  font-family: var(--serif); font-weight: 700; letter-spacing: -.03em;
+  font-size: clamp(2.75rem, 7vw, 4.25rem); line-height: .92;
+  color: var(--deep-ink); font-variant-numeric: tabular-nums;
+}
+.stat__fig sup { font-size: .38em; font-weight: 500; top: -1.1em; color: var(--deep-terra); }
+.stat__label {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--deep-gold);
+}
+.stat__note { font-size: .8125rem; color: var(--deep-soft); line-height: 1.5; }
+
+/* ── Derived math strip ─────────────────────────────────────── */
+.mathstrip {
+  margin-top: 1px; background: var(--deep-2); padding: 1.35rem clamp(1.5rem, 3vw, 2.25rem);
+  display: flex; flex-wrap: wrap; gap: .5rem 2.25rem; align-items: baseline;
+  border-top: 1px solid var(--deep-rule);
+}
+.mathstrip span { font-family: var(--mono); font-size: .8125rem; color: var(--deep-soft); }
+.mathstrip b { color: var(--deep-ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* ── Segmentation bands ─────────────────────────────────────── */
+.seg { display: grid; gap: 2.25rem; margin-top: clamp(2rem, 5vh, 3rem); }
+@media (min-width: 900px) { .seg { grid-template-columns: 1.15fr 1fr; gap: clamp(2.5rem, 5vw, 4rem); } }
+.segblock { display: grid; gap: .9rem; align-content: start; }
+.segblock > h3 {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--terra);
+  padding-bottom: .6rem; border-bottom: 1px solid var(--rule);
+}
+.band { display: grid; gap: .5rem; }
+.band__row { display: grid; grid-template-columns: 1fr auto; gap: .3rem .9rem; align-items: baseline; }
+.band__name { font-size: .875rem; color: var(--ink-mid); }
+.band__val {
+  font-family: var(--mono); font-size: .8125rem; color: var(--ink);
+  font-variant-numeric: tabular-nums; letter-spacing: .02em;
+}
+.band__bar { grid-column: 1 / -1; height: 4px; background: var(--sand-dark); overflow: hidden; }
+.band__fill { height: 100%; background: var(--terra); display: block; }
+.band__fill--gold { background: var(--gold); }
+.band__fill--soft { background: var(--ink-faint); }
+
+/* ── Inventory table ───────────────────────────────────────── */
+.tablewrap { overflow-x: auto; margin-top: clamp(2rem, 5vh, 2.75rem); }
+table { width: 100%; border-collapse: collapse; min-width: 620px; }
+caption {
+  text-align: left; font-family: var(--mono); font-size: .6875rem;
+  letter-spacing: .2em; text-transform: uppercase; color: var(--terra);
+  padding-bottom: .85rem;
+}
+th, td { text-align: left; padding: .85rem 1rem .85rem 0; border-bottom: 1px solid var(--rule-soft); vertical-align: top; }
+thead th {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--ink-faint); font-weight: 500;
+  border-bottom: 1px solid var(--rule);
+}
+td.unit { font-weight: 500; color: var(--ink); }
+td.spec { color: var(--ink-soft); font-size: .875rem; }
+td.rate {
+  font-family: var(--mono); font-size: .875rem; color: var(--ink);
+  font-variant-numeric: tabular-nums; white-space: nowrap; text-align: right; padding-right: 0;
+}
+tbody tr:last-child th, tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
+.rowhead td {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--gold); padding-top: 1.9rem; border-bottom-color: var(--rule);
+}
+.rowhead:first-child td { padding-top: 0; }
+
+/* ── Standards grid ─────────────────────────────────────────── */
+.rules { display: grid; gap: 1px; background: var(--rule); margin-top: clamp(2rem, 5vh, 3rem); }
+@media (min-width: 760px) { .rules { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1050px) { .rules { grid-template-columns: repeat(3, 1fr); } }
+.rule-card { background: var(--panel); padding: 1.4rem 1.35rem; display: grid; gap: .5rem; align-content: start; }
+.rule-card h3 { font-size: .9375rem; font-weight: 600; letter-spacing: -.005em; }
+.rule-card p { font-size: .8125rem; color: var(--ink-soft); line-height: 1.55; }
+
+/* ── Close ──────────────────────────────────────────────────── */
+.close { display: grid; gap: 2.5rem; }
+@media (min-width: 900px) { .close { grid-template-columns: .92fr 1.08fr; align-items: start; gap: 3.25rem; } }
+.close > div:first-child { display: grid; gap: 2rem; align-content: start; }
+.steps { counter-reset: step; display: grid; gap: 1rem; }
+.steps li {
+  counter-increment: step; display: grid; grid-template-columns: auto 1fr;
+  gap: 1rem; align-items: baseline; padding-bottom: 1rem; border-bottom: 1px solid var(--deep-rule);
+}
+.steps li::before {
+  content: counter(step, decimal-leading-zero);
+  font-family: var(--mono); font-size: .75rem; color: var(--deep-terra); letter-spacing: .08em;
+}
+.steps li span { color: var(--deep-ink); font-size: .9375rem; line-height: 1.5; }
+/* ── Enquiry form (close sheet) ──────────────────────────────── */
+.contact { display: grid; gap: .3rem; font-family: var(--mono); font-size: .75rem;
+  color: var(--deep-soft); padding-top: 1.25rem; border-top: 1px solid var(--deep-rule); }
+.contact strong { color: var(--deep-ink); font-weight: 500; letter-spacing: .03em; }
+.contact a { color: var(--deep-ink); text-decoration: underline; text-underline-offset: 2px; }
+
+.enq { display: grid; gap: 1rem; align-content: start; }
+.enq__head {
+  font-family: var(--mono); font-size: .6875rem; letter-spacing: .2em;
+  text-transform: uppercase; color: var(--deep-terra);
+  padding-bottom: .7rem; border-bottom: 1px solid var(--deep-rule);
+}
+.enq__grid { display: grid; gap: .8rem; grid-template-columns: 1fr 1fr; }
+.field { display: grid; gap: .3rem; min-width: 0; }
+.field--wide { grid-column: 1 / -1; }
+.field > span {
+  font-family: var(--mono); font-size: .625rem; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--deep-soft);
+}
+.field > span em { font-style: normal; text-transform: none; letter-spacing: 0; opacity: .75; }
+.field input, .field select, .field textarea {
+  font-family: var(--sans); font-size: .875rem; color: var(--deep-ink);
+  background: var(--deep-input);
+  border: 1px solid var(--deep-rule); border-radius: 2px;
+  padding: .5rem .6rem; width: 100%; min-width: 0;
+  transition: border-color .15s, background .15s;
+}
+.field textarea { resize: vertical; line-height: 1.45; }
+.field select { appearance: none; cursor: pointer; }
+.field input:hover, .field select:hover, .field textarea:hover { border-color: var(--deep-soft); }
+.field input:focus, .field select:focus, .field textarea:focus {
+  outline: 2px solid var(--deep-terra); outline-offset: 1px;
+  background: var(--deep-input-hi); border-color: transparent;
+}
+.field input[aria-invalid="true"], .field select[aria-invalid="true"] { border-color: var(--deep-terra); }
+/* the option list is painted by the OS, so it needs its own colours */
+.field select option { background: var(--deep-2); color: var(--deep-ink); }
+.enq__send {
+  justify-self: start; font-family: var(--sans); font-size: .875rem; font-weight: 600;
+  letter-spacing: .01em; color: var(--deep); background: var(--deep-terra);
+  border: 0; border-radius: 2px; padding: .6rem 1.4rem; cursor: pointer;
+  transition: filter .15s;
+}
+.enq__send:hover { filter: brightness(1.08); }
+.enq__send:active { filter: brightness(.95); }
+.enq__note {
+  font-family: var(--mono); font-size: .6875rem; line-height: 1.7;
+  color: var(--deep-soft); max-width: 46ch;
+}
+.enq__note a { color: var(--deep-ink); text-decoration: underline; text-underline-offset: 2px; }
+.enq__note[data-state="error"] { color: var(--deep-terra); }
+@media (max-width: 560px) { .enq__grid { grid-template-columns: 1fr; } }
+.footnote {
+  margin-top: clamp(2.5rem, 6vh, 4rem); padding-top: 1.25rem;
+  border-top: 1px solid var(--deep-rule);
+  font-family: var(--mono); font-size: .6875rem; line-height: 1.75;
+  color: var(--deep-soft); max-width: 88ch;
+}
+
+/* ── Print / PDF ────────────────────────────────────────────── */
+@media print {
+  .rail { display: none; }
+  main { margin-left: 0; }
+  html { scroll-snap-type: none; }
+  .sheet { min-height: auto; display: block; break-after: page; padding: 2rem 1.5rem; border-bottom: 0; }
+  .sheet--deep, .cover { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+</style>
+
+<nav class="rail" aria-label="Deck sections">
+  <div class="rail__mark">D<span aria-hidden="true">·</span>C</div>
+  <div class="rail__ticks" id="ticks"></div>
+  <div class="rail__meta">Media Kit 2026</div>
+</nav>
+
+<main>
+
+  <!-- ══════════ COVER ══════════ -->
+  <section class="sheet cover" id="s0" aria-label="Cover">
+    <div class="sheet__inner">
+      <div class="cover__grid">
+        <div>
+          <p class="cover__kicker">Advertising &amp; Partnerships · 2026</p>
+          <h1 class="wordmark">Destination<span>.</span>com</h1>
+          <p class="cover__claim">Guides written by travelers who have actually been there — and an audience that books what we recommend.</p>
+        </div>
+        <dl class="cover__facts">
+          <div class="cover__fact"><dt>Category</dt><dd>Travel · Points &amp; Miles</dd></div>
+          <div class="cover__fact"><dt>Owner</dt><dd>PGAM Media, O&amp;O</dd></div>
+          <div class="cover__fact"><dt>Newsletter</dt><dd>60,000 subscribers</dd></div>
+          <div class="cover__fact"><dt>Open rate</dt><dd>50%+</dd></div>
+          <div class="cover__fact"><dt>Click rate</dt><dd>10%</dd></div>
+          <div class="cover__fact"><dt>Surfaces</dt><dd>Web · Email · iOS &amp; Android</dd></div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 01 · THE PROPERTY ══════════ -->
+  <section class="sheet sheet--sand" id="s1" aria-labelledby="t1">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">01</span> The property</p>
+      <h2 class="title" id="t1">A travel publisher that owns its own demand stack.</h2>
+      <p class="lede">Destination.com is an owned-and-operated property of PGAM Media — an ad tech company that runs its own SSP. That means no reseller between you and the inventory, no opaque supply chain, and a media plan that can be built across editorial, email, and commerce in one conversation.</p>
+
+      <div class="cols cols--wide">
+        <dl class="deflist">
+          <div>
+            <dt>Editorial promise</dt>
+            <dd>Guides written from the ground, not assembled from other people's listicles. No paid rankings, ever — sponsorship buys placement and attention, never a position in a ranking.</dd>
+          </div>
+          <div>
+            <dt>Publishing cadence</dt>
+            <dd>New guides weekly and existing guides revisited on a rolling schedule, so the catalogue stays current on visas, prices, and seasonality rather than aging into a liability.</dd>
+          </div>
+          <div>
+            <dt>Built for intent</dt>
+            <dd>The reader arrives mid-decision — comparing two islands, checking a visa rule, pricing a safari. Editorial is organised around that decision, which is why commerce performs here.</dd>
+          </div>
+        </dl>
+
+        <div>
+          <p class="body" style="margin-bottom:1.5rem">Three things make this audience worth more than its size suggests:</p>
+          <dl class="deflist">
+            <div>
+              <dt>01 · High-ticket category</dt>
+              <dd>A single reader decision is worth thousands of dollars in flights, hotels, tours, insurance, and cards. Travel intent monetises at a multiple of general interest.</dd>
+            </div>
+            <div>
+              <dt>02 · A points &amp; miles pillar</dt>
+              <dd>Award travel is the highest-value vertical in this category, and it is a first-class section here rather than a footnote — the audience for it is self-selected and financially engaged.</dd>
+            </div>
+            <div>
+              <dt>03 · A closed loop</dt>
+              <dd>Site, newsletter, and app share one identity layer, so a campaign can start in editorial and finish in the inbox against the same segment.</dd>
+            </div>
+          </dl>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 02 · THE WEBSITE ══════════ -->
+  <section class="sheet" id="s2" aria-labelledby="t2">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">02</span> The website</p>
+      <h2 class="title" id="t2">Four pillars, six regions, one honest voice.</h2>
+      <p class="lede">The site is a hub-and-spoke library: region hubs feed country guides, country guides feed city and experience guides, and every guide routes back to the planning and points content that converts. Advertisers buy into that structure — a region, an experience type, or a decision moment — not a run-of-network blur.</p>
+
+      <div class="pillars">
+        <article class="pillar">
+          <p class="pillar__tag">Pillar 01</p>
+          <h3>Destinations</h3>
+          <p>Europe, Asia, the Americas, Africa, the Pacific, and the Middle East — region hubs down to city level, with guide counts and freshness dates on every node.</p>
+        </article>
+        <article class="pillar">
+          <p class="pillar__tag">Pillar 02</p>
+          <h3>Experiences</h3>
+          <p>Adventure, food and drink, culture and art, wellness. Readers filter by how they travel, not only where — which is exactly how brands want to target.</p>
+        </article>
+        <article class="pillar">
+          <p class="pillar__tag">Pillar 03</p>
+          <h3>Travel Guides</h3>
+          <p>Visas, best-time-to-visit, insurance, packing, safety, airports, booking windows. The highest-intent content on the site and the last thing read before booking.</p>
+        </article>
+        <article class="pillar">
+          <p class="pillar__tag">Pillar 04</p>
+          <h3>Points &amp; Miles</h3>
+          <p>Card bonuses, transfer sweet spots, hotel redemptions, tracked weekly. Premium CPMs and the strongest card-acquisition audience on the property.</p>
+        </article>
+      </div>
+
+      <div class="cols" style="margin-top:clamp(2rem,4vh,2.75rem)">
+        <dl class="deflist">
+          <div>
+            <dt>AI Trip Planner</dt>
+            <dd>Readers enter dates, budget, party, and trip type and get a day-by-day itinerary with a costed breakdown and live hotel and flight options. Every plan is a declared intent — destination, dates, budget band — and sponsorable as such.</dd>
+          </div>
+          <div>
+            <dt>Native app · iOS &amp; Android</dt>
+            <dd>Guides, saved trips, and planner access in a signed-in app, giving a persistent identity and a push channel alongside email.</dd>
+          </div>
+        </dl>
+        <dl class="deflist">
+          <div>
+            <dt>Live commerce rails</dt>
+            <dd>Hotels, vacation rentals, packages, cars, tours, and activities all route through live affiliate integrations with Expedia Group, Viator, and GetYourGuide. Booking behaviour is measured, not assumed.</dd>
+          </div>
+          <div>
+            <dt>Traffic &amp; audience detail</dt>
+            <dd>Full traffic, geography, and viewability reporting is shared on request under NDA, alongside a current rate card and availability calendar.</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 03 · THE NEWSLETTER ══════════ -->
+  <section class="sheet sheet--deep" id="s3" aria-labelledby="t3">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">03</span> The newsletter</p>
+      <h2 class="title" id="t3">60,000 travelers. Half of them open it. A tenth of them click.</h2>
+      <p class="lede">One flagship issue every Tuesday, plus a Friday award-travel drop to the points and miles segment. The list is grown from editorial rather than bought or co-registered, which is why the engagement holds where most travel lists sag.</p>
+
+      <div class="stats">
+        <div class="stat">
+          <p class="stat__label">Subscribers</p>
+          <p class="stat__fig">60,000</p>
+          <p class="stat__note">Opt-in, single-source, grown from on-site editorial. No purchased or co-reg names.</p>
+        </div>
+        <div class="stat">
+          <p class="stat__label">Open rate</p>
+          <p class="stat__fig">50<sup>%+</sup></p>
+          <p class="stat__note">Roughly 30,000 opens per issue. Travel newsletters at this size typically run 28–38%.</p>
+        </div>
+        <div class="stat">
+          <p class="stat__label">Click rate</p>
+          <p class="stat__fig">10<sup>%</sup></p>
+          <p class="stat__note">About 6,000 clicks per issue on the full list — a click-to-open near 20%.</p>
+        </div>
+      </div>
+
+      <div class="mathstrip">
+        <span>What a primary sponsorship at <b>$2,500</b> works out to:</span>
+        <span><b>$42</b> CPM delivered</span>
+        <span><b>$83</b> CPM on opens</span>
+        <span><b>$0.42</b> per click</span>
+      </div>
+
+      <div class="cols" style="margin-top:clamp(2rem,4vh,2.75rem)">
+        <dl class="deflist">
+          <div>
+            <dt>Tuesday flagship</dt>
+            <dd>Destination deep-dive, visa and entry changes, flight deals, and one honest review. One primary sponsor and one native dispatch per issue — never more.</dd>
+          </div>
+          <div>
+            <dt>Friday award drop</dt>
+            <dd>Transfer bonuses, card offers, and redemption sweet spots to the points and miles segment only. The premium slot on the property for financial services.</dd>
+          </div>
+        </dl>
+        <dl class="deflist">
+          <div>
+            <dt>Reader value first</dt>
+            <dd>Sponsorship is labelled and editorially framed. Nothing runs that we would not send to a friend, which is the whole reason the open rate is where it is.</dd>
+          </div>
+          <div>
+            <dt>Reporting</dt>
+            <dd>Per-placement delivery, opens, unique clicks, and CTR within 72 hours of send, plus click-path detail where a landing page is instrumented.</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 04 · SEGMENTATION ══════════ -->
+  <section class="sheet sheet--sand" id="s4" aria-labelledby="t4">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">04</span> Segmentation</p>
+      <h2 class="title" id="t4">You are not buying 60,000 people. You are buying the right 9,000.</h2>
+      <p class="lede">Every subscriber declares interests and regions at signup, and every click refines them. Segments are addressable individually, combinable, and available for standalone sends from 5,000 names up.</p>
+
+      <div class="seg">
+        <div class="segblock">
+          <h3>By interest — declared and click-confirmed</h3>
+          <div class="band">
+            <div class="band__row"><span class="band__name">Points &amp; miles / award travel</span><span class="band__val">22% · 13,200</span><span class="band__bar"><span class="band__fill" style="width:22%"></span></span></div>
+            <div class="band__row"><span class="band__name">Adventure &amp; outdoors</span><span class="band__val">18% · 10,800</span><span class="band__bar"><span class="band__fill" style="width:18%"></span></span></div>
+            <div class="band__row"><span class="band__name">Beach &amp; islands</span><span class="band__val">16% · 9,600</span><span class="band__bar"><span class="band__fill" style="width:16%"></span></span></div>
+            <div class="band__row"><span class="band__name">Food &amp; wine</span><span class="band__val">13% · 7,800</span><span class="band__bar"><span class="band__fill" style="width:13%"></span></span></div>
+            <div class="band__row"><span class="band__name">Culture &amp; city breaks</span><span class="band__val">12% · 7,200</span><span class="band__bar"><span class="band__fill" style="width:12%"></span></span></div>
+            <div class="band__row"><span class="band__name">Luxury &amp; slow travel</span><span class="band__val">10% · 6,000</span><span class="band__bar"><span class="band__fill" style="width:10%"></span></span></div>
+            <div class="band__row"><span class="band__name">Budget &amp; backpacking</span><span class="band__val">9% · 5,400</span><span class="band__bar"><span class="band__fill" style="width:9%"></span></span></div>
+          </div>
+        </div>
+
+        <div style="display:grid;gap:2.25rem;align-content:start">
+          <div class="segblock">
+            <h3>By trip stage — behavioural</h3>
+            <div class="band">
+              <div class="band__row"><span class="band__name">Dreaming — no dates yet</span><span class="band__val">45%</span><span class="band__bar"><span class="band__fill band__fill--soft" style="width:45%"></span></span></div>
+              <div class="band__row"><span class="band__name">Planning — booking in 30–90 days</span><span class="band__val">32%</span><span class="band__bar"><span class="band__fill" style="width:32%"></span></span></div>
+              <div class="band__row"><span class="band__name">Booking — in-market now</span><span class="band__val">15%</span><span class="band__bar"><span class="band__fill" style="width:15%"></span></span></div>
+              <div class="band__row"><span class="band__name">Just back — reviewing, resharing</span><span class="band__val">8%</span><span class="band__bar"><span class="band__fill band__fill--soft" style="width:8%"></span></span></div>
+            </div>
+          </div>
+
+          <div class="segblock">
+            <h3>By region intent</h3>
+            <div class="band">
+              <div class="band__row"><span class="band__name">Europe</span><span class="band__val">34%</span><span class="band__bar"><span class="band__fill band__fill--gold" style="width:34%"></span></span></div>
+              <div class="band__row"><span class="band__name">Asia</span><span class="band__val">22%</span><span class="band__bar"><span class="band__fill band__fill--gold" style="width:22%"></span></span></div>
+              <div class="band__row"><span class="band__name">Americas</span><span class="band__val">19%</span><span class="band__bar"><span class="band__fill band__fill--gold" style="width:19%"></span></span></div>
+              <div class="band__row"><span class="band__name">Africa</span><span class="band__val">11%</span><span class="band__bar"><span class="band__fill band__fill--gold" style="width:11%"></span></span></div>
+              <div class="band__row"><span class="band__name">Middle East &amp; Pacific</span><span class="band__val">8%</span><span class="band__bar"><span class="band__fill band__fill--gold" style="width:8%"></span></span></div>
+              <div class="band__row"><span class="band__name">Open to anywhere</span><span class="band__val">6%</span><span class="band__bar"><span class="band__fill band__fill--soft" style="width:6%"></span></span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cols" style="margin-top:clamp(2rem,4vh,3rem)">
+        <dl class="deflist">
+          <div>
+            <dt>By engagement</dt>
+            <dd>Opens every issue 28% · most issues 34% · occasional 26% · re-engagement 12%. A frequency-capped campaign can buy the top two tiers only.</dd>
+          </div>
+        </dl>
+        <dl class="deflist">
+          <div>
+            <dt>By geography</dt>
+            <dd>United States 58% · United Kingdom 12% · European Union 10% · Canada 8% · Australia &amp; New Zealand 7% · rest of world 5%. Roughly two thirds of opens are on mobile.</dd>
+          </div>
+        </dl>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 05 · INVENTORY & RATES ══════════ -->
+  <section class="sheet" id="s5" aria-labelledby="t5">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">05</span> Inventory &amp; rates</p>
+      <h2 class="title" id="t5">What you can buy, and what it costs.</h2>
+      <p class="lede">Rate card pricing, before volume and annual commitments. Everything below can be bought à la carte or packaged; programmatic buyers can transact the display inventory directly through PGAM's own seats as a private marketplace deal.</p>
+
+      <div class="tablewrap">
+        <table>
+          <caption>Rate card · 2026</caption>
+          <thead>
+            <tr><th scope="col">Placement</th><th scope="col">What it is</th><th scope="col" style="text-align:right">Rate</th></tr>
+          </thead>
+          <tbody>
+            <tr class="rowhead"><td colspan="3">Newsletter</td></tr>
+            <tr><td class="unit">Primary sponsorship</td><td class="spec">Top-of-issue billboard, logo lockup, 40 words, one link. One per issue.</td><td class="rate">$2,500 / issue</td></tr>
+            <tr><td class="unit">Native dispatch</td><td class="spec">In-body sponsored block — image, 80–100 words in house voice, labelled. One per issue.</td><td class="rate">$1,500 / issue</td></tr>
+            <tr><td class="unit">Text link block</td><td class="spec">Three-line classified in the resources footer.</td><td class="rate">$600 / issue</td></tr>
+            <tr><td class="unit">Segment-targeted send</td><td class="spec">Your creative to one declared segment. 5,000-name minimum.</td><td class="rate">$900 / 10k</td></tr>
+            <tr><td class="unit">Points &amp; Miles solo send</td><td class="spec">Standalone email to the award-travel segment (13,200). Card and financial services.</td><td class="rate">$2,000</td></tr>
+            <tr><td class="unit">Dedicated solo send</td><td class="spec">Standalone email, full list, single advertiser.</td><td class="rate">$4,500</td></tr>
+            <tr><td class="unit">Presenting sponsor</td><td class="spec">Primary slot in all 13 issues of a quarter, plus one solo send.</td><td class="rate">$26,000 / quarter</td></tr>
+
+            <tr class="rowhead"><td colspan="3">Site — display</td></tr>
+            <tr><td class="unit">Run of site</td><td class="spec">Responsive leaderboard and in-content 300×250. Max three in-content units per article.</td><td class="rate">$8–12 CPM</td></tr>
+            <tr><td class="unit">High impact</td><td class="spec">Sticky 300×600 half-page, desktop sidebar. Highest viewability on the property.</td><td class="rate">$15–22 CPM</td></tr>
+            <tr><td class="unit">Mobile anchor</td><td class="spec">320×50 sticky, five-second delay to protect the reading experience.</td><td class="rate">$10–14 CPM</td></tr>
+            <tr><td class="unit">Trip Planner results</td><td class="spec">Sponsored slot inside a generated itinerary — destination, dates, and budget declared. Highest intent inventory we sell.</td><td class="rate">$18–25 CPM</td></tr>
+
+            <tr class="rowhead"><td colspan="3">Site — content &amp; ownership</td></tr>
+            <tr><td class="unit">Sponsored guide</td><td class="spec">1,500+ words to house editorial standard, labelled, evergreen, internally linked.</td><td class="rate">$1,500–3,500</td></tr>
+            <tr><td class="unit">Region hub sponsorship</td><td class="spec">Presenting brand on a region hub and its guides for 30 days.</td><td class="rate">$3,000 / month</td></tr>
+            <tr><td class="unit">Homepage takeover</td><td class="spec">Hero surround and trust-bar placement, 24 hours, one advertiser.</td><td class="rate">$2,500 / day</td></tr>
+
+            <tr class="rowhead"><td colspan="3">Commerce</td></tr>
+            <tr><td class="unit">Commerce partnership</td><td class="spec">Preferred placement in booking CTAs, comparison tables, and planner output. Revenue share or hybrid.</td><td class="rate">Custom</td></tr>
+            <tr><td class="unit">Launch package</td><td class="spec">Four newsletter primaries, one region hub month, one sponsored guide. Rate card value $16,500.</td><td class="rate">$14,000</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ 06 · STANDARDS ══════════ -->
+  <section class="sheet sheet--sand" id="s6" aria-labelledby="t6">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">06</span> Standards</p>
+      <h2 class="title" id="t6">Clean supply, clean pages, clean disclosure.</h2>
+      <p class="lede">Most of what depresses performance in this category is self-inflicted: too many units, unverified supply, and disclosure treated as an afterthought. Here is what we hold to.</p>
+
+      <div class="rules">
+        <article class="rule-card">
+          <h3>Verified, direct supply</h3>
+          <p>Authorised seats are declared DIRECT in ads.txt and machine-checked every day. A missing or downgraded line pages an engineer the same morning.</p>
+        </article>
+        <article class="rule-card">
+          <h3>Owned and operated</h3>
+          <p>One publisher, one domain, no arbitraged or resold traffic in the path. You know exactly what you bought.</p>
+        </article>
+        <article class="rule-card">
+          <h3>Three units, hard cap</h3>
+          <p>No more than three in-content ads per article, none inside the first 200 words, and never two units stacked. Density is capped to protect viewability, not inflate it.</p>
+        </article>
+        <article class="rule-card">
+          <h3>No dark patterns</h3>
+          <p>No pop-ups, no pop-unders, no interstitials, no auto-playing video. Core Web Vitals are a revenue input here, not a compliance chore.</p>
+        </article>
+        <article class="rule-card">
+          <h3>Labelled, always</h3>
+          <p>Sponsored content carries its label above the fold, paid links are marked, and affiliate relationships are disclosed to FTC standard on every page that carries them.</p>
+        </article>
+        <article class="rule-card">
+          <h3>Editorial independence</h3>
+          <p>Sponsorship never buys a ranking, a rewrite, or the removal of a recommendation. It is the reason the audience trusts a click, and the reason a click is worth buying.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ CLOSE ══════════ -->
+  <section class="sheet sheet--deep" id="s7" aria-labelledby="t7">
+    <div class="sheet__inner">
+      <p class="eyebrow"><span class="num">07</span> Next</p>
+      <h2 class="title" id="t7">Let's build the plan against a segment, not a guess.</h2>
+
+      <div class="close">
+        <div>
+        <ol class="steps">
+          <li><span>Tell us the audience you actually want — a region, an interest, a trip stage, or a combination. We size it against the list and the site in a day.</span></li>
+          <li><span>We come back with a costed plan, availability, and the traffic and viewability detail under NDA.</span></li>
+          <li><span>Test on a single issue or a two-week flight. Full delivery, click, and CTR reporting within 72 hours of the last send.</span></li>
+        </ol>
+
+        <div class="contact">
+          <p><strong>Destination.com — Advertising &amp; Partnerships</strong></p>
+          <p>PGAM Media &nbsp;·&nbsp; pgammedia.com</p>
+          <p><a href="mailto:info@pgammedia.com">info@pgammedia.com</a></p>
+        </div>
+        </div>
+
+        <form class="enq" id="enq" novalidate>
+          <p class="enq__head">Tell us what you want to reach</p>
+
+          <div class="enq__grid">
+            <label class="field">
+              <span>Name</span>
+              <input type="text" name="name" autocomplete="name" required>
+            </label>
+            <label class="field">
+              <span>Company</span>
+              <input type="text" name="company" autocomplete="organization" required>
+            </label>
+            <label class="field field--wide">
+              <span>Email</span>
+              <input type="email" name="email" autocomplete="email" required>
+            </label>
+            <label class="field">
+              <span>Audience</span>
+              <select name="audience">
+                <option>Whole list</option>
+                <option>Points &amp; miles</option>
+                <option>Adventure &amp; outdoors</option>
+                <option>Beach &amp; islands</option>
+                <option>Food &amp; wine</option>
+                <option>Culture &amp; city breaks</option>
+                <option>Luxury &amp; slow travel</option>
+                <option>Budget &amp; backpacking</option>
+                <option>Planning / booking stage</option>
+                <option>Not sure yet — advise me</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Interested in</span>
+              <select name="product">
+                <option>Newsletter sponsorship</option>
+                <option>Segment or solo send</option>
+                <option>Site display</option>
+                <option>Trip Planner placement</option>
+                <option>Sponsored guide</option>
+                <option>Region hub sponsorship</option>
+                <option>Commerce partnership</option>
+                <option>Something else</option>
+              </select>
+            </label>
+            <label class="field field--wide">
+              <span>Anything else <em>(optional)</em></span>
+              <textarea name="message" rows="2"></textarea>
+            </label>
+          </div>
+
+          <button type="submit" class="enq__send">Send enquiry</button>
+          <p class="enq__note" id="enqNote">
+            Opens your email client with this filled in, addressed to
+            <a href="mailto:info@pgammedia.com">info@pgammedia.com</a>. Prefer to write
+            it yourself? That address works just as well.
+          </p>
+        </form>
+      </div>
+
+      <p class="footnote">Newsletter subscriber counts, open and click rates, and all segment splits in this document are internal projections for planning purposes and are not independently audited. Site traffic, viewability, and geography detail are shared on request under NDA. Rate card pricing is indicative and excludes agency commission, volume, and annual commitment terms.</p>
+    </div>
+  </section>
+
+</main>
+
+<script>
+(function () {
+  var sections = Array.prototype.slice.call(document.querySelectorAll('main .sheet'));
+  var ticks = document.getElementById('ticks');
+  var labels = ['Cover', 'The property', 'The website', 'The newsletter', 'Segmentation', 'Inventory & rates', 'Standards', 'Next'];
+
+  sections.forEach(function (sec, i) {
+    var b = document.createElement('button');
+    b.className = 'rail__tick';
+    b.type = 'button';
+    b.setAttribute('aria-label', labels[i] || 'Section ' + (i + 1));
+    b.addEventListener('click', function () {
+      sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    ticks.appendChild(b);
+  });
+
+  var dots = Array.prototype.slice.call(ticks.children);
+  if ('IntersectionObserver' in window) {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (!e.isIntersecting) return;
+        var i = sections.indexOf(e.target);
+        dots.forEach(function (d, j) { d.setAttribute('aria-current', j === i ? 'true' : 'false'); });
+      });
+    }, { threshold: 0.5 });
+    sections.forEach(function (s) { io.observe(s); });
+  }
+
+  /* Enquiry form. The artifact CSP blocks POSTs to any external host, so the
+     form composes the message and hands it to the viewer's mail client. */
+  var enq = document.getElementById('enq');
+  var note = document.getElementById('enqNote');
+  if (enq) {
+    var noteHTML = note.innerHTML;
+    enq.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var f = enq.elements;
+      var required = ['name', 'company', 'email'];
+      var missing = null;
+      required.forEach(function (n) {
+        var el = f[n];
+        var ok = el.value.trim() && (n !== 'email' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(el.value.trim()));
+        el.setAttribute('aria-invalid', ok ? 'false' : 'true');
+        if (!ok && !missing) missing = el;
+      });
+      if (missing) {
+        note.dataset.state = 'error';
+        note.textContent = 'Add your name, company, and a valid email address, then send.';
+        missing.focus();
+        return;
+      }
+      note.dataset.state = '';
+      note.innerHTML = noteHTML;
+
+      var v = function (n) { return f[n].value.trim(); };
+      var subject = 'Destination.com enquiry — ' + v('company') + ' — ' + v('product');
+      var lines = [
+        'Name:     ' + v('name'),
+        'Company:  ' + v('company'),
+        'Email:    ' + v('email'),
+        'Audience: ' + v('audience'),
+        'Product:  ' + v('product'),
+      ];
+      if (v('message')) lines.push('', v('message'));
+      lines.push('', '— sent from the Destination.com media kit');
+
+      window.location.href = 'mailto:info@pgammedia.com'
+        + '?subject=' + encodeURIComponent(subject)
+        + '&body=' + encodeURIComponent(lines.join('\n'));
+    });
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    var dir = e.key === 'ArrowDown' || e.key === 'PageDown' ? 1 : (e.key === 'ArrowUp' || e.key === 'PageUp' ? -1 : 0);
+    if (!dir) return;
+    var mid = window.innerHeight / 2;
+    var current = 0;
+    sections.forEach(function (s, i) { if (s.getBoundingClientRect().top < mid) current = i; });
+    var next = sections[current + dir];
+    if (next) { e.preventDefault(); next.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+})();
+</script>
