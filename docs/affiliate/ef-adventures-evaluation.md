@@ -2,11 +2,15 @@
 
 **Received:** Aug 2026, 57-link CJ export (`links_5.csv`) forwarded for review
 **Property in scope:** destination.com
-**Verdict:** **Links are technically sound but commercially unproven, and the pack only
-covers ~8 of the 50 planned articles.** Run it as a narrow Europe/solo-travel test on
-existing content. Do not commission content for it, and do not deploy the four 2025
-banners as shipped. **Get the commission rate before anything goes live — it is not in
-this export.**
+**Verdict:** **Run it.** $250 flat CPA is a strong rate — 5× what a hotel booking returns —
+and at ~$4/article the payback threshold is one booking per ~60 articles. Deploy deep text
+links across the Europe/solo cluster and commission the Tour de France piece. Two things
+still gate it: the **cookie window** and whether the CPA fires on **deposit or final
+payment**. Do not deploy the four 2025 banners.
+
+**Revised 2026-08-25** after Priyesh confirmed the rate ($250 CPA via CJ). The original
+verdict — "narrow test, don't commission content" — was written without it and is
+superseded below.
 
 ---
 
@@ -55,25 +59,56 @@ in this review. Somebody needs to click a sample manually before launch — spec
 deep links, to confirm each lands on the tour page its name claims. See the copy defects
 below for why that is not a formality.
 
-### Earnings history: effectively none
+### Earnings history: thin, but now interpretable
 
-CJ reports EPC per **hundred** clicks. 54 of 57 links report `N/A`, which means the
-network has insufficient activity to compute a figure at all.
+CJ reports EPC per **hundred** clicks. 54 of 57 links report `N/A`, which means the network
+has insufficient activity to compute a figure at all.
 
 | Link | 3-month EPC | Per click |
 |---|---|---|
 | Evergreen Link (`17141071`) | $8.12 / 100 | $0.081 |
 | Home page text link (`17133003`) | $0.00 | $0.00 |
 | Logo 125x125 banner (`17129942`) | $0.00 | $0.00 |
-| The other 54 | N/A | no data |
 
-The one real number is **3.2× Club del Sole's $2.50/100**, which is the last CJ program we
-looked at and rejected. That is a meaningful improvement. But it is a single data point on
-the *Evergreen Link* — CJ's auto-rotating unit, whose EPC reflects network-wide
-performance across all publishers, not ours and not any specific creative. At $0.081/click
-you need ~12,400 clicks to make $1,000.
+**With the $250 CPA known, that EPC becomes a conversion-rate reading.** EPC is the rate
+times the conversion rate, so:
 
-**Nothing in this pack has a proven per-creative conversion record.**
+    $0.0812 / click ÷ $250 CPA = 0.0325% → one booking per ~3,080 clicks
+
+That is the network-wide click-to-booking rate across all CJ publishers carrying this
+program. It is low, but entirely normal for a $3,000–$6,000 considered purchase with a
+multi-month decision cycle.
+
+The important consequence: **a high CPA does not raise the EPC — the EPC already contains
+it.** Eight cents a click is the bottom line, and knowing the rate is $250 doesn't change
+that number, it just explains it. What a good placement changes is the conversion rate.
+
+| Scenario | Conv. rate | Clicks per booking | EPC/click | Sessions per booking @ 3% CTR |
+|---|---|---|---|---|
+| Network average | 0.032% | 3,080 | $0.081 | ~103,000 |
+| 3× — well-matched article | 0.097% | 1,030 | $0.244 | ~34,000 |
+| 10× — high-intent article | 0.325% | 308 | $0.812 | ~10,000 |
+
+destination.com should beat the network average, because the network average includes
+coupon sites and generic travel aggregators sending untargeted traffic. A Camino de
+Santiago guide sending readers to EF's Camino tour is about as matched as affiliate traffic
+gets. But the honest expectation at current scale is **low hundreds of dollars a year**,
+arriving as one or two lumpy $250 hits — not a steady trickle.
+
+### Why it is still worth doing
+
+Two reasons the modest EPC doesn't sink it:
+
+**1. Content is nearly free.** `06_automation_workflow.md` puts cost per article at
+**$3.50–$4.50**, or roughly $12–18 with the freelance editor pass at 30 min/article. One
+$250 booking pays for **56–71 raw articles, or 14–21 edited ones.** Against a 4% hotel
+commission you need six bookings to clear the same bar. Here you need one.
+
+**2. It is incremental to display, not instead of it.** The same 34,000 sessions earn
+$510–$1,360 in display at the $15–40 travel RPM in `08_monetization_strategy.md`. Display
+still out-earns this affiliate by 2–5× on identical traffic — but the affiliate link rides
+on top of traffic already being monetized. The marginal cost of adding a contextual CTA to
+an article that exists is zero.
 
 ---
 
@@ -92,7 +127,8 @@ The `width`/`height` in the `<img>` tag contradicts the creative's own name:
 
 Dropped in as-is, these render at roughly a third of their intended size — unreadable, and
 in the 728x90 slot, visibly broken. Either the tag attributes are wrong or the assets are.
-Strip the `width`/`height` attributes and size in CSS, or don't use these four.
+Strip the `width`/`height` attributes and size in CSS, or don't use these four. Given that
+banners convert poorly on a considered purchase anyway, simply skipping them costs little.
 
 The 14 banners from the Apr-2026 refresh (`17278845`–`17278855`) are clean: 300×250,
 320×50, 600×500, 1280×330, 1280×164, 320×1200 all match their creatives.
@@ -118,7 +154,8 @@ custom placement.
 | `17308033` | **Portugal** Multi-Adventure for Solo Travelers: Algarve & Alentejo | "…Spain Biking for Solo Travelers: **The Island of Mallorca**" |
 
 `17308033` carries Mallorca copy under a Portugal name. One of the two fields is wrong and
-the export can't tell us which. Do not use `17308033` until someone clicks it.
+the export can't tell us which. Do not use `17308033` until someone clicks it — at $250 a
+booking, routing Portugal-intent readers to a Spanish cycling tour is a real loss, not a nit.
 
 ### 4. One link's name and its own offer disagree
 
@@ -175,7 +212,8 @@ Set against the 50 planned articles in `04_article_ideas_destination.md`:
 | #39 Europe packing list | generic Europe links | Weak but placeable |
 
 **Zero inventory (30 articles):** all 10 Asia, all 6 Africa, 7 of 8 Americas, and all 6
-Points & Miles pieces.
+Points & Miles pieces. The $250 CPA does not change this — a good rate on inventory that
+doesn't exist is worth nothing. The Europe cluster is the whole opportunity.
 
 **Active intent conflict.** Several planned headlines are explicitly independent-travel or
 budget-framed, which is the opposite of a $150-deposit premium guided group tour:
@@ -190,41 +228,62 @@ tour. On the solo-travel cluster those two genuinely converge — "adventure sol
 alone" answers a real objection our #38 article raises. Everywhere else they pull apart.
 
 There are also two Tour de France links (`17133008`, `17315882`) with a strong,
-high-intent hook and **no article to host them**. That is the one content gap here worth
-considering — but only after the rate is known.
+high-intent hook and **no article to host them**. With the rate now known, this is the one
+content gap worth closing: high purchase intent, low SEO competition, genuine
+exclusive-access inventory, and a $4 article against a $250 payout.
 
 ---
 
-## The missing number
+## What the rate answers, and what it doesn't
 
-**This export contains no commission rate and no cookie window.** Neither field exists in
-a CJ link export. Without them the pack cannot be valued:
+**Answered:** $250 flat CPA via CJ. On a $3,000–$6,000 tour that is an effective **4–8%**,
+at the top of the travel band, and flat means a cheaper tour pays exactly the same. For
+comparison, the Expedia/Partnerize hotel line destination.com already runs pays 4% — about
+$48 on a $1,200 booking. This is **5× that per conversion.**
 
-- Adventure tours run $3,000–$6,000. At 4% that is $120–$240 per booking — genuinely
-  strong, several times a hotel commission.
-- At 1–2%, against a months-long consideration cycle and a 7–30 day cookie, it is not
-  worth the placement.
+**Still open, and these matter more than the rate did:**
 
-Ask CJ for the rate card, the cookie window, and whether the program pays on deposit or on
-final payment. Tour operators frequently pay only on the balance, months after the click,
-which interacts badly with a short cookie.
+1. **Cookie window.** The single biggest remaining variable. Adventure tours carry a
+   two-to-six-month consideration cycle. At 7 days (Expedia's window) almost every booking
+   is lost to a later touchpoint; at 30–45 days a meaningful share survives. This could
+   swing captured revenue 3–5×.
+
+2. **Deposit or final payment?** EF's entire pitch is "$150 down." If the CPA fires on the
+   deposit, conversion is fast and attribution holds. If it fires on final payment — often
+   60–90 days before a departure that may be a year out — most of it dies in the cookie
+   window regardless of length.
+
+3. **Per booking or per traveler?** Group tours commonly book 2–4 people on one
+   transaction. Per-traveler would double or quadruple effective value; per-booking is
+   what's assumed above.
+
+4. **Return/cancellation clawback.** Tour cancellations are common and often generous.
+   Ask what reverses a paid CPA and over what period.
 
 ---
 
 ## Recommendation
 
-1. **Get the rate card, cookie window, and payout trigger** from CJ before any deployment.
-2. **Manually click-test** the deep links — this session could not, and `17308033` is
-   known-suspect.
-3. **Then run a bounded test** on the ~8 articles above, weighted to the Camino and
-   solo-travel pieces, using the Apr-2026 banner set only.
-4. **Do not commission content** for this program. The Tour de France angle is the only
-   piece worth writing for, and only if the rate justifies it.
-5. **Route through `/api/go/cj/{advertiser}`** like Hotels.com and Vrbo, so clicks land in
-   `affiliate_clicks` and this can be judged on our own numbers rather than CJ's network EPC.
-
-Better than the last CJ program we turned down, and correctly built for our account. But
-"active and well-formed" is not "tested", and eight articles is a narrow base.
+1. **Ask CJ the four questions above** — cookie window, deposit vs final payment, per
+   booking vs per traveler, clawback terms. The rate is good enough that these now decide
+   how hard to lean in, not whether to run at all.
+2. **Manually click-test the deep links.** This session could not (see below), and
+   `17308033` is known-suspect. At $250 a booking, a link that lands on the wrong tour is
+   an expensive defect, not a cosmetic one.
+3. **Deploy deep text links first, banners second.** A $3,000+ considered purchase does not
+   convert off a display banner. The 38 text links are where a $250 CPA actually gets
+   earned; use the Apr-2026 banner set only as supporting furniture, and skip the four
+   broken 2025 units entirely.
+4. **Commission the Tour de France article.** This reverses the original recommendation.
+   Two EF links (`17133008`, `17315882`) sell 2027 Tour de France access with no article to
+   host them — high intent, low competition, and EF has genuine exclusive-access inventory.
+   At $4 an article against $250 a booking, this is worth writing on spec.
+5. **Weight the solo-travel cluster.** Article #38 (solo female travel safety) against EF's
+   "adventure solo, never alone" line is the strongest intent match in the pack — EF's
+   product directly answers the objection the article raises.
+6. **Route through `/api/go/cj/{advertiser}`** like Hotels.com and Vrbo, so clicks land in
+   `affiliate_clicks`. With one booking per ~1,000–3,000 clicks, network EPC will tell you
+   nothing useful about our own placements for a long time. Our own click data will.
 
 ---
 
