@@ -783,7 +783,55 @@ Schedule it daily until it reads clean, then delete it.
 Worth roughly $700/day of profit at legacy economics, and unlike the other
 two effects it is a fix rather than a negotiation. **Do this one first.**
 
-### 2. Take-rate sentry, per supply source
+### 2. Take-rate sentry — BUILT 2026-08-25, and the margin is three partners
+
+`scripts/tbx_take_rate.py` + `.github/workflows/tbx-take-rate.yml`.
+
+**The first design could not see the thing it was built for.** Comparing each
+source against its own trailing TBX median flagged three sources netting
+−$40/day, against the ~$363 the margin component is worth. Per-source margins
+have been *stable* since the migration; the ten points went AT it, where the
+baseline sits on the other host. A TBX-to-TBX median structurally cannot
+reach across that.
+
+`--vs-legacy` makes the comparison that can, holding post-cutover gross fixed
+so the figure is the take rate alone:
+
+| supply source | before | after | Δ pts | $/day |
+|---|---|---|---|---|
+| Advetisi - Zmaticoo #264 | 31.6% | 19.3% | −12.4 | **−292.39** |
+| Illumin - Video Unruly OTTA #65 | 26.3% | 14.0% | −12.3 | −64.21 |
+| Illumin Display and Video EU Correct #194 | 20.7% | 13.8% | −6.9 | −55.90 |
+| Start.IO Video #76 | 29.9% | 9.4% | −20.5 | −9.00 |
+| Illumin - Onetag and AdaptMX #95 | 26.2% | 10.5% | −15.7 | −5.89 |
+| Start.IO Display #75 | 41.9% | 24.0% | −17.9 | −3.99 |
+| … | | | | |
+| Dexerto Display #6 | 34.4% | 34.4% | +0.0 | +0.00 |
+| Smaato - Display Stirista Premium #190 | 35.0% | 35.4% | +0.4 | +3.76 |
+| Smaato - In App #180 | 31.7% | 36.0% | +4.3 | +4.68 |
+
+**−$432.07/day total**, which brackets §12's −$363 estimate from the other
+direction.
+
+Three things this settles:
+
+- **It is not a platform default.** Smaato is flat to up on every source,
+  Stirista holds, PubNative barely moves. A default would have moved all of
+  them.
+- **It is Advetisi, Illumin and Start.IO** — and **Advetisi - Zmaticoo alone
+  is 68% of the whole margin loss.** One source, one revenue-share setting.
+- **The volume story and the margin story are disjoint.** Dexerto Display
+  collapsed to 1% of its impressions and kept its margin to the decimal.
+  Advetisi - Zmaticoo held volume — it is the biggest earner on TBX — and
+  gave up twelve points. Neither would be visible in the other's report,
+  which is why they are two tools.
+
+Also fixed a line that was quietly wrong: the drift mode called its total
+"whole book" while counting only sources above the revenue floor with enough
+history ($3,354.93 against the day's real $3,742.75), inviting exactly the
+comparison that loses the difference.
+
+### 2b. Original reasoning — take-rate sentry, per supply source
 
 Margin fell ~10 points at the cutover and held, independent of price and
 volume (§12). Whole-book margin cannot say whether that is every publisher
