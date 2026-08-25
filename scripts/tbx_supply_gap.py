@@ -256,6 +256,52 @@ def render(res: dict, before_days: list[date], after_days: list[date],
         print("  that does not exist was never migrated.")
 
 
+def rosters(conn, before_days: list[date], after_days: list[date],
+            limit: int) -> None:
+    """Print the top names on every candidate table, and nothing else.
+
+    Exists because the first run of this script joined legacy publishers
+    against TBX supply sources and matched nothing — the two are different
+    entity grains, which `tbx_recon.py` says in its own docstring. The lesson
+    is that the join key has to be established from the data before any
+    comparison is built on it, so this mode does that and draws no conclusion.
+    """
+    specs = [
+        ("legacy supply ", LEGACY_SUPPLY, "publisher_id", "publisher_name",
+         before_days),
+        ("TBX supply    ", TBX_SUPPLY, "supply_id", "supply_name", after_days),
+        ("legacy demand ", "tb_daily_demand_revenue", "demand_id",
+         "demand_name", before_days),
+        ("TBX demand    ", "tbx_daily_demand_revenue", "demand_id",
+         "demand_name", after_days),
+    ]
+    for label, table, id_col, name_col, days in specs:
+        print(_HDR)
+        print(f"{label} — pgam_direct.{table}   {days[0]} → {days[-1]}")
+        print(_HDR)
+        if not _exists(conn, table):
+            print("  table absent\n")
+            continue
+        rows = _q(conn, f"""
+            SELECT {name_col}, min({id_col}), sum(impressions),
+                   sum(gross_revenue)
+            FROM pgam_direct.{table}
+            WHERE report_date = ANY(%(days)s)
+            GROUP BY 1
+            ORDER BY 4 DESC NULLS LAST
+            LIMIT %(limit)s
+        """, {"days": days, "limit": limit})
+        total = _q(conn, f"""
+            SELECT count(DISTINCT {name_col}) FROM pgam_direct.{table}
+            WHERE report_date = ANY(%(days)s)
+        """, {"days": days})[0][0]
+        print(f"  {total} distinct names in window; top {len(rows)} by gross\n")
+        for name, pid, imps, gross in rows:
+            print(f"    {str(name)[:52]:<52} id={str(pid):<8} "
+                  f"{int(imps or 0):>12,} imps  {float(gross or 0):>10,.2f}")
+        print()
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -267,6 +313,10 @@ def main() -> int:
                    help="window length either side of the cutover (default 4)")
     p.add_argument("--quiet-pct", type=float, default=60.0,
                    help="impression drop that counts as QUIET (default 60)")
+    p.add_argument("--rosters", type=int, metavar="N",
+                   help="print the top N names on each candidate table and "
+                        "exit — use this to establish the join key before "
+                        "trusting any comparison built on it")
     p.add_argument("--json", action="store_true",
                    help="emit the finding as JSON instead of a table")
     args = p.parse_args()
@@ -298,6 +348,10 @@ def main() -> int:
             if not _exists(conn, t):
                 print(f"pgam_direct.{t} does not exist.", file=sys.stderr)
                 return 2
+
+        if args.rosters:
+            rosters(conn, before_days, after_days, args.rosters)
+            return 0
 
         before = collect(conn, LEGACY_SUPPLY, "publisher_id", "publisher_name",
                          before_days)
