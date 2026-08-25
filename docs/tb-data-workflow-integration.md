@@ -157,6 +157,11 @@ P&L row is stale or hand-entered — a different problem with a different fix.
 
 ## 6. Flip the surfaces — independently, `compare` first
 
+> **Superseded by §11.** This section describes the plan while both hosts were
+> live. The legacy host has since gone quiet, which turned the switch from a
+> whole-surface mode into a per-day decision. Read §11 for what shipped; this
+> stays because the failure modes it lists are still the ones to look for.
+
 The two switches are separate on purpose: different audiences, different blast
 radii.
 
@@ -565,3 +570,80 @@ rather than resolved: back the days up now. What separates them, if anyone
 needs to know later, is one call — re-run the probe over the same range in a
 week. If 17–19 Aug have gone empty, it is a rolling window; if they still
 answer, it was a cutover and history is permanently available.
+
+---
+
+## 11. Repointing the surfaces — what the cutover actually forced
+
+§6 above was written while both hosts served the same marketplace and the
+question was *when* to switch. That question is closed: `ssp.pgammedia.com`
+answers nothing, so `compare` has no second reading to compare against and
+`legacy` names a host that is gone. Both are kept as modes — they still
+describe something real about the history — but the default in both repos is
+now `tbx`, and the interesting problem turned out to be a different one.
+
+### One rule, three places
+
+Flipping a mode switch resolves *the whole surface* to one host. The data
+does not work that way. The cutover is a boundary inside the date range every
+one of these surfaces reads, so the choice has to be made **per day**:
+
+```
+day <  2026-08-20   legacy only          (TBX has migration trickle, not revenue)
+day == 2026-08-20   legacy + TBX summed  (real traffic on both)
+day >= 2026-08-21   TBX only             (legacy served nothing)
+```
+
+That rule now exists in three implementations, which is two more than ideal
+but each reads from a different store:
+
+| Surface | Lives in | Reads |
+|---|---|---|
+| Slack revenue alert | `core/tb_unified.py` | both Neon rollups |
+| `/admin/pnl` | `pgam-recon` `pnl_sync._resolve_tb` | both Neon rollups |
+| `/admin/finance` | `pgam-recon` `fetchers/tb_legacy_rollup.py` + `fetchers/tbx.py` | legacy rollup + live TBX |
+
+The window is env-overridable in all three (`TB_SPLIT_START`,
+`TB_TBX_CUTOVER`) so a corrected boundary is a variable change, not a deploy.
+They agree on the defaults; if you move one, move all three.
+
+The recon is the odd one out because it fetches TBX **live** rather than from
+the rollup — it needs demand-partner grain the hourly ETL does not land. So
+its legacy leg reads `pgam_direct.tb_daily_demand_revenue` while its TBX leg
+calls the platform. Same rule, two different sources, which is exactly why
+`TBXFetcher.fetch()` had to learn to return `[]` before the split start
+instead of asking a platform that would answer with trickle.
+
+### The mistake worth not repeating
+
+Repointing the P&L overwrote four days — 17–20 Aug — of real legacy figures
+with TBX's migration trickle before anyone noticed. It was caught by the
+operator looking at the sheet, not by anything in this repo.
+
+The cause was reading a docstring instead of the SQL under it. `pnl_sync`'s
+upsert is documented as filling NULL cells without overwriting existing
+values; the statement is `COALESCE(EXCLUDED.x, existing)`, which means the
+**new** value wins whenever it is non-null. A $40 trickle day is not null.
+
+Two things follow, and both are now in the code:
+
+- A day before the cutover never resolves to TBX, so there is nothing to
+  overwrite it with. That is the guard.
+- When the legacy leg is unreachable for a day it should have served, the
+  row is flagged `⚠ LEGACY LEG MISSING — understated` rather than written
+  quietly. A short number that says it is short is recoverable; a short
+  number that looks complete is not.
+
+All four days were restored and re-verified. 20 Aug reads $7,505.66 — the sum
+of both legs, not either one.
+
+### Still open
+
+- **`ent_payout`** fails with `password authentication failed for user
+  'neondb_owner'`. That is a credential, not code; no change in either repo
+  reaches it. It needs a fresh Neon DSN.
+- **Margin steps down at the boundary** — roughly 30% on legacy days against
+  20–24% on TBX days. That may be a real change in the marketplace or a
+  difference in what each platform counts as payout. It is not a bug in the
+  plumbing above, but it is the first thing to check once a full week of TBX
+  days exists to compare against a full week of legacy ones.
