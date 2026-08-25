@@ -5,11 +5,12 @@ Breeze Airways story took ~99% of NewsBreak traffic, and whether news should
 become a materially larger share of the content strategy.
 
 **Source of evidence:** `mastap150/destination-com` @ `e98b829` (read-only clone).
-**Analyst note on limits:** this session has no `DATABASE_URL`, no NewsBreak
-portal access, and no Search Console credentials. Everything below is split
-into **Proven** (read from code) and **Unresolved** (needs the queries in
-`destination-news-audit-queries.sql` or a portal login). Nothing is inferred
-and then presented as measured.
+**Analyst note on limits:** this session has no `DATABASE_URL` and no Search
+Console credentials, and there is no NewsBreak account to read analytics from —
+NewsBreak picks the content up unmanaged (§3). Everything below is split into
+**Proven** (read from code) and **Unresolved** (needs the queries in
+`destination-news-audit-queries.sql`, or access nobody currently holds). Nothing
+is inferred and then presented as measured.
 
 ---
 
@@ -223,15 +224,29 @@ There is no `/feed/newsbreak` route, no NewsBreak-specific formatting, no
 NewsBreak API client, no analytics ingestion. The three feed routes that exist
 are `/feed/msn`, `/feed/msn-news`, and `/feed/apple-news`.
 
-**So the 636 views arrived through a channel that is not in the repo.** Most
-likely: someone onboarded destination.com in NewsBreak's publisher portal and
-pointed it at an existing feed (`/feed/msn-news` is the only news-only RSS URL
-that would work), or NewsBreak is crawling the site directly. **This needs to be
-established before any NewsBreak strategy is built on top of it** — you cannot
-optimize a pipe you can't identify. That is question 1 for whoever holds the
-NewsBreak login.
+**And there is no NewsBreak account either** (confirmed 2026-08-25): NewsBreak picks
+up destination.com content on its own. So this is an *unmanaged scrape*, not a
+publisher relationship — which resolves the "which pipe?" question and replaces it
+with three sharper consequences:
 
-### Feed audit — `/feed/msn-news` (the probable NewsBreak source)
+1. **No analytics, no controls, no recourse.** There is no portal to read views from,
+   no accept/reject visibility, no way to influence what gets picked up, and no
+   agreement to appeal to if distribution stops tomorrow. The 636 views are a gift,
+   not a channel.
+2. **The image-rights exposure below gets materially worse, not better.** Articles
+   carrying other publishers' licensed press imagery are being redistributed onto a
+   third-party consumer platform, with no agreement in place on either side. That is
+   a worse posture than the same content sitting only on our own domain.
+3. **The feed audit still matters — just not for NewsBreak.** `/feed/msn-news`
+   governs MSN today, and would govern NewsBreak *if* we applied. Fix it on MSN's
+   account.
+
+**Recommendation: apply to NewsBreak's publisher/contributor program.** It is the only
+way to turn an uncontrolled scrape into a measurable channel, and the only way §11's
+NewsBreak column ever gets real numbers. Do it *after* fix #1 — applying while we are
+republishing other outlets' images uncredited invites a rejection that is hard to undo.
+
+### Feed audit — `/feed/msn-news` (MSN today; NewsBreak only if we apply)
 
 Audited against what NewsBreak's ingestion documents ask for:
 
@@ -283,10 +298,18 @@ editorial.
 
 ### NewsBreak performance analysis by article/topic/geography/etc.
 
-**Not possible in this session.** It requires NewsBreak's analytics export.
-Query G computes the on-site half (topic, geography, airline, headline shape,
-publish hour, day of week) so that a NewsBreak CSV can be joined to it on slug.
-Build that join once and §11's dashboard becomes mostly free.
+**Not possible at all today** — no account means no export. The only NewsBreak
+measurement available to us is **referral data in our own analytics**: sessions landing
+on `/news/` URLs with a `newsbreak.com` referrer. That is a different metric from in-app
+impressions and should be labelled as such wherever it is reported.
+
+> ❓ **Open question:** the 633 / 3 split in the brief needs a provenance. If it came from
+> GA4 referral data, NewsBreak measurement is already solved and joins to Query G on
+> landing-page slug with no new integration. If it came from somewhere else, that source
+> needs naming — §11's design depends on it.
+
+Query G computes the on-site half (topic, geography, airline, headline shape, publish
+hour, day of week) ready for that join.
 
 ---
 
@@ -642,7 +665,9 @@ CREATE TABLE news_performance (
 
 Feeders, in dependency order:
 1. **GSC API** → impressions/clicks/position per `/news/` URL (daily)
-2. **NewsBreak analytics export** → views per article (**manual until the portal
+2. **NewsBreak** → referral sessions per article from GA4 (`newsbreak.com` referrer).
+   No account and no export exist, so this is the only NewsBreak signal available unless
+   we apply to their publisher program — see §3.
    question in §3 is answered**)
 3. **GA4** → pageviews, engagement, returning-visitor rate, referral source
 4. **Newsletter** → `newsletter-click-log.ts` already exists; add news slugs
@@ -709,8 +734,9 @@ this session has **read-only**, so these are specified, not applied.
 - Fix #1 (image rights) — **do this first, it is a live exposure**
 - Fix #2, #3, #5 (NewsArticle, structured body, caching)
 - Lower `MAX_CLUSTERS_PER_RUN` to 1–2; cap ~3/day
-- **Answer the NewsBreak question:** which feed is it consuming, is the account
-  in good standing, can analytics be exported?
+- **Decide on NewsBreak:** no account exists — content is picked up unmanaged. Apply to
+  their publisher program *after* fix #1 lands; wire GA4 `newsbreak.com` referral
+  tracking in the meantime
 - Run Queries A–G; fill in §1's real numbers and settle the pipeline-age conflict
 - Add the first three airline newsrooms
 - Build `news_performance` + the GSC feeder
@@ -793,7 +819,8 @@ and AI systems learn to treat destination.com as the origin rather than the echo
 | Hero coverage %, body length, kill rate | Same | Queries E, F |
 | Both articles' body, headline, images, metadata | Same | Query H |
 | Pipeline age (4 weeks vs. "months") | Conflicting comments | Query A |
-| NewsBreak: feed consumed, accept/reject rates, per-article analytics | No portal access | NewsBreak publisher login |
+| NewsBreak accept/reject rates, in-app impressions | **No account exists** — content is picked up unmanaged | Apply to NewsBreak's publisher program (§3) |
+| Provenance of the 633 / 3 view split | Unknown — likely GA4 referral | Confirm source; determines §11's NewsBreak feeder |
 | GSC impressions/clicks, Discover traffic | No GSC credentials | GSC API |
 | Live feed/sitemap output, HTTP status | `destination.com` egress-blocked | Fetch from an unblocked network |
 | Revenue / RPM / affiliate per article | No analytics access | GA4 + Impact |
