@@ -208,9 +208,27 @@ wake finds nothing, re-arms, and bills again.
 ### Never inline a connection string in a routine prompt
 
 Routine prompts are stored server-side and echoed back in full by
-`list_triggers`. Read credentials from the environment instead. A routine
-created through the web UI cannot be edited from a session, so a secret
-pasted into one has to be rotated to be removed — moving it is not enough.
+`list_triggers`. Read credentials from the environment instead.
+
+**A secret pasted into a routine prompt has to be rotated to be removed —
+moving it is not enough.** Whether you can even edit the prompt depends on who
+created the routine, and the rule is *ownership*, not the web UI:
+
+> Agents can only update routines they created (via `create_trigger`). A
+> routine's own session may still disable itself (`enabled=false` only).
+
+So `update_trigger` works on a routine a session created, and is refused for
+anything created via the web UI **or** the HTTP API (`created_via:
+"http_api"`). An earlier version of this section said web-UI routines
+specifically were uneditable; that conclusion was right but the reason was
+wrong, and the real rule catches more cases.
+
+Removing the text from storage then means **deleting** the routine and
+recreating it — which also makes the replacement agent-editable. Rotate first;
+deletion alone does not un-expose a password that has already been read.
+
+Worked example, including the staged sequence that avoids taking prod down
+during a rotation: `docs/runbook-neon-credential-rotation.md`.
 
 ### Bounded work, not exhaustive work
 
