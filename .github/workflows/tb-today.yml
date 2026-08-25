@@ -36,6 +36,10 @@ on:
         description: "Also print core.tb_unified's per-day resolution from this date — the figures the Slack alert posts and the P&L row holds."
         required: false
         type: string
+      supply_gap:
+        description: "Also run the cutover supply-gap report: which publishers earned on legacy and earn nothing on TBX. Set to a window length in days, e.g. 4."
+        required: false
+        type: string
 
 jobs:
   today:
@@ -48,6 +52,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       IN_DATE: ${{ github.event.inputs.date }}
       IN_UNIFIED_FROM: ${{ github.event.inputs.unified_from }}
+      IN_SUPPLY_GAP: ${{ github.event.inputs.supply_gap }}
 
     steps:
       - uses: actions/checkout@v4
@@ -81,3 +86,14 @@ jobs:
         # agreement should be exact. Read-only, no platform call.
         if: inputs.unified_from != ''
         run: python3 scripts/tb_unified_check.py --from "$IN_UNIFIED_FROM"
+
+      - name: Supply gap across the cutover
+        # tbx-supply-gap.yml owns the schedule, but workflow_dispatch is only
+        # offered for workflows already on the default branch — so until that
+        # one merges this is the only way to run the report against real data.
+        # Worth keeping afterwards: this workflow is where a session comes to
+        # ask the warehouse a question, and the gap is one of those questions.
+        if: inputs.supply_gap != ''
+        run: |
+          pip install --quiet "psycopg2-binary>=2.9"
+          python3 scripts/tbx_supply_gap.py --days "$IN_SUPPLY_GAP" || true
