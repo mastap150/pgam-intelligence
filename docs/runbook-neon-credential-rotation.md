@@ -206,10 +206,27 @@ editable later, unlike this one.
 
 ### 8. Re-audit
 
-Run `list_triggers` and confirm no routine inlines a credential. As of
-2026-08-25 the account has 10 routines; the other 9 are `send_later` PR
-check-ins with no credentials in them. Re-check with `include_completed: true`
-as well, since already-fired one-shots are hidden by default.
+Partially done already, on 2026-08-25:
+
+- **All 10 live routines checked — only this one leaks.** `list_triggers` with
+  the default `include_completed: false` returns every routine that can still
+  fire. The other 9 are `send_later` PR check-ins containing no credentials.
+  For "what can still execute with a stolen password", this is the complete
+  answer.
+- **The 100 most recent completed one-shots checked — clean.** Scanned for
+  `npg_`, `postgres(ql)://user:pass@`, `neondb_owner:`, `sk-ant-`, `ghp_`,
+  `github_pat_`, `AKIA…`, `xoxb-`. Zero hits.
+- **Not yet checked: older completed one-shots.** That page returned a
+  `next_cursor`, so the account has more than 100 already-fired routines and
+  the sweep did not reach the end. Completed one-shots cannot fire again, but
+  their prompts are still stored and still returned by `list_triggers`, so a
+  credential in one is still exposed.
+
+To finish it, page through with `include_completed: true` following
+`next_cursor` until exhausted. Grep each page for the patterns above rather
+than reading it — the pages are ~240 KB each, and grepping keeps any secret out
+of the session transcript. Print match *counts and routine ids*, never the
+matched text.
 
 ## Checklist
 
