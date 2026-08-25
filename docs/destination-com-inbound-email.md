@@ -36,21 +36,49 @@ bounce herself. Anyone less persistent is simply gone.
 
 ## Fix
 
-**Do this first — it fixes all four at once, needs no deploy.** In Google
-Workspace admin, add each of `careers@`, `corrections@`, `privacy@`, `legal@`
-as an alias or group on `destination.com`, delivering to `info@pgammedia.com`.
-That requires apex MX records for `destination.com` pointing at Google — check
+### Forms, not published addresses — for two of the four
+
+`/contact`, `/about` and `/advertise` already share one form component (name,
+email, message; `/advertise` adds Company), posting to a handler that emails
+`info@pgammedia.com` with a `Source:` tag naming the page. That is the path
+that rescued the applicant this was found through. A `careers` variant is a
+small, well-precedented change.
+
+- **`careers@` → form.** Strictly better than `mailto:`: no bounce risk, and
+  the submission arrives structured. Add a role selector (the five open roles)
+  and link fields for portfolio/clips/LinkedIn. Skip file upload for now —
+  freelance and editorial applicants link their work, and upload means storage,
+  size limits and virus scanning for little gain.
+- **`corrections@` → form.** Better structured as a form anyway: which page,
+  what is wrong, source.
+- **`privacy@` → keep a real address.** The privacy policy names it for
+  data-subject requests. A form is generally accepted, but a request sent by
+  email is still valid however it reaches us, and a silent bounce means a
+  missed statutory deadline. This one must actually receive.
+- **`legal@` → keep a real address.** Same reasoning; service of notice under
+  the Terms should not depend on a form being up.
+
+### Add the aliases regardless
+
+Removing a `mailto:` from a page does not unpublish the address. It is in
+search caches, in any job board that scraped the listing, and in the saved
+mail of everyone who already copied it. Those messages keep arriving and keep
+dying silently — which is the exact failure this document exists to record.
+
+In Google Workspace, add `careers@`, `corrections@`, `privacy@`, `legal@` as
+aliases or groups on `destination.com` delivering to `info@pgammedia.com`.
+This needs apex MX records for `destination.com` pointing at Google — check
 what is there now (`dig MX destination.com`) before assuming aliases alone are
 enough. Do not touch the `mail.` subdomain records; outbound sending depends
 on them.
 
-**Then, in the `destination-com` repo** (separate Vercel repo — not this one):
-give `/careers` a real apply route that does not depend on mail delivery. The
-contact form already works and lands in the right inbox; the `mailto:` links
-should point at it, or at minimum sit alongside it as a fallback.
+A domain-wide catch-all to `info@pgammedia.com` would cover these four plus
+anything anyone ever guesses, at the cost of more spam reaching the inbox.
+Reasonable for a domain this size, but the four explicit aliases are the
+safer default.
 
-**Verify** by sending a live message to each of the four addresses and
-confirming arrival — not by reading DNS and assuming.
+**Verify** by sending live mail to each of the four addresses and confirming
+arrival — not by reading DNS and assuming.
 
 ## Why this is written down
 
