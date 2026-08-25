@@ -727,7 +727,48 @@ currently distinguishes them.
 Ordered by what the numbers in §12 actually justify, not by what is easiest.
 Each names the existing piece it builds on — none of this is greenfield.
 
-### 1. Migration-gap watchdog — the 41% of the loss with a recoverable cause
+### 1. Migration-gap watchdog — BUILT 2026-08-25, and it found something
+
+`scripts/tbx_supply_gap.py` + `.github/workflows/tbx-supply-gap.yml`. First
+clean run over 17–20 Aug against 21–24 Aug:
+
+| publisher | imps/day before | after | gross/day lost |
+|---|---|---|---|
+| Dexerto Display | 2,285,965 | 30,429 | $1,916.49 |
+| Illumin Display and Video | 449,044 | 70 | $358.38 |
+| Smaato - Display and Video | 229,245 | 33,280 | $323.09 |
+| Illumin Display 3 nodes | 177,732 | 28 | $177.33 |
+| Smaato - Zeta Display and Video | 142,875 | 11,337 | $170.34 |
+| Illumin Zeta Display and Video | 58,145 | 0 | $80.56 |
+| Start.IO Video | 92,200 | 4,477 | $74.57 |
+| Cas.ai Display | 11,956 | 2,242 | $43.59 |
+| Dexerto Video | 34,639 | 341 | $21.34 |
+
+20 sources carried over cleanly, 1 gone, 9 collapsed. **$3,877/day gross,
+~$1,186/day profit** — and **Dexerto Display alone is ~85% of the lost
+impressions.** That is one name to chase, not a diffuse decline.
+
+It also answers the supply half of §8.1.10d empirically: **29 matched, 0
+moved.** Supply ids are stable across the two hosts. Teqblaze never committed
+to that, so it is evidence rather than a guarantee, but it is more than we
+had.
+
+Two things this run taught, both now in the script's docstring:
+
+- **The legacy report hides the id in the display name.** `publisher_name` is
+  `'Smaato - Display Stirista Premium #190'` and the legacy ETL stores that
+  same string in `publisher_id`, so that column carries no id at all. TBX
+  splits them properly. The first version of this script matched zero names
+  and confidently reported 30 publishers gone and $7,241/day at risk; both
+  numbers were artifacts of the failed join. Establish the key from the data
+  before believing anything built on it.
+- **The 357 "new on TBX" names are not 357 new publishers.** Most are
+  domain-level entries (`decoist.com`, `outdoorrevival.com`) — TBX breaks
+  supply out finer than legacy did. Before chasing any of the collapsed
+  sources above, rule out that its traffic reappeared under a
+  finer-grained name.
+
+### 1b. Original reasoning — the 41% of the loss with a recoverable cause
 
 2.6M impressions a day stopped arriving at the cutover. The question nobody
 has asked in a form a machine can answer is *which publishers*. Every supply
