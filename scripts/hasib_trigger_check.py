@@ -24,10 +24,39 @@ and prints a single-line verdict.
 
 USAGE
 ─────
-  export $(grep -E '^(PGAM_DIRECT_DATABASE_URL|BOXINGNEWS_DATABASE_URL)=' \\
-    ~/Desktop/pgam-intelligence/.env | xargs)
-  python3 scripts/hasib_trigger_check.py            # last 6 weeks
-  python3 scripts/hasib_trigger_check.py --weeks 12 # deeper history
+Two connection strings are required, and they are read from the
+environment — never passed as arguments, and never written into a
+command line, a routine prompt, or this file.
+
+  Local (Priyesh's machine), from the gitignored .env:
+
+    export $(grep -E '^(PGAM_DIRECT_DATABASE_URL|BOXINGNEWS_DATABASE_URL)=' \\
+      ~/Desktop/pgam-intelligence/.env | xargs)
+    python3 scripts/hasib_trigger_check.py            # last 6 weeks
+    python3 scripts/hasib_trigger_check.py --weeks 12 # deeper history
+
+  Cloud session / weekly Routine:
+
+    Both variables are injected by the environment at session start.
+    Just run the script — there is nothing to export.
+
+      python3 scripts/hasib_trigger_check.py --weeks 6
+
+WHY THAT DISTINCTION IS SPELLED OUT
+───────────────────────────────────
+This block used to give only the local recipe, which reads a path that
+exists on exactly one laptop. A cloud Routine cannot satisfy it, so
+whoever set up the weekly monitor did the thing the instructions left
+them no alternative to: pasted both live connection strings, passwords
+included, into the Routine's prompt. Routine prompts are stored
+server-side and echoed back in full by `list_triggers`, so both
+credentials sat readable in the control plane from 2026-07-27 until it
+was caught on 2026-08-25.
+
+See docs/security/2026-08-25-routine-credential-exposure.md. The fix
+is not only to remove them — a stored secret has to be rotated to be
+gone — and this script wants a **read-only** role, since it issues two
+SELECTs and writes nothing.
 
 CAVEATS
 ───────
@@ -248,10 +277,32 @@ def main() -> None:
     pgam_dsn = os.environ.get("PGAM_DIRECT_DATABASE_URL")
     bn_dsn = os.environ.get("BOXINGNEWS_DATABASE_URL")
     if not pgam_dsn or not bn_dsn:
+        missing = [
+            name
+            for name, value in (
+                ("PGAM_DIRECT_DATABASE_URL", pgam_dsn),
+                ("BOXINGNEWS_DATABASE_URL", bn_dsn),
+            )
+            if not value
+        ]
+        # Name both paths. An error that only describes one machine's
+        # .env file is what pushed the last person to inline the
+        # credentials somewhere they could be read — see the module
+        # docstring.
         raise SystemExit(
-            "PGAM_DIRECT_DATABASE_URL and BOXINGNEWS_DATABASE_URL env vars are required.\n"
-            "  export $(grep -E '^(PGAM_DIRECT_DATABASE_URL|BOXINGNEWS_DATABASE_URL)=' "
-            "~/Desktop/pgam-intelligence/.env | xargs)"
+            f"Missing required env var(s): {', '.join(missing)}\n"
+            "\n"
+            "  Local:  export $(grep -E "
+            "'^(PGAM_DIRECT_DATABASE_URL|BOXINGNEWS_DATABASE_URL)=' \\\n"
+            "            ~/Desktop/pgam-intelligence/.env | xargs)\n"
+            "\n"
+            "  Cloud:  set them on the environment (claude.ai/code -> environment\n"
+            "          selector -> gear -> Environment variables), then start a NEW\n"
+            "          session; values are copied once at startup.\n"
+            "\n"
+            "Never paste a connection string into a Routine prompt or a shell\n"
+            "command. Routine prompts are stored server-side and echoed back by\n"
+            "list_triggers. See docs/security/2026-08-25-routine-credential-exposure.md"
         )
 
     peaks = load_msn_peaks(pgam_dsn)
