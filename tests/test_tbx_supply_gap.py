@@ -148,6 +148,48 @@ def _():
     assert res["carried"][0]["drop_pct"] < 0
 
 
+
+# --- the id-in-the-name convention -------------------------------------
+# Added after the first live run matched zero names: the legacy report
+# appends the entity id to the display name and the legacy ETL stores that
+# whole string in both columns, so the key has to strip it.
+
+@check("a trailing #NNNN is stripped and returned as the id")
+def _():
+    assert g.split_name_id("Smaato - Display Stirista Premium #190") == \
+        ("smaato - display stirista premium", 190)
+
+
+@check("a name with no suffix keeps its whole self and yields no id")
+def _():
+    assert g.split_name_id("Cox Media Group") == ("cox media group", None)
+
+
+@check("a '#' inside a name is not mistaken for an id")
+def _():
+    assert g.split_name_id("Publisher #1 Media") == ("publisher #1 media", None)
+
+
+@check("the negative synthetic id is parsed, not dropped")
+def _():
+    # 'Native Supply #-1' is real and carried 4.2M impressions before the
+    # cutover; a parser that only accepted digits would drop it silently.
+    assert g.split_name_id("Native Supply #-1") == ("native supply", -1)
+
+
+@check("surrounding whitespace does not change the key")
+def _():
+    assert g.split_name_id("  Illumin Display 3 nodes  #161 ")[0] == \
+        g.split_name_id("Illumin Display 3 nodes #161")[0]
+
+
+@check("the suffixed legacy name and the bare TBX name land on one key")
+def _():
+    legacy, _ = g.split_name_id("Illumin - Video Unruly OTTA #65")
+    tbx, _ = g.split_name_id("Illumin - Video Unruly OTTA")
+    assert legacy == tbx, (legacy, tbx)
+
+
 def main() -> int:
     failed = 0
     for name, fn in CHECKS:

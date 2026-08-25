@@ -18,19 +18,35 @@ finding.
 
 Joining
 -------
-On NAME, lowercased and trimmed — never on id. Teqblaze confirmed *placement*
-ids are unchanged and explicitly did not cover publisher or supply-source ids
-(§8.1.10d), and `tbx_recon`'s own demand check exists to measure that. A
-publisher whose id was reassigned would show up here as one partner vanishing
-and another appearing, which is exactly the false alarm this report must not
-raise.
+The two tables spell the same entity differently, and the first version of
+this script did not know that: it matched nothing, and reported 30 publishers
+gone and $7,241/day at risk. Both figures were artifacts of the failed join.
 
-Names are not guaranteed identical across hosts either, so a name that matches
-nothing is reported as *unmatched*, not as *lost*. The difference matters: the
+The legacy report appends the id to the display name, and the legacy ETL
+stores that whole string in BOTH columns:
+
+    legacy   publisher_name = "Smaato - Display Stirista Premium #190"
+             publisher_id   = "Smaato - Display Stirista Premium #190"
+    TBX      supply_name    = "Smaato - Display Stirista Premium"
+             supply_id      = 190
+
+This is the same vendor convention `agents/etl/tbx_revenue_etl._entity`
+already parses on the TBX side — the id in a trailing `#NNNN`. Strip it and
+the rosters match. Only a TRAILING `#NNNN` counts, so a `#` inside a real
+partner name is left alone.
+
+So the key is the suffix-stripped, lowercased name. The extracted number is
+then compared against TBX's `supply_id` and reported as a *finding* rather
+than used to match — matching on an id that may have been reassigned would
+manufacture a gap out of a matching dataset, and Teqblaze explicitly did not
+commit to supply-side id stability (§8.1.10d). Measured 2026-08-25, every
+matched supply source kept its id, which is the empirical answer to that
+question.
+
+A name that matches nothing is reported as *unmatched*, not as *lost*: the
 first is a question for whoever knows the roster, the second is money. Where
-the two hosts spell a partner differently this will overstate the gap, and
-that is the safe direction — a false positive costs someone a look, a false
-negative costs the inventory.
+the hosts genuinely spell a partner differently this overstates the gap, and
+that is the safe direction.
 
 The window
 ----------
@@ -68,6 +84,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import date, timedelta
 
@@ -84,6 +101,20 @@ CUTOVER_DEFAULT = "2026-08-21"
 MIN_BEFORE_REVENUE = 1.0
 
 _HDR = "=" * 78
+
+# The vendor appends the entity id to its display name — "Foo Bar #190". Only
+# a trailing match counts, so a '#' inside a real partner name survives. Same
+# rule as agents/etl/tbx_revenue_etl._entity, which parses it on the TBX side.
+_TRAILING_ID = re.compile(r"\s*#(-?\d+)\s*$")
+
+
+def split_name_id(raw: str) -> tuple[str, int | None]:
+    """('Smaato - Display Stirista Premium #190') -> ('smaato - ...', 190)."""
+    text = (raw or "").strip()
+    m = _TRAILING_ID.search(text)
+    if not m:
+        return text.lower(), None
+    return text[:m.start()].strip().lower(), int(m.group(1))
 
 
 def _q(conn, sql: str, params=None) -> list[tuple]:
@@ -116,25 +147,41 @@ def windows(cutover: date, days: int, today: date) -> tuple[list[date], list[dat
 
 def collect(conn, table: str, id_col: str, name_col: str,
             days: list[date]) -> dict[str, dict]:
-    """Per-partner totals over `days`, keyed on the normalised name."""
+    """Per-partner totals over `days`, keyed on the suffix-stripped name.
+
+    Aggregated in Python rather than SQL because the key needs the `#NNNN`
+    stripped first, and two raw names can collapse onto one key once it is.
+    """
     if not days:
         return {}
     rows = _q(conn, f"""
-        SELECT lower(trim({name_col})) AS key,
-               min({name_col})         AS name,
-               min({id_col})           AS id,
-               sum(impressions)        AS imps,
-               sum(gross_revenue)      AS gross,
-               count(DISTINCT report_date) AS active_days
+        SELECT {name_col}, {id_col}, impressions, gross_revenue
         FROM pgam_direct.{table}
         WHERE report_date = ANY(%(days)s) AND {name_col} IS NOT NULL
-        GROUP BY 1
     """, {"days": days})
-    return {
-        key: {"name": name, "id": pid, "imps": int(imps or 0),
-              "gross": float(gross or 0), "active_days": int(active or 0)}
-        for key, name, pid, imps, gross, active in rows
-    }
+
+    out: dict[str, dict] = {}
+    for name, raw_id, imps, gross in rows:
+        key, embedded = split_name_id(str(name))
+        if not key:
+            continue
+        # The legacy ETL stores the suffixed name in its id column too, so an
+        # id is only usable when it is actually a number. Otherwise fall back
+        # to the one carried in the name.
+        try:
+            pid = int(raw_id)
+        except (TypeError, ValueError):
+            pid = embedded
+        e = out.setdefault(key, {"name": None, "id": pid, "imps": 0,
+                                 "gross": 0.0})
+        if e["name"] is None:
+            e["name"] = str(name)[:_TRAILING_ID.search(str(name)).start()].strip() \
+                if _TRAILING_ID.search(str(name)) else str(name)
+        if e["id"] is None:
+            e["id"] = pid
+        e["imps"] += int(imps or 0)
+        e["gross"] += float(gross or 0)
+    return out
 
 
 def classify(before: dict[str, dict], after: dict[str, dict],
@@ -235,6 +282,20 @@ def render(res: dict, before_days: list[date], after_days: list[date],
                   f"{r['gross']:>10,.2f}")
         if len(res["arrived"]) > 10:
             print(f"    … and {len(res['arrived']) - 10} more")
+        print()
+
+    same = [r for r in res["carried"] + res["quiet"]
+            if r["legacy_id"] is not None and r["tbx_id"] is not None
+            and int(r["legacy_id"]) == int(r["tbx_id"])]
+    moved = [r for r in res["carried"] + res["quiet"]
+             if r["legacy_id"] is not None and r["tbx_id"] is not None
+             and int(r["legacy_id"]) != int(r["tbx_id"])]
+    if same or moved:
+        print(f"  supply ids across the hosts: {len(same)} same, "
+              f"{len(moved)} MOVED   (§8.1.10d — never used to match)")
+        for r in moved[:10]:
+            print(f"    {str(r['name'])[:40]:<40} "
+                  f"legacy {r['legacy_id']} → TBX {r['tbx_id']}")
         print()
 
     print(_HDR)
