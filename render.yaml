@@ -76,6 +76,27 @@ services:
       - key: TBX_DRY_RUN
         value: "true"
 
+      # ── CJ Affiliate (Commission Junction) ───────────────────────────────
+      # PGAM's affiliate leg on the publisher side, via destination.com.
+      # Read-only: CJ exposes nothing for a publisher to write, so no write
+      # gate is needed. There is also no endpoint that joins a program —
+      # applying is a UI act and is deliberately not automated.
+      #
+      # Token from members.cj.com -> Account -> Manage API Keys (shown once).
+      #
+      # WARNING: CJ echoes an invalid key back inside its own 401 body
+      # ("Not Authenticated: <key>"). core/cj_api.py redacts every error body
+      # before it is logged; do not add a path that prints one raw, or the
+      # token lands in this worker's log stream.
+      - key: CJ_PERSONAL_ACCESS_TOKEN
+        sync: false
+      # Account ids, not secrets — they are already in docs/. Set here so a
+      # deploy carries them without a dashboard step.
+      - key: CJ_COMPANY_ID
+        value: "7112482"       # destination.com
+      - key: CJ_WEBSITE_ID
+        value: "101849129"     # destination.com PID
+
       # ── Notifications ────────────────────────────────────────────────────────
       - key: SLACK_WEBHOOK
         sync: false
