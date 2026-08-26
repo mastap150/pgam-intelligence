@@ -107,11 +107,15 @@ remote travel where a single logistics failure costs a day and a rebooking.
 | Airport transfers, both ends | $90 |
 | Baggage and incidentals | $60 |
 | **Subtotal** | **$2,505** |
-| **Contingency at 12%** | **$300** |
-| **Total** | **$2,805** |
+| **Contingency at 12%** | **$301** |
+| **Total** | **$2,806** |
 
 The contingency is the difference between a budget that holds and one that quietly overruns
 by exactly that much.
+
+**A filled-in version of this table is available as a spreadsheet** — see the download link
+above. It carries the same five categories with live formulas, a daily-rate reference sheet,
+and a 30-day tracker that variances your actual spend against the plan.
 
 ---
 
