@@ -206,7 +206,7 @@ own.
 
 > **Want Greece with the logistics handled?** Small-group multi-activity itineraries pairing
 > Santorini with Crete.
-> [See EF Adventures' Greece tours →](/api/go/cj/ef-adventures?link=17167878)
+> [See EF Adventures' Greece tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.dpbolvw.net%2Fclick-101849129-17167878&placement=guide-greek-islands-tours)
 
 [MILES BOX: Aegean Airlines Miles+Bonus is a Star Alliance member and one of the more
 generous programmes for intra-Greece hops. If you are positioning through Athens on Star

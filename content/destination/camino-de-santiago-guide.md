@@ -239,7 +239,7 @@ daily cost.
 
 > **Want the walk without the logistics?** Small-group Camino departures, including trips
 > designed for solo travellers.
-> [See EF Adventures' Camino de Santiago tours →](/api/go/cj/ef-adventures?link=17167876)
+> [See EF Adventures' Camino de Santiago tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.dpbolvw.net%2Fclick-101849129-17167876&placement=guide-camino-tours)
 
 [INTERNAL LINK: solo female travel safety guide]
 

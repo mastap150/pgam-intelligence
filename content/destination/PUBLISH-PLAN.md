@@ -80,24 +80,38 @@ then 2, then 3), except that anything in Tier 1 or 2 above jumps the queue.
 
 ## The EF Adventures placements
 
-Seven articles carry an EF CTA. All route through `/api/go/cj/ef-adventures?link={id}` so
-clicks write an `affiliate_clicks` row, matching the Hotels.com and Vrbo pattern in
-`src/data/cj-advertisers.ts`.
+Seven articles carry an EF CTA. **The wiring is built** — see
+`mastap150/destination-com` branch `claude/affiliate-links-review-fwz0ij`:
 
-| Article | Link ID | Promo ends |
-|---|---|---|
-| `camino-de-santiago-guide.md` | `17167876` | 28-Jun-2028 |
-| `tour-de-france-2027-guide.md` | `17133008` | 28-Jun-2028 |
-| `dolomites-hiking-guide.md` | `17167875` | 28-Jun-2028 |
-| `greek-islands-comparison.md` | `17167878` | 28-Jun-2028 |
-| `croatia-island-hopping.md` | `17167880` | 28-Jun-2028 |
-| `portugal-lesser-known-places.md` | `17167879` | 28-Jun-2028 |
-| `solo-female-travel-safety.md` | `17315884` | 30-Nov-2027 |
+- `src/data/cj-advertisers.ts` — `efadventures` registered (linkId `17133009`, the
+  browse-all ad, plus `extraAllowedHosts` for the CJ tracker domains)
+- `src/data/ef-adventures-tours.ts` — one entry per tour with its pre-signed click URL,
+  promo expiry and placement slug
+- `src/lib/__tests__/ef-adventures-links.test.ts` — 11 assertions locking the wiring
+- `scripts/qa-ef-adventures.mjs` — the live destination check
+
+Each CTA is `/api/go/cj/efadventures?to={encoded pre-signed CJ URL}&placement={slug}`,
+which rides the bouncer's pre-signed passthrough. The advertiser-level `linkId` field holds
+one id, and these seven point at seven different tours — hence the per-tour URLs, the same
+shape Casa Andina uses.
+
+| Article | Link ID | Placement | Promo ends |
+|---|---|---|---|
+| `camino-de-santiago-guide.md` | `17167876` | `guide-camino-tours` | 28-Jun-2028 |
+| `tour-de-france-2027-guide.md` | `17133008` | `guide-tdf-2027-tours` | 28-Jun-2028 |
+| `dolomites-hiking-guide.md` | `17167875` | `guide-dolomites-tours` | 28-Jun-2028 |
+| `greek-islands-comparison.md` | `17167878` | `guide-greek-islands-tours` | 28-Jun-2028 |
+| `croatia-island-hopping.md` | `17167880` | `guide-croatia-inland-tours` | 28-Jun-2028 |
+| `portugal-lesser-known-places.md` | `17167879` | `guide-portugal-tours` | 28-Jun-2028 |
+| `solo-female-travel-safety.md` | `17315884` | `guide-solo-travel-tours` | 30-Nov-2027 |
 
 **Before any of these go live:**
 
-1. **Click-test each link by hand.** This session could not — the egress proxy blocks all five
-   CJ redirect domains. At $250 a booking, a link landing on the wrong tour is expensive.
+1. **Run `node scripts/qa-ef-adventures.mjs`** from a machine with open egress. It resolves
+   the full redirect chain per tour and fails on an off-brand or homepage landing. This
+   session could not — the egress proxy blocks all five CJ redirect domains — so no URL has
+   been confirmed to reach the tour its name claims. At $250 a booking that is the expensive
+   silent failure.
 2. **`17308033` is excluded everywhere** — its anchor copy advertises a Mallorca cycling tour
    under a Portugal name. Do not substitute it in.
 3. **`17315882`** is the better topical match for the Tour de France piece but its promo window

@@ -191,7 +191,7 @@ $1,500–$3,000 per person and puts you on the same mountains.
 
 > **Considering the 2027 presale?** EF is taking fully refundable $1,000 deposits ahead of
 > the October route announcement.
-> [Browse EF Adventures' Tour de France tours →](/api/go/cj/ef-adventures?link=17133008)
+> [Browse EF Adventures' Tour de France tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.kqzyfj.com%2Fclick-101849129-17133008&placement=guide-tdf-2027-tours)
 
 [INTERNAL LINK: cycling holidays in the Alps]
 

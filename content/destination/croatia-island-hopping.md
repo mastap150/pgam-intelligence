@@ -239,7 +239,7 @@ air in August, it may be the better trip.
 
 > **Considering the inland version?** Small-group multi-activity trips across Istria and the
 > Julian Alps.
-> [See EF Adventures' Croatia & Slovenia tours →](/api/go/cj/ef-adventures?link=17167880)
+> [See EF Adventures' Croatia & Slovenia tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.dpbolvw.net%2Fclick-101849129-17167880&placement=guide-croatia-inland-tours)
 
 [INTERNAL LINK: Greek islands comparison]
 

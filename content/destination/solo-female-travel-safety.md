@@ -211,7 +211,7 @@ a poor tenth one.
 
 > **Want to go alone without going it alone?** Small-group departures built for solo
 > travellers.
-> [See EF Adventures' solo travel tours →](/api/go/cj/ef-adventures?link=17315884)
+> [See EF Adventures' solo travel tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.tkqlhce.com%2Fclick-101849129-17315884&placement=guide-solo-travel-tours)
 
 [INTERNAL LINK: Camino de Santiago guide]
 

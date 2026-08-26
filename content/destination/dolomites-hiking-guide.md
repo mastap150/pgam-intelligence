@@ -202,7 +202,7 @@ costs a fraction of the guided price for a very similar walk. The huts are the s
 
 > **Left it too late to book huts yourself?** Guided Dolomites departures hold hut
 > allocation in advance.
-> [See EF Adventures' Dolomites hiking tours →](/api/go/cj/ef-adventures?link=17167875)
+> [See EF Adventures' Dolomites hiking tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.tkqlhce.com%2Fclick-101849129-17167875&placement=guide-dolomites-tours)
 
 [INTERNAL LINK: Tuscany road trip route]
 

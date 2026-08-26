@@ -245,7 +245,7 @@ through this part of Portugal, that spontaneity is most of the appeal.
 
 > **Want the southwest without the logistics?** Multi-activity Algarve and Alentejo
 > itineraries, including solo-traveller departures.
-> [See EF Adventures' Portugal tours →](/api/go/cj/ef-adventures?link=17167879)
+> [See EF Adventures' Portugal tours →](/api/go/cj/efadventures?to=https%3A%2F%2Fwww.dpbolvw.net%2Fclick-101849129-17167879&placement=guide-portugal-tours)
 
 [INTERNAL LINK: solo female travel safety]
 
