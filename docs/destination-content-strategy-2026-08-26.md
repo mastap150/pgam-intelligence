@@ -407,10 +407,23 @@ milestone email, and both are ten minutes in the GSC UI:
 | Top queries: clicks by query, brand vs non-brand | Whether the demand is people typing "destination.com" or real informational search the guides can capture |
 
 Fill both in here when pulled, with the same 28-day window, so the comparison
-holds. The recurring version of this belongs in the `news_performance` GSC
-feeder (feedback-loop doc §4), which reuses the working
-`gsc-guides-queue.mjs` auth path — that script and its credentials live in the
-`destination-com` repo, not this one.
+holds. The recurring version belongs in the `news_performance` GSC feeder
+(feedback-loop doc §4), which reuses the working `gsc-guides-queue.mjs` auth
+path.
+
+**On who can run the pull.** GSC API access goes through the service account
+`analytics-digest@pgam-analytics`, shared with the GA4 digest (playbook,
+*Analytics / observability*). That account authenticates by **Workload Identity
+Federation from GitHub Actions — there are no JSON keys, because org policy
+blocks them.** So the pull runs from an Actions workflow or from a machine that
+can impersonate the account; it cannot run from a Claude cloud session, which
+has neither. Granting the service account more permission in Search Console does
+not change this: the grant is on Google's side, and what a session lacks is the
+credential, not the authorization. To hand a session a one-off pull, mint a
+short-lived token instead of looking for a key —
+`gcloud auth print-access-token --impersonate-service-account=analytics-digest@pgam-analytics.iam.gserviceaccount.com --scopes=https://www.googleapis.com/auth/webmasters.readonly`
+— and pass it as `GSC_ACCESS_TOKEN`. It expires in an hour and leaves nothing at
+rest, which is the per-session pattern CLAUDE.md prefers.
 
 ---
 
