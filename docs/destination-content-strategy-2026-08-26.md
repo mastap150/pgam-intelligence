@@ -369,6 +369,62 @@ the `news_performance` join table from audit §11 first.
 it stays near 1.0, we are renting traffic and the flywheel does not exist,
 regardless of how good the top-line numbers look.
 
+### 11.1 Baseline — the number the strategy is measured against
+
+**Site-wide Google Search clicks, 28 days to 2026-08-24: 1,800.** Source: the
+Search Console "Google Search Impact" milestone email, 2026-08-24. That is
+~64 clicks/day across the whole domain.
+
+Recorded because §12's Weeks 1–2 row calls for a baseline pull and no baseline
+number existed anywhere in the repo. Take it as the **pre-content** mark: none
+of the 52 drafts in `content/destination/` were live on that date
+(`PUBLISH-PLAN.md` still lists `travel-insurance-guide.md`, the Tier 1 hub, as
+unshipped), and the `/news/` remediation in §12 had not started. Every
+publishing decision after this date is measured from here.
+
+**Three cautions on using it.**
+
+1. **It is a milestone badge, not an analysis.** Google sends these at low
+   thresholds. 1.8K is a standing start for a domain of this ambition, and the
+   email's framing ("Congratulations!") carries no information about whether
+   the trend is good.
+
+2. **Clicks is the metric this section exists to argue against.** A rising
+   click count is compatible with a broken flywheel — see the health metric
+   above. Do not let the badge become the scoreboard.
+
+3. **It is GSC only.** It excludes the NewsBreak referral lane entirely
+   (audit §2–3: 633 sessions, ~99% on one Breeze Airways story, and referral
+   sessions are click-throughs rather than impressions). Adding 1.8K to 633 is
+   not a traffic total; the two lanes answer different questions.
+
+**Still needed to make this baseline usable** — neither is derivable from the
+milestone email, and both are ten minutes in the GSC UI:
+
+| Pull | Decides |
+|---|---|
+| Top pages: clicks / impressions / position | Whether 1.8K is a few legacy pages or a broad thin base — i.e. whether the 52 drafts are additive or corrective |
+| Top queries: clicks by query, brand vs non-brand | Whether the demand is people typing "destination.com" or real informational search the guides can capture |
+
+Fill both in here when pulled, with the same 28-day window, so the comparison
+holds. The recurring version belongs in the `news_performance` GSC feeder
+(feedback-loop doc §4), which reuses the working `gsc-guides-queue.mjs` auth
+path.
+
+**On who can run the pull.** GSC API access goes through the service account
+`analytics-digest@pgam-analytics`, shared with the GA4 digest (playbook,
+*Analytics / observability*). That account authenticates by **Workload Identity
+Federation from GitHub Actions — there are no JSON keys, because org policy
+blocks them.** So the pull runs from an Actions workflow or from a machine that
+can impersonate the account; it cannot run from a Claude cloud session, which
+has neither. Granting the service account more permission in Search Console does
+not change this: the grant is on Google's side, and what a session lacks is the
+credential, not the authorization. To hand a session a one-off pull, mint a
+short-lived token instead of looking for a key —
+`gcloud auth print-access-token --impersonate-service-account=analytics-digest@pgam-analytics.iam.gserviceaccount.com --scopes=https://www.googleapis.com/auth/webmasters.readonly`
+— and pass it as `GSC_ACCESS_TOKEN`. It expires in an hour and leaves nothing at
+rest, which is the per-session pattern CLAUDE.md prefers.
+
 ---
 
 ## 12. Sequence
