@@ -153,12 +153,50 @@ somewhere this session cannot see — a different session, a different repo, or 
 different tool. **It is excluded from everything above**, and it needs a
 pointer (repo, PR, or session) before it can be integrated.
 
-**Live desktop/mobile testing.** `destination.com` is blocked by this
-environment's egress proxy, so I could verify code and build but could not load
-the real site, test responsive behaviour, or walk the journey as a user.
-Everything above is from source, the repository's own history, and the build —
-not from a browser. Vercel preview deployments on the open PRs are the practical
-way to close that gap.
+**Live desktop/mobile testing — partly closed since writing.** `destination.com`
+is blocked by this environment's egress proxy, and so is `*.vercel.app`. But the
+Vercel MCP's `web_fetch_vercel_url` routes through Vercel's own API rather than
+the proxy, so the preview deployments on PRs #455 and #456 *were* reachable and
+the served HTML *was* verifiable. What that produced is recorded below. What it
+still does not produce is a rendered viewport — no screenshot, no visual layout
+check at phone width. That remains open.
+
+---
+
+## Verified against the live preview
+
+Three things came out of reading the actual served HTML rather than the source.
+
+**1 — The corpus confirms the audit, empirically.** Scored the 60 articles
+currently live on `/news` through the opportunity engine: mean NewsBreak 24,
+Google News 32, AI citation 15. Only **3 of 60** were disruption stories, **4**
+named a large US geography, **1** was policy-or-rule shaped. The bottom of the
+ranking is unambiguously trade content — aircraft financing, PE-backed STR
+consolidation, GE9X engine chevrons — sitting in a consumer feed. **The Breeze
+story was an outlier, not a representative sample**, which is the strongest
+available argument that the fix is sourcing rather than volume.
+
+**2 — A bug in the new engine that only appears at corpus scale.** Every one of
+those 60 fell below the secondary-source bar, and `rankOpportunities` was
+filtering below-bar stories out — so the editor would have received an empty
+email every morning until primary sources landed, indistinguishable from a
+broken cron. The ranking itself discriminates well (48 down to 15), so the fix
+was not to loosen the threshold but to keep everything, sorted, with a
+`clearsBar` flag and a digest that leads with "N of M clear the publish bar."
+Fixed in #455.
+
+**3 — Nested `<main>` landmarks on both news templates.** `app/layout.tsx`
+renders `<main id="main-content">` and both news templates rendered their own
+`<main>` inside it: invalid HTML, two "main" regions for a screen reader.
+`/news/[slug]` is now `<article>` (also the right element for a standalone
+story, and a cleaner extraction boundary for the AI crawlers `robots.ts`
+admits); `/news` is now a `<div>`. Fixed in #456.
+
+Also confirmed live: the recirculation added in #456 renders on a real article,
+#454's `NewsArticle` schema and `wordCount` are present in the JSON-LD, and
+there is no fixed-width overflow risk — every 3-digit px width in the served
+page is a `max-width`, and the recirculation grid collapses to one column on a
+phone.
 
 ---
 
