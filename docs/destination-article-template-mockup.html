@@ -1,0 +1,338 @@
+<title>Destination Article Template</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Public+Sans:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --paper:#FCFCFA; --card:#FFFFFF; --sub:#F2F1EC;
+    --ink:#16181C; --ink2:#494D55; --ink3:#767B85;
+    --rule:#E3E2DB; --rule2:#CFCEC5;
+    --brand:#0E5F52; --brand-soft:#E4EFEC;
+    --alert:#9C3116; --alert-soft:#FBEEE9;
+    --gold:#8A6A16; --gold-soft:#F7F0DE;
+    --annot:#B0491F; --annot-bg:#FDF1EA;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+    --paper:#101215; --card:#181B20; --sub:#1F232A;
+    --ink:#EDEEF0; --ink2:#B7BCC4; --ink3:#868C96;
+    --rule:#282D35; --rule2:#3A4049;
+    --brand:#5FBBA8; --brand-soft:#12241F;
+    --alert:#E08064; --alert-soft:#2A1712;
+    --gold:#D4AC53; --gold-soft:#26200F;
+    --annot:#E08A5A; --annot-bg:#241811;
+  }}
+  :root[data-theme="dark"]{
+    --paper:#101215; --card:#181B20; --sub:#1F232A;
+    --ink:#EDEEF0; --ink2:#B7BCC4; --ink3:#868C96;
+    --rule:#282D35; --rule2:#3A4049;
+    --brand:#5FBBA8; --brand-soft:#12241F;
+    --alert:#E08064; --alert-soft:#2A1712;
+    --gold:#D4AC53; --gold-soft:#26200F;
+    --annot:#E08A5A; --annot-bg:#241811;
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);margin:0;
+    font-family:"Public Sans",system-ui,-apple-system,sans-serif;font-size:16px;line-height:1.6;
+    -webkit-font-smoothing:antialiased}
+
+  /* annotation chrome — the spec layer, not part of the template */
+  .banner{background:var(--sub);border-bottom:1px solid var(--rule);padding:18px 24px}
+  .banner-in{max-width:1080px;margin:0 auto;display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+  .banner b{font-family:"Roboto Mono",monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--annot)}
+  .banner span{font-size:13.5px;color:var(--ink2)}
+  .ann{position:relative;border-left:2px solid var(--annot);padding-left:14px;margin:0 0 6px}
+  .ann-tag{font-family:"Roboto Mono",monospace;font-size:10px;font-weight:500;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--annot);background:var(--annot-bg);
+    padding:2px 7px;border-radius:2px;display:inline-block;margin-bottom:8px}
+
+  .page{max-width:1080px;margin:0 auto;padding:36px 24px 80px;
+    display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:56px}
+  @media(max-width:900px){.page{grid-template-columns:1fr;gap:40px}}
+  article{max-width:680px;min-width:0}
+
+  /* masthead */
+  .eyebrow{font-family:"Roboto Mono",monospace;font-size:11px;font-weight:500;letter-spacing:.16em;
+    text-transform:uppercase;margin-bottom:16px}
+  .eyebrow a{color:var(--brand);text-decoration:none;border-bottom:1px solid transparent}
+  .eyebrow a:hover{border-bottom-color:var(--brand)}
+  .eyebrow .live{background:var(--alert-soft);color:var(--alert);padding:2px 7px;border-radius:2px;
+    margin-right:10px;font-weight:600}
+  h1{font-family:"Fraunces",Georgia,serif;font-weight:500;font-size:clamp(30px,4.4vw,44px);
+    line-height:1.1;letter-spacing:-.016em;margin:0 0 16px;text-wrap:balance}
+  .dek{font-size:19.5px;line-height:1.48;color:var(--ink2);margin:0 0 24px;font-weight:400}
+
+  .byline{display:flex;gap:14px;align-items:center;flex-wrap:wrap;
+    border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);padding:14px 0;margin-bottom:28px;
+    font-size:13.5px;color:var(--ink3)}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+    display:grid;place-items:center;font-weight:700;font-size:14px;flex:none;
+    font-family:"Public Sans",sans-serif}
+  .byline a{color:var(--ink);font-weight:600;text-decoration:none;border-bottom:1px solid var(--rule2)}
+  .byline .meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .byline .dot{color:var(--rule2)}
+  .byline .upd{color:var(--alert);font-weight:600}
+
+  figure{margin:0 0 12px}
+  figure .img{aspect-ratio:16/9;background:linear-gradient(135deg,var(--sub),var(--brand-soft));
+    border-radius:3px;display:grid;place-items:center;color:var(--ink3);
+    font-family:"Roboto Mono",monospace;font-size:12px;text-align:center;padding:16px}
+  figcaption{font-size:13px;color:var(--ink3);margin-top:8px;line-height:1.45}
+  figcaption .credit{color:var(--ink3);opacity:.8}
+
+  /* key block */
+  .key{background:var(--card);border:1px solid var(--rule);border-left:3px solid var(--brand);
+    border-radius:3px;padding:22px 26px;margin:30px 0 34px}
+  .key h2{font-family:"Public Sans",sans-serif;font-size:12px;font-weight:700;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--brand);margin:0 0 14px;padding:0;border:0}
+  .key dl{margin:0;display:grid;gap:9px}
+  .key .row{display:grid;grid-template-columns:118px 1fr;gap:14px;align-items:baseline}
+  @media(max-width:560px){.key .row{grid-template-columns:1fr;gap:2px}}
+  .key dt{font-size:12px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+  .key dd{margin:0;font-size:15.5px;line-height:1.5;color:var(--ink)}
+
+  /* body */
+  .body{font-size:17.5px;line-height:1.68}
+  .body p{margin:0 0 20px}
+  .body h2{font-family:"Fraunces",Georgia,serif;font-weight:500;font-size:25px;line-height:1.22;
+    letter-spacing:-.01em;margin:38px 0 14px;text-wrap:balance}
+  .body a{color:var(--brand);text-decoration:none;border-bottom:1px solid var(--brand-soft);
+    box-shadow:inset 0 -1px 0 var(--brand)}
+  .body a:hover{background:var(--brand-soft)}
+  .body a:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+  .tw{overflow-x:auto;margin:0 0 24px;border:1px solid var(--rule);border-radius:3px;background:var(--card)}
+  table{border-collapse:collapse;width:100%;font-size:14.5px;min-width:460px}
+  th{text-align:left;font-family:"Roboto Mono",monospace;font-size:10.5px;font-weight:500;
+    letter-spacing:.13em;text-transform:uppercase;color:var(--ink3);padding:11px 15px;
+    border-bottom:1px solid var(--rule2);white-space:nowrap}
+  td{padding:11px 15px;border-bottom:1px solid var(--rule);color:var(--ink2)}
+  tr:last-child td{border-bottom:none}
+  td strong{color:var(--ink)}
+  .tnum{font-family:"Roboto Mono",monospace;font-variant-numeric:tabular-nums;white-space:nowrap}
+
+  blockquote{margin:28px 0;padding:0 0 0 22px;border-left:3px solid var(--rule2);
+    font-family:"Fraunces",Georgia,serif;font-size:21px;line-height:1.42;font-style:italic;color:var(--ink)}
+  blockquote cite{display:block;font-family:"Public Sans",sans-serif;font-size:13px;font-style:normal;
+    color:var(--ink3);margin-top:10px}
+
+  /* ad + affiliate */
+  .ad{border:1px dashed var(--rule2);border-radius:3px;background:var(--sub);
+    padding:26px;text-align:center;margin:34px 0;color:var(--ink3);
+    font-family:"Roboto Mono",monospace;font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+  .aff{background:var(--gold-soft);border:1px solid var(--rule);border-radius:3px;
+    padding:20px 22px;margin:32px 0}
+  .aff .disc{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:12px;font-weight:500}
+  .aff h3{margin:0 0 12px;font-size:16.5px;font-family:"Public Sans",sans-serif;font-weight:700}
+  .aff-row{display:flex;justify-content:space-between;gap:14px;padding:9px 0;
+    border-top:1px solid var(--rule);font-size:14.5px;align-items:baseline}
+  .aff-row .p{font-family:"Roboto Mono",monospace;font-weight:500;white-space:nowrap;color:var(--ink)}
+  .aff .cta{display:inline-block;margin-top:14px;background:var(--brand);color:#fff;
+    padding:10px 18px;border-radius:3px;font-size:14px;font-weight:600;text-decoration:none}
+
+  .sources{background:var(--card);border:1px solid var(--rule);border-radius:3px;
+    padding:18px 22px;margin:36px 0 0;font-size:14px}
+  .sources .lbl{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink3);margin-bottom:10px;font-weight:500}
+  .sources ul{margin:0;padding:0;list-style:none;display:grid;gap:5px}
+  .sources a{color:var(--brand);text-decoration:none}
+
+  /* recirculation */
+  .recirc{margin-top:52px;border-top:2px solid var(--ink);padding-top:8px}
+  .rblock{margin-bottom:36px}
+  .rhead{font-family:"Public Sans",sans-serif;font-size:11.5px;font-weight:700;letter-spacing:.15em;
+    text-transform:uppercase;color:var(--ink3);margin:26px 0 14px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px}
+  .card{background:var(--card);border:1px solid var(--rule);border-radius:3px;overflow:hidden}
+  .card .thumb{aspect-ratio:16/10;background:linear-gradient(135deg,var(--sub),var(--brand-soft))}
+  .card .c{padding:13px 15px}
+  .card .k{font-family:"Roboto Mono",monospace;font-size:9.5px;letter-spacing:.13em;
+    text-transform:uppercase;color:var(--brand);margin-bottom:6px}
+  .card .t{font-size:15px;font-weight:600;line-height:1.32;margin:0;text-wrap:balance}
+  .plan{background:var(--brand);color:#fff;border-radius:4px;padding:26px 28px}
+  .plan h3{margin:0 0 8px;font-family:"Fraunces",Georgia,serif;font-weight:500;font-size:24px;color:#fff}
+  .plan p{margin:0 0 18px;opacity:.9;font-size:15px;max-width:44ch}
+  .plan .btns{display:flex;gap:10px;flex-wrap:wrap}
+  .plan .btn{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.3);color:#fff;
+    padding:10px 16px;border-radius:3px;font-size:14px;font-weight:600;text-decoration:none}
+  .nl{background:var(--card);border:1px solid var(--rule2);border-radius:4px;padding:24px 26px}
+  .nl h3{margin:0 0 6px;font-size:18px;font-family:"Public Sans",sans-serif;font-weight:700}
+  .nl p{margin:0 0 16px;color:var(--ink2);font-size:14.5px}
+  .nl .f{display:flex;gap:8px;flex-wrap:wrap}
+  .nl input{flex:1;min-width:180px;padding:10px 13px;border:1px solid var(--rule2);border-radius:3px;
+    background:var(--paper);color:var(--ink);font-size:14.5px;font-family:inherit}
+  .nl button{background:var(--ink);color:var(--paper);border:0;padding:10px 20px;border-radius:3px;
+    font-size:14.5px;font-weight:600;cursor:pointer;font-family:inherit}
+
+  /* rail */
+  aside{min-width:0}
+  .sticky{position:sticky;top:24px;display:grid;gap:22px}
+  .rail{background:var(--card);border:1px solid var(--rule);border-radius:3px;padding:18px 20px}
+  .rail .lbl{font-family:"Roboto Mono",monospace;font-size:10px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--ink3);margin-bottom:12px;font-weight:500}
+  .rail ol{margin:0;padding-left:20px;display:grid;gap:11px;font-size:14.5px;line-height:1.36}
+  .rail ol a{color:var(--ink);text-decoration:none;font-weight:500}
+  @media(max-width:900px){.sticky{position:static}}
+</style>
+
+<div class="banner"><div class="banner-in">
+  <b>Template spec</b>
+  <span>Proposed <code>/news/[slug]</code> for Destination.com — annotated. Orange rules mark what is new versus the live template. Content is a real story rendered in the new structure.</span>
+</div></div>
+
+<div class="page">
+<article>
+
+  <div class="ann"><span class="ann-tag">New — category archive link</span></div>
+  <div class="eyebrow">
+    <span class="live">Route change</span>
+    <a href="#">Airlines</a> &nbsp;/&nbsp; <a href="#">Florida</a>
+  </div>
+
+  <h1>Breeze Airways Pauses Four Florida Routes Through Early October</h1>
+  <p class="dek">The low-cost carrier is suspending service on four Florida routes until October 6, affecting travelers booked out of Tampa, Jacksonville and Fort Myers.</p>
+
+  <div class="ann"><span class="ann-tag">New — named byline, author page, real update stamp</span></div>
+  <div class="byline">
+    <div class="avatar">MR</div>
+    <div class="meta">
+      <span>By <a href="/authors/maya-rios">Maya Rios</a>, Aviation Editor</span>
+      <span class="dot">·</span>
+      <time datetime="2026-08-21T14:05:00Z">Aug 21, 2026, 10:05 AM ET</time>
+      <span class="dot">·</span>
+      <span class="upd"><time datetime="2026-08-22T09:30:00Z">Updated Aug 22</time></span>
+      <span class="dot">·</span>
+      <span>4 min read</span>
+    </div>
+  </div>
+
+  <div class="ann"><span class="ann-tag">New — image caption + credit (hero_credit is never written today)</span></div>
+  <figure>
+    <div class="img">HERO IMAGE 1200×675<br>licensed or first-party — never scraped</div>
+    <figcaption>A Breeze Airways A220 at Tampa International. <span class="credit">Photo: Destination.com / staff</span></figcaption>
+  </figure>
+
+  <div class="ann"><span class="ann-tag">New — the key block. UX, AI-extraction surface, and proof of the Destination layer</span></div>
+  <div class="key">
+    <h2>What travelers need to know</h2>
+    <dl>
+      <div class="row"><dt>What happened</dt><dd>Breeze is pausing four Florida routes from August 25 through October 6.</dd></div>
+      <div class="row"><dt>Who's affected</dt><dd>Anyone booked on TPA–HPN, JAX–PVD, RSW–BDL or TPA–ORF in that window.</dd></div>
+      <div class="row"><dt>Where</dt><dd>Tampa, Jacksonville and Fort Myers.</dd></div>
+      <div class="row"><dt>When</dt><dd><time datetime="2026-08-25">Aug 25</time> – <time datetime="2026-10-06">Oct 6, 2026</time>. Service resumes Oct 7.</dd></div>
+      <div class="row"><dt>Why it matters</dt><dd>These are the only nonstops on three of the four pairs — rebooking means a connection.</dd></div>
+      <div class="row"><dt>What to do</dt><dd>Breeze is offering a full refund or free rebooking. Request it in <em>My Trips</em>; it is not automatic.</dd></div>
+    </dl>
+  </div>
+
+  <div class="body">
+    <p>Breeze Airways will suspend service on four Florida routes for roughly six weeks this autumn, the carrier confirmed in a schedule filing published Wednesday. The pause runs from August 25 to October 6, with service resuming the following day.</p>
+    <p>The affected routes all connect Florida leisure markets with the Northeast — a pairing that reliably softens between the end of summer travel and the start of the winter season.</p>
+
+    <div class="ann"><span class="ann-tag">New — table for comparable facts; ad only after a complete section</span></div>
+    <h2>The four routes</h2>
+    <div class="tw"><table>
+      <thead><tr><th>Route</th><th>Last flight</th><th>Resumes</th><th>Alternative</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Tampa – White Plains</strong></td><td class="tnum">Aug 24</td><td class="tnum">Oct 7</td><td>Connect via BDL</td></tr>
+        <tr><td><strong>Jacksonville – Providence</strong></td><td class="tnum">Aug 24</td><td class="tnum">Oct 7</td><td>JetBlue via BOS</td></tr>
+        <tr><td><strong>Fort Myers – Hartford</strong></td><td class="tnum">Aug 25</td><td class="tnum">Oct 7</td><td>Connect via MCO</td></tr>
+        <tr><td><strong>Tampa – Norfolk</strong></td><td class="tnum">Aug 25</td><td class="tnum">Oct 7</td><td>American via CLT</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="ad">Advertisement · 300×250 or responsive</div>
+
+    <h2>What it means if you're booked</h2>
+    <p>Breeze's contract of carriage entitles you to a full refund when the airline cancels, regardless of fare type — including Nice fares, which are normally non-refundable. That right is not exercised automatically: you have to request it.</p>
+    <blockquote>Affected guests will be contacted directly and offered a full refund or rebooking at no additional cost.<cite>Breeze Airways, schedule filing, Aug 20</cite></blockquote>
+    <p>If you'd rather travel, the practical question is whether a connection is worth it. We priced the four alternatives the week the pause begins — see below. For Tampa travelers, our <a href="#">guide to flying out of TPA</a> covers which terminal each carrier uses.</p>
+
+    <div class="ann"><span class="ann-tag">New — contextual affiliate, disclosed, specific to this story</span></div>
+    <div class="aff">
+      <div class="disc">Advertiser disclosure · we may earn a commission</div>
+      <h3>Fares on the affected routes, Aug 25 – Oct 6</h3>
+      <div class="aff-row"><span>Tampa → White Plains <em>(1 stop)</em></span><span class="p">from $148</span></div>
+      <div class="aff-row"><span>Jacksonville → Providence <em>(1 stop)</em></span><span class="p">from $167</span></div>
+      <div class="aff-row"><span>Fort Myers → Hartford <em>(1 stop)</em></span><span class="p">from $139</span></div>
+      <a class="cta" href="#">Search these dates</a>
+    </div>
+
+    <h2>Why Breeze keeps trimming Florida</h2>
+    <p>This is the third seasonal pause Breeze has taken on Florida–Northeast flying in eighteen months. The pattern is consistent: the carrier adds capacity into the winter, holds it through spring break, then pulls back sharply once school resumes.</p>
+    <p>For travelers, the practical read is that Breeze's Florida network is best treated as seasonal. If you're planning autumn travel, check our <a href="#">Florida travel guide</a> and <a href="#">best time to visit Florida</a>.</p>
+
+    <div class="ad">Advertisement · in-article</div>
+
+    <div class="sources">
+      <div class="lbl">Reported from</div>
+      <ul>
+        <li><a href="#">Breeze Airways — schedule filing, Aug 20 2026</a> <span style="color:var(--ink3)">· primary</span></li>
+        <li><a href="#">Breeze Airways contract of carriage, §9</a> <span style="color:var(--ink3)">· primary</span></li>
+        <li><a href="#">Tampa International Airport — carrier schedules</a> <span style="color:var(--ink3)">· primary</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="recirc">
+    <div class="ann" style="margin-top:22px"><span class="ann-tag">New — recirculation, ordered by intent</span></div>
+
+    <div class="rblock">
+      <div class="rhead">More airline news</div>
+      <div class="cards">
+        <div class="card"><div class="thumb"></div><div class="c"><div class="k">Airlines</div><p class="t">JetBlue Adds Three Caribbean Routes From Fort Lauderdale</p></div></div>
+        <div class="card"><div class="thumb"></div><div class="c"><div class="k">Airlines</div><p class="t">Spirit Cuts Six Routes as Fleet Groundings Continue</p></div></div>
+        <div class="card"><div class="thumb"></div><div class="c"><div class="k">Policy</div><p class="t">What Your Airline Owes You When a Flight Is Cancelled</p></div></div>
+      </div>
+    </div>
+
+    <div class="rblock">
+      <div class="rhead">Planning Florida</div>
+      <div class="cards">
+        <div class="card"><div class="thumb"></div><div class="c"><div class="k">Guide</div><p class="t">Tampa: Where to Stay, Eat and Swim</p></div></div>
+        <div class="card"><div class="thumb"></div><div class="c"><div class="k">When to go</div><p class="t">The Best Time to Visit Florida</p></div></div>
+        <div class="card"><div class="thumb"></div><div class="c"><div class="k">Guide</div><p class="t">Fort Myers and Sanibel After the Rebuild</p></div></div>
+      </div>
+    </div>
+
+    <div class="rblock plan">
+      <h3>Plan this trip</h3>
+      <p>You've read about Florida in autumn. Here's what it actually costs.</p>
+      <div class="btns">
+        <a class="btn" href="#">Search flights to Tampa</a>
+        <a class="btn" href="#">Hotels in Fort Myers</a>
+        <a class="btn" href="#">Florida destination hub</a>
+      </div>
+    </div>
+
+    <div class="rblock nl">
+      <h3>The Briefing</h3>
+      <p>What happened in travel, why it matters, and where you should go. Three mornings a week.</p>
+      <div class="f"><input type="email" placeholder="you@example.com" aria-label="Email address"><button>Subscribe</button></div>
+    </div>
+  </div>
+</article>
+
+<aside><div class="sticky">
+  <div class="ann"><span class="ann-tag">New — rail</span></div>
+  <div class="rail">
+    <div class="lbl">Most read · Airlines</div>
+    <ol>
+      <li><a href="#">Southwest's New Boarding Groups, Explained</a></li>
+      <li><a href="#">Every US Airline's Carry-On Size Limit</a></li>
+      <li><a href="#">Delta Ends Atlanta–Boston Winter Service</a></li>
+      <li><a href="#">The Cheapest Month to Fly to Europe</a></li>
+    </ol>
+  </div>
+  <div class="rail">
+    <div class="lbl">In this story</div>
+    <ol style="list-style:none;padding-left:0">
+      <li><a href="#">Breeze Airways</a></li>
+      <li><a href="#">Tampa (TPA)</a></li>
+      <li><a href="#">Fort Myers (RSW)</a></li>
+      <li><a href="#">Florida</a></li>
+    </ol>
+  </div>
+</div></aside>
+</div>
