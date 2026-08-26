@@ -1,7 +1,11 @@
 # Runbook — rotating the two exposed Neon credentials
 
-**Status:** rotation not yet performed. This runbook is the plan; steps 2–7
-need a human with Neon console, GitHub, and Render access.
+**Status:** rotation not yet performed. This runbook is the plan; every step
+needs a human with Neon console, GitHub, and Render access.
+
+**Decided 2026-08-25 (Priyesh):** he runs the rotation himself from this
+document — no Neon API key goes into a cloud session — and takes the
+**read-only / writer role split** rather than a straight password swap.
 
 ## What happened
 
@@ -117,34 +121,85 @@ rather than resetting `neondb_owner`'s password. This gives an overlap window
 where both old and new credentials work, so nothing breaks between steps 2 and
 5.
 
-**Take least privilege while you are here.** Almost every consumer is
-read-only reporting. Suggested split:
+**Decided 2026-08-25: take the read-only / writer split.** Two new roles per
+project, not one.
 
-- A read-only role (`GRANT CONNECT`, `USAGE` on the relevant schemas, `SELECT`
-  on tables, plus `ALTER DEFAULT PRIVILEGES … GRANT SELECT`) for reporting:
-  `tb-today`, `tb-headroom`, `tbx-neon-reports`, `tbx-take-rate`,
-  `tbx-supply-gap`, `hasib_trigger_check.py`, `msn_lane_performance.py`, and
-  the alert agents.
-- A writer role for the ETL paths that genuinely write:
-  `msn-daily-totals-rollup`, `msn-rejection-csv-loader`, `msn-insights`,
-  `tbx-backfill`, the compliance jobs (they write
-  `pgam_direct.compliance_findings`), and the Render worker.
+The classification below was traced through each workflow to the script it
+actually runs, then to whether that module contains write SQL — not guessed
+from job names.
 
-If splitting roles is more than you want to take on right now, a single new
-non-superuser role for everything is still a strict improvement over
-`neondb_owner`. Do not skip step 1 just to avoid the privilege question.
+**Writers** — need `INSERT`/`UPDATE` on `pgam_direct`:
+
+| Consumer | Writes via |
+|---|---|
+| `msn-daily-totals-rollup` | `scripts/msn_daily_totals_rollup.py` |
+| `msn-insights` | `scripts/msn_oauth_capture.py` |
+| `msn-partner-reports` | `agents.etl.msn_partner_reports_etl` |
+| `msn-rejection-csv-loader` | `agents.etl.msn_rejection_etl`, `…_details_etl` |
+| `tbx-backfill` | `agents.etl.tbx_revenue_etl` |
+| `compliance-fallback` | `agents.compliance.runner.run_fallback_digest` |
+| Render worker | `scheduler.py` → `core.neon.connect` |
+
+`compliance-fallback` is the one to double-check: `runner.py` contains write
+SQL, but whether `run_fallback_digest()` specifically writes was not confirmed.
+Give it the writer role — over-granting one job is cheaper than a broken
+compliance digest.
+
+**Readers** — confirmed zero write SQL, and none import a writing module:
+
+`tb-today`, `tb-headroom`, `tbx-neon-reports`, `tbx-supply-gap`,
+`tbx-take-rate`, `compliance-watchdog`, `msn-puller-watchdog`, plus
+`scripts/hasib_trigger_check.py`, `scripts/msn_lane_performance.py`, and the
+alert agents (`marketplace_digest`, `dashboard_alerts`, `tb_revenue`,
+`qps_waste_sentry`).
+
+Sketch for the reader role — adjust schema names to what the project actually
+uses:
+
+```sql
+CREATE ROLE pgam_ro WITH LOGIN PASSWORD '…';
+GRANT CONNECT ON DATABASE neondb TO pgam_ro;
+GRANT USAGE ON SCHEMA pgam_direct, public TO pgam_ro;
+GRANT SELECT ON ALL TABLES IN SCHEMA pgam_direct, public TO pgam_ro;
+ALTER DEFAULT PRIVILEGES IN SCHEMA pgam_direct, public
+  GRANT SELECT ON TABLES TO pgam_ro;
+```
+
+The writer role is the same plus `INSERT, UPDATE, DELETE` (and `USAGE` on
+sequences). Neither role needs superuser.
+
+The boxingnews project only ever gets read — `hasib_trigger_check.py` and
+`msn_lane_performance.py` are its only consumers — so it needs the read-only
+role alone.
 
 Build the new DSNs but **do not paste them into this file, a commit, a PR, a
 routine prompt, or a chat message.** They go straight into the stores below.
 
 ### 2. Update GitHub Actions
 
-Repo → Settings → Secrets and variables → Actions. Update the single secret
-`PGAM_DIRECT_DATABASE_URL` to the new pgam-direct DSN. That covers all 13
-workflows and both env names.
+Repo → Settings → Secrets and variables → Actions.
 
-No `BOXINGNEWS_DATABASE_URL` secret exists; add one only if a workflow starts
-needing it.
+**The split costs more here than a straight rotation, and the ordering is not
+optional.** Today all 13 workflows read one secret, `PGAM_DIRECT_DATABASE_URL`.
+Two roles means two secrets and a per-workflow edit:
+
+1. Set `PGAM_DIRECT_DATABASE_URL` to the **writer** DSN. The 6 writer workflows
+   need no file change — they keep reading the name they already read.
+2. Add a **new** secret `PGAM_DIRECT_DATABASE_URL_RO` holding the reader DSN.
+3. Edit the 7 reader workflows to reference `secrets.PGAM_DIRECT_DATABASE_URL_RO`
+   instead: `tb-today`, `tb-headroom`, `tbx-neon-reports`, `tbx-supply-gap`,
+   `tbx-take-rate`, `compliance-watchdog`, `msn-puller-watchdog`. Remember the
+   `DATABASE_URL:` line in the same `env:` block where one exists — `core/neon.py`
+   falls back to it.
+
+**Create both secrets before merging the workflow edit.** A workflow pointing
+at a secret that does not exist yet gets an empty string and fails its own
+`-z "$PGAM_DIRECT_DATABASE_URL"` guard. That is why the workflow change is not
+in the same PR as this runbook — this PR is docs-only and safe to merge at any
+time.
+
+No `BOXINGNEWS_DATABASE_URL` secret exists and none is needed; that database
+has no workflow consumers.
 
 ### 3. Update Render
 
@@ -230,8 +285,10 @@ matched text.
 
 ## Checklist
 
-- [ ] 1. New Neon roles created on both projects (least-privilege where practical)
-- [ ] 2. GitHub secret `PGAM_DIRECT_DATABASE_URL` updated
+- [ ] 1. Reader + writer roles created on pgam-direct; reader role on boxingnews
+- [ ] 2a. `PGAM_DIRECT_DATABASE_URL` repointed to the writer DSN
+- [ ] 2b. `PGAM_DIRECT_DATABASE_URL_RO` created with the reader DSN
+- [ ] 2c. The 7 reader workflows edited to use `_RO` (merge only after 2b)
 - [ ] 3. Render worker env updated + redeployed
 - [ ] 4. Cloud environment + local `.env` updated (both variables)
 - [ ] 5. `tb-today` dispatched green; one `msn-insights` tick green
