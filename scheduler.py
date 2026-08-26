@@ -106,6 +106,8 @@ def _import(module_path: str, func_name: str = "run"):
 # dashboard_alerts       | daily 9am  | posts anomalies + recon drift + DSP health to Slack
 # tb_revenue_etl         | every 60m  | UPSERTs TB publisher+demand rollups into Neon
 # tbx_revenue_etl        | every 60m  | UPSERTs TBX supply/demand/placement rollups (no-op until TBX_* set)
+# impact_revenue_etl     | every 60m  | UPSERTs impact.com affiliate actions (no-op until IMPACT_* set)
+# impact_revenue_deep    | daily 05:20| same, over a 365d window — catches late settlements + reversals
 # tbx_demand_geo_floor   | daily 09:45| TBX per-DSP x country floor PROPOSALS to Slack; never writes
 # tbx_auto_revert        | daily 10:15| undoes TBX geo-floor writes that did harm; propose-only by default
 # ll_revenue             | every 60m  | any time (55-min cooldown inside agent)
@@ -187,6 +189,22 @@ def setup_schedule():
     # Render the data starts flowing with no redeploy. Separate tables from
     # tb_daily_* — same marketplace, so a union double counts.
     tbx_revenue_etl        = _import("agents.etl.tbx_revenue_etl")
+    # impact.com affiliate leg. Same "scheduled ahead of its credentials"
+    # posture as tbx_revenue_etl: no-ops with an actionable log line while
+    # IMPACT_ACCOUNT_SID / IMPACT_AUTH_TOKEN are absent.
+    #
+    # Writes a per-ACTION ledger (pgam_direct.impact_actions), not daily
+    # rollups — the rollups are views over it. Affiliate actions REVERSE
+    # months after the fact, and a rollup table refreshed over a trailing
+    # window would keep revenue it had lost, permanently and in the
+    # flattering direction. See the module docstring.
+    impact_revenue_etl     = _import("agents.etl.impact_revenue_etl")
+    # The same ETL over a 365-day window, once a day. Affiliate programs hold
+    # actions PENDING for 30-90 days before locking them, so the hourly
+    # 45-day window is not wide enough on its own to see an action reach its
+    # final state — and this is also the fallback that catches reversals if
+    # the hourly modification sweep is not supported on PGAM's account.
+    impact_revenue_deep    = _import("agents.etl.impact_revenue_etl", "run_deep")
     ll_revenue             = _import("agents.alerts.ll_revenue")
     # TB analogue of ll_revenue — hourly Slack snapshot of Teqblaze
     # revenue, pacing, margin, top publishers, and MTD vs $1M combined goal.
@@ -375,6 +393,17 @@ def setup_schedule():
     _hourly("tb_revenue_etl",     tb_revenue_etl)         # :40
     _hourly("tbx_revenue_etl",    tbx_revenue_etl)        # :41
     _hourly("ll_revenue",         ll_revenue)             # :44
+    # impact.com — registered explicitly at :58 rather than through _hourly().
+    # The helper's 15 four-minute slots (:00…:56) are all taken; a 16th call
+    # wraps back to :00 and would collide with partner_revenue_etl, silently
+    # doubling up two ETLs on the same minute. :58 is the last free minute on
+    # the hour (:52 already carries two jobs).
+    schedule.every().hour.at(":58").do(
+        _run("impact_revenue_etl", impact_revenue_etl))
+    # Deep pass in the quiet window, after the nightly heavy jobs (ml_geo at
+    # 03:00, app_name_enrichment at 04:30) and before the 06:00 recheck.
+    schedule.every().day.at("05:20").do(
+        _run("impact_revenue_deep", impact_revenue_deep))
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
     _hourly("ml_collector",       ml_collector)           # :48

@@ -76,6 +76,30 @@ services:
       - key: TBX_DRY_RUN
         value: "true"
 
+      # ── impact.com (affiliate / partner marketing) ────────────────────────
+      # PGAM's PUBLISHER side — commission earned by healthnation.com,
+      # destination.com, boxingnews et al. A different KIND of revenue from
+      # the legs above (which are programmatic ad impressions), and it is the
+      # only one that can go backwards: an action reverses when a shopper
+      # returns an item, months after the sale.
+      #
+      # Both values come from the impact.com UI: Settings -> API Access.
+      # Required by core/impact_api.py. Until they are set,
+      # agents/etl/impact_revenue_etl.py no-ops with a log line naming what is
+      # missing, so it is safe to have deployed ahead of them.
+      #
+      # Read-only: there is no impact.com write layer in this repo, so no
+      # write gate is needed here (contrast TBX_ALLOW_WRITES above).
+      #
+      # Run scripts/impact_probe.py --actions once after setting these. The
+      # client was written without a live account; the probe confirms the
+      # per-account field names and names any that would make the ETL drop
+      # rows. See docs/impact-affiliate-etl.md.
+      - key: IMPACT_ACCOUNT_SID
+        sync: false
+      - key: IMPACT_AUTH_TOKEN
+        sync: false
+
       # ── Notifications ────────────────────────────────────────────────────────
       - key: SLACK_WEBHOOK
         sync: false

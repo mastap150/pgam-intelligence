@@ -59,6 +59,29 @@ Writes to TBX are gated twice: `dry_run=True` by default on every call, plus
 that gate are in `docs/teqblaze-new-platform.md` §6. Spec is vendored at
 `docs/api/teqblaze-openapi.json`; probe with `scripts/tbx_probe.py`.
 
+## Affiliate revenue is a ledger, not a rollup
+
+`core/impact_api.py` + `agents/etl/impact_revenue_etl.py` land impact.com
+affiliate commission into `pgam_direct.impact_actions`. Two things about it
+differ from every other ETL here, and both are deliberate:
+
+1. **It stores one row per action and derives the daily numbers as views.**
+   Affiliate actions REVERSE months later, when a shopper returns an item. A
+   rollup table refreshed over a trailing window keeps revenue it has lost —
+   permanently, and in the flattering direction. Do not "optimise" this into
+   `impact_daily_*` tables.
+2. **`payout_locked` is the only invoiceable column.** `PENDING` and
+   `APPROVED` can still reverse; `payout_net` is current belief.
+
+Read-only: there is no impact.com write layer, so no write gate exists.
+impact.com also ships an MCP server — good for ad-hoc questions in a session,
+but it puts no row in Neon, so it replaces none of this.
+
+The client was written without a live account (api.impact.com is egress-blocked
+from cloud sessions). Run `python3 scripts/impact_probe.py --actions` before
+quoting any number from it — a wrong field name reads as zero revenue, not as
+an error. Details in `docs/impact-affiliate-etl.md`.
+
 ## Secrets are not present in this repo, ever
 
 - `.env` is gitignored; `.env.example` holds names with empty placeholder values.
