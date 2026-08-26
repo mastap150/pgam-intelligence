@@ -1,6 +1,7 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
 NOTE: Not in the original 50-article plan. Proposed addition — see editor notes.
+PLAN REF: none — proposed addition (EF inventory gap)
 TARGET KEYWORD: hiking in the dolomites
 SECONDARY: alta via 1, dolomites hut to hut, rifugio booking dolomites, tre cime di lavaredo,
            best time to hike the dolomites, dolomites itinerary

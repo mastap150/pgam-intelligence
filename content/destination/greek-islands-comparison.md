@@ -1,5 +1,6 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
+PLAN REF: #4 (Month 2)
 TARGET KEYWORD: santorini vs mykonos vs paros
 SECONDARY: greek islands comparison, which greek island to visit, greece island hopping,
            santorini cruise cap, greek island ferries

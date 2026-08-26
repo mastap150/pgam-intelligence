@@ -1,5 +1,6 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
+PLAN REF: none — proposed addition (EF inventory gap)
 TARGET KEYWORD: tour de france 2027
 SECONDARY: tour de france 2027 route, tour de france 2027 uk, grand départ edinburgh,
            how to watch the tour de france, tour de france tours, tour de france femmes 2027

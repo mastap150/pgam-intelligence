@@ -1,5 +1,6 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
+PLAN REF: #12 (Month 1)
 TARGET KEYWORD: camino de santiago
 SECONDARY: camino de santiago 2027, holy year camino, camino frances, camino portugues,
            how long is the camino de santiago, compostela requirements, sarria to santiago

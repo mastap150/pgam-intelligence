@@ -1,5 +1,6 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
+PLAN REF: #8 (Month 1)
 TARGET KEYWORD: croatia island hopping
 SECONDARY: croatia ferries, jadrolinija, split to hvar ferry, croatia island hopping route,
            dubrovnik cruise limit, best croatian islands

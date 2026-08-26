@@ -1,5 +1,6 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
+PLAN REF: #38 (Month 3)
 TARGET KEYWORD: solo female travel safety
 SECONDARY: safest countries for solo female travellers, solo travel tips for women,
            is solo travel safe for women, solo female travel destinations

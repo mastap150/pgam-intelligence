@@ -1,5 +1,6 @@
 ---
 STATUS: Draft — ready for editor pass. Not published.
+PLAN REF: #2 (Month 2)
 TARGET KEYWORD: hidden gems portugal
 SECONDARY: lesser known places in portugal, alentejo travel guide, portugal off the beaten
            path, rota vicentina, portugal tourist tax
