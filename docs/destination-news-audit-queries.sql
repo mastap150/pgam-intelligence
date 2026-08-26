@@ -161,20 +161,26 @@ WITH scored AS (
     region,
     published_at,
     -- Disruption verbs — the Breeze pattern
-    (headline ~* '\y(pause|paus|cancel|cut|suspend|drop|end|halt|delay|ground|strike|close|ban|reduce)')
+    (headline ~* '\y(pause|paus|cancel|cut|suspend|drop|end|halt|delay|grounds|grounded|grounding|strike|close|ban|reduce)')
       AS is_disruption,
     -- Expansion verbs — the Southwest-Nashville pattern
     (headline ~* '\y(launch|add|expand|grow|open|resume|introduce|boost|increase)')
       AS is_expansion,
     -- Large US geography = NewsBreak multi-locale fan-out
-    (headline ~* '\y(Florida|Texas|California|New York|Hawaii|Alaska|Georgia|Arizona|Nevada|Carolina|Colorado|Southeast|Midwest|West Coast|East Coast|nationwide|U\.S\.|US)\y')
+    (headline ~* '\y(Florida|Texas|California|New York|Hawaii|Alaska|Georgia|Arizona|Nevada|Carolina|Colorado|Southeast|Midwest|West Coast|East Coast|nationwide|U\.S\.|USA)\y')
       AS has_large_geo,
     -- Dated window — "through early October"
     (headline ~* '\y(through|until|starting|begins|from|by)\y.*(January|February|March|April|May|June|July|August|September|October|November|December|spring|summer|fall|winter|20[0-9]{2})')
       AS has_date_window,
-    -- Countable specifics — "four routes"
-    (headline ~* '\y(one|two|three|four|five|six|seven|eight|nine|ten|[0-9]+)\y')
-      AS has_number,
+    -- Countable specifics — "four routes". Word-numbers or 1-2 digit figures:
+    -- small enough that a reader can hold them, which is the §2 distinction.
+    (headline ~* '\y(one|two|three|four|five|six|seven|eight|nine|ten|[0-9]{1,2})\y'
+     AND headline !~* '[0-9],[0-9]{3}|\y[0-9]{3,}\y')
+      AS has_small_count,
+    -- Aggregate statistics — "2,250 quarterly flights". Comma-grouped or 3+ digits.
+    -- This is the Southwest-Nashville trade-framing tell, and it scores NEGATIVE.
+    (headline ~* '[0-9],[0-9]{3}|\y[0-9]{3,}\y')
+      AS has_big_stat,
     length(headline) AS headline_chars
   FROM news_items
   WHERE status = 'live'
@@ -185,7 +191,8 @@ SELECT
   COUNT(*)                       AS articles,
   ROUND(AVG(headline_chars))     AS avg_headline_chars,
   COUNT(*) FILTER (WHERE has_date_window) AS with_date_window,
-  COUNT(*) FILTER (WHERE has_number)      AS with_number,
+  COUNT(*) FILTER (WHERE has_small_count) AS with_small_count,
+  COUNT(*) FILTER (WHERE has_big_stat)    AS with_big_stat,
   array_agg(slug ORDER BY published_at DESC) FILTER (WHERE true) AS example_slugs
 FROM scored
 GROUP BY is_disruption, has_large_geo
@@ -196,9 +203,11 @@ ORDER BY articles DESC;
 WITH scored AS (
   SELECT
     slug, headline, category, region, country, published_at,
-    (headline ~* '\y(pause|paus|cancel|cut|suspend|drop|end|halt|delay|ground|strike|close|ban)') AS is_disruption,
-    (headline ~* '\y(Florida|Texas|California|New York|Hawaii|Georgia|Arizona|Nevada|Carolina|Colorado|Southeast|Midwest)\y') AS has_large_geo,
-    (headline ~* '\y(one|two|three|four|five|[0-9]+)\y') AS has_number,
+    (headline ~* '\y(pause|paus|cancel|cut|suspend|drop|end|halt|delay|grounds|grounded|grounding|strike|close|ban)') AS is_disruption,
+    (headline ~* '\y(Florida|Texas|California|New York|Hawaii|Georgia|Arizona|Nevada|Carolina|Colorado|Southeast|Midwest|U\.S\.|USA)\y') AS has_large_geo,
+    (headline ~* '\y(one|two|three|four|five|six|seven|eight|nine|ten|[0-9]{1,2})\y'
+     AND headline !~* '[0-9],[0-9]{3}|\y[0-9]{3,}\y') AS has_small_count,
+    (headline ~* '[0-9],[0-9]{3}|\y[0-9]{3,}\y') AS has_big_stat,
     length(headline)      AS headline_chars,
     length(body_html)     AS body_chars,
     hero_image_url IS NOT NULL AS has_hero,
@@ -209,12 +218,13 @@ WITH scored AS (
 )
 SELECT
   slug, headline, category, region, published_slot,
-  is_disruption, has_large_geo, has_number,
+  is_disruption, has_large_geo, has_small_count, has_big_stat,
   headline_chars, body_chars, has_hero, n_sources,
   -- Predicted-opportunity score, weights from the audit §7
   ( CASE WHEN has_large_geo  THEN 25 ELSE 0 END
   + CASE WHEN is_disruption  THEN 25 ELSE 0 END
-  + CASE WHEN has_number     THEN 10 ELSE 0 END
+  + CASE WHEN has_small_count THEN 10 ELSE 0 END
+  + CASE WHEN has_big_stat   THEN -10 ELSE 0 END   -- trade framing, the Southwest tell
   + CASE WHEN has_hero       THEN 10 ELSE 0 END
   + CASE WHEN category IN ('aviation','visa-policy') THEN 20 ELSE 0 END
   + CASE WHEN n_sources >= 2 THEN 10 ELSE 0 END

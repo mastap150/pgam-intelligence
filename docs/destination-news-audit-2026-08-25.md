@@ -27,8 +27,8 @@ to essentially nothing else — not the newsletter cron, not X, not Pinterest,
 not push. Publishing more of this would multiply a compliance exposure and a
 Google-churn risk, not an acquisition channel. The Breeze result says the
 *format* can work; it does not say the *pipeline* is ready to scale. Fix the
-eight technical defects in §7, add primary sources and a review gate, then
-scale volume deliberately.
+top five technical defects in §12, add primary sources and a review gate (§7),
+then scale volume deliberately.
 
 ---
 
@@ -364,8 +364,8 @@ anything after they land is more decision-relevant than how many landed — see 
 `/news/[slug]/page.tsx` declares **both** `export const dynamic = 'force-dynamic'`
 **and** `export const revalidate = 600`. `force-dynamic` wins — `revalidate` is
 dead code. Every request, **including every Googlebot and NewsBreak crawler
-hit**, runs a fresh Neon query. Same pattern on `/news/page.tsx` and
-`/feed/msn-news`. For a news template that should be aggressively cached and
+hit**, runs a fresh Neon query. Same pattern on `/news/page.tsx`,
+`/feed/msn-news` **and `/feed/apple-news`** — four files in all. For a news template that should be aggressively cached and
 crawled often, this is backwards: it raises TTFB, burns crawl budget, and puts
 your DB in the path of every bot. Dropping `force-dynamic` and keeping
 `revalidate` is a two-line change per file.
@@ -638,7 +638,7 @@ Measured against your diagram:
 | Channel | Wired? |
 |---|---|
 | Google Search / News | ✅ news sitemap + IndexNow |
-| NewsBreak | ❓ not in the codebase (§3) |
+| NewsBreak | ⚠️ unmanaged scrape — no account, no control (§3) |
 | MSN | ✅ `/feed/msn-news` |
 | Apple News | ✅ `/feed/apple-news` |
 | Newsletter | ✅ The Briefing (weekly) |
@@ -732,7 +732,7 @@ this session has **read-only**, so these are specified, not applied.
 | 2 | `'@type': 'Article'` → `'NewsArticle'` for `/news/` | `seo.tsx:271` (add a variant; don't break guides) | High |
 | 3 | Add "What travelers need to know" block + `<h2>`/`<ul>`/`<table>`/`<time>` to the `OUTPUT` contract | `news-ingest.ts` `SYSTEM_PROMPT` | High — fixes AI + Discover at once |
 | 4 | Add internal links from news → evergreen guides / `/flights/[route]` | `news/[slug]/page.tsx` | High — the flywheel |
-| 5 | Remove `dynamic = 'force-dynamic'`; keep `revalidate` | `news/[slug]`, `news/page.tsx`, `feed/msn-news` | High — crawl budget + TTFB |
+| 5 | Remove `dynamic = 'force-dynamic'`; keep `revalidate` | `news/[slug]`, `news/page.tsx`, `feed/msn-news`, `feed/apple-news` | High — crawl budget + TTFB |
 | 6 | `status` default `'live'` → `'review'` below score threshold | `schema.sql:937` + `persistNews` | High — governance |
 | 7 | Add `/news/[category]` archive routes | new route | Medium — Google News sections |
 | 8 | Pass `wordCount` + rich `ImageObject` to `articleSchema` | `news/[slug]/page.tsx` | Medium |
