@@ -170,6 +170,16 @@ to be actionable at all.
 2. **Auto-wire on approval** — on `joined`, pull the advertiser's link ids via
    Link Search, write the `cj-advertisers.ts` entry, open a draft PR against
    `mastap150/destination-com`. A human merges.
+
+   This now has a concrete consumer in *this* repo. `content/destination/
+   affiliate-placements.csv` (landed on main in #119) carries an
+   `ef_cj_link_id` column across 52 planned placements, and **only 7 are
+   filled**. Its click URLs are of the form
+   `dpbolvw.net/click-101849129-17167876` — CJ's click domain, PGAM's PID,
+   and the link id — which is exactly the tuple Link Search returns. So the
+   first useful version of this step is not a destination-com PR at all: it
+   is filling that column for advertisers already joined, which needs no new
+   repo access and no approval to land.
 3. **Post-wire verification** — assert `/api/go/cj/{advertiser}` still 302s
    and the tracking parameter survives the redirect, so a wired advertiser
    cannot be silently untracked.
