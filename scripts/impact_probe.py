@@ -23,8 +23,10 @@ Usage
     # core.impact_api.ACTION_FIELDS resolve against it
     python3 scripts/impact_probe.py --actions --days 30
 
-    # what reports this account can run (ids are account-specific)
-    python3 scripts/impact_probe.py --reports
+    # what reports this account can run, AND what their rows look like.
+    # /Actions has no clicks or impressions, so this is the run that unblocks
+    # the EPC / conversion-rate grain. Prints a paste-ready summary at the end.
+    python3 scripts/impact_probe.py --reports --days 30
 
     # everything, saved for review
     python3 scripts/impact_probe.py --actions --reports --json /tmp/impact.json
@@ -228,6 +230,153 @@ def check_modification_sweep(days: int) -> dict:
     return {"ok": True, "count": len(rows)}
 
 
+# How many candidate performance reports to actually run. Each one costs up to
+# len(REPORT_DATE_PARAM_CANDIDATES) requests against a metered API, so this is
+# bounded — and when it bites, the number dropped is printed rather than
+# silently truncated.
+MAX_SHAPED = 5
+
+
+def audit_reports(args) -> dict:
+    """
+    List the report catalog, then run the likely performance reports to learn
+    their real parameter names and row shape.
+
+    This exists because /Actions carries conversions and payout but NOT clicks
+    or impressions, so EPC and conversion rate need a second grain — and that
+    grain cannot be written until three unknowns are settled: which report id,
+    which date-parameter spelling it takes, and what its rows are called. All
+    three are account-specific. One run of this answers all three, so the
+    follow-up does not need a second trip to the account.
+    """
+    out: dict = {}
+    print("\nReport catalog (ids are account-specific — nothing in this repo "
+          "hardcodes one)")
+    try:
+        catalog = imp.report_catalog()
+    except ImpactError as exc:
+        print(f"  {FAIL} could not list reports — {exc}")
+        return {"ok": False, "error": str(exc)[:500]}
+
+    starred: list[dict] = []
+    for rep in catalog:
+        perf = imp.looks_like_perf_report(rep)
+        if perf:
+            starred.append(rep)
+        print(f"  {'*' if perf else ' '} {str(rep.get('Id', '?')):34} "
+              f"{rep.get('Name', '')}")
+    print(f"\n  {len(catalog)} report(s), {len(starred)} marked (*) as likely "
+          f"to carry clicks/impressions")
+    out["catalog"] = [{"id": r.get("Id"), "name": r.get("Name"),
+                       "perf_candidate": imp.looks_like_perf_report(r)}
+                      for r in catalog]
+
+    targets = [r for r in starred if r.get("Id")]
+    if args.report_shape:
+        wanted = {t.strip() for t in args.report_shape.split(",") if t.strip()}
+        targets = [{"Id": rid} for rid in wanted]
+        print(f"\nShaping the {len(targets)} report(s) named on the command line")
+    elif len(targets) > MAX_SHAPED:
+        print(f"\n  Shaping only the first {MAX_SHAPED} of {len(targets)} "
+              f"candidates (each costs up to "
+              f"{len(imp.REPORT_DATE_PARAM_CANDIDATES)} requests). "
+              f"DROPPED: {', '.join(str(r.get('Id')) for r in targets[MAX_SHAPED:])}"
+              f" — pass --report-shape to inspect those.")
+        targets = targets[:MAX_SHAPED]
+
+    end = date.today()
+    start = end - timedelta(days=max(args.days - 1, 0))
+    shapes: dict = {}
+
+    for rep in targets:
+        rid = str(rep.get("Id"))
+        print(f"\n{'-' * 70}\nReport {rid}  ({start}..{end})")
+
+        meta = None
+        try:
+            meta = imp.report_metadata(rid)
+        except ImpactError as exc:
+            print(f"  metadata: error — {exc}")
+        if meta:
+            # If the account documents its own parameters, that beats guessing
+            # from the candidate list below.
+            keys = sorted(meta) if isinstance(meta, dict) else []
+            print(f"  {OK} metadata exposed, keys: {keys}")
+        else:
+            print(f"  {SKIP} no metadata endpoint — falling back to trying "
+                  f"parameter spellings")
+
+        findings = imp.try_report(rid, start.isoformat(), end.isoformat())
+        accepted = [f for f in findings if f["ok"]]
+        with_rows = [f for f in accepted if f["rows"]]
+
+        for f in findings:
+            if not f["ok"]:
+                print(f"  {FAIL} {f['label']:26} {f.get('status') or ''} "
+                      f"{f['error'][:90]}")
+            else:
+                print(f"  {OK} {f['label']:26} {f['rows']} row(s)")
+
+        winner = with_rows[0] if with_rows else (accepted[0] if accepted else None)
+        if winner and winner.get("row_keys"):
+            print(f"\n  ROW KEYS: {winner['row_keys']}")
+            print(f"  SAMPLE:   "
+                  f"{json.dumps(winner['sample'], default=str)[:900]}")
+        elif winner:
+            print(f"\n  accepted with no rows — envelope keys: "
+                  f"{winner.get('envelope_keys')}")
+            print("  Widen --days, or this report has no data for the window.")
+        else:
+            print("\n  no parameter spelling was accepted for this report.")
+
+        shapes[rid] = {"metadata_keys": sorted(meta) if isinstance(meta, dict) else None,
+                       "attempts": findings,
+                       "winner": winner.get("label") if winner else None,
+                       "row_keys": winner.get("row_keys") if winner else []}
+
+    out["shapes"] = shapes
+
+    # The handoff. Everything a follow-up needs to write the clicks grain, in
+    # one block, so it can be pasted into a fresh session rather than
+    # re-derived from the scrollback above.
+    #
+    # Only reports that both accepted a parameter spelling AND returned rows
+    # go in it. A report that answered nothing is not a finding you can build
+    # from, and mixing it in here turns the one block that should be pure
+    # signal back into something that needs reading around.
+    usable = {rid: sh for rid, sh in shapes.items()
+              if sh["winner"] and sh["row_keys"]}
+    unusable = {rid: sh for rid, sh in shapes.items() if rid not in usable}
+
+    if usable:
+        print(f"\n{'=' * 70}")
+        print("PASTE THIS into a fresh session to get the clicks/impressions "
+              "grain built:")
+        print("=" * 70)
+        for rid, shape in usable.items():
+            print(f"  report_id   : {rid}")
+            print(f"  date params : {shape['winner']}")
+            print(f"  row keys    : {shape['row_keys']}")
+            print()
+        print("(ids and column names only — no credentials in the above.)")
+    elif shapes:
+        print(f"\n{'=' * 70}")
+        print(f"{FAIL} None of the {len(shapes)} report(s) inspected returned "
+              f"usable rows, so the clicks/impressions grain still has "
+              f"nothing to build on.")
+        print("    Next: widen --days (the window may simply be empty), or "
+              "pass --report-shape with ids from the catalog above that this "
+              "run did not flag.")
+
+    if unusable:
+        print(f"\n  not usable from this run: " + ", ".join(
+            f"{rid} ({'no rows' if sh['winner'] else 'no accepted params'})"
+            for rid, sh in unusable.items()))
+
+    out["usable"] = list(usable)
+    return out
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Read-only probe of the impact.com API for PGAM's account")
@@ -237,7 +386,13 @@ def main() -> int:
                         help="pull actions and audit the field mapping "
                              "(the check that matters)")
     parser.add_argument("--reports", action="store_true",
-                        help="list the report ids this account can run")
+                        help="list the report catalog AND run the likely "
+                             "performance reports to learn their real "
+                             "parameter names and row shape — this is what "
+                             "the clicks/impressions grain is waiting on")
+    parser.add_argument("--report-shape", metavar="ID[,ID]",
+                        help="shape these specific report ids instead of the "
+                             "auto-detected candidates")
     parser.add_argument("--json", metavar="PATH",
                         help="write findings as JSON")
     args = parser.parse_args()
@@ -270,12 +425,7 @@ def main() -> int:
     results["connection"] = conn
 
     if args.reports:
-        print("\nReport catalog (ids are account-specific — nothing in this "
-              "repo hardcodes one)")
-        catalog = _probe(results, "reports", imp.report_catalog) or []
-        for rep in catalog:
-            print(f"    {str(rep.get('Id', '?')):34} {rep.get('Name', '')}")
-        results["report_ids"] = [r.get("Id") for r in catalog]
+        results["reports"] = audit_reports(args)
 
     if args.actions:
         end = date.today()

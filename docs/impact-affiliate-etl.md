@@ -60,7 +60,7 @@ already in `requirements.txt`.
 | `core/impact_api.py` | Transport + reads. Basic auth, retry/throttle, `@nextpageuri` pagination, field-name tolerance. Read-only — there is no write layer. |
 | `migrations/2026_08_26_impact_affiliate.sql` | `pgam_direct.impact_actions` ledger + two rollup views. |
 | `agents/etl/impact_revenue_etl.py` | The ETL. Two passes, UPSERT by action id. |
-| `scripts/impact_probe.py` | Read-only probe. **Run this first.** |
+| `scripts/impact_probe.py` | Read-only probe. **Run this first.** `--actions` audits the field mapping; `--reports` discovers the report ids, date-parameter spelling and row shape the clicks grain needs. |
 | `tests/test_impact_etl.py` | 23 offline checks over the pure layer. |
 | `scheduler.py` | Hourly at `:58`, plus a daily deep pass at 05:20 ET. |
 
@@ -201,16 +201,20 @@ python3 scripts/impact_probe.py --actions --days 30
 # 3. Fix core/impact_api.py:ACTION_FIELDS for anything the probe flagged.
 #    Add any unexpected state to the FILTER clauses in the migration.
 
-# 4. Pull without writing — check the totals against the impact.com UI for
+# 4. Discover what the clicks/impressions grain needs (see §7). Prints a
+#    paste-ready block of report id + date params + row keys.
+python3 scripts/impact_probe.py --reports --days 30
+
+# 5. Pull without writing — check the totals against the impact.com UI for
 #    the same dates before trusting anything.
 python3 -m agents.etl.impact_revenue_etl --dry-run
 
-# 5. Land it, then backfill history.
+# 6. Land it, then backfill history.
 python3 -m agents.etl.impact_revenue_etl
 python3 -m agents.etl.impact_revenue_etl --backfill 365
 ```
 
-Step 4 is not optional. Comparing a dry-run total against the vendor's own
+Step 5 is not optional. Comparing a dry-run total against the vendor's own
 dashboard for the same dates is the only independent check that the field
 mapping is right — a wrong mapping produces a plausible smaller number, not an
 error.
@@ -219,13 +223,58 @@ Until the credentials are set, the scheduled job no-ops each hour with a log
 line naming what is missing. Deploying ahead of them is deliberate: the day
 they land in Render, data flows with no redeploy.
 
-## 7. Open questions
+## 7. Open questions and the planned follow-up
 
-- **Report catalog.** Nothing here hardcodes a report id, because they are
-  account-specific. `scripts/impact_probe.py --reports` lists what PGAM's
-  account can actually run. Clicks and impressions — needed for EPC and
-  conversion rate — live in those reports, not in `/Actions`, so a second
-  grain can be added once the real ids are known. Deliberately not guessed.
+### Clicks / impressions grain — the planned follow-up
+
+`/Actions` carries conversions and payout. It does **not** carry clicks or
+impressions, so EPC and conversion rate are not answerable from
+`impact_actions` alone. Those live in impact.com's reports.
+
+Nothing here hardcodes a report id, and nothing should: ids are
+account-specific, as are each report's parameter names and row field names.
+Three unknowns have to be settled before the grain can be written, and all
+three are answerable in one probe run:
+
+```bash
+python3 scripts/impact_probe.py --reports --days 30
+```
+
+That lists the catalog, marks entries likely to carry clicks/impressions with
+`*`, tries each candidate date-parameter spelling in
+`core.impact_api.REPORT_DATE_PARAM_CANDIDATES` against them, and ends with a
+paste-ready block:
+
+```
+  report_id   : <the id that answered>
+  date params : <the spelling it accepted>
+  row keys    : [<its actual column names>]
+```
+
+Hand that block to a fresh session and the grain can be built without a second
+trip to the account. It contains ids and column names only — no credentials.
+
+Design already settled, so it does not need re-deciding:
+
+- **A rollup table is correct here, unlike for actions.** Clicks and
+  impressions do not reverse. They are counted once and stay counted, so the
+  `tbx_daily_*` shape — pre-aggregated daily rows, UPSERT over a trailing
+  window — applies without the objection in §4. Keep it a separate table from
+  `impact_actions`; do not try to widen the ledger with traffic columns, whose
+  grain is a day and not an action.
+- **Join key is `(report_date, campaign_id)`**, matching
+  `impact_daily_campaign_revenue`, so EPC is a join rather than a third
+  source of truth for payout. Take payout from the ledger's view, never from
+  the report — the report will not reflect a reversal.
+- **Currency does not apply** to a click count, so this grain has no currency
+  column. Any EPC computed from it inherits the currency of the payout side
+  of the join, which is why that side must carry it.
+- The bounded-discovery logic (`try_report`, `REPORT_DATE_PARAM_CANDIDATES`)
+  is probe-only on purpose. An ETL that picked its own parameters from a
+  candidate list would silently switch conventions the day one of them
+  started answering differently.
+### Still open
+
 - **Is `ModificationDateStart` accepted?** Decides whether reversals are
   caught hourly or daily. The probe answers it.
 - **SubId1 coverage.** Decides whether per-property revenue is answerable at

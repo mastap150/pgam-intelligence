@@ -508,6 +508,96 @@ def report_rows(report_id: str, params: dict | None = None) -> list[dict]:
     return _envelope_rows(run_report(report_id, params), "Records")
 
 
+def report_metadata(report_id: str) -> dict | None:
+    """
+    A report's own parameter documentation, if the account exposes it.
+
+    UNVERIFIED path. Returns None on any 4xx rather than raising, because the
+    only caller is the probe and "this account does not expose report
+    metadata" is a finding, not a failure.
+    """
+    try:
+        return get(_account_path(f"Reports/{report_id}/MetaData"))
+    except ImpactError as exc:
+        if exc.status and 400 <= exc.status < 500:
+            return None
+        raise
+
+
+# Substrings that mark a catalog entry as likely to carry the click and
+# impression counts that /Actions does not. Used by the probe to narrow a
+# catalog of dozens down to the handful worth inspecting — a hint for a human
+# reading output, never a selector any ETL acts on.
+PERF_REPORT_HINTS: tuple[str, ...] = (
+    "performance", "perf", "by_day", "byday", "daily",
+    "click", "impression", "traffic", "summary",
+)
+
+
+def looks_like_perf_report(entry: dict) -> bool:
+    """True when a catalog entry's id or name matches PERF_REPORT_HINTS."""
+    haystack = " ".join(
+        str(entry.get(key, "")) for key in ("Id", "Name", "Description")
+    ).lower()
+    return any(hint in haystack for hint in PERF_REPORT_HINTS)
+
+
+# Candidate date-parameter spellings for running a report. impact.com reports
+# do not share one convention — different reports take START_DATE/END_DATE, a
+# `timeframe` keyword, or their own names — and which applies here is exactly
+# what the probe is for. Ordered most- to least-likely; the probe tries each
+# and reports which the account accepted.
+#
+# This lives here rather than in the probe so that whichever spelling wins can
+# be referenced by name in the follow-up ETL instead of retyped.
+REPORT_DATE_PARAM_CANDIDATES: tuple[tuple[str, dict], ...] = (
+    ("START_DATE/END_DATE", {"START_DATE": "{start}", "END_DATE": "{end}"}),
+    ("StartDate/EndDate", {"StartDate": "{start}", "EndDate": "{end}"}),
+    ("start_date/end_date", {"start_date": "{start}", "end_date": "{end}"}),
+    ("Date range (ActionDate*)", {"ActionDateStart": "{start}",
+                                  "ActionDateEnd": "{end}"}),
+    ("timeframe keyword", {"timeframe": "Last_30_Days"}),
+    ("no parameters", {}),
+)
+
+
+def try_report(report_id: str, start: str, end: str) -> list[dict]:
+    """
+    Run one report against each candidate date-parameter spelling.
+
+    Returns one result dict per attempt: the spelling tried, the params sent,
+    and either the row count plus the row's keys, or the error. Nothing is
+    inferred — the caller prints it and a human decides which spelling the
+    account actually honours.
+
+    Probe-only. No ETL calls this: an ETL that guessed its own parameters from
+    a list of candidates would silently switch conventions the day one of them
+    started answering differently.
+    """
+    findings: list[dict] = []
+    for label, template in REPORT_DATE_PARAM_CANDIDATES:
+        params = {
+            key: value.format(start=start, end=end) if isinstance(value, str) else value
+            for key, value in template.items()
+        }
+        try:
+            body = run_report(report_id, params)
+        except ImpactError as exc:
+            findings.append({"label": label, "params": params, "ok": False,
+                             "status": getattr(exc, "status", None),
+                             "error": str(exc)[:300]})
+            continue
+        rows = _envelope_rows(body, "Records")
+        findings.append({
+            "label": label, "params": params, "ok": True,
+            "rows": len(rows),
+            "envelope_keys": sorted(k for k in body) if isinstance(body, dict) else [],
+            "row_keys": sorted(rows[0].keys()) if rows else [],
+            "sample": rows[0] if rows else None,
+        })
+    return findings
+
+
 def test_connection() -> dict:
     """
     Cheapest possible authenticated read, with a human-readable verdict.

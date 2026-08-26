@@ -267,6 +267,110 @@ def _():
     assert out["with_sub_id1"] == 1 and out["pct"] == 33.3
 
 
+# ---------------------------------------------------------------------------
+# Report discovery — what the clicks/impressions grain is waiting on
+# ---------------------------------------------------------------------------
+
+@check("perf-report detection matches on id, name or description")
+def _():
+    assert imp.looks_like_perf_report({"Id": "mp_performance_by_day"})
+    assert imp.looks_like_perf_report({"Id": "x", "Name": "Clicks by Campaign"})
+    assert imp.looks_like_perf_report({"Id": "x", "Description": "daily traffic"})
+
+
+@check("perf-report detection does not flag unrelated reports")
+def _():
+    for entry in ({"Id": "mp_payment_history", "Name": "Payment History"},
+                  {"Id": "mp_geo", "Name": "Geo Breakdown"},
+                  {"Id": "mp_tax_forms", "Name": "Tax Forms"}):
+        assert not imp.looks_like_perf_report(entry), entry
+
+
+class _FakeReports:
+    """Stands in for imp.run_report: only one spelling is honoured."""
+
+    def __init__(self, honoured=("START_DATE", "END_DATE"), rows=None):
+        self.honoured, self.rows, self.calls = honoured, rows, []
+
+    def __call__(self, report_id, params=None):
+        params = params or {}
+        self.calls.append((report_id, dict(params)))
+        if all(k in params for k in self.honoured):
+            return {"Records": self.rows if self.rows is not None else
+                    [{"Date": "2026-08-25", "Clicks": "1420",
+                      "Impressions": "98000"}]}
+        raise imp.ImpactError("missing required parameter", status=400)
+
+
+def _with_run_report(fake, fn):
+    """Swap imp.run_report for the duration of fn, then put it back."""
+    original = imp.run_report
+    imp.run_report = fake
+    try:
+        return fn()
+    finally:
+        imp.run_report = original
+
+
+@check("try_report reports which date-parameter spelling the account accepted")
+def _():
+    fake = _FakeReports()
+    findings = _with_run_report(
+        fake, lambda: imp.try_report("r1", "2026-08-01", "2026-08-26"))
+    accepted = [f for f in findings if f["ok"]]
+    assert len(accepted) == 1, [f["label"] for f in accepted]
+    assert accepted[0]["label"] == "START_DATE/END_DATE"
+    assert accepted[0]["row_keys"] == ["Clicks", "Date", "Impressions"]
+    # every candidate is tried, so a rejection is a finding rather than a stop
+    assert len(findings) == len(imp.REPORT_DATE_PARAM_CANDIDATES)
+
+
+@check("try_report substitutes the real dates into the candidate templates")
+def _():
+    fake = _FakeReports()
+    _with_run_report(fake, lambda: imp.try_report("r1", "2026-08-01", "2026-08-26"))
+    sent = dict(fake.calls[0][1])
+    assert sent == {"START_DATE": "2026-08-01", "END_DATE": "2026-08-26"}, sent
+
+
+@check("try_report never raises on a report the account will not run")
+def _():
+    def refuse(report_id, params=None):
+        raise imp.ImpactError("forbidden", status=403)
+    findings = _with_run_report(
+        refuse, lambda: imp.try_report("r1", "2026-08-01", "2026-08-26"))
+    assert all(not f["ok"] for f in findings)
+    assert all(f["status"] == 403 for f in findings)
+
+
+@check("the handoff block carries only reports that returned usable rows")
+def _():
+    import argparse
+
+    catalog = [{"Id": "good_performance_by_day", "Name": "Performance by Day"},
+               {"Id": "empty_click_report", "Name": "Clicks by Campaign"}]
+    original_catalog, original_meta = imp.report_catalog, imp.report_metadata
+    imp.report_catalog = lambda: catalog
+    imp.report_metadata = lambda rid: None
+
+    def fake(report_id, params=None):
+        if "START_DATE" not in (params or {}):
+            raise imp.ImpactError("bad params", status=400)
+        # the second report answers, but with nothing in it
+        rows = ([{"Date": "2026-08-25", "Clicks": "5"}]
+                if report_id == "good_performance_by_day" else [])
+        return {"Records": rows}
+
+    try:
+        out = _with_run_report(fake, lambda: probe.audit_reports(
+            argparse.Namespace(days=7, report_shape=None)))
+    finally:
+        imp.report_catalog, imp.report_metadata = original_catalog, original_meta
+
+    assert out["usable"] == ["good_performance_by_day"], out["usable"]
+    assert out["shapes"]["empty_click_report"]["row_keys"] == []
+
+
 def main() -> int:
     failed = 0
     for name, fn in CHECKS:
