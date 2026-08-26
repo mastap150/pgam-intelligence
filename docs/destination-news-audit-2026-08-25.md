@@ -197,10 +197,11 @@ clickbait, it is *front-loading the news*. Concretely, prefer:
 - Countable specifics ("four routes") over aggregate statistics ("2,250 flights")
 - Consumer consequence over corporate strategy
 
-**Caveat worth stating plainly:** n=2, 636 total views, one week. This is a
-directional signal, not a validated model. Query G gives you the same breakdown
-across the whole corpus, which is where the pattern should actually be confirmed
-or killed.
+**Caveat worth stating plainly:** n=2, 636 views, one week — and the metric is GA4 referral
+sessions, i.e. *click-throughs, not impressions*. It therefore cannot separate "readers
+didn't click" from "NewsBreak barely distributed it" (§3). Directional signal, not a
+validated model. Query G runs the same test across the whole corpus, which is where the
+pattern gets confirmed or killed.
 
 ---
 
@@ -298,18 +299,40 @@ editorial.
 
 ### NewsBreak performance analysis by article/topic/geography/etc.
 
-**Not possible at all today** — no account means no export. The only NewsBreak
-measurement available to us is **referral data in our own analytics**: sessions landing
-on `/news/` URLs with a `newsbreak.com` referrer. That is a different metric from in-app
-impressions and should be labelled as such wherever it is reported.
+**Resolved (2026-08-25): the 633 / 3 split is GA4 referral data** — sessions landing on
+`/news/` URLs with a `newsbreak.com` referrer. That is good news and bad news.
 
-> ❓ **Open question:** the 633 / 3 split in the brief needs a provenance. If it came from
-> GA4 referral data, NewsBreak measurement is already solved and joins to Query G on
-> landing-page slug with no new integration. If it came from somewhere else, that source
-> needs naming — §11's design depends on it.
+**Good:** NewsBreak measurement is already solved and costs nothing. It is not a missing
+integration, it is a dimension we already collect. It joins to Query G on landing-page
+slug, and it collapses §11's separate "NewsBreak feeder" into the GA4 feeder we need
+anyway.
 
-Query G computes the on-site half (topic, geography, airline, headline shape, publish
-hour, day of week) ready for that join.
+**Bad — and this materially limits §2:** referral sessions are **click-throughs, not
+impressions**. We can see who arrived; we cannot see how many NewsBreak users were shown
+either story. So the 99.4% / 0.5% split **cannot distinguish an editorial failure from a
+distribution failure**:
+
+| Possible cause of Southwest's 3 views | Distinguishable from GA4? |
+|---|---|
+| NewsBreak surfaced it widely, readers didn't click | ✅ that would be an editorial signal |
+| NewsBreak surfaced it narrowly or late | ❌ looks identical in GA4 |
+| NewsBreak never picked it up at all | ❌ looks identical in GA4 |
+
+Since we hold no NewsBreak account, **there is no way to tell these apart** — a second,
+independent argument for applying to their publisher program. Until then, §2's conclusions
+should be read as *"headline shape correlates with referral volume"*, not *"headline shape
+caused readers not to click."* Query G is what turns a 2-article anecdote into a pattern:
+a consistent disruption-vs-expansion gap across 30+ articles survives this confound,
+because distribution luck averages out and headline shape doesn't.
+
+**One data-quality check before trusting any of it:** NewsBreak serves links through an
+in-app webview and frequently strips or varies the referrer. Confirm in GA4 whether traffic
+arrives under `newsbreak.com`, `www.newsbreak.com`, or is partly falling into
+Direct/Unassigned. The real number is likely **higher** than 633.
+
+**And the question worth asking before the view count:** GA4 already holds engagement time,
+bounce, pages/session and conversions for those 633 sessions. Whether NewsBreak readers do
+anything after they land is more decision-relevant than how many landed — see §11.
 
 ---
 
@@ -664,20 +687,37 @@ CREATE TABLE news_performance (
 ```
 
 Feeders, in dependency order:
-1. **GSC API** → impressions/clicks/position per `/news/` URL (daily)
-2. **NewsBreak** → referral sessions per article from GA4 (`newsbreak.com` referrer).
-   No account and no export exist, so this is the only NewsBreak signal available unless
-   we apply to their publisher program — see §3.
-   question in §3 is answered**)
-3. **GA4** → pageviews, engagement, returning-visitor rate, referral source
-4. **Newsletter** → `newsletter-click-log.ts` already exists; add news slugs
-5. **Affiliate** → `impact-commissions-pull.yml` + `affiliate-conversions-pull.yml`
+1. **GA4** — now the highest-priority feeder, because it carries three things at once:
+   pageviews and engagement per `/news/` URL, returning-visitor rate, **and** the NewsBreak
+   signal (referral sessions where source = `newsbreak.com`). No portal, no export, no new
+   integration — NewsBreak measurement is a dimension we already collect.
+2. **GSC API** → impressions/clicks/position per `/news/` URL (daily)
+3. **Newsletter** → `newsletter-click-log.ts` already exists; add news slugs
+4. **Affiliate** → `impact-commissions-pull.yml` + `affiliate-conversions-pull.yml`
    already exist; join on landing-page slug
 
 Then per-topic rollups (`views/article` by category, `signups/article`,
 `affiliate revenue/article`) are `GROUP BY category` — exactly the
 "airline route news generates X, points news generates Y" comparison you want.
 **Build the join table before the dashboard.** Everything else is a view over it.
+
+### The GA4 pull to run first
+
+Before any of the above, run one GA4 exploration — it is the cheapest decision-relevant
+data available right now and needs no engineering:
+
+- **Dimensions:** Landing page (filter `/news/`) × Session source/medium
+- **Metrics:** Sessions, Average engagement time, Engaged sessions %, Pages/session,
+  Key events (newsletter signup)
+- **Range:** since 2026-07-28 (the lane's first day, §1)
+
+That answers three things the view count cannot: whether NewsBreak referrals are
+attributed cleanly or leaking into Direct/Unassigned; whether NewsBreak readers engage or
+bounce; and how NewsBreak compares with organic search on the same articles. **If
+NewsBreak traffic bounces at 90%+ with single-digit engagement seconds, the strategic case
+in §15 weakens considerably** — 633 sessions that read nothing are not an acquisition
+channel. If they engage, the case strengthens and the flywheel work in §10 becomes the
+priority. Either way it is a better first question than "how many views did we get."
 
 ---
 
@@ -820,7 +860,7 @@ and AI systems learn to treat destination.com as the origin rather than the echo
 | Both articles' body, headline, images, metadata | Same | Query H |
 | Pipeline age (4 weeks vs. "months") | Conflicting comments | Query A |
 | NewsBreak accept/reject rates, in-app impressions | **No account exists** — content is picked up unmanaged | Apply to NewsBreak's publisher program (§3) |
-| Provenance of the 633 / 3 view split | Unknown — likely GA4 referral | Confirm source; determines §11's NewsBreak feeder |
+| Whether NewsBreak *distributed* a story, vs. readers not clicking | GA4 sees click-throughs only, and we hold no account | Apply to NewsBreak's publisher program (§3); Query G averages the confound out |
 | GSC impressions/clicks, Discover traffic | No GSC credentials | GSC API |
 | Live feed/sitemap output, HTTP status | `destination.com` egress-blocked | Fetch from an unblocked network |
 | Revenue / RPM / affiliate per article | No analytics access | GA4 + Impact |
