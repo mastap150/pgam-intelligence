@@ -191,3 +191,30 @@ The weakest thing is that this is 52 unedited first drafts written in one sessio
 writer with no fact-checking pass. **Publishing them as-is would be a mistake.** Publish five,
 measure, then decide whether the remaining 47 are worth the editing time — which the click
 data will answer better than any estimate in this document.
+
+---
+
+## Appendix: where the affiliate placements actually point
+
+Counted across all 52 drafts (`affiliate-placements.csv` is the per-article detail).
+
+| Line | Articles | Status |
+|---|---|---|
+| Accommodation (Expedia/Partnerize, Hotels.com CJ, Vrbo CJ) | 32 | **Live** |
+| Viator / GetYourGuide activities | 21 | **Live** |
+| EF Adventures CJ | 7 | **Live**, links need click-testing |
+| Travel insurance | 11 | **Not confirmed live** |
+| Credit card | 6 | **Not confirmed live** |
+| Car hire | 5 | **No programme exists** |
+| eSIM | 1 | **No programme exists** |
+| Display only | 8 | n/a |
+
+**Read that table as a priority list for business development**, not just as a build spec. The
+two live lines already cover 53 placements, which is most of the site. The 17 placements
+waiting on insurance and card programmes are concentrated in the highest-margin categories in
+`08_monetization_strategy.md` — insurance at 10–15% and cards at $50–$200 per approval — so
+confirming those two programmes is worth more than writing more articles.
+
+Car hire is the largest unserved category by article count: Amalfi, Tuscany, Iceland, Cape
+Town and Costa Rica all actively recommend renting a car, and none of them can currently
+monetise that recommendation.
