@@ -90,7 +90,10 @@ visitor has an IP to match a household against. smrtPhone's public description
 ("a campaign-specific unique number based on the lead source") reads as
 source-level, but that is a marketing page, not a spec — do not conclude from it.
 
-### Four questions for smrtPhone
+### Four questions — but nobody at smrtPhone could answer them
+
+Their support contact did not know. So we determine it ourselves; §3a is the
+protocol. The questions still frame what we are testing for:
 
 1. Is your DNI **visitor-level — a number pool assigning a distinct number per
    website visitor session** — or source-level, one fixed number per campaign?
@@ -103,7 +106,90 @@ source-level, but that is a marketing page, not a spec — do not conclude from 
 Question 1 is the one that decides everything and the one most likely to be
 answered loosely. A "yes, we do DNI" is not an answer to it.
 
-### Two tiers of outcome
+## 3a. Determining it ourselves
+
+Support could not answer, so we test. Neither test needs vendor cooperation and
+both are cheap.
+
+### Test A — is the DNI visitor-level? (10 minutes)
+
+Load the client's site repeatedly as a brand-new visitor and watch whether the
+displayed number changes. Rotating numbers mean the vendor is identifying
+individual sessions, which is the precondition for having an IP at all.
+
+```sh
+integrations/attune-tag/test/dni-probe.py https://homebuyerforcash.com
+integrations/attune-tag/test/dni-probe.py https://homebuyerforcash.com --plain
+```
+
+Run it from a normal machine — the site is unreachable from our build
+container. It uses a fresh browser profile per visit, strips scripts before
+scanning (otherwise it reads the vendor's own pool out of their JavaScript and
+inverts the verdict), and reports which numbers rotate and which are constant.
+
+Run both modes. Some setups only swap for visitors arriving with a campaign
+source, so rotating *with* a source and static *without* is still visitor-level.
+
+Exit codes: `0` visitor-level, `1` static/source-level, `2` no numbers found.
+
+### Test B — does the webhook carry the IP? (15 minutes, decisive)
+
+This answers the question support could not, by reading a real payload:
+
+1. Open <https://webhook.site> — it gives a throwaway URL instantly, no signup.
+2. In smrtPhone, add a webhook on call completion pointing at that URL.
+3. Call one of their tracking numbers from a phone.
+4. Read the captured JSON. Every field the webhook sends is now in front of you.
+
+Look for an IP field, and be careful which IP it is. A **caller** IP is not
+useful — it belongs to the phone network, not the household browsing the site.
+What we need is the **web visitor's** IP, recorded when they were on the page
+that showed them the number. Also note whether there is a stable unique call ID.
+
+Do Test B even if Test A says static: the payload tells us what we can build
+with regardless.
+
+---
+
+## 3b. If smrtPhone cannot do it — build the visitor layer ourselves
+
+If Test A says source-level or Test B shows no visitor IP, we are not stuck.
+**We already see the visitor** — the Attune tag runs in their browser. So we can
+do the visitor-level part ourselves and ask smrtPhone only for the one thing
+every phone system can report: which number was dialled, and when.
+
+**Design — "call bridge"**
+
+1. Buy a small pool of numbers in their existing smrtPhone account, all
+   forwarding to their main line. No new vendor.
+2. On page load our tag calls a PGAM endpoint. That endpoint sees the request's
+   source IP — the real visitor IP — leases a number from the pool, and stores
+   `{number, ip, session, leased_at}`.
+3. The tag swaps the leased number into the page. That is visitor-level DNI,
+   built by us.
+4. On a call, take the dialled number and timestamp from smrtPhone — webhook if
+   it has one, otherwise poll the call log. **No IP needed from them.**
+5. Match the call to the lease covering that number at that time, then fire the
+   S2S conversion with the IP we captured ourselves.
+
+**Why this does not contradict the never-proxy rule.** The *pixel beacon* must
+leave the visitor's browser, because the tracker infers the household IP from
+the request's source. The *S2S endpoint* is different: it takes `ip` as an
+explicit parameter and is designed to be called server-to-server. Passing the
+correct visitor IP from our backend is its intended use. Two different
+mechanisms — one infers the IP, the other is told it.
+
+**What it costs us.** A service to run, monitor and own the bugs in; pool
+sizing and lease-expiry logic that has to handle concurrent visitors; and
+per-number monthly fees. Against CallRail at ~$50/month where all of that is
+someone else's problem.
+
+**So: only build this if Tests A and B both fail and there is a real reason to
+avoid CallRail.** It is a genuine fallback, not the default.
+
+---
+
+## 3c. Two tiers of outcome
 
 **Tier 1 — works today, needs nothing new.** Give the CTV campaign its own
 dedicated number in smrtPhone, used nowhere else. Every call to it is provably
@@ -134,6 +220,7 @@ even though it technically has webhooks.
 S2S events do **not** populate retargeting audiences, on any route.
 
 ### If we forward
+
 
 Check how the forwarded call presents caller ID to their team — some setups show
 the tracking number rather than the original caller, which breaks callbacks and
@@ -184,9 +271,11 @@ another market. This is a legal check; get it confirmed rather than inferred.
 
 ## 7. What is not done
 
-- **The four smrtPhone questions in §3 are unanswered** — their doc hosts are
-  unreachable from here, so this needs a human to ask. Question 1
-  (visitor-level vs source-level DNI) decides whether Tier 2 is possible at all
+- **Tests A and B (§3a) have not been run.** smrtPhone support could not answer
+  the questions, so these are now the route to an answer. Both need a machine
+  that can reach the client's site and a phone to call from
+- The call bridge (§3b) is designed but not built — only build it if both tests
+  fail and CallRail is genuinely ruled out
 - No numbers dedicated, no DNI pool, no integration started (also blocked on
   the advertiser record)
 - Caller-ID passthrough on forwarded calls untested
