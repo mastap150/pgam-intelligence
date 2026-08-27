@@ -199,6 +199,7 @@ def setup_schedule():
     app_revenue            = _import("agents.alerts.app_revenue")
     publisher_monetization = _import("agents.alerts.publisher_monetization")
     action_tracker         = _import("agents.alerts.action_tracker")
+    ar_aging_sentry        = _import("agents.alerts.ar_aging_sentry")
     daily_email            = _import("agents.reports.daily_email")
     daily_recommendations  = _import("agents.alerts.daily_recommendations")
     win_rate_maximizer     = _import("agents.reports.win_rate_maximizer")
@@ -449,6 +450,10 @@ def setup_schedule():
     schedule.every().monday.at("09:00").do(_run("ml_paused_watchlist", ml_paused_watchlist))
     schedule.every().monday.at("09:05").do(_run("ml_demand_gap",       ml_demand_gap))
     schedule.every().monday.at("09:10").do(_run("ml_scorecard",        ml_scorecard))
+
+    # Weekly A/R overdue digest. Monday guard lives inside the agent, same as
+    # the other weekly jobs, so a missed tick doesn't silently skip a week.
+    schedule.every().monday.at("08:05").do(_run("ar_aging_sentry",     ar_aging_sentry))
 
     # ── Every 4 hours ────────────────────────────────────────────────────────
     schedule.every(4).hours.do(  _run("revenue_pace",        revenue_pace))
