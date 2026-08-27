@@ -24,7 +24,7 @@ if grep -q 'tracker\.vibe\.co' attune-test.js; then
 fi
 
 pass=0; fail=0
-for page in a b c; do
+for page in a b c d e; do
   dom=$(mktemp)
   "$CHROME" --headless=new --disable-gpu --no-sandbox --allow-file-access-from-files \
             --virtual-time-budget=8000 --dump-dom "file://$PWD/$page.html" 2>/dev/null > "$dom"

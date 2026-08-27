@@ -184,8 +184,14 @@ sizing and lease-expiry logic that has to handle concurrent visitors; and
 per-number monthly fees. Against CallRail at ~$50/month where all of that is
 someone else's problem.
 
-**So: only build this if Tests A and B both fail and there is a real reason to
-avoid CallRail.** It is a genuine fallback, not the default.
+**Status: built.** [`integrations/attune-tag/bridge/`](../integrations/attune-tag/bridge/)
+— service, tag integration, and 41 passing tests (19 service, 22 browser). Not
+deployed and never run against a real phone system.
+
+It is built because it is the only route that does not depend on an answer we
+could not get. CallRail remains less work for the same outcome if Tests A and B
+come back favourable or the client will accept a second vendor — this exists so
+that neither is a precondition for shipping.
 
 ---
 
@@ -274,8 +280,8 @@ another market. This is a legal check; get it confirmed rather than inferred.
 - **Tests A and B (§3a) have not been run.** smrtPhone support could not answer
   the questions, so these are now the route to an answer. Both need a machine
   that can reach the client's site and a phone to call from
-- The call bridge (§3b) is designed but not built — only build it if both tests
-  fail and CallRail is genuinely ruled out
+- The call bridge (§3b) is **built and tested but never deployed**, and has no
+  auth on its call webhook yet — see its README before it goes anywhere public
 - No numbers dedicated, no DNI pool, no integration started (also blocked on
   the advertiser record)
 - Caller-ID passthrough on forwarded calls untested

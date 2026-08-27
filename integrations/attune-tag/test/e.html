@@ -1,0 +1,27 @@
+<!doctype html><meta charset="utf-8"><title>E</title>
+<p><a id="lnk" data-attune-number href="tel:+14055550100">(405) 555-0100</a></p>
+<pre id="out"></pre>
+<script>
+  // Bridge is down: onload never fires, ontimeout/onerror would.
+  window.XMLHttpRequest = function () {
+    this.open = function () {}; this.setRequestHeader = function () {};
+    this.send = function () {
+      var self = this;
+      setTimeout(function () { self.ontimeout && self.ontimeout(); }, 10);
+    };
+  };
+</script>
+<script src="./attune-test.js" data-attune-id="TEST123"
+        data-attune-bridge="https://bridge.example.com"></script>
+<script>
+setTimeout(function () {
+  var R = [], lnk = document.getElementById('lnk');
+  function ok(n, c, e) { R.push((c ? 'PASS' : 'FAIL') + ' :: ' + n + (e ? ' :: ' + e : '')); }
+  ok('bridge down -> original tel: href preserved',
+     lnk.getAttribute('href') === 'tel:+14055550100', lnk.getAttribute('href'));
+  ok('bridge down -> original number still displayed',
+     lnk.textContent === '(405) 555-0100', lnk.textContent);
+  ok('bridge down -> tag still usable', typeof window.attune === 'function');
+  document.getElementById('out').textContent = R.join('\n');
+}, 400);
+</script>

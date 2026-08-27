@@ -1,0 +1,37 @@
+<!doctype html><meta charset="utf-8"><title>D</title>
+<p>Call us on <a id="lnk" data-attune-number href="tel:+14055550100">(405) 555-0100</a> today</p>
+<p>Or <span id="txt" data-attune-number>(405) 555-0100</span></p>
+<p id="untouched">Head office: (405) 555-9999</p>
+<pre id="out"></pre>
+<script>
+  // Stub the bridge: return a leased number without a server.
+  window.XMLHttpRequest = function () {
+    this.open = function () {}; this.setRequestHeader = function () {};
+    this.send = function () {
+      this.status = 200;
+      this.responseText = JSON.stringify({ number: '+14055550777', leased: true });
+      var self = this;
+      setTimeout(function () { self.onload && self.onload(); }, 10);
+    };
+  };
+</script>
+<script src="./attune-test.js" data-attune-id="TEST123"
+        data-attune-bridge="https://bridge.example.com"></script>
+<script>
+setTimeout(function () {
+  var R = [];
+  function ok(n, c, e) { R.push((c ? 'PASS' : 'FAIL') + ' :: ' + n + (e ? ' :: ' + e : '')); }
+  var lnk = document.getElementById('lnk'), txt = document.getElementById('txt');
+  ok('leased number written into tel: href',
+     lnk.getAttribute('href') === 'tel:+14055550777', lnk.getAttribute('href'));
+  ok('leased number rendered in link text',
+     lnk.textContent === '(405) 555-0777', lnk.textContent);
+  ok('plain-text number node swapped too',
+     txt.textContent === '(405) 555-0777', txt.textContent);
+  ok('surrounding copy not clobbered',
+     document.getElementById('untouched').textContent.indexOf('Head office') === 0);
+  ok('element without the marker left alone',
+     document.getElementById('untouched').textContent.indexOf('555-9999') > -1);
+  document.getElementById('out').textContent = R.join('\n');
+}, 400);
+</script>

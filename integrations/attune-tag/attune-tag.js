@@ -48,8 +48,12 @@
       cfg.id = cfg.id || el.getAttribute('data-attune-id');
       // Opt out of automatic tel:/sms: lead tracking with data-attune-calls="off"
       if (el.getAttribute('data-attune-calls') === 'off') cfg.autoCalls = false;
+      cfg.bridge = cfg.bridge || el.getAttribute('data-attune-bridge');
+      cfg.numberSelector =
+        cfg.numberSelector || el.getAttribute('data-attune-number-selector');
     }
     if (cfg.autoCalls !== false) cfg.autoCalls = true;
+    if (!cfg.numberSelector) cfg.numberSelector = '[data-attune-number]';
     return cfg;
   }
 
@@ -132,6 +136,70 @@
     }
   } catch (e) {
     warn('queue replay failed: ' + (e && e.message));
+  }
+
+  /* -------------------------------------------- call bridge (optional DNI) */
+
+  // When a bridge origin is configured, ask it to lease this visitor a phone
+  // number and swap it into the page. That makes call attribution ours rather
+  // than the phone vendor's — see bridge/README.md.
+  //
+  //   data-attune-bridge="https://bridge.pgammedia.com"
+  //   data-attune-number-selector=".js-phone"      (default [data-attune-number])
+  //
+  // Fails soft in every direction. If the bridge is slow, down, or returns
+  // nothing usable, the number already in the markup is left exactly as it is.
+  // Blanking a client's phone number would be far worse than losing attribution.
+  function swapNumbers(number) {
+    if (!number) return;
+    var pretty = formatUS(number);
+    var nodes = document.querySelectorAll(config.numberSelector);
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      try {
+        if (el.tagName === 'A' && (el.getAttribute('href') || '').indexOf('tel:') === 0) {
+          el.setAttribute('href', 'tel:' + number);
+        }
+        // Only rewrite text that is itself a phone number, so we never clobber
+        // surrounding copy like "Call us on ...".
+        if (looksLikeNumber(el.textContent)) el.textContent = pretty;
+      } catch (e) {
+        /* leave this node alone */
+      }
+    }
+  }
+
+  function looksLikeNumber(t) {
+    return !!t && /^[\s()+\-.\d]{7,25}$/.test(t.trim());
+  }
+
+  function formatUS(n) {
+    var d = String(n).replace(/\D/g, '');
+    if (d.length === 11 && d.charAt(0) === '1') d = d.slice(1);
+    if (d.length !== 10) return n;
+    return '(' + d.slice(0, 3) + ') ' + d.slice(3, 6) + '-' + d.slice(6);
+  }
+
+  if (config.bridge) {
+    try {
+      var xhr = new XMLHttpRequest();
+      xhr.open('POST', config.bridge.replace(/\/+$/, '') + '/v1/session', true);
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.timeout = 4000;
+      xhr.onload = function () {
+        try {
+          if (xhr.status < 200 || xhr.status >= 300) return;
+          var data = JSON.parse(xhr.responseText || '{}');
+          if (data && data.number) swapNumbers(data.number);
+        } catch (e) {
+          warn('could not apply tracking number: ' + (e && e.message));
+        }
+      };
+      // onerror / ontimeout deliberately do nothing: keep the markup number.
+      xhr.send(JSON.stringify({ session: config.id + ':' + Date.now() }));
+    } catch (e) {
+      warn('bridge request failed: ' + (e && e.message));
+    }
   }
 
   /* ------------------------------------------------- click-to-call as a lead */
