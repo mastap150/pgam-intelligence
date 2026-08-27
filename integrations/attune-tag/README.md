@@ -78,12 +78,30 @@ Two layers, because neither covers the whole problem:
 
    S2S events also do not populate retargeting audiences.
 
-## Testing before a client touches it
+## Testing
 
-Not yet done. Minimum bar before this ships:
+```sh
+./test/run.sh          # or: CHROME=/path/to/chrome ./test/run.sh
+```
 
-- serve locally, load a page, confirm `vbpx.js` fetches and `s?aid=` fires
-- confirm the vendor's own queue replays events fired before the script lands
-- confirm a `tel:` click emits exactly one lead, not one per bubble phase
-- confirm a page with no `data-attune-id` warns and no-ops rather than throwing
-- confirm double-inclusion doesn't double-count
+14 checks in headless Chromium against a **stubbed** vendor script. The runner
+refuses to build if the test copy still points at the real tracker — aiming
+these at production would fire junk events into a live pixel.
+
+Covered and passing:
+
+- vendor boots once, with the ID from `data-attune-id`
+- events queued before the tag lands are replayed
+- `lead` forwards; `purchase` carries `price_usd` and `purchase_id` through
+- an unknown event name warns and is not forwarded
+- a `tel:` click emits exactly one lead — including a click on a nested element
+  inside the link, and not once per bubble phase
+- a non-`tel:` link emits nothing
+- no `data-attune-id` → warns, installs no global, never loads the vendor
+- double inclusion initialises once
+- no uncaught errors on the page
+
+**Still needs a real staging check.** The stub proves our side of the contract;
+it cannot prove the vendor's. Before a client installs this, put it on a staging
+page with a real pixel ID and confirm in DevTools that `vbpx.js` fetches and
+`s?aid=` fires with the right event name in the payload.

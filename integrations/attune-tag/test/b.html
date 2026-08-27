@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>B</title><pre id="out"></pre>
+<script>window.__warns=[];var _w=console.warn;console.warn=function(m){window.__warns.push(m);};</script>
+<script src="./attune-test.js"></script>
+<script>
+setTimeout(function(){
+  var R=[];
+  R.push((window.attune===undefined?'PASS':'FAIL')+' :: no id -> no public API installed');
+  R.push((window.__warns.length===1?'PASS':'FAIL')+' :: no id -> warned once :: '+JSON.stringify(window.__warns));
+  R.push((!window.__vendorLoaded?'PASS':'FAIL')+' :: no id -> vendor never loaded');
+  document.getElementById('out').textContent=R.join('\n');
+},400);
+</script>

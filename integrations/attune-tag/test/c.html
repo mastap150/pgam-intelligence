@@ -1,0 +1,12 @@
+<!doctype html><meta charset="utf-8"><title>C</title><pre id="out"></pre>
+<script src="./attune-test.js" data-attune-id="DUP1"></script>
+<script src="./attune-test.js" data-attune-id="DUP1"></script>
+<script>
+(function poll(n){
+  if(!window.__vendorLoaded && n<100) return setTimeout(function(){poll(n+1);},20);
+  var L=window.__log||[];
+  var inits=L.filter(function(c){return c[0]==='init';});
+  document.getElementById('out').textContent =
+    (inits.length===1?'PASS':'FAIL')+' :: double include -> single init :: got '+inits.length;
+})(0);
+</script>
