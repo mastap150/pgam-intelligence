@@ -3,9 +3,11 @@
 Decisions and open questions for measuring phone enquiries alongside web
 enquiries. Companion to [`homebuyerforcash-wiring-plan.md`](./homebuyerforcash-wiring-plan.md).
 
-Status: **specified, nothing provisioned, provider not chosen.** CallRail is
-the recommended default and the fallback if the client has nothing of their own,
-but the decision is open pending what they come back with. §3 covers both paths.
+Status: **specified, nothing provisioned.** The client's phone service is
+**smrtPhone.io**. That does not have to change — the tracking layer sits in
+front of it (§3). Whether smrtPhone can also *be* the tracking layer depends on
+two unverified facts; CallRail in front of it is the fallback that works
+regardless.
 
 > **Revised, 2026-08-27.** An earlier version specified building the
 > call→conversion postback by hand and listed "does the provider's webhook
@@ -42,96 +44,101 @@ before promising a Leads launch date.
 
 ---
 
-## 2. Use our own numbers, not the call centre's
+## 2. Who owns the number matters
 
-If the call centre supplies a number and we put it on the ads, they own the data
-and we are reading their homework. Buy tracking numbers that **forward** to the
-call centre instead:
+The client owns their smrtPhone account, so numbers issued there are already
+theirs — that is fine, and better than a number a call centre hands them.
 
-- the call log, timestamps, durations, caller ID and recordings, first-hand
-- independent measurement rather than a supplied report
-- freedom to change call centre without changing a number baked into a TV
-  commercial
-
-Strategic, not technical. Worth holding even if the call centre pushes back.
+The principle still holds if a call centre is ever inserted: never advertise a
+number the call centre owns. Whoever owns the number owns the call log, and a
+number baked into a TV commercial is expensive to change. Numbers should belong
+to the client (or to us on their behalf), and forward to whoever answers.
 
 ---
 
-## 3. Choosing a provider
+## 3. Working with smrtPhone
 
-**The integration surface is not symmetric, and this should inform the choice.**
-CallRail is the *only* call-tracking platform with a native integration — the
-full integration catalogue covers CRM/audience sync, app-attribution partners
-(AppsFlyer, Adjust, Singular, Airbridge, Kochava, Gamesight) and analytics
-(GA4, Northbeam, Triple Whale), and CallRail is the sole call-tracking entry.
+The client uses [smrtPhone.io](https://www.smrtphone.io/) — a phone system and
+power dialer built for real-estate investors, with Podio/CRM sync, call flows
+and a mobile app.
 
-So the two paths cost very different amounts:
+**The key point: their phone service and the tracking layer are different
+things, and tracking sits in front.** A tracking number receives the call, then
+forwards it to their smrtPhone number. Their dialer, CRM sync, recordings, call
+flows and team workflow all continue unchanged. Nothing about how they answer
+the phone has to move.
 
-| | CallRail | Any other provider |
+So the question is not "can we replace smrtPhone" — we should not — but "who
+provides the number that rings first".
+
+smrtPhone does advertise **Dynamic Number Insertion** and **webhooks**, so it
+may be able to do both jobs itself. Two facts decide it, and **neither could be
+verified** — their documentation hosts are unreachable from our environment, so
+this must be asked, not assumed.
+
+### The question that decides it
+
+DNI comes in two kinds, and both get marketed as "call tracking":
+
+| | What it does | Gives us a visitor IP? |
 |---|---|---|
-| Integration | native, 3 config steps | hand-built S2S postback |
-| Visitor IP | **confirmed available** | **unverified — the open risk** |
-| Calls / Cost per Call metrics | yes | only if the postback works |
-| Our build effort | none | webhook receiver + mapping + testing |
+| **Source-level** | one fixed number per campaign or source | **No** |
+| **Visitor-level** | a pool, one number per visitor session | **Yes** |
 
-If the client has no existing provider, CallRail is the obvious pick: cheap,
-fast, and the only one where the attribution question is already settled.
+Only visitor-level identifies an individual visitor, and only an individual
+visitor has an IP to match a household against. smrtPhone's public description
+("a campaign-specific unique number based on the lead source") reads as
+source-level, but that is a marketing page, not a spec — do not conclude from it.
 
-### Path A — CallRail (Beta)
+### Four questions for smrtPhone
 
-Attributes calls to ad impressions **using the caller's IP address**.
+1. Is your DNI **visitor-level — a number pool assigning a distinct number per
+   website visitor session** — or source-level, one fixed number per campaign?
+2. Does the tracking script record the **website visitor's IP address** against
+   that session?
+3. Can a webhook fire on call completion carrying **that visitor IP**? Not the
+   caller's carrier IP, not your server's.
+4. Does the webhook include a **stable unique call ID** for deduplication?
 
-**Hard requirement: Website Pool numbers.**
+Question 1 is the one that decides everything and the one most likely to be
+answered loosely. A "yes, we do DNI" is not an answer to it.
 
-> Must use a CallRail **Website Pool** (not static numbers) — only Website Pool
-> calls include the IP address.
+### Two tiers of outcome
 
-A Website Pool is CallRail's dynamic number insertion: it swaps the displayed
-number per visitor, which is what ties a call back to a web session and its IP.
+**Tier 1 — works today, needs nothing new.** Give the CTV campaign its own
+dedicated number in smrtPhone, used nowhere else. Every call to it is provably
+TV-driven and shows in their existing reporting. No IP, no integration, no new
+vendor, no cost. This answers "is the TV advertising making my phone ring",
+which is the client's actual question.
 
-**Setup**
+**Tier 2 — attributed calls in our dashboard.** Requires visitor-level DNI plus
+the visitor IP in a webhook. Then calls post back and populate Calls / Cost per
+Call. Two routes:
 
-1. **CallRail** — Numbers → Create Number → Online → My Website → create a
-   Website Pool.
-2. **Vibe** — Marketplace → CallRail → Start Integration → choose the advertiser
-   → copy the S2S Conversion link.
-3. **CallRail** — Settings → Integrations → Webhooks → **Call Routing Complete**
-   → Add URL → paste the S2S link → Advanced Settings → tick **Include IP
-   Address** → Update.
-
-It is the *Call Routing Complete* webhook, not post-call. The "Include IP
-Address" checkbox is the whole ballgame — without it the integration silently
-has nothing to match on.
-
-Per-advertiser, so blocked behind the same missing advertiser record as
-everything else. Also **Beta** — verify calls actually land in the Calls metric
-during the trial rather than assuming.
-
-### Path B — the client brings their own provider
-
-Then we build the postback ourselves against:
+- **smrtPhone answers yes to all four** → we build the postback against the S2S
+  endpoint below. One system, no extra vendor.
+- **smrtPhone answers no to any** → **CallRail Website Pool numbers on the
+  website, forwarding to their smrtPhone number.** Native integration, IP
+  confirmed, zero build on our side, ~$50/mo. They keep smrtPhone for everything
+  they do today; CallRail only owns the number that rings first.
 
 ```
 GET https://t.vibe.co/s2s-conversion/events
   ?aid=PIXEL_ID &a=lead &eid=UNIQUE_CALL_ID &ip=VISITOR_IP &ts=UNIX_MS
 ```
 
-**Ask their provider these four questions before agreeing to anything.** Any
-"no" means calls cannot be attributed on that platform, whatever else it does:
+The IP must be the end user's, not a server's. A provider that relays through
+its own backend without forwarding the original visitor IP fails (2) and (3)
+even though it technically has webhooks.
 
-1. Does it do **dynamic number insertion** — a different number per web visitor?
-   Static numbers are unattributable by construction.
-2. Does it capture and **retain the web visitor's IP** for the session that
-   produced the call?
-3. Can it fire a **webhook on call completion that includes that IP**? Not the
-   caller's carrier IP, not our server's — the visitor's.
-4. Does the webhook carry a **stable unique call ID** for deduplication?
+S2S events do **not** populate retargeting audiences, on any route.
 
-Note the IP must be the end user's, not a server's. A provider that relays
-through its own backend without forwarding the original visitor IP fails (2)
-and (3) even if it has a webhook.
+### If we forward
 
-S2S events also do **not** populate retargeting audiences, on either path.
+Check how the forwarded call presents caller ID to their team — some setups show
+the tracking number rather than the original caller, which breaks callbacks and
+CRM matching. Configure it to pass the original caller through, and verify on a
+live test call before the client's team relies on it.
 
 ---
 
@@ -155,14 +162,14 @@ matching at all.
 
 ---
 
-## 5. Cost (CallRail path)
+## 5. Cost
 
-Entry tier is roughly $50/month plus per-number and per-minute usage, with a
-free trial — the right vehicle for the initial test.
+Tier 1 costs nothing new — a number they already pay for.
 
-DNI pools consume several numbers at once (that is how the swapping works), so
-check how pool size affects the bill before sizing it. This applies to any DNI
-provider, not just CallRail.
+For Tier 2 via CallRail, entry is roughly $50/month plus per-number and
+per-minute usage, with a free trial. DNI pools consume several numbers at once
+(that is how the swapping works), so check how pool size affects the bill before
+sizing it — true of any DNI provider, smrtPhone included.
 
 ---
 
@@ -177,11 +184,12 @@ another market. This is a legal check; get it confirmed rather than inferred.
 
 ## 7. What is not done
 
-- **Provider not chosen** — waiting on the client. CallRail is the fallback
-- No account, no DNI pool, no numbers purchased; integration not started
-  (also blocked on the advertiser record)
-- If they bring their own provider: the four questions in §3 Path B are
-  unanswered, and (2) and (3) are where these usually fail
+- **The four smrtPhone questions in §3 are unanswered** — their doc hosts are
+  unreachable from here, so this needs a human to ask. Question 1
+  (visitor-level vs source-level DNI) decides whether Tier 2 is possible at all
+- No numbers dedicated, no DNI pool, no integration started (also blocked on
+  the advertiser record)
+- Caller-ID passthrough on forwarded calls untested
 - **Whether integration-sourced calls count toward the Leads 0.1% floor** (§1)
   — the one open item that could move a launch date
 - Recording consent position unconfirmed (§6)

@@ -110,15 +110,12 @@ short version:
 
 **Calls** are specified separately in
 [`homebuyerforcash-call-tracking.md`](./homebuyerforcash-call-tracking.md).
-Short version: the provider is **not yet chosen** — waiting on the client.
-CallRail is the recommended fallback because it is the only call-tracking
-platform with a native integration; any other provider means building the
-postback ourselves and re-opening the question of whether it exposes the web
-visitor's IP. Either way, attribution needs dynamic number insertion — a static
-TV number carries no IP and is measured in the provider's reporting only. We buy
-our own numbers that forward to the call centre rather than using theirs. The
-open item is whether attributed calls count toward the Leads 0.1% conversion
-floor, which could move the Leads launch date.
+Short version: the client uses smrtPhone.io, and it does not have to change —
+tracking sits in front and forwards to it. A dedicated CTV number in smrtPhone
+counts TV-driven calls today with no new tooling. Feeding calls back as
+attributed conversions additionally needs visitor-level DNI and the visitor's IP
+in a webhook; whether smrtPhone provides both is unverified, and CallRail
+forwarding to smrtPhone is the fallback that works regardless.
 
 ---
 
