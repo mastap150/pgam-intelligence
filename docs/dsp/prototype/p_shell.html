@@ -1,0 +1,324 @@
+<a class="skip" href="#main">Skip to content</a>
+<div class="proto">
+  <b>Prototype</b> <span class="pdesc">— Attune self-serve, proposed design. Twelve screens · five campaign detail pages · 53-channel picker.</span>
+  <span class="sp"></span>
+  <span>Account:</span>
+  <button type="button" id="stateLive" aria-pressed="true">Funded &amp; running</button>
+  <button type="button" id="stateNew" aria-pressed="false">Brand new</button>
+</div>
+
+<header class="topbar">
+  <a class="brand" href="#/dashboard"><svg width="24" height="24" viewBox="0 0 46 46" fill="none" aria-hidden="true"><path d="M10.6141 28.5858L14.2913 14.8595C15.1386 11.6976 19.0909 10.6385 21.4056 12.9532L32.4832 24.0307C34.7978 26.3454 33.7387 30.2978 30.5768 31.145L16.8505 34.8223L25.6615 43.6332C29.009 46.9807 34.7236 45.4478 35.9486 40.8775L44.6809 8.92218C45.906 4.34965 41.7221 -0.469641 37.1518 0.755378L4.56103 9.48774C-0.0114973 10.7128 -1.54222 16.4273 1.80529 19.7748L10.6141 28.5858ZM28.8562 14.4511L31.0332 6.32802C31.3804 5.03312 32.9985 4.59857 33.9462 5.54627L39.8944 11.4945C40.8421 12.4422 40.4076 14.0603 39.1127 14.4075L30.9896 16.5845C29.6947 16.9317 28.509 15.746 28.8562 14.4511Z" fill="#0F6DD6"/></svg><span class="words"><span class="wm">Attune</span><span class="by">A PGAM Media product</span></span></a>
+  <nav class="main" aria-label="Primary">
+    <a href="#/dashboard" data-nav="dashboard">Dashboard</a>
+    <a href="#/campaigns" data-nav="campaigns">Campaigns</a>
+    <a href="#/results"   data-nav="results">Results</a>
+    <a href="#/attention" data-nav="attention">Attention</a>
+    <a href="#/grow"      data-nav="grow">Grow</a>
+    <a href="#/tools"     data-nav="tools">Tools</a>
+    <a href="#/help"      data-nav="help">Help</a>
+  </nav>
+  <span class="sp"></span>
+  <button class="jump" type="button" id="jumpBtn" aria-label="Jump to a screen or campaign">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+    <span class="jt">Jump to</span><kbd>⌘K</kbd>
+  </button>
+  <a class="wallet low" href="#/billing" id="walletChip">
+    <b id="walletAmt">$18,240</b><span style="color:var(--line)">|</span><span class="add">Add funds</span>
+  </a>
+  <a class="avatar" href="#/settings" aria-label="Settings" title="Settings" style="text-decoration:none">PP</a>
+</header>
+
+<div class="cmdk" id="cmdk" data-open="0" role="dialog" aria-modal="true" aria-label="Jump to">
+  <div class="cmdkbox">
+    <label class="sr" for="cmdkq">Search screens and campaigns</label>
+    <input id="cmdkq" type="text" placeholder="Jump to a screen or a campaign…" autocomplete="off">
+    <ul class="cmdklist" id="cmdklist"></ul>
+    <div class="cmdkfoot"><span><kbd>↑</kbd><kbd>↓</kbd> move</span><span><kbd>↵</kbd> open</span>
+      <span><kbd>esc</kbd> close</span></div>
+  </div>
+</div>
+
+<main id="main">
+
+<!-- ══════════════ DASHBOARD ══════════════ -->
+<section class="page on" id="p-dashboard" aria-label="Dashboard">
+  <div class="pagehead">
+    <div>
+      <h1 id="dashTitle">Good morning, Priyesh</h1>
+      <p class="subline" id="dashSub">3 campaigns on air · $81,920 spent these 8 weeks · 844 leads</p>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill muted">8 weeks to 22 June</span>
+      <a class="cta" href="#/results">Change the window on Results →</a>
+    </div>
+  </div>
+
+  <!-- populated -->
+  <div id="dashLive" class="stack">
+    <div class="card">
+      <div class="strip c5">
+        <div><div class="label">Total spend</div>
+          <div class="row"><span class="val">$81,920</span><span class="delta flat">+301%</span></div>
+          <p class="foot">Media and fees, last 8 weeks</p></div>
+        <div><div class="label">Calls &amp; leads</div>
+          <div class="row"><span class="val">844</span><span class="delta good">+474%</span></div>
+          <p class="foot">Phone calls and form fills</p></div>
+        <div><div class="label">Cost per lead</div>
+          <div class="row"><span class="val">$97.06</span><span class="delta good">−30%</span></div>
+          <p class="foot">$81,920 ÷ 844 leads</p></div>
+        <div><div class="label">Attention score</div>
+          <div class="row"><span class="val">77</span></div>
+          <p class="foot"><a href="#/attention" class="cta" style="font-size:12px">Strong →</a></p></div>
+        <div><div class="label">Wallet runway</div>
+          <div class="row"><span class="val">7 days</span></div>
+          <p class="foot">$18,240 left · dry around Jun 30</p></div>
+      </div>
+    </div>
+
+    <div class="card ruled">
+      <div class="cardhead">
+        <h2>PGAM Insights</h2>
+        <span class="label">2 need attention · 3 more</span>
+      </div>
+      <div class="lead">
+        <div class="body">
+          <div class="title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F7A37" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+            <strong>Sequential Retargeting has unused budget</strong>
+          </div>
+          <p>It is also your cheapest source of leads at $71.72 each, and it is the line running
+          behind — so the unspent budget is sitting on the best-performing campaign. Closing that gap
+          is worth roughly 110 more leads a month if today's cost per lead holds. Retargeting reaches
+          a finite pool, so expect the marginal lead to cost more than the average one. Your wallet
+          covers 7 days at today's burn, so this needs funding first.</p>
+        </div>
+        <div>
+          <div class="fig">~110 more leads a month</div>
+          <p class="figcap">$7,916 of its $18,000 monthly budget is unspent</p>
+        </div>
+        <a class="btn" href="#/campaign/retargeting">Review pacing
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="12" x2="19" y2="12"/><polyline points="13 6 19 12 13 18"/></svg>
+        </a>
+      </div>
+
+      <div class="ins">
+        <span class="ico" style="background:var(--warn-bg);border:1px solid var(--warn)"></span>
+        <div class="body"><div class="t">Wallet runs dry in 7 days</div>
+          <p class="b">That covers delivery to around Jun 30. Campaigns pause automatically at zero and resume once funded — nothing is lost, but the flight gaps.</p></div>
+        <div class="side"><div class="v">$18,240</div><div class="c">left · $2,326 a day</div></div>
+        <a class="cta" href="#/billing">Add funds →</a>
+      </div>
+
+      <div id="moreIns" hidden>
+        <div class="ins">
+          <span class="ico" style="background:var(--tint-deep);border:1px solid var(--primary)"></span>
+          <div class="body"><div class="t">Your cheapest and dearest leads are far apart</div>
+            <p class="b">Some of that gap is expected — these campaigns buy different things, and retargeting reaches people who already know you. Worth confirming the split is deliberate rather than drift.</p></div>
+          <div class="side"><div class="v">$34.52 a lead</div><div class="c">Sequential $71.72 · Brand $106.25</div></div>
+          <a class="cta" href="#/results">Compare →</a>
+        </div>
+        <div class="ins">
+          <span class="ico" style="background:var(--pos-bg);border:1px solid var(--positive)"></span>
+          <div class="body"><div class="t">Adventure Hero · CTV Q3 holds attention best</div>
+            <p class="b">Inventory that holds attention this well is usually worth scaling before cheaper inventory that does not — a lead that saw the whole ad is not the same lead.</p></div>
+          <div class="side"><div class="v">79</div><div class="c">84 on screen · 76 completed</div></div>
+          <a class="cta" href="#/attention">Open attention →</a>
+        </div>
+        <div class="ins">
+          <span class="ico" style="background:var(--pos-bg);border:1px solid var(--positive)"></span>
+          <div class="body"><div class="t">Cost per lead is down 30%</div>
+            <p class="b">The same spend is buying more leads than it was. Worth knowing which change caused it before the next flight is planned.</p></div>
+          <div class="side"><div class="v">$97.06</div><div class="c">from $138.87</div></div>
+          <a class="cta" href="#/results">See results →</a>
+        </div>
+      </div>
+      <button class="more" id="moreBtn" type="button" aria-expanded="false" aria-controls="moreIns">Show 3 more signals ↓</button>
+      <p class="disclaimer">Projected figures assume today's cost per lead holds. They are estimates, not commitments.</p>
+    </div>
+
+    <div class="band a">
+      <div class="card ruled">
+        <div class="cardhead">
+          <div>
+            <h2>Performance</h2>
+            <div style="display:flex;align-items:baseline;gap:9px;margin-top:5px">
+              <span id="chartTotal" style="font-size:26px;font-weight:600;letter-spacing:-.026em;color:var(--ink);font-variant-numeric:tabular-nums">$81,920</span>
+              <span id="chartDelta" style="font-size:12px;color:var(--ink3)">+301% vs previous 8 weeks</span>
+            </div>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px">
+            <div class="seg" role="group" aria-label="Metric">
+              <button type="button" data-metric="spend" aria-pressed="true">Spend</button>
+              <button type="button" data-metric="leads" aria-pressed="false">Leads</button>
+              <button type="button" data-metric="cpl" aria-pressed="false">Cost per lead</button>
+            </div>
+            <label class="cmp"><input type="checkbox" id="cmpToggle" checked> Compare to previous period</label>
+          </div>
+        </div>
+        <div class="chartwrap">
+          <svg class="chartsvg" id="chart" viewBox="0 0 760 230" tabindex="0" role="img" aria-describedby="chartData"
+               aria-label="Weekly performance against the previous period. Use arrow keys to read each week."></svg>
+          <div class="tip" id="tip" role="status" aria-live="polite"></div>
+          <table id="chartData" class="sr">
+            <caption>Weekly performance, eight weeks to 22 June</caption>
+            <thead><tr><th scope="col">Week</th><th scope="col">Spend</th><th scope="col">Leads</th><th scope="col">Cost per lead</th></tr></thead>
+            <tbody>
+              <tr><td>May 4</td><td>$0</td><td>not measured</td><td>not measured</td></tr>
+              <tr><td>May 11</td><td>$6,106</td><td>41</td><td>$148.93</td></tr>
+              <tr><td>May 18</td><td>$6,685</td><td>70</td><td>$95.50</td></tr>
+              <tr><td>May 25</td><td>$6,090</td><td>70</td><td>$87.00</td></tr>
+              <tr><td>Jun 1</td><td>$11,160</td><td>129</td><td>$86.51</td></tr>
+              <tr><td>Jun 8</td><td>$16,171</td><td>153</td><td>$105.69</td></tr>
+              <tr><td>Jun 15</td><td>$19,424</td><td>184</td><td>$105.57</td></tr>
+              <tr><td>Jun 22</td><td>$16,284</td><td>197</td><td>$82.66</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardhead"><h2>Attention</h2><a class="cta" href="#/attention">Open →</a></div>
+        <div class="cardbody">
+          <div class="score"><span class="n">77</span><span class="bandlbl">Strong</span></div>
+          <p class="foot">Spend-weighted across 8 weeks.</p>
+          <div style="margin-top:16px;display:grid;gap:12px">
+            <div><div class="rowline"><span class="k">On screen</span><span class="v">81</span></div><div class="bar"><i style="width:81%"></i></div></div>
+            <div><div class="rowline"><span class="k">Sound on</span><span class="v">75</span></div><div class="bar"><i style="width:75%"></i></div></div>
+            <div><div class="rowline"><span class="k">Watched to the end</span><span class="v">75</span></div><div class="bar"><i style="width:75%"></i></div></div>
+          </div>
+          <div class="bycamp">
+            <div class="label">By campaign</div>
+            <div class="r"><span class="nm">Adventure Hero · CTV Q3</span><span class="track"><i style="width:79%;background:var(--primary)"></i></span><span class="sc">79</span></div>
+            <div class="r"><span class="nm">Brand Awareness Always-on</span><span class="track"><i style="width:76%;background:var(--line)"></i></span><span class="sc">76</span></div>
+            <div class="r"><span class="nm">Sequential Retargeting</span><span class="track"><i style="width:74%;background:var(--line)"></i></span><span class="sc">74</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card ruled">
+      <div class="cardhead">
+        <div><h2>Campaigns</h2><p class="cap">5 total · 3 on air</p></div>
+        <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+          <a class="cta" href="#/campaigns">See all →</a>
+          <div class="seg" role="group" aria-label="Campaign view">
+            <button type="button" data-view="timeline" aria-pressed="true">Timeline</button>
+            <button type="button" data-view="table" aria-pressed="false">Table</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="viewTimeline">
+        <div class="cardhead" style="border-bottom:none;padding-bottom:6px">
+          <span class="cap">May 4 – Jun 28</span>
+          <span class="legend">
+            <span><i style="background:var(--primary)"></i>On pace</span>
+            <span><i style="background:var(--warn)"></i>Under-pacing</span>
+            <span><i style="background:var(--line-faint);border:1px dashed var(--warn)"></i>Preparing</span>
+          </span>
+        </div>
+        <div class="flight">
+          <div><a class="nm flight-nm" href="#/campaign/adventure-hero">PolyTrek · Adventure Hero · CTV Q3</a><div class="sub">12 miles around you</div></div>
+          <div class="track"><span class="today" style="left:82%"></span><span class="barrow" style="left:44%;width:38%;background:var(--primary)"></span><span class="barrow" style="left:82%;width:12%;background:#CFE0F7"></span></div>
+          <div class="fig">$28,400<small>312 leads</small></div>
+        </div>
+        <div class="flight">
+          <div><a class="nm flight-nm" href="#/campaign/retargeting">PolyTrek · Sequential Retargeting</a><div class="sub warn">Spending slower than planned</div></div>
+          <div class="track"><span class="today" style="left:82%"></span><span class="barrow" style="left:58%;width:24%;background:var(--warn)"></span><span class="barrow" style="left:82%;width:12%;background:#F7DFC4"></span></div>
+          <div class="fig">$6,240<small>87 leads</small></div>
+        </div>
+        <div class="flight">
+          <div><a class="nm flight-nm" href="#/campaign/brand-awareness">PolyTrek · Brand Awareness Always-on</a><div class="sub">25 miles around you</div></div>
+          <div class="track"><span class="today" style="left:82%"></span><span class="barrow" style="left:12%;width:70%;background:var(--primary)"></span><span class="barrow" style="left:82%;width:12%;background:#CFE0F7"></span></div>
+          <div class="fig">$47,280<small>445 leads</small></div>
+        </div>
+      </div>
+
+      <div id="viewTable" hidden>
+        <div class="tablescroll"><table class="dt">
+          <thead><tr><th scope="col">Campaign</th><th scope="col">Status</th><th scope="col" class="r">↓ Spend</th><th scope="col" class="r">Leads</th><th scope="col" class="r">Cost / lead</th></tr></thead>
+          <tbody>
+            <tr><td><a class="cname" href="#/campaign/brand-awareness">Brand Awareness Always-on</a><div class="csub">Streaming TV · 30s · May 11 – Jun 22</div></td>
+              <td><span class="pill ok"><i style="background:var(--positive)"></i>On pace</span></td>
+              <td class="r" style="color:var(--ink);font-weight:500">$47,280</td><td class="r">445</td><td class="r">$106.25</td></tr>
+            <tr><td><a class="cname" href="#/campaign/adventure-hero">Adventure Hero · CTV Q3</a><div class="csub">Streaming TV · 30s · Jun 1 – Jun 22</div></td>
+              <td><span class="pill ok"><i style="background:var(--positive)"></i>On pace</span></td>
+              <td class="r" style="color:var(--ink);font-weight:500">$28,400</td><td class="r">312</td><td class="r">$91.03</td></tr>
+            <tr><td><a class="cname" href="#/campaign/q1-pilot">Q1 Conversion Pilot</a><div class="csub">Streaming TV · 15s · Mar 2 – Mar 30</div></td>
+              <td><span class="pill muted">Completed</span></td>
+              <td class="r" style="color:var(--ink);font-weight:500">$24,000</td><td class="r">168</td><td class="r">$142.86</td></tr>
+            <tr><td><a class="cname" href="#/campaign/retargeting">Sequential Retargeting</a><div class="csub">Retargeting · 15s · Jun 8 – Jun 22</div></td>
+              <td><span class="pill warn"><i style="background:var(--warn)"></i>Under-pacing</span></td>
+              <td class="r" style="color:var(--ink);font-weight:500">$6,240</td><td class="r">87</td><td class="r">$71.72</td></tr>
+          </tbody>
+        </table></div>
+        <div class="pager">
+          <span class="n">1–4 of 5</span>
+          <span style="display:inline-flex;align-items:center;gap:8px">
+            <button class="pgbtn" disabled aria-label="Previous page">‹</button>
+            <span class="n">1 / 2</span>
+            <a class="pgbtn" href="#/campaigns" aria-label="Next page">›</a>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <div class="goal">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+      <label for="goalInput" class="sr">What do you want this campaign to do?</label>
+      <input id="goalInput" placeholder="More weeknight bookings within 10 miles">
+      <a class="btn" href="#/new">Build the plan</a>
+      <a class="ghost" href="#/new">Create campaign</a>
+    </div>
+  </div>
+
+  <!-- first run -->
+  <div id="dashNew" class="stack" hidden>
+    <div class="band c">
+      <div class="card">
+        <div class="cardhead"><h2>Before your first campaign</h2><span class="label">2 of 4</span></div>
+        <div style="padding:4px 0">
+          <div class="ins" style="border-top:0">
+            <span class="ico" style="background:var(--tint-deep);border:1px solid var(--primary)"></span>
+            <div class="body"><div class="t" style="color:var(--ink3);text-decoration:line-through">Business details</div>
+              <p class="b">Your address sets the area your ad can reach</p></div>
+          </div>
+          <div class="ins">
+            <span class="ico" style="background:var(--tint-deep);border:1px solid var(--primary)"></span>
+            <div class="body"><div class="t" style="color:var(--ink3);text-decoration:line-through">Upload a video</div>
+              <p class="b">15 or 30 seconds. We check it plays on every TV app before it runs</p></div>
+          </div>
+          <div class="ins">
+            <span class="ico" style="background:var(--line-subtle);border:1px solid var(--line)"></span>
+            <div class="body"><div class="t">Add funds</div>
+              <p class="b">Streaming is prepaid — you're only ever charged for what serves</p></div>
+            <a class="cta" href="#/billing">Add funds →</a>
+          </div>
+          <div class="ins">
+            <span class="ico" style="background:var(--line-subtle);border:1px solid var(--line)"></span>
+            <div class="body"><div class="t">Connect measurement</div>
+              <p class="b">Without it we can show spend but never leads — the tiles stay empty</p></div>
+            <a class="cta" href="#/tools">Set up →</a>
+          </div>
+        </div>
+      </div>
+      <div class="stack">
+        <div class="card"><div class="cardbody">
+          <div class="label">Total spend</div><div class="score" style="margin-top:4px"><span class="n" style="font-size:30px;color:var(--ink3)">—</span></div>
+          <p class="foot">Starts when a campaign runs</p></div></div>
+        <div class="card"><div class="cardbody">
+          <div class="label">Calls &amp; leads</div><div class="score" style="margin-top:4px"><span class="n" style="font-size:30px;color:var(--ink3)">—</span></div>
+          <p class="foot">Needs measurement connected</p></div></div>
+        <div class="card"><div class="cardbody">
+          <div class="label">Attention score</div><div class="score" style="margin-top:4px"><span class="n" style="font-size:30px;color:var(--ink3)">—</span></div>
+          <p class="foot">After 48 hours on air</p></div></div>
+      </div>
+    </div>
+    <div class="goal">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/></svg>
+      <input placeholder="More weeknight bookings within 10 miles" aria-label="What do you want this campaign to do?">
+      <a class="btn" href="#/new">Build the plan</a>
+    </div>
+  </div>
+</section>
