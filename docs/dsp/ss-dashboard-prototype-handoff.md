@@ -10,7 +10,9 @@ document is the part that does not survive in a picture: which constraints
 in the prototype are real, which figures are modelled, and what has to be
 decided before anyone starts building.
 
-Read it as three lists — **verified**, **modelled**, **open**.
+Read it as four lists — **verified**, **modelled**, **does a backend exist**,
+**open**. If you only read one section, read §3: it maps every control in the
+prototype to whether SpringServe can actually do it.
 
 ### What changed on 27 August
 
@@ -35,10 +37,14 @@ prototype gained:
   with its own failure mode.
 - **The palette from the PGAM/TripleLift one-pager**, sampled from the PDF's
   colour operators. Two tones darkened for AA; `#1E90FF` restricted to fills
-  and rules. See §3.1 — this resolves an open decision.
+  and rules. See §4.1 — this resolves an open decision.
 - **A design-system pass**: 25 type sizes to 9, 14 radii to 4, 13 tracking
   values to 3, five transition durations to three on one curve, spacing onto a
   4px grid, shadows off static cards.
+- **§3, a control-by-control backend audit** against
+  `pgam-dsp-dashboard@docs/springserve-capability-map.md`. Roughly a third of
+  what the prototype shows has no backend today, and three of those are claims
+  the prototype makes more forcefully than the shipped demo does.
 - ⌘K, a working empty-account mode that reaches every screen, a focus trap on
   the dialog, sortable campaigns, deep-linked builder steps, and a live budget
   forecast.
@@ -180,9 +186,121 @@ boundaries breaks both.
 
 ---
 
-## 3. Open decisions
+## 3. Control by control: is there a backend?
 
-### 3.0 Palette — decided 27 August
+`pgam-dsp-dashboard@docs/springserve-capability-map.md` is the source of
+truth for what SpringServe on account `2724` can actually do. This table
+maps every control the prototype puts on screen against it. It exists
+because a prototype this finished is easy to read as a spec, and roughly a
+third of what it shows has nothing behind it today.
+
+**Legend** (the capability map's, so the two can be read together):
+✅ works on our token today · 🟡 exists in SS/Magnite but is not on our
+token or is collected and never forwarded · 🔧 possible, but only as a
+manual action in the Magnite ClearLine console · ❌ no backend ·
+◻︎ modelled for the demo, no claim either way.
+
+### Step 1 — Goal
+
+| Control | Backend | Note |
+|---|---|---|
+| Six objective cards | ❌ | Objective is **label-only**. SS has no bid strategy, no optimization goal, no outcome KPI — confirmed by two independent traces. The card changes copy, metric names and budget floors in our UI; it changes nothing in the buy. Capability map §A.1, "biggest claim risk". |
+| Per-goal budget floor, flight length, prerequisites | ✅ | Our own logic, and it is real — it just sits above an SS buy that is identical whichever card was picked. |
+| `app` / `abm` cards | ❌ | Deliberately absent from both the demo and the prototype. See §1.1. |
+
+### Step 2 — Who and where
+
+| Control | Backend | Note |
+|---|---|---|
+| Radius around an address | ✅ | `targeting_geo_profile`, lat/lon + radius. |
+| ZIP list | ✅ | aliased to `postal_codes`. |
+| States | ✅ | |
+| DMA / metro | ✅ | demand-tag `metro_area_codes`. **38 of ~210 markets** are crosswalked; see §1.2 and §4.3. Mixed DMA + ZIP is untested — DMA sits on the tag, ZIP on the campaign geo profile, and whether SS ANDs or ORs across the two objects is unverified. |
+| Starting point (interest pool / recent visitors / everyone) | 🟡 | Audience segments are collected in the UI and **never forwarded to SS**. |
+| Age | 🟡 | collected, never forwarded. |
+| Gender | 🟡 | collected, never forwarded. |
+| Household income | 🟡 | Same — and the prototype **adds** this control; the shipped wizard does not have it. |
+| Audience segments (8 chips) | 🟡 | collected, never forwarded. |
+| Content categories (IAB Tier 1) | ✅ | Real, with one caveat: we send them at **campaign** scope and Magnite now wants **tag** scope. Tier 2 exists and is hidden. |
+| Dayparting — the 168-cell grid | 🔧 | The self-serve daypart shape is **dropped with a warning** before it reaches SS. Dayparting works, but only as a ClearLine console action by ops. The prototype's grid is the most convincing non-functional control in the whole file. |
+
+### Step 3 — Channels
+
+| Control | Backend | Note |
+|---|---|---|
+| Manual channel / app picker (53) | ❌ | Selections are accepted as input and **never mapped**; the supply tag is hardcoded. Inventory arrives through the deal bridge, not through this control. Capability map §A.7. |
+| **PGAM Optimized Network** | ❌ | Nothing behind it at all. It promises a weekly rebalance "toward whatever is producing leads for you" — that requires both channel-level control (which we do not have, per the row above) and outcome optimization (which SS does not have, per §A.1). It is the largest single new claim in the prototype and it is mine, not the demo's. |
+| Selected reach (609.2M households) | ◻︎ | eMarketer-class estimate. Labelled as such on the screen. |
+
+### Step 4 — Video
+
+| Control | Backend | Note |
+|---|---|---|
+| Pick an approved creative | ✅ | Video creative + VAST is real, including the approval state. |
+| Upload a new video | ✅ | |
+| *(no display-ad generator)* | — | Deliberate. The shipped demo has one; display creatives never attach to an SS tag (§A.5), so the prototype drops it. |
+
+### Step 5 — Budget & review
+
+| Control | Backend | Note |
+|---|---|---|
+| Monthly budget | ✅ | budget metric `revenue`, period `month`. |
+| Daily pace | ✅ | as a `budget_period:"day"` entry. |
+| Flight dates | ✅ | must sync **both** the campaign `targeting_time_profile` and the tag's flat dates. |
+| Frequency cap (5 per day) | ✅ | `targeting_time_profile.frequency_caps[]`. Real, and currently hidden from the shipped wizard. |
+| Live forecast — impressions, leads, range | ◻︎ | There is **no avails or forecast API** on our token (§A.2). The prototype's version at least derives from the account's own CPM and cost-per-lead history and shows a range rather than a point, which is more honest than the shipped Strategy Estimate's constants — but it is still a projection from past delivery, not a forecast of available supply. |
+| Rate line in the review list | ✅ | This said "Bidding — Automatic" until the audit; SS on 2724 takes a **static** CPM (`bid_floor_type:"static"`) and there is no automatic bidding to describe. Now reads "Rate — $42.23 CPM, fixed". |
+
+### Results and reporting
+
+| Control | Backend | Note |
+|---|---|---|
+| Seven breakdown dimensions | ✅ | day, hour, DMA, genre, app, device, creative are all real `/report` dimensions. Under-used today, not missing. |
+| Attention score on every row | 🟡 | `placement_attention_scores` and its Lambda already produce the data; self-serve reporting stubs it null. Wiring it is the highest-value item on the capability map's opportunity list — it is the brand differentiator and it is already computed. |
+| Attribution window selector (1/7/14/30d) | 🟡 | Needs the planned `ss_conversions` date-window JOIN. Not built. |
+| Reach, frequency, cost per household | ◻︎ unverified | Vibe reports these and we do not. Whether SS `/report` supports household-level dedup on our token is **not** covered by the capability map and needs checking before this is promised. |
+| Spend per breakdown row | ✅ derived | Real, but computed from impressions × CPM rather than measured per row. See §1.3. |
+
+### Integrations
+
+| Control | Backend | Note |
+|---|---|---|
+| Site tag, pixels, Conversions API | ✅ | Real end-to-end when authed. An earlier trace called this missing; that was a 401 from a missing `ss_advertiser_id` cookie, not a missing route. |
+| Call tracking / TFN | ✅ | Real. Calls attribute back to the campaign. |
+| App attribution / MMP handoff | ❌ | No mobile-app inventory or attribution exists. Shown in the prototype as a "not available" state, not as a setup flow. |
+
+### The three that need a decision before anyone demos this
+
+Everything above is a fact about the backend. These three are judgement
+calls about what the prototype says on top of it:
+
+1. **Dayparting, age, gender, income and audience segments.** All five are
+   collected today and none reach SS. The prototype gave dayparting a
+   168-cell drag-selectable grid and added household income and IAB
+   categories on top. That made a set of non-functional controls
+   considerably more convincing than they were. Either gate them behind
+   the ops path that does work (dayparting via ClearLine, as a request
+   rather than a control), or mark them as narrowing-only estimates, or
+   cut them.
+2. **The channel picker.** Selections are not sent. The prototype turned
+   the picker into a poster wall of brand marks, which is exactly the
+   treatment that reads as "this is the lever". It is not a lever.
+3. **PGAM Optimized Network.** The copy promises a weekly rebalance on
+   the customer's own results. Two capabilities that do not exist have to
+   exist first. As a product direction it is the right one — it is the
+   honest framing for a buy where we control the mix and the customer
+   does not. As a card in a builder it currently describes a service we
+   cannot perform.
+
+None of these is an argument against the design. The point of writing
+them down is that a prototype gets sold before it gets built, and these
+are the three places where that would cost us.
+
+---
+
+## 4. Open decisions
+
+### 4.0 Palette — decided 27 August
 
 Taken from the PGAM/TripleLift one-pager and sampled from the PDF's own colour
 operators rather than a screenshot: `#0B1220 / #33415C / #5A6B87` ink,
@@ -197,7 +315,7 @@ not clear AA on the tinted grounds: `#5A6B87 → #596A86` and `#0E72D9 →
 reaches 2.67 against every ground in the system and fails as text at any size.
 If a designer wants it on type, the type has to sit on a dark ground.
 
-### 3.1 Channel marks — needs a decision, not an implementation
+### 4.1 Channel marks — needs a decision, not an implementation
 
 The prototype draws each service's short mark on its own brand colour
 (`hulu` in Hulu green, a red N on Netflix black, the YouTube play
@@ -224,7 +342,7 @@ black is 4.11). WCAG 1.4.3 exempts logotypes and the channel name sits
 beside every tile in full-contrast ink, so this is compliant under any of
 the three options.
 
-### 3.2 Should the two missing objectives ship?
+### 4.2 Should the two missing objectives ship?
 
 Not until there is something behind them. See §1.1: this needs mobile-app
 inventory plus an MMP handoff for `app`, and firmographic / IP-to-company
@@ -234,7 +352,7 @@ The narrower question worth deciding now is whether `?goal=app` should keep
 working as a deep link at all. It currently seeds the wizard with an objective
 the platform cannot fulfil, which is a smaller version of the same problem.
 
-### 3.3 Is the DMA crosswalk worth extending?
+### 4.3 Is the DMA crosswalk worth extending?
 
 38 of ~210 is enough for the top markets and nothing else. Extending it
 means another `metro_area` report pull over a longer window, or a name-
@@ -244,7 +362,7 @@ targeting mode or a footnote.
 
 ---
 
-## 4. Design decisions worth keeping
+## 5. Design decisions worth keeping
 
 Short list of things in the prototype that look like styling but are load-
 bearing. Each one exists because the alternative was actively misleading.
@@ -272,7 +390,7 @@ bearing. Each one exists because the alternative was actively misleading.
 
 ---
 
-## 5. Accessibility baseline
+## 6. Accessibility baseline
 
 The prototype passes, and the build should hold the line:
 
@@ -300,7 +418,7 @@ Two more the audit turned up and the prototype fixes:
 
 ---
 
-## 6. Where the source lives
+## 7. Where the source lives
 
 `docs/dsp/prototype/` — the built file, the five parts it is assembled from,
 and a README with the rebuild command and the invariants the code holds itself
