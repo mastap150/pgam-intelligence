@@ -108,11 +108,14 @@ short version:
 - The wrapper is not a cloak — the vendor host is visible in DevTools. It
   removes the vendor from the install, not from inspection.
 
-**Calls** are two layers: `tel:` link clicks fire a lead automatically (covers
-most mobile), and desk-phone callers need dynamic number insertion plus a
-server-side event. The S2S endpoint requires the *visitor's IP*, which a
-call-tracking webhook may not expose — verify against the provider's real
-payload before promising call tracking.
+**Calls** are specified separately in
+[`homebuyerforcash-call-tracking.md`](./homebuyerforcash-call-tracking.md).
+Short version: a call and a form fill are both `lead` events, we buy our own
+tracking numbers that forward to the call centre rather than using theirs, and
+TV needs a dedicated static number while the website needs dynamic number
+insertion. The gating unknown is whether the DNI provider's webhook exposes the
+visitor's IP — without it, calls cannot be posted back as attributed
+conversions.
 
 ---
 
