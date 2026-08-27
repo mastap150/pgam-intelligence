@@ -110,13 +110,15 @@ short version:
 
 **Calls** are specified separately in
 [`homebuyerforcash-call-tracking.md`](./homebuyerforcash-call-tracking.md).
-Short version: there is a **native CallRail integration** that attributes calls
-by caller IP and adds Calls / Cost per Call metrics, so no hand-built postback
-is needed. It requires a CallRail Website Pool — static numbers carry no IP and
-cannot be attributed, which is why the TV number is measured in CallRail only.
-We buy our own numbers that forward to the call centre rather than using theirs.
-The open item is whether integration-sourced calls count toward the Leads 0.1%
-conversion floor, which could move the Leads launch date.
+Short version: the provider is **not yet chosen** — waiting on the client.
+CallRail is the recommended fallback because it is the only call-tracking
+platform with a native integration; any other provider means building the
+postback ourselves and re-opening the question of whether it exposes the web
+visitor's IP. Either way, attribution needs dynamic number insertion — a static
+TV number carries no IP and is measured in the provider's reporting only. We buy
+our own numbers that forward to the call centre rather than using theirs. The
+open item is whether attributed calls count toward the Leads 0.1% conversion
+floor, which could move the Leads launch date.
 
 ---
 

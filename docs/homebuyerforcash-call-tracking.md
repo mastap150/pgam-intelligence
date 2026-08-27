@@ -3,24 +3,28 @@
 Decisions and open questions for measuring phone enquiries alongside web
 enquiries. Companion to [`homebuyerforcash-wiring-plan.md`](./homebuyerforcash-wiring-plan.md).
 
-Status: **specified, nothing provisioned.** No numbers bought, no CallRail
-account opened, integration not started.
+Status: **specified, nothing provisioned, provider not chosen.** CallRail is
+the recommended default and the fallback if the client has nothing of their own,
+but the decision is open pending what they come back with. §3 covers both paths.
 
-> **Superseded, 2026-08-27.** An earlier version of this document specified
-> building the call→conversion postback by hand against the S2S endpoint, and
-> listed "does the provider's webhook expose the visitor IP?" as the gating
-> unknown. Both are obsolete: there is a **native CallRail integration** and the
-> IP question is answered — see §3. The manual S2S route is no longer the plan.
+> **Revised, 2026-08-27.** An earlier version specified building the
+> call→conversion postback by hand and listed "does the provider's webhook
+> expose the visitor IP?" as the gating unknown. That is answered **for CallRail
+> only**, which has a native integration. For any other provider the manual
+> route and the open IP question both still apply — see §3.
 
 ---
 
-## 1. Calls are measurable natively — but not optimisable
+## 1. Calls are measurable — but not optimisable
 
-The native integration adds two metrics to the dashboard: **Calls** (attributed
-call events) and **Cost per Call**. That is a real improvement on what I
-described before, and it retires the workaround I had proposed: there is no need
-to tag `{source:'call'}` and reconcile against CallRail's own reporting by hand,
-and no need to ask about custom event slots.
+Once a call postback is working, the dashboard carries two metrics: **Calls**
+(attributed call events) and **Cost per Call**. On the CallRail path these come
+free with the integration; on any other path they only appear if the hand-built
+postback in §3 works.
+
+Either way this retires the workaround proposed earlier — no tagging
+`{source:'call'}` and reconciling against the provider's reporting by hand, and
+no need to ask about custom event slots.
 
 What has *not* changed: **cost per call is a reporting metric, not an
 optimisation goal.** The goal/metric matrix offers no campaign goal that
@@ -53,22 +57,39 @@ Strategic, not technical. Worth holding even if the call centre pushes back.
 
 ---
 
-## 3. The native CallRail integration (Beta)
+## 3. Choosing a provider
 
-Attributes phone calls to ad impressions **using the caller's IP address**.
+**The integration surface is not symmetric, and this should inform the choice.**
+CallRail is the *only* call-tracking platform with a native integration — the
+full integration catalogue covers CRM/audience sync, app-attribution partners
+(AppsFlyer, Adjust, Singular, Airbridge, Kochava, Gamesight) and analytics
+(GA4, Northbeam, Triple Whale), and CallRail is the sole call-tracking entry.
 
-### Hard requirement: Website Pool numbers
+So the two paths cost very different amounts:
+
+| | CallRail | Any other provider |
+|---|---|---|
+| Integration | native, 3 config steps | hand-built S2S postback |
+| Visitor IP | **confirmed available** | **unverified — the open risk** |
+| Calls / Cost per Call metrics | yes | only if the postback works |
+| Our build effort | none | webhook receiver + mapping + testing |
+
+If the client has no existing provider, CallRail is the obvious pick: cheap,
+fast, and the only one where the attribution question is already settled.
+
+### Path A — CallRail (Beta)
+
+Attributes calls to ad impressions **using the caller's IP address**.
+
+**Hard requirement: Website Pool numbers.**
 
 > Must use a CallRail **Website Pool** (not static numbers) — only Website Pool
 > calls include the IP address.
 
 A Website Pool is CallRail's dynamic number insertion: it swaps the displayed
 number per visitor, which is what ties a call back to a web session and its IP.
-Static numbers carry no IP and therefore cannot be attributed. This confirms the
-two-number architecture in §4 — and it is the reason a TV-only number can never
-appear in the Calls metric.
 
-### Setup
+**Setup**
 
 1. **CallRail** — Numbers → Create Number → Online → My Website → create a
    Website Pool.
@@ -78,15 +99,39 @@ appear in the Calls metric.
    → Add URL → paste the S2S link → Advanced Settings → tick **Include IP
    Address** → Update.
 
-Note it is the *Call Routing Complete* webhook, not post-call. And the
-"Include IP Address" checkbox is the whole ballgame — without it the integration
-silently has nothing to match on.
+It is the *Call Routing Complete* webhook, not post-call. The "Include IP
+Address" checkbox is the whole ballgame — without it the integration silently
+has nothing to match on.
 
-The integration is per-advertiser, so it is blocked behind the same missing
-advertiser record as everything else.
+Per-advertiser, so blocked behind the same missing advertiser record as
+everything else. Also **Beta** — verify calls actually land in the Calls metric
+during the trial rather than assuming.
 
-It is also **Beta**. Budget some contingency and verify calls actually appear in
-the Calls metric during the trial rather than assuming.
+### Path B — the client brings their own provider
+
+Then we build the postback ourselves against:
+
+```
+GET https://t.vibe.co/s2s-conversion/events
+  ?aid=PIXEL_ID &a=lead &eid=UNIQUE_CALL_ID &ip=VISITOR_IP &ts=UNIX_MS
+```
+
+**Ask their provider these four questions before agreeing to anything.** Any
+"no" means calls cannot be attributed on that platform, whatever else it does:
+
+1. Does it do **dynamic number insertion** — a different number per web visitor?
+   Static numbers are unattributable by construction.
+2. Does it capture and **retain the web visitor's IP** for the session that
+   produced the call?
+3. Can it fire a **webhook on call completion that includes that IP**? Not the
+   caller's carrier IP, not our server's — the visitor's.
+4. Does the webhook carry a **stable unique call ID** for deduplication?
+
+Note the IP must be the end user's, not a server's. A provider that relays
+through its own backend without forwarding the original visitor IP fails (2)
+and (3) even if it has a webhook.
+
+S2S events also do **not** populate retargeting audiences, on either path.
 
 ---
 
@@ -94,8 +139,8 @@ the Calls metric during the trial rather than assuming.
 
 | | Number type | Attributed? | Where it shows |
 |---|---|---|---|
-| Website | CallRail Website Pool (DNI) | **Yes** — carries visitor IP | Calls / Cost per Call in the dashboard, and CallRail |
-| TV creative | one dedicated static number | **No** — no IP exists | CallRail only |
+| Website | DNI pool (CallRail Website Pool, or equivalent) | **Yes** — carries visitor IP | Calls / Cost per Call in the dashboard, and the provider |
+| TV creative | one dedicated static number | **No** — no IP exists | the provider's reporting only |
 
 You cannot do dynamic number insertion on a television screen, so the TV number
 is necessarily static and necessarily unattributed. That is a property of the
@@ -103,20 +148,21 @@ medium, not a misconfiguration.
 
 Use a TV number that appears **nowhere else** — not the website, not Google
 Business, not a van livery. Then every call to it is provably TV-driven, and
-CallRail's own reporting gives a clean count even though the platform dashboard
+the provider's own reporting gives a clean count even though the platform dashboard
 will never show it. For a client whose main question is "is the TV advertising
 making my phone ring", that count is the answer, and it does not depend on IP
 matching at all.
 
 ---
 
-## 5. Cost
+## 5. Cost (CallRail path)
 
-CallRail's entry tier is roughly $50/month plus per-number and per-minute usage.
-There is a free trial, which is the right vehicle for the initial test.
+Entry tier is roughly $50/month plus per-number and per-minute usage, with a
+free trial — the right vehicle for the initial test.
 
-Website Pools consume several numbers at once (that is how the swapping works),
-so check how the pool size affects the bill before sizing it.
+DNI pools consume several numbers at once (that is how the swapping works), so
+check how pool size affects the bill before sizing it. This applies to any DNI
+provider, not just CallRail.
 
 ---
 
@@ -131,8 +177,11 @@ another market. This is a legal check; get it confirmed rather than inferred.
 
 ## 7. What is not done
 
-- No CallRail account, no Website Pool, no numbers purchased
-- Integration not started (blocked on the advertiser record)
+- **Provider not chosen** — waiting on the client. CallRail is the fallback
+- No account, no DNI pool, no numbers purchased; integration not started
+  (also blocked on the advertiser record)
+- If they bring their own provider: the four questions in §3 Path B are
+  unanswered, and (2) and (3) are where these usually fail
 - **Whether integration-sourced calls count toward the Leads 0.1% floor** (§1)
   — the one open item that could move a launch date
 - Recording consent position unconfirmed (§6)
