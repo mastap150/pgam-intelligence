@@ -101,7 +101,23 @@ Covered and passing:
 - double inclusion initialises once
 - no uncaught errors on the page
 
-**Still needs a real staging check.** The stub proves our side of the contract;
-it cannot prove the vendor's. Before a client installs this, put it on a staging
-page with a real pixel ID and confirm in DevTools that `vbpx.js` fetches and
-`s?aid=` fires with the right event name in the payload.
+### Live check against the real tracker
+
+`test/live-check.html` does the half the stub cannot. Open it on a machine with
+normal internet — **not** a build container, where the tracker host is firewalled:
+
+```
+test/live-check.html?id=YOUR_PIXEL_ID
+&src=https://tag.pgammedia.com/attune.js   # optional, to check the hosted copy
+```
+
+It reports, on screen, whether the tag installed, whether the measurement script
+was actually fetched, and whether the page-view and a test lead reached the
+network — reading real resource timings, not just assuming. Then confirm the
+events land on the Web Pixel page in the dashboard.
+
+If it fails, the page says which of the three likely causes it is (ad blocker,
+CSP, bad pixel ID) rather than just going red.
+
+**This has not been run yet** — it needs a valid pixel ID, which needs the
+advertiser record to exist.

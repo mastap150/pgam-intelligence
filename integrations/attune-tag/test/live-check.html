@@ -1,0 +1,153 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Attune Tag — live check</title>
+<!--
+  Verifies the tag against the REAL tracker. Open on a machine with normal
+  internet (this cannot run from a locked-down build container).
+
+    live-check.html?id=YOUR_PIXEL_ID
+
+  Optional: &src=https://tag.pgammedia.com/attune.js to check the hosted copy
+  instead of the local file.
+
+  Fires a page view on load and a lead when you click the button, then reports
+  whether each one actually reached the network. Cross-check against the Web
+  Pixel page in the platform dashboard — events should show within seconds.
+-->
+<style>
+  body{font:14px/1.5 system-ui,-apple-system,sans-serif;max-width:46rem;margin:3rem auto;padding:0 1.25rem;color:#0C1017}
+  h1{font-size:1.25rem;margin:0 0 .25rem}
+  p.sub{color:#6B7383;margin:0 0 1.5rem}
+  #rows{border:1px solid #E3E7EF;border-radius:12px;overflow:hidden}
+  .row{display:flex;gap:.75rem;padding:.7rem 1rem;border-bottom:1px solid #EEF0F5;align-items:baseline}
+  .row:last-child{border-bottom:0}
+  .tag{font-weight:600;width:4.5rem;flex:none;font-size:.75rem;letter-spacing:.04em}
+  .ok{color:#17A34A}.no{color:#DC2626}.wait{color:#B45309}
+  .what{flex:1}
+  .note{color:#6B7383;font-size:.8125rem}
+  button{font:inherit;padding:.5rem .9rem;border:1px solid #1641DE;background:#1641DE;color:#fff;border-radius:10px;cursor:pointer;margin-top:1.25rem}
+  code{background:#F6F7FA;padding:.1rem .3rem;border-radius:4px;font-size:.85em}
+  .warn{background:#FFFCF5;border:1px solid #FBE29C;border-radius:12px;padding:.9rem 1.1rem;margin-top:1.5rem;color:#8A4513;font-size:.875rem}
+</style>
+
+<h1>Attune Tag — live check</h1>
+<p class="sub">Confirms the tag loads and that events actually reach the network.</p>
+<div id="rows"></div>
+<button id="fire" disabled>Fire a test lead</button>
+<div class="warn" id="warn" hidden></div>
+
+<script>
+(function () {
+  var q = new URLSearchParams(location.search);
+  var PIXEL_ID = q.get('id');
+  var SRC = q.get('src') || '../attune-tag.js';
+  var VENDOR_HOST = 'tracker.vibe.co';
+
+  var rows = document.getElementById('rows');
+  var state = {};
+
+  function set(key, status, what, note) {
+    var el = state[key];
+    if (!el) {
+      el = document.createElement('div');
+      el.className = 'row';
+      el.innerHTML = '<span class="tag"></span><span class="what"></span>';
+      rows.appendChild(el);
+      state[key] = el;
+    }
+    var t = el.querySelector('.tag');
+    t.textContent = status === 'ok' ? 'PASS' : status === 'no' ? 'FAIL' : 'WAIT';
+    t.className = 'tag ' + status;
+    el.querySelector('.what').innerHTML =
+      what + (note ? ' <span class="note">— ' + note + '</span>' : '');
+  }
+
+  if (!PIXEL_ID) {
+    set('id', 'no', 'No pixel ID supplied',
+        'open this page as <code>live-check.html?id=YOUR_PIXEL_ID</code>');
+    return;
+  }
+  set('id', 'ok', 'Pixel ID supplied', '<code>' + PIXEL_ID + '</code>');
+
+  // Count requests to the vendor host via resource timing.
+  function vendorHits() {
+    try {
+      return performance.getEntriesByType('resource')
+        .filter(function (e) { return e.name.indexOf(VENDOR_HOST) !== -1; });
+    } catch (e) { return []; }
+  }
+  function beacons() {
+    return vendorHits().filter(function (e) { return /[?&]aid=/.test(e.name); });
+  }
+
+  // Load the tag with the supplied ID.
+  var s = document.createElement('script');
+  s.src = SRC;
+  s.setAttribute('data-attune-id', PIXEL_ID);
+  s.onerror = function () {
+    set('load', 'no', 'Tag file failed to load', '<code>' + SRC + '</code> unreachable');
+  };
+  document.head.appendChild(s);
+
+  var startedAt = Date.now();
+  var beaconBaseline = 0;
+
+  var timer = setInterval(function () {
+    var elapsed = Date.now() - startedAt;
+
+    set('load', window.attune ? 'ok' : (elapsed > 6000 ? 'no' : 'wait'),
+        'Tag file loaded and installed <code>attune()</code>',
+        window.attune ? 'v' + window.attune.__attune : 'waiting…');
+
+    var script = vendorHits().filter(function (e) { return /vbpx\.js/.test(e.name); });
+    set('vendor', script.length ? 'ok' : (elapsed > 8000 ? 'no' : 'wait'),
+        'Measurement script fetched from the network',
+        script.length ? Math.round(script[0].duration) + 'ms' : 'waiting…');
+
+    var b = beacons();
+    set('pv', b.length ? 'ok' : (elapsed > 10000 ? 'no' : 'wait'),
+        'Page view reached the network',
+        b.length ? b.length + ' beacon(s) seen' : 'waiting…');
+
+    if (window.attune) document.getElementById('fire').disabled = false;
+
+    if (elapsed > 11000) {
+      clearInterval(timer);
+      beaconBaseline = beacons().length;
+      var w = document.getElementById('warn');
+      if (!script.length) {
+        w.hidden = false;
+        w.innerHTML = '<strong>Script never fetched.</strong> Most likely an ad ' +
+          'blocker, a content-security policy on this page, or no network route ' +
+          'to the tracker. Try a clean browser profile with extensions disabled ' +
+          'before concluding the tag is broken.';
+      } else if (!beacons().length) {
+        w.hidden = false;
+        w.innerHTML = '<strong>Script loaded but nothing was sent.</strong> Check ' +
+          'the pixel ID is valid for this advertiser. Some builds batch the first ' +
+          'beacon — leave the page open a few seconds and watch the Network tab ' +
+          'for <code>s?aid=</code>.';
+      }
+    }
+  }, 500);
+
+  document.getElementById('fire').addEventListener('click', function () {
+    var before = beacons().length;
+    window.attune('event', 'lead', { source: 'live_check' });
+    set('lead', 'wait', 'Test lead sent', 'watching for the beacon…');
+    var tries = 0;
+    var t2 = setInterval(function () {
+      var after = beacons().length;
+      if (after > before) {
+        clearInterval(t2);
+        set('lead', 'ok', 'Test lead reached the network',
+            'now confirm it appears as a Lead on the Web Pixel page');
+      } else if (++tries > 20) {
+        clearInterval(t2);
+        set('lead', 'no', 'Test lead produced no network request',
+            'check the console for <code>[attune]</code> warnings');
+      }
+    }, 300);
+  });
+})();
+</script>
