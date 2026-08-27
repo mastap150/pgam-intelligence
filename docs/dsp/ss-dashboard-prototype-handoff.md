@@ -58,13 +58,24 @@ user. These are product findings, not prototype findings.
 `src/app/(self-serve)/ss-campaigns/new/page.tsx` renders six — `app` and
 `abm` are absent from the grid.
 
-They are not stubs. `recommendedAudienceForGoal()` has cases for both, the
-`VALID` list in the `?goal=` seed effect accepts both, and the launch route
-maps both to an objective. `?goal=app` reaches the wizard today.
+The type-level plumbing is complete: `recommendedAudienceForGoal()`,
+`metricsForGoal()`, `budgetRangeForGoal()` and `FORECAST_GOAL_MAP` all have
+cases, the `VALID` list in the `?goal=` seed accepts both, and the launch route
+maps both to an objective.
 
-> **So:** "coming soon" is the wrong framing. Adding the two cards is a
-> two-line change; the plumbing is already there. The prototype labels them
-> *not in the picker today* rather than *on request*.
+> **That is not the same as being able to run them, and an earlier draft of
+> this document got it wrong.** The comment directly above `GOAL_CARDS` and
+> `docs/springserve-capability-map.md` §A.3 both say the omission is
+> deliberate: **there is no mobile-app inventory or attribution, and no
+> firmographic targeting.** The `Record<Goal, …>` maps are exhaustive because
+> TypeScript forces them to be, not because the capability exists.
+>
+> So this is a build, not a two-line change. Shipping the cards would put two
+> objectives in front of advertisers that the platform cannot deliver against
+> or measure — the exact failure the capability map files under "UI implies we
+> can, but we can't". The prototype shows them marked *not listed* so the gap
+> is visible to a reviewer; it should not ship that way to an advertiser
+> without the backend behind it.
 
 Per-goal behaviour the prototype surfaces, all from `campaign-launch.ts`:
 
@@ -215,9 +226,13 @@ the three options.
 
 ### 3.2 Should the two missing objectives ship?
 
-See §1.1 — the work is already done. Someone needs to say whether `app`
-and `abm` belong in a self-serve grid aimed at local advertisers, or stay
-deep-link-only for managed accounts.
+Not until there is something behind them. See §1.1: this needs mobile-app
+inventory plus an MMP handoff for `app`, and firmographic / IP-to-company
+matching for `abm`. Both are roadmap items, not toggles.
+
+The narrower question worth deciding now is whether `?goal=app` should keep
+working as a deep link at all. It currently seeds the wizard with an objective
+the platform cannot fulfil, which is a smaller version of the same problem.
 
 ### 3.3 Is the DMA crosswalk worth extending?
 
