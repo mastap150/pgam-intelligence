@@ -3,6 +3,8 @@
 **Prototype:** `docs/dsp/prototype/` in this repo · published at
 https://claude.ai/code/artifact/3f4eded5-4205-4927-b47e-6133a6b06d00
 **Companion:** `docs/dsp/ss-dashboard-ab-comparison.md` (the A/B review the design came out of)
+**Implementation:** `docs/dsp/prototype-implementation-prompts.md` (two session
+prompts — the demo surface, then the live port)
 **Written:** 2026-08-26, revised 2026-08-27. Verified against `pgam-dsp-dashboard@c155b18`-era `main`.
 
 Twelve screens, five campaign detail pages, a five-step builder. This
