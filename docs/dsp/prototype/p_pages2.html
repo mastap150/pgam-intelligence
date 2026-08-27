@@ -1,0 +1,1303 @@
+<!-- ══════════════ CAMPAIGNS ══════════════ -->
+<section class="page" id="p-campaigns" aria-label="Campaigns">
+  <div class="pagehead">
+    <div><h1>Campaigns</h1>
+      <p class="subline">5 campaigns · 3 on air · $81,920 spent these 8 weeks. One is under-pacing.</p></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <a class="ghost" href="#/new">Create campaign</a>
+      <a class="btn" href="#/new">Build the plan</a>
+    </div>
+  </div>
+
+  <div class="emptystate"><div class="card"><div class="cardbody empty">
+    <h2>No campaigns yet</h2>
+    <p>The builder starts from your business details and the defaults your category suggests, so the first campaign takes about four minutes. Nothing serves until you fund the wallet, so you can build it now and decide later.</p>
+    <a class="btn" href="#/new">Build your first campaign</a>
+  </div></div></div>
+
+  <div class="card ruled">
+    <div class="cardhead">
+      <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+        <span class="searchbox">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+          <label for="cq" class="sr">Search campaigns</label>
+          <input id="cq" placeholder="Search campaigns">
+        </span>
+        <div class="seg" role="group" aria-label="Status filter">
+          <button type="button" data-filter="all" aria-pressed="true">All</button>
+          <button type="button" data-filter="live" aria-pressed="false">On air</button>
+          <button type="button" data-filter="attention" aria-pressed="false">Needs attention</button>
+          <button type="button" data-filter="done" aria-pressed="false">Finished</button>
+        </div>
+      </div>
+      <span class="label" id="cCount">5 shown</span>
+    </div>
+    <div class="tablescroll"><table class="dt" id="cTable">
+      <thead><tr>
+        <th scope="col">Campaign</th><th scope="col">Status</th>
+        <th scope="col" class="r">Spend</th><th scope="col" class="r">Budget</th>
+        <th scope="col" class="r">Leads</th><th scope="col" class="r">Cost / lead</th><th scope="col" class="r">Attention</th>
+      </tr></thead>
+      <tbody>
+        <tr data-status="live"><td><a class="cname" href="#/campaign/brand-awareness">Brand Awareness Always-on</a><div class="csub">Streaming TV · 30s · 25 mi · ends Jul 11</div></td>
+          <td><span class="pill ok"><i style="background:var(--positive)"></i>On pace</span></td>
+          <td class="r" style="color:var(--ink);font-weight:500">$47,280</td><td class="r">$60,000</td>
+          <td class="r">445</td><td class="r">$106.25</td><td class="r">76</td></tr>
+        <tr data-status="live"><td><a class="cname" href="#/campaign/adventure-hero">Adventure Hero · CTV Q3</a><div class="csub">Streaming TV · 30s · 12 mi · ends Jul 5</div></td>
+          <td><span class="pill ok"><i style="background:var(--positive)"></i>On pace</span></td>
+          <td class="r" style="color:var(--ink);font-weight:500">$28,400</td><td class="r">$48,000</td>
+          <td class="r">312</td><td class="r">$91.03</td><td class="r">79</td></tr>
+        <tr data-status="done"><td><a class="cname" href="#/campaign/q1-pilot">Q1 Conversion Pilot</a><div class="csub">Streaming TV · 15s · 8 mi · ended Apr 4</div></td>
+          <td><span class="pill muted">Completed</span></td>
+          <td class="r" style="color:var(--ink);font-weight:500">$24,000</td><td class="r">$24,000</td>
+          <td class="r">168</td><td class="r">$142.86</td><td class="r">72</td></tr>
+        <tr data-status="live attention"><td><a class="cname" href="#/campaign/retargeting">Sequential Retargeting</a><div class="csub warn">Spending slower than planned · ends Jul 14</div></td>
+          <td><span class="pill warn"><i style="background:var(--warn)"></i>Under-pacing</span></td>
+          <td class="r" style="color:var(--ink);font-weight:500">$6,240</td><td class="r">$18,000</td>
+          <td class="r">87</td><td class="r">$71.72</td><td class="r">74</td></tr>
+        <tr data-status="attention"><td><a class="cname" href="#/campaign/holiday">Holiday Promo</a><div class="csub warn">Not submitted yet — the video and the dates are still blank</div></td>
+          <td><span class="pill muted">Draft</span></td>
+          <td class="r" style="color:var(--ink3)">—</td><td class="r">$35,000</td>
+          <td class="r" style="color:var(--ink3)">—</td><td class="r" style="color:var(--ink3)">—</td><td class="r" style="color:var(--ink3)">—</td></tr>
+      </tbody>
+    </table></div>
+    <p class="disclaimer">A dash means the platform cannot state a figure yet — never a zero, which would read as a result.</p>
+  </div>
+</section>
+
+<!-- ══════════════ CAMPAIGN DETAIL ══════════════ -->
+<section class="page" id="p-campaign" aria-label="Campaign detail">
+  <p class="crumb"><a href="#/campaigns">Campaigns</a> › <span id="cdName">Campaign</span></p>
+  <div class="pagehead">
+    <div><h1 id="cdTitle">Campaign</h1><p class="subline" id="cdSub"></p></div>
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+      <span id="cdPill" class="pill muted">—</span>
+      <span class="ghost" id="cdAct2">Pause</span>
+      <span class="btn" id="cdAct1">Edit budget</span>
+    </div>
+  </div>
+
+  <div id="cdNote" class="note" hidden></div>
+
+  <div class="card"><div class="strip c4" id="cdStrip"></div></div>
+
+  <div class="band a">
+    <div class="card ruled" id="cdChartCard">
+      <div class="cardhead"><div><h2>Weekly spend</h2><p class="cap" id="cdChartCap">Eight weeks to 22 June</p></div></div>
+      <div class="chartwrap">
+        <svg class="chartsvg" id="cdChart" viewBox="0 0 760 230" role="img" aria-label="Weekly spend for this campaign."></svg>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2>Setup</h2></div>
+      <div class="cardbody">
+        <dl class="kv" id="cdSetup"></dl>
+        <p class="foot" style="margin-top:14px">Everything except goal, creative and budget was set from your
+        last similar campaign. All of it is editable.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="band a" id="cdLower">
+    <div class="card">
+      <div class="cardhead"><div><h2>Where it ran</h2><p class="cap" id="cdMixCap">Share of this campaign's spend by channel category</p></div>
+        <a class="cta" href="#/new">See all 53 channels →</a></div>
+      <div class="cardbody" id="cdMix"></div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><h2>Attention</h2></div>
+      <div class="cardbody" id="cdAtt"></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead"><h2>Activity</h2></div>
+    <div style="padding:4px 20px 14px" id="cdActs"></div>
+  </div>
+</section>
+
+<!-- ══════════════ RESULTS ══════════════ -->
+<section class="page" id="p-results" aria-label="Results">
+  <div class="pagehead">
+    <div><h1>Results</h1>
+      <p class="subline" id="rgLine">Eight weeks to 22 June · $81,920 spent · 844 leads · $97.06 each</p></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+      <div class="seg" role="group" aria-label="Reporting period">
+        <button type="button" data-range="4" aria-pressed="false">4 weeks</button>
+        <button type="button" data-range="8" aria-pressed="true">8 weeks</button>
+        <button type="button" data-range="13" aria-pressed="false">13 weeks</button>
+        <button type="button" data-range="custom" aria-pressed="false">Custom</button>
+      </div>
+      <div class="seg" role="group" aria-label="Attribution window">
+        <button type="button" data-attr="1" aria-pressed="false">1 day</button>
+        <button type="button" data-attr="7" aria-pressed="false">7 days</button>
+        <button type="button" data-attr="14" aria-pressed="true">14 days</button>
+        <button type="button" data-attr="30" aria-pressed="false">30 days</button>
+      </div>
+      <span class="ghost">Export report</span>
+    </div>
+  </div>
+
+  <div class="note" id="attrNote">
+    <b>14-day attribution, applied to the whole window above.</b> A lead counts if the household called
+    or filled in a form within 14 days of seeing the ad. Changing it re-attributes history rather than
+    only affecting new delivery, so every figure on this page moves together — there is one window, not
+    one per screen. Delivery updates hourly and the last few hours are partial; leads keep arriving for
+    the length of the window, so anything younger than 14 days is still filling in.
+  </div>
+
+  <div class="emptystate"><div class="card"><div class="cardbody empty">
+    <h2>Nothing has served, so there is nothing to report</h2>
+    <p>Delivery figures appear within a day of a campaign going live. Leads take longer — up to 14 days, because that is the attribution window, and a lead is counted once inside it rather than twice at the edges.</p>
+    <a class="btn" href="#/new">Build a campaign</a>
+  </div></div></div>
+
+  <div class="card" id="rangeCard" hidden>
+    <div class="cardbody" style="display:flex;flex-wrap:wrap;gap:14px;align-items:flex-end">
+      <div class="field"><label for="rgFrom">From</label>
+        <input id="rgFrom" type="date" value="2026-02-02" min="2026-01-05" max="2026-06-22"></div>
+      <div class="field"><label for="rgTo">To</label>
+        <input id="rgTo" type="date" value="2026-06-22" min="2026-01-05" max="2026-06-22"></div>
+      <p class="foot" id="rgNote" style="flex:1;min-width:220px;margin:0 0 10px">
+        The ledger holds 24 weeks, from 5 January. Weeks are whole — a range is snapped to the weeks it
+        covers rather than pro-rated across a part week.</p>
+    </div>
+  </div>
+
+  <div class="card ruled">
+    <div class="cardhead"><h2>The short version</h2></div>
+    <div class="cardbody">
+      <p style="margin:0;font-size:15px;color:var(--ink2);line-height:1.6;max-width:74ch">
+        You spent <b style="color:var(--ink)">$81,920</b> and it produced <b style="color:var(--ink)">844
+        leads</b> at <b style="color:var(--ink)">$97.06</b> each — down 30% from $138.87 the previous eight
+        weeks, so the same money is working harder than it was. Two thirds of those leads were
+        <b style="color:var(--ink)">phone calls</b>, which is what a streaming campaign for a local business
+        should look like.
+      </p>
+      <div class="band a" style="margin-top:18px">
+        <div>
+          <p class="label">What's working</p>
+          <ul class="clean" style="margin-top:8px">
+            <li><b>Sequential Retargeting at $71.72 a lead</b> — your cheapest source by a wide margin, and
+            it still has $7,916 of monthly budget unspent.</li>
+            <li><b>Cost per lead fell every month.</b> May averaged $104.31; June is at $95.08.</li>
+            <li><b>Attention is holding at 77</b> while spend tripled — usually the first thing to slip when
+            a campaign scales.</li>
+          </ul>
+        </div>
+        <div>
+          <p class="label">What isn't</p>
+          <ul class="clean" style="margin-top:8px">
+            <li><b>Brand Awareness costs $106.25 a lead</b> — the dearest line running. Expected for
+            awareness, but it is 58% of your spend.</li>
+            <li><b>The first week of May has no lead data.</b> Measurement was connected mid-flight, so that
+            week shows spend and no leads. It is excluded, not counted as zero.</li>
+            <li><b>The wallet covers 7 days.</b> Everything above stops when it empties.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card"><div class="strip c3">
+    <div>
+      <div class="label">Households reached</div>
+      <div class="row"><span class="val">231,900</span></div>
+      <p class="foot">Distinct households, not impressions. The three campaigns overlap, so this is the
+      union rather than the sum.</p>
+    </div>
+    <div>
+      <div class="label">Times each one saw it</div>
+      <div class="row"><span class="val">8.4</span></div>
+      <p class="foot">1.94M impressions over eight weeks — about once a household a week, inside the
+      5-a-day cap by a wide margin.</p>
+    </div>
+    <div>
+      <div class="label">Cost per household</div>
+      <div class="row"><span class="val">$0.35</span></div>
+      <p class="foot">$81,920 to reach 231,900 homes 8.4 times each. The number to quote against a
+      direct-mail drop, not against a click.</p>
+    </div>
+  </div></div>
+
+  <div class="card ruled">
+    <div class="cardhead">
+      <div><h2>Spend against cost per lead</h2>
+        <p class="cap">Bars are what you spent; the line is what a lead cost. The claim on this page is that
+        they move in opposite directions.</p></div>
+      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+        <span class="lgnd"><i class="sw bar" aria-hidden="true"></i>Spend</span>
+        <span class="lgnd"><i class="sw ln" aria-hidden="true"></i>Cost per lead</span>
+        <span class="pill ok" id="rcVerdict"><i style="background:var(--positive)"></i>Spend up, cost down</span>
+      </div>
+    </div>
+    <div class="chartwrap">
+      <svg id="rChart2" class="chartsvg" viewBox="0 0 760 230" preserveAspectRatio="none"
+           role="img" aria-labelledby="rc2Desc"></svg>
+      <p id="rc2Desc" class="sr">Weekly spend as bars against cost per lead as a line, over the selected
+      window. The table below carries the same figures.</p>
+    </div>
+    <p class="disclaimer" id="rc2Foot">Weeks with spend and no measured leads break the line rather than
+    plotting a zero.</p>
+  </div>
+
+  <div class="card ruled">
+    <div class="cardhead">
+      <div><h2>Leads and spend</h2><p class="cap" id="pvCap">Same window, pivoted. The total is the same however you group it.</p></div>
+      <div class="seg" role="group" aria-label="Group by">
+        <button type="button" data-pivot="campaign" aria-pressed="true">Campaign</button>
+        <button type="button" data-pivot="week" aria-pressed="false">Week</button>
+        <button type="button" data-pivot="month" aria-pressed="false">Month</button>
+        <button type="button" data-pivot="type" aria-pressed="false">Lead type</button>
+      </div>
+    </div>
+    <div class="tablescroll"><table class="dt" id="pvTable">
+      <thead><tr>
+        <th scope="col" id="pvH0">Campaign</th>
+        <th scope="col" class="r">Spend</th><th scope="col" class="r">Leads</th>
+        <th scope="col" class="r">Cost / lead</th><th scope="col">Share of leads</th>
+      </tr></thead>
+      <tbody id="pvBody"></tbody>
+      <tfoot><tr class="tot">
+        <td id="pvFoot">Total</td><td class="r">$81,920</td><td class="r">844</td><td class="r">$97.06</td><td></td>
+      </tr></tfoot>
+    </table></div>
+    <p class="disclaimer">Q1 Conversion Pilot finished on 4 April and sits outside this window, so it is
+    absent here and present on Campaigns. A dash is never a zero.</p>
+  </div>
+
+  <div class="band a">
+    <div class="card">
+      <div class="cardhead"><div><h2>Lead type</h2><p class="cap">What the 844 actually were</p></div></div>
+      <div class="cardbody">
+        <div class="split">
+          <i style="width:68.4%;background:var(--primary)">577 calls · 68%</i>
+          <i style="width:31.6%;background:#8FC3F5;color:var(--ink)">267 forms · 32%</i>
+        </div>
+        <div class="rowsplit"><span class="k">Calls to the number in your ad</span><span class="v">577</span></div>
+        <div class="rowsplit"><span class="k">Form fills on your site</span><span class="v">267</span></div>
+        <p class="foot" style="margin-top:10px">Calls are attributed by the tracking number, form fills by
+        the site tag. Both are counted once, within the 14-day attribution window.</p>
+      </div>
+    </div>
+    <div class="card">
+      <div class="cardhead"><div><h2>Cost per lead by month</h2><p class="cap">The direction that matters</p></div></div>
+      <div class="cardbody">
+        <div class="rowsplit"><span class="k">May · $18,881 over 181 leads</span><span class="v">$104.31</span></div>
+        <div class="rowsplit"><span class="k">June · $63,039 over 663 leads</span><span class="v">$95.08</span></div>
+        <div class="rowsplit"><span class="k">Previous 8 weeks</span><span class="v" style="color:var(--ink3)">$138.87</span></div>
+        <p class="foot" style="margin-top:10px">June spent 3.3× what May did and still brought the cost per
+        lead down 9%. That is the sign scaling has not yet hit its ceiling — the opposite of what usually
+        happens when a campaign grows.</p>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="groupttl">Where it ran</p>
+    <p class="groupsub">The same 1.94M impressions cut seven ways. Every cut sums to the whole, and every cut rolls up to the same attention score of 77.</p>
+    <div class="brkgrid">
+      <div class="card"><div class="cardhead"><div><h2>Day of week</h2><p class="cap">When your ads ran</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-dow"></ul></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Hour of day</h2><p class="cap">In clock order, because the shape is the point</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-hod"></ul>
+          <table class="sr" id="hodTable"><caption>Impressions and spend by hour of day</caption>
+            <thead><tr><th scope="col">Hour</th><th scope="col">Impressions</th><th scope="col">Spend</th></tr></thead>
+            <tbody></tbody></table>
+          <p class="foot" id="hodCap"></p></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Top DMAs</h2><p class="cap">Designated market areas</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-dma"></ul></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Content genre</h2><p class="cap">What your ad appeared inside</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-genre"></ul></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Top apps</h2><p class="cap">CTV apps and bundles</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-apps"></ul></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Devices</h2><p class="cap">What the ad played on</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-dev"></ul></div></div>
+      <div class="card"><div class="cardhead"><div><h2>Creative</h2><p class="cap">Which video did the work</p></div></div>
+        <div class="cardbody"><ul class="brk" id="brk-cre"></ul>
+          <p class="foot">Each campaign currently runs one video, so this cut and the campaign cut are
+          the same numbers wearing different labels. Run two videos in one campaign and this table starts
+          telling you something the other one cannot.</p></div></div>
+      <div class="card">
+        <div class="cardhead"><div><h2>What these seven say together</h2><p class="cap">Read across, not down</p></div></div>
+        <div class="cardbody">
+          <p style="margin:0 0 12px;font-size:13.5px;color:var(--ink2);line-height:1.55">
+            <b style="color:var(--ink)">61% of delivery is Denver</b> against a 12-mile radius centred on
+            Boulder — that is the DMA the radius sits inside, not a leak. Colorado Springs and Salt Lake
+            City together are 19%, which is spill you are paying for and cannot serve.</p>
+          <p style="margin:0 0 12px;font-size:13.5px;color:var(--ink2);line-height:1.55">
+            <b style="color:var(--ink)">62% of delivery lands between 5pm and 11pm</b>, and Saturday and
+            Sunday alone are 36% of the week. If you ever do daypart, that is the shape to
+            keep — not the one to fight.</p>
+          <p style="margin:0;font-size:13.5px;color:var(--ink2);line-height:1.55">
+            <b style="color:var(--ink)">Free streaming carries 52% of impressions</b> — Tubi, Roku, Pluto
+            and Samsung between them. Premium is a fifth of delivery for a similar share of spend, which is
+            what you would expect from the CPM difference.</p>
+          <p style="margin:12px 0 0;font-size:13.5px;color:var(--ink2);line-height:1.55">
+            <b style="color:var(--ink)">The 12% that is not a television scores 66 and 61.</b> Phone and PC
+            drag the account average down; CTV on its own is 79. That is the clearest case on this page for
+            narrowing something — and the only one where narrowing would raise the score rather than just
+            shrink the pool.</p>
+        </div>
+      </div>
+    </div>
+    <p class="disclaimer" style="border:1px solid var(--line);border-radius:10px;background:var(--surface)">
+      These are the seven dimensions the reporting API returns today. <b style="color:var(--ink2)">Impressions
+      and attention are exact; the spend column is derived</b> — the breakdown fetchers return an aggregate
+      billable cost, so spend is rescaled from impressions at this account's weighted-average gross CPM.
+      With one CPM that is exact; across several it is an approximation, and the exact figures live in the
+      totals and in each campaign. Leads are not broken out this way at all, because attribution resolves
+      to a campaign and a household, not to an hour or an app.</p>
+  </div>
+</section>
+
+<!-- ══════════════ ATTENTION ══════════════ -->
+<section class="page" id="p-attention" aria-label="Attention">
+  <div class="pagehead">
+    <div><h1>Attention</h1>
+      <p class="subline">Spend-weighted across the eight weeks to 22 June · 3 campaigns scored</p></div>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span class="pill muted">8 weeks to 22 June</span>
+      <a class="cta" href="#/results">Change the window on Results →</a>
+    </div>
+  </div>
+
+  <div class="emptystate"><div class="card"><div class="cardbody empty">
+    <h2>No campaign has enough delivery to be scored</h2>
+    <p>A campaign needs 48 hours on air before there are enough impressions to score it. Until then it is excluded from the account average rather than counted as a zero, which would drag the number down for something that simply has not run.</p>
+    <a class="btn" href="#/new">Build a campaign</a>
+  </div></div></div>
+
+  <div class="band a">
+    <div class="card ruled">
+      <div class="cardhead"><h2>Attention, broken down</h2></div>
+      <div class="cardbody">
+        <div style="display:flex;align-items:baseline;gap:12px">
+          <span class="bigstat">77</span>
+          <span style="font-size:14px;font-weight:500;color:var(--positive)">Strong</span>
+        </div>
+        <div class="bench">
+          <span class="benchtrack"><span class="fill" style="width:77%"></span><span class="mk" style="left:64%"></span></span>
+          <span class="foot" style="margin:0;white-space:nowrap">open web ≈ 64</span>
+        </div>
+        <p class="foot">The mean of the three below, each weighted by the spend that produced it.</p>
+
+        <div style="margin-top:20px;display:grid;gap:15px">
+          <div>
+            <div class="rowsplit" style="padding:0"><span class="k"><b style="color:var(--ink)">On screen</b> — the TV was on and the ad was the thing playing</span><span class="v">81</span></div>
+            <div class="bar"><i style="width:81%"></i></div>
+          </div>
+          <div>
+            <div class="rowsplit" style="padding:0"><span class="k"><b style="color:var(--ink)">Sound on</b> — not muted, which is most of the difference from web video</span><span class="v">75</span></div>
+            <div class="bar"><i style="width:75%"></i></div>
+          </div>
+          <div>
+            <div class="rowsplit" style="padding:0"><span class="k"><b style="color:var(--ink)">Watched to the end</b> — the spot completed rather than being skipped or abandoned</span><span class="v">75</span></div>
+            <div class="bar"><i style="width:75%"></i></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead"><h2>By campaign</h2></div>
+      <div class="cardbody">
+        <div style="display:grid;gap:14px">
+          <div>
+            <div class="rowsplit" style="padding:0"><a class="k cta" href="#/campaign/adventure-hero" style="font-size:13px">Adventure Hero · CTV Q3</a><span class="v">79</span></div>
+            <div class="bar"><i style="width:79%"></i></div>
+            <p class="foot" style="margin-top:4px">84 on screen · 76 completed · 30s</p>
+          </div>
+          <div>
+            <div class="rowsplit" style="padding:0"><a class="k cta" href="#/campaign/brand-awareness" style="font-size:13px">Brand Awareness Always-on</a><span class="v">76</span></div>
+            <div class="bar"><i style="width:76%"></i></div>
+            <p class="foot" style="margin-top:4px">79 on screen · 75 completed · 30s</p>
+          </div>
+          <div>
+            <div class="rowsplit" style="padding:0"><a class="k cta" href="#/campaign/retargeting" style="font-size:13px">Sequential Retargeting</a><span class="v">74</span></div>
+            <div class="bar"><i style="width:74%"></i></div>
+            <p class="foot" style="margin-top:4px">76 on screen · 75 completed · 15s</p>
+          </div>
+        </div>
+        <div class="note" style="margin-top:16px">
+          <b>Your 30-second cuts score 77; the 15-second cut scores 74.</b> A longer spot has more chance to
+          be abandoned and still holds attention better here — worth knowing before the next cutdown.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="band a">
+    <div class="card">
+      <div class="cardhead"><div><h2>Where the score comes from</h2><p class="cap">Played on a TV screen, in a household, at a measurable moment</p></div></div>
+      <div class="cardbody">
+        <p style="margin:0 0 12px;font-size:13.5px;color:var(--ink2);line-height:1.55">
+          Every impression is scored on the three components above and rolled up by spend. A campaign needs
+          <b style="color:var(--ink)">48 hours on air</b> before it has enough impressions to be scored at all —
+          until then it is excluded, never counted as zero.
+        </p>
+        <dl class="kv">
+          <dt>Impressions scored</dt><dd>1.94M of 1.94M in the window</dd>
+          <dt>Campaigns scored</dt><dd>3 of 3 delivering</dd>
+          <dt>Not yet scored</dt><dd>Holiday Promo — has not served</dd>
+          <dt>Refreshed</dt><dd>Hourly, on delivery</dd>
+        </dl>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cardhead"><h2>What this score is not</h2></div>
+      <div class="cardbody">
+        <p style="margin:0;font-size:14px;color:var(--ink2);line-height:1.6">
+          It is not a measure of whether the campaign worked. A spot can be watched closely by people who
+          were never going to call. <b style="color:var(--ink)">Attention tells you the media was bought
+          well;</b> <a class="cta" href="#/results" style="font-size:inherit">Results</a> tells you whether it
+          earned anything. When attention is high and results are thin, the problem is the offer, not the
+          placement.
+        </p>
+        <div class="note" style="margin-top:14px">
+          Your attention is <b>77</b> and your cost per lead <b>fell 30%</b> over the same window. Both moving
+          the right way at once means the media and the offer are working together — which is the case where
+          scaling is the obvious next move.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════ GROW ══════════════ -->
+<section class="page" id="p-grow" aria-label="Grow">
+  <div class="pagehead">
+    <div><h1>Grow</h1>
+      <p class="subline">Five signals, ranked by what they are worth against what they cost. Every figure
+      is derived from your account, not a benchmark.</p></div>
+  </div>
+
+  <div class="emptystate"><div class="card"><div class="cardbody empty">
+    <h2>Recommendations come from your own account</h2>
+    <p>Every figure on this page is derived from what you have run, not from a benchmark — so with nothing run, there is nothing to derive. The first recommendations appear once a campaign has about a week of delivery behind it.</p>
+    <a class="btn" href="#/new">Build a campaign</a>
+  </div></div></div>
+
+  <div class="note warn">
+    <b>One gate applies to everything below.</b> Your wallet covers <b>7 days</b> at today's $2,326 a day.
+    Every recommendation here increases spend, so none of them can be taken until it is funded.
+    <a href="#/billing" style="color:inherit;font-weight:600">Add funds →</a>
+  </div>
+
+  <div style="display:grid;gap:14px">
+
+    <div class="growcard">
+      <div class="growhead">
+        <span class="gi" style="background:var(--pos-bg)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--positive)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg></span>
+        <div style="flex:1;min-width:0">
+          <h2 class="gt">Scale Sequential Retargeting first</h2>
+          <p class="gb">It is your cheapest source of leads at <b>$71.72</b> — $34.53 below Brand Awareness —
+          and it is the one line running behind. $7,916 of its $18,000 monthly budget is unspent, so the
+          headroom is already sitting on the best-performing campaign. Retargeting reaches a finite pool, so
+          expect the marginal lead to cost more than the average: treat 110 as the optimistic end.</p>
+        </div>
+      </div>
+      <div class="growfoot">
+        <div><div class="gm">~110 more leads a month</div><div class="gc">$7,916 unspent · at today's $71.72</div></div>
+        <a class="btn" href="#/campaign/retargeting">Review pacing</a>
+      </div>
+    </div>
+
+    <div class="growcard">
+      <div class="growhead">
+        <span class="gi" style="background:var(--tint-deep)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/></svg></span>
+        <div style="flex:1;min-width:0">
+          <h2 class="gt">Then Adventure Hero, not Brand Awareness</h2>
+          <p class="gb">Adventure Hero has $17,069 unspent at <b>$91.03</b> a lead and the highest attention
+          on the account at <b>79</b>. Brand Awareness has more headroom — $30,451 — but at $106.25 it buys
+          the dearest leads you run. The same $17,069 buys 188 leads on Adventure Hero against
+          161 on Brand Awareness, so filling the cheaper line first is worth about 27 leads for
+          identical money.</p>
+        </div>
+      </div>
+      <div class="growfoot">
+        <div><div class="gm">~187 more leads a month</div><div class="gc">$17,069 unspent · at today's $91.03</div></div>
+        <a class="btn" href="#/campaign/adventure-hero">Review pacing</a>
+      </div>
+    </div>
+
+    <div class="growcard">
+      <div class="growhead">
+        <span class="gi" style="background:var(--warn-bg)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--warn)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4l9 16H3z"/><line x1="12" y1="10" x2="12" y2="14"/><circle cx="12" cy="17" r=".6" fill="currentColor"/></svg></span>
+        <div style="flex:1;min-width:0">
+          <h2 class="gt">Holiday Promo is one file away from running</h2>
+          <p class="gb">The draft has a $35,000 budget and everything else already defaulted from Adventure
+          Hero. Two things are missing and neither can be guessed: a video, and a flight. Left as it is, that
+          budget does nothing.</p>
+        </div>
+      </div>
+      <div class="growfoot">
+        <div><div class="gm">$35,000 idle</div><div class="gc">blocked on a creative and dates</div></div>
+        <a class="btn" href="#/creatives">Upload a video</a>
+      </div>
+    </div>
+
+    <div class="growcard">
+      <div class="growhead">
+        <span class="gi" style="background:var(--tint-deep)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v5"/><circle cx="12" cy="16" r=".6" fill="currentColor"/></svg></span>
+        <div style="flex:1;min-width:0">
+          <h2 class="gt">Your 15-second cut under-performs the 30</h2>
+          <p class="gb">30-second spots score <b>77</b> on attention against <b>74</b> for the 15. The gap is
+          small but it runs the same direction on every campaign, and the cheaper impressions a 15 buys are
+          not cheaper per lead once completion is taken into account. Worth testing a 30-second cutdown on
+          the retargeting line before scaling it.</p>
+        </div>
+      </div>
+      <div class="growfoot">
+        <div><div class="gm">3 points of attention</div><div class="gc">30s = 77 · 15s = 74, spend-weighted</div></div>
+        <a class="btn" href="#/attention">Open attention</a>
+      </div>
+    </div>
+
+    <div class="growcard">
+      <div class="growhead">
+        <span class="gi" style="background:var(--line-faint)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg></span>
+        <div style="flex:1;min-width:0">
+          <h2 class="gt">The 8-mile radius is a solved problem — do not repeat it</h2>
+          <p class="gb">Q1 Conversion Pilot ran at 8 miles and cost <b>$142.86</b> a lead, the dearest you
+          have run. Every campaign since has used 12–25 miles and none has been above $107. This is not an
+          action, it is a default worth keeping: the builder now starts new campaigns at 12.</p>
+        </div>
+      </div>
+      <div class="growfoot">
+        <div><div class="gm">$45.80 a lead</div><div class="gc">$142.86 against your $97.06 account average</div></div>
+        <a class="btn" href="#/campaign/q1-pilot">See the pilot</a>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="note">
+    <b>Projections assume today's cost per lead holds.</b> They are estimates, not commitments — a campaign
+    that doubles its budget rarely doubles its leads, and the retargeting pool in particular is finite.
+    Treat every figure above as the optimistic end of a range.
+  </div>
+</section>
+
+<!-- ══════════════ TOOLS ══════════════ -->
+<section class="page" id="p-tools" aria-label="Tools">
+  <div class="pagehead">
+    <div><h1>Tools</h1>
+      <p class="subline">Account setup and the shared lists every campaign draws from. Anything that
+      changes one campaign lives inside that campaign, not here.</p></div>
+  </div>
+
+  <div class="card ruled" id="rdyNew" hidden>
+    <div class="cardhead">
+      <div><h2>Is this account set up?</h2>
+        <p class="cap">The question people actually open this page to answer</p></div>
+      <span class="pill warn"><i style="background:var(--warn)"></i>4 things need you</span>
+    </div>
+    <div class="cardbody">
+      <p style="margin:0 0 16px;font-size:14px;color:var(--ink2);max-width:78ch">
+        Nothing is set up yet, which is normal — none of it takes long, and only the first two have to
+        happen before a campaign can go on air.</p>
+      <div class="rdy">
+        <div class="rdyrow">
+          <span class="rdyi warn" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="6" x2="12" y2="13"/><circle cx="12" cy="17.5" r=".9" fill="#fff"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">The wallet is empty</div>
+            <p class="rdyd">Streaming is prepaid, so nothing serves until there is a balance to draw
+            from. There is no minimum and no commitment; whatever is left over stays yours.</p>
+          </div>
+          <a class="cta" href="#/billing">Add funds →</a>
+        </div>
+        <div class="rdyrow">
+          <span class="rdyi warn" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="6" x2="12" y2="13"/><circle cx="12" cy="17.5" r=".9" fill="#fff"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">There is no video</div>
+            <p class="rdyd">A campaign cannot be submitted without one. Upload a 15 or 30 second file,
+            or have one made from photos of the business — either way, approval takes about a working day.</p>
+          </div>
+          <a class="cta" href="#/creatives">Upload a video →</a>
+        </div>
+        <div class="rdyrow">
+          <span class="rdyi warn" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="6" x2="12" y2="13"/><circle cx="12" cy="17.5" r=".9" fill="#fff"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">Measurement is not connected</div>
+            <p class="rdyd">Without the site tag and a tracking number we can report delivery but not
+            the calls and forms it produced — which is to say, we can tell you what you spent and not
+            what it bought. This is the one worth doing before the first campaign, not after.</p>
+          </div>
+          <a class="cta" href="#/settings">Connect it →</a>
+        </div>
+        <div class="rdyrow">
+          <span class="rdyi ok" aria-hidden="true">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">Business details are complete</div>
+            <p class="rdyd">Taken at sign-up. The address sets the default radius on every campaign you
+            plan, so the builder already has somewhere to start.</p>
+          </div>
+          <a class="cta" href="#/settings">Edit details →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card ruled" id="rdyLive">
+    <div class="cardhead">
+      <div><h2>Is this account set up?</h2>
+        <p class="cap">The question people actually open this page to answer</p></div>
+      <span class="pill warn"><i style="background:var(--warn)"></i>2 things need you</span>
+    </div>
+    <div class="cardbody">
+      <p style="margin:0 0 16px;font-size:14px;color:var(--ink2);max-width:78ch">
+        Nothing is blocking delivery <b style="color:var(--ink)">today</b>. Two things will block it
+        inside a week: the wallet has seven days left, and Holiday Promo cannot be submitted without
+        a video. Everything else is connected and reporting.</p>
+
+      <div class="rdy">
+        <div class="rdyrow">
+          <span class="rdyi ok" aria-hidden="true">
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">Measurement is reporting on both legs</div>
+            <p class="rdyd">Site tag live on <b>polytrek.example</b>, last event 4 minutes ago.
+            Tracking number active, 577 calls attributed in the window. Without both, we could report
+            delivery but not what it produced.</p>
+          </div>
+          <a class="cta" href="#/settings">Review setup →</a>
+        </div>
+
+        <div class="rdyrow">
+          <span class="rdyi ok" aria-hidden="true">
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">Business details and service area are complete</div>
+            <p class="rdyd">PolyTrek Outfitters, outdoor &amp; sporting retail. The address sets the
+            default radius on every new campaign — currently 12 miles, up from the 8 the Q1 pilot ran.</p>
+          </div>
+          <a class="cta" href="#/settings">Edit details →</a>
+        </div>
+
+        <div class="rdyrow">
+          <span class="rdyi warn" aria-hidden="true">
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="6" x2="12" y2="13"/><circle cx="12" cy="17.5" r=".9" fill="#fff"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">The wallet covers 7 days</div>
+            <p class="rdyd">$18,240 at $2,326 a day, dry around 30 June. Campaigns pause at zero and
+            resume the moment they are funded — nothing is lost, but the flight gaps, and a gapped
+            flight relearns its audience when it restarts.</p>
+          </div>
+          <a class="cta" href="#/billing">Add funds →</a>
+        </div>
+
+        <div class="rdyrow">
+          <span class="rdyi warn" aria-hidden="true">
+            <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round"><line x1="12" y1="6" x2="12" y2="13"/><circle cx="12" cy="17.5" r=".9" fill="#fff"/></svg></span>
+          <div class="rdyb">
+            <div class="rdyt">Holiday Promo has no video</div>
+            <p class="rdyd">Four spots are approved and one campaign has none. A draft with a $35,000
+            budget cannot be submitted until a 15 or 30 second file is attached, and that is the only
+            thing missing from it besides a flight.</p>
+          </div>
+          <a class="cta" href="#/creatives">Upload a video →</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <p class="groupttl">Campaign inputs</p>
+    <p class="groupsub">The shared pieces a campaign is assembled from.</p>
+    <div class="toolgrid">
+      <a class="tool" href="#/creatives">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4.5" width="19" height="15" rx="3"/><polygon points="10.5 9.5 15.5 12 10.5 14.5" fill="currentColor" stroke="none"/></svg></span>
+          <span class="tstate warn" data-newstate="None uploaded">4 approved · 1 missing</span></span>
+        <span class="tn">Creatives</span>
+        <p class="td">Your video spots and their approval state. Upload a 15 or 30 second file, or
+        have one made from photos of the business.</p>
+        <span class="tact">Upload a video</span>
+      </a>
+      <span class="tool">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8.5" r="3.2"/><path d="M3 19.5c0-3.1 2.7-5 6-5s6 1.9 6 5"/><path d="M16.5 6.2a3.2 3.2 0 0 1 0 5.6"/><path d="M18.2 14.9c1.8.7 2.8 2.2 2.8 4.6"/></svg></span>
+          <span class="tstate" data-newstate="None yet">3 active · 1 populating</span></span>
+        <span class="tn">Audiences and segments</span>
+        <p class="td">The saved audiences your campaigns draw from, plus PGAM's segment catalog and
+        your own uploaded customer lists.</p>
+        <span class="tact muted">Manage audiences <span class="pbadge" title="This screen is not drawn in the prototype">not drawn</span></span>
+      </span>
+      <span class="tool">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="13" rx="2.5"/><polyline points="8 2.5 12 6 16 2.5"/></svg></span>
+          <span class="tstate">53 channels · none blocked</span></span>
+        <span class="tn">Inventory lists</span>
+        <p class="td">Apps and channels you always want included, and anything you never want the ad
+        to appear beside. The campaign builder starts from these.</p>
+        <span class="tact muted">Edit lists <span class="pbadge" title="This screen is not drawn in the prototype">not drawn</span></span>
+      </span>
+    </div>
+  </div>
+
+  <div>
+    <p class="groupttl">Measurement</p>
+    <p class="groupsub">Without this, we can report delivery but not what it produced.</p>
+    <div class="toolgrid">
+      <a class="tool" href="#/integrations">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="4" y2="12"/><line x1="10" y1="20" x2="10" y2="6"/><line x1="16" y1="20" x2="16" y2="10"/><line x1="21" y1="20" x2="21" y2="3.5"/></svg></span>
+          <span class="tstate ok" data-newstate="Not connected" data-newwarn="1">Connected</span></span>
+        <span class="tn">Measurement and integrations</span>
+        <p class="td">The website tag, the tracking number, and every partner that feeds an
+        audience in or takes the results out.</p>
+        <span class="tact">Open integrations</span>
+      </a>
+      <a class="tool" href="#/settings">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.5 5.7 2 2 0 0 1 6.5 3.5z"/></svg></span>
+          <span class="tstate" data-newstate="No number yet" data-newwarn="1">1 number · 577 calls</span></span>
+        <span class="tn">Call tracking</span>
+        <p class="td">Numbers provisioned for the account, where they forward to, and how a call is
+        matched back to the placement that caused it.</p>
+        <span class="tact">Manage numbers</span>
+      </a>
+      <a class="tool" href="#/results">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2.5h7l5 5v14H6z"/><polyline points="13 2.5 13 7.5 18 7.5"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></span>
+          <span class="tstate" data-newstate="None scheduled">2 scheduled</span></span>
+        <span class="tn">Reports and schedules</span>
+        <p class="td">Saved views and the ones we email you. Same figures as Results, delivered on a
+        date — a report can never disagree with the screen it came from.</p>
+        <span class="tact">Manage reports</span>
+      </a>
+    </div>
+  </div>
+
+  <div>
+    <p class="groupttl">Account</p>
+    <p class="groupsub">Money, business details, and who can do what.</p>
+    <div class="toolgrid">
+      <a class="tool" href="#/billing">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="5.5" width="19" height="13" rx="2.5"/><line x1="2.5" y1="10" x2="21.5" y2="10"/></svg></span>
+          <span class="tstate warn" data-newstate="$0 · not funded">$18,240 · 7 days</span></span>
+        <span class="tn">Wallet</span>
+        <p class="td">Add funds, set an auto top-up floor, and download statements. Campaigns draw
+        from this balance as they deliver, never in advance.</p>
+        <span class="tact">Add funds</span>
+      </a>
+      <a class="tool" href="#/settings">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 9.5 5 4h14l1.5 5.5a3 3 0 0 1-5.7 1.4 3 3 0 0 1-5.6 0 3 3 0 0 1-5.7-1.4z"/><path d="M5 11.5V20h14v-8.5"/></svg></span>
+          <span class="tstate">PolyTrek Outfitters</span></span>
+        <span class="tn">Business details</span>
+        <p class="td">Name, address, category and service area. These set the default audience and
+        radius for every campaign you plan.</p>
+        <span class="tact">Edit details</span>
+      </a>
+      <a class="tool" href="#/settings">
+        <span class="thead"><span class="ti" aria-hidden="true">
+          <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8.5" cy="9" r="3.5"/><path d="M2.5 20c0-3.4 2.7-5.5 6-5.5s6 2.1 6 5.5"/><path d="M17 8.5h4.5"/><path d="M19.25 6.25v4.5"/></svg></span>
+          <span class="tstate" data-newstate="1 person">2 people</span></span>
+        <span class="tn">Team and access</span>
+        <p class="td">Who can see spend, who can launch, and who can only build drafts. Invites
+        expire after seven days.</p>
+        <span class="tact">Invite someone</span>
+      </a>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>What is deliberately not here.</b> Budget, flight dates, targeting and channel selection all
+    belong to a single campaign, so they live inside that campaign rather than in a global settings
+    page. Two tools above are named but not drawn in this prototype; they are marked so you are not
+    hunting for a screen that does not exist yet.
+  </div>
+</section>
+
+<!-- ══════════════ WALLET ══════════════ -->
+<section class="page" id="p-billing" aria-label="Wallet">
+  <div class="pagehead">
+    <div><h1>Wallet</h1>
+      <p class="subline">Streaming is prepaid. You are spending about $2,326 a day, and you are only
+      ever charged for impressions that have already served.</p></div>
+    <a class="btn" href="#addfunds">Add funds</a>
+  </div>
+
+  <div class="emptystate"><div class="card"><div class="cardbody empty">
+    <h2>The wallet is empty</h2>
+    <p>Streaming is prepaid: nothing can serve until there is a balance to draw from. There is no minimum and no commitment — you are only ever charged for impressions that have already served, and whatever is left stays yours.</p>
+    <a class="btn" href="#addfunds">Add funds</a>
+  </div></div></div>
+
+  <div class="note warn">
+    <b>7 days of runway.</b> At today's rate your balance covers delivery to around 30 June.
+    Campaigns pause automatically at zero and resume the moment they are funded — nothing is lost,
+    but the flight gaps, and on 8 June this account came within $3,948 of exactly that.
+  </div>
+
+  <div class="card ruled"><div class="strip c2">
+    <div>
+      <div class="label">Balance</div>
+      <div class="row"><span class="val">$18,240</span></div>
+      <p class="foot">Sitting in the wallet. Never committed until it serves.</p>
+    </div>
+    <div>
+      <div class="label">That runs for</div>
+      <div class="row"><span class="val">7 days</span></div>
+      <p class="foot">$2,326 a day — last week's spend ÷ 7, the same definition every other screen
+      uses. Dry around 30 June.</p>
+    </div>
+  </div></div>
+
+  <div class="card" id="addfunds">
+    <div class="cardhead">
+      <div><h2>Add funds</h2>
+        <p class="cap">Card only — it clears immediately, so a campaign starting tomorrow actually starts</p></div>
+    </div>
+    <div class="cardbody">
+      <div class="amtrow" role="group" aria-label="Top-up amount">
+        <button type="button" class="amt" data-amt="10000">$10,000</button>
+        <button type="button" class="amt" data-amt="25000">$25,000</button>
+        <button type="button" class="amt" data-amt="50000" aria-pressed="true">$50,000</button>
+        <button type="button" class="amt" data-amt="100000">$100,000</button>
+        <label class="sr" for="amtCustom">Custom amount in dollars</label>
+        <span class="amtwrap"><span class="cur" aria-hidden="true">$</span><input id="amtCustom" type="number" min="1000" step="1000" value="50000" class="amtin"></span>
+      </div>
+
+      <div class="buys" id="buys" aria-live="polite">
+        <b>$50,000</b> takes your balance to <b>$68,240</b> — about <b>29 days</b> at today's rate,
+        taking you to <b>22 July</b>.
+      </div>
+
+      <a class="btn" href="#addfunds" style="margin-top:16px" id="payBtn">Add $50,000</a>
+      <p class="foot">Card details are handled by Stripe and never touch our systems.</p>
+
+      <div class="hr"></div>
+      <p class="label">Cards on file</p>
+      <div class="cardlist">
+        <div class="crow">
+          <span class="cbrand">VISA</span>
+          <span class="cnum">•••• 4417</span>
+          <span class="cexp">expires 09/28</span>
+          <span class="pill ok"><i style="background:var(--positive)"></i>Default</span>
+        </div>
+        <div class="crow">
+          <span class="cbrand">MC</span>
+          <span class="cnum">•••• 8817</span>
+          <span class="cexp">expires 10/26 · <b style="color:var(--warn-text)">renew before 31 October</b></span>
+        </div>
+      </div>
+      <p class="foot">Cards only. Bank transfer takes three days to clear, which silently strands a
+      campaign that was meant to start tomorrow, so it is not offered.</p>
+
+      <div class="hr"></div>
+      <div class="rowsplit" style="border-top:0;padding-top:0;align-items:flex-start">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14px;font-weight:500;color:var(--ink)">Top up automatically</div>
+          <p class="foot" style="margin-top:4px" id="autoCopy">Add $50,000 whenever the balance drops
+          below three days of delivery — $6,978 at today's rate — so a campaign never goes dark
+          halfway through a flight.</p>
+        </div>
+        <button class="toggle" type="button" id="autoTog" aria-pressed="false" aria-label="Top up automatically"></button>
+      </div>
+      <p class="foot" id="autoOn" hidden style="color:var(--warn-text)">On. We will charge the Visa
+      ending 4417. You can change the amount or the floor at any time, and we email before every
+      charge.</p>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <div><h2>Recent activity</h2>
+        <p class="cap">Delivery is drawn weekly in arrears, after the impressions have served</p></div>
+      <span class="ghost">Export CSV</span>
+    </div>
+    <div class="tablescroll"><table class="dt">
+      <caption class="sr">Wallet transactions, newest first, with the running balance after each</caption>
+      <thead><tr>
+        <th scope="col">Date</th><th scope="col">Detail</th>
+        <th scope="col" class="r">Amount</th><th scope="col" class="r">Balance after</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>22 Jun</td><td>Delivery · week to 22 June</td><td class="r">−$16,284</td><td class="r">$18,240</td></tr>
+        <tr><td>15 Jun</td><td>Delivery · week to 15 June</td><td class="r">−$19,424</td><td class="r">$34,524</td></tr>
+        <tr><td>12 Jun</td><td>Top-up · Visa ending 4417</td><td class="r" style="color:var(--positive)">+$50,000</td><td class="r">$53,948</td></tr>
+        <tr><td>8 Jun</td><td>Delivery · week to 8 June</td><td class="r">−$16,171</td><td class="r">$3,948</td></tr>
+        <tr><td>1 Jun</td><td>Delivery · week to 1 June</td><td class="r">−$11,160</td><td class="r">$20,119</td></tr>
+        <tr><td>1 Jun</td><td>Opening balance</td><td class="r" style="color:var(--ink3)">—</td><td class="r">$31,279</td></tr>
+      </tbody>
+    </table></div>
+    <p class="disclaimer">Six entries covering June. The $3,948 on 8 June is what a seven-day runway
+    looks like when a top-up lands late — four days later than it should have.</p>
+  </div>
+
+  <div class="card">
+    <div class="cardhead">
+      <div><h2>Statements</h2>
+        <p class="cap">What served each month, from the same figures Results shows</p></div>
+      <span class="ghost">Download all</span>
+    </div>
+    <div class="tablescroll"><table class="dt">
+      <thead><tr>
+        <th scope="col">Month</th><th scope="col" class="r">Spend</th>
+        <th scope="col" class="r">Leads</th><th scope="col" class="r">Cost / lead</th>
+        <th scope="col" class="r">Statement</th>
+      </tr></thead>
+      <tbody>
+        <tr><td>June 2026</td><td class="r">$63,039</td><td class="r">663</td><td class="r">$95.08</td><td class="r"><span class="cta">PDF</span></td></tr>
+        <tr><td>May 2026</td><td class="r">$18,881</td><td class="r">181</td><td class="r">$104.31</td><td class="r"><span class="cta">PDF</span></td></tr>
+        <tr><td>March 2026</td><td class="r">$20,414</td><td class="r">147</td><td class="r">$138.87</td><td class="r"><span class="cta">PDF</span></td></tr>
+        <tr><td>February 2026</td><td class="r">$3,586</td><td class="r">21</td><td class="r">$170.76</td><td class="r"><span class="cta">PDF</span></td></tr>
+      </tbody>
+      <tfoot><tr class="tot">
+        <td>Four months</td><td class="r">$105,920</td><td class="r">1,012</td><td class="r">$104.66</td><td></td>
+      </tr></tfoot>
+    </table></div>
+    <p class="disclaimer">February and March are the Q1 Conversion Pilot's whole life — $24,000 over 168
+    leads — which is why cost per lead falls off a cliff in May, when the 8-mile radius was abandoned.
+    March's $138.87 is the same figure Results calls "the previous 8 weeks". A week is attributed to the
+    month it starts in, so a week straddling a boundary sits in one month rather than being split. The
+    ledger holds 24 weeks; anything before 5 January is in the archive.</p>
+  </div>
+
+  <div class="note">
+    <b>Checking what the spend bought?</b> Every figure on this page is the same ledger that produces
+    <a href="#/results" style="color:var(--primary);font-weight:600">Results</a> — a statement and a
+    report cannot disagree, because there is only one set of numbers underneath both.
+  </div>
+</section>
+
+<!-- ══════════════ HELP ══════════════ -->
+<section class="page" id="p-help" aria-label="Help">
+  <div class="pagehead">
+    <div><h1>Help</h1>
+      <p class="subline">The questions this product actually generates, answered where they come up.
+      Nothing here is a sales answer — where the honest answer is "we cannot", it says so.</p></div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">
+      <span class="ghost">Book a call</span>
+      <a class="btn" href="#/tools">Account setup</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="cardbody" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center">
+      <span class="searchbox" style="flex:1;min-width:240px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--ink3)" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="16.5" y1="16.5" x2="21" y2="21"/></svg>
+        <label for="hq" class="sr">Search help</label>
+        <input id="hq" placeholder="Search 40 questions — try “attention”, “lead”, “pause”">
+      </span>
+      <span class="foot" id="hCount" style="margin:0">40 questions across 7 topics</span>
+    </div>
+  </div>
+
+  <!-- ── Attention ─────────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Attention</h2>
+      <p class="cap">The measure that is ours, and the one people ask about most</p></div></div>
+
+    <details class="faq" open><summary>What is the attention score made of?</summary>
+      <div class="ans"><p>Three things, each measured separately on every impression and then averaged,
+      weighted by the spend that produced them:</p>
+      <ul class="clean">
+        <li><b>On screen</b> — the television was on and your ad was the thing playing, rather than
+        running behind a paused game or on a set that had been switched off at the wall.</li>
+        <li><b>Sound on</b> — not muted. This is most of the gap between streaming TV and web video.</li>
+        <li><b>Watched to the end</b> — the spot completed rather than being skipped or abandoned.</li>
+      </ul>
+      <p><a href="#/attention">The Attention page</a> shows all three, per campaign.</p></div></details>
+
+    <details class="faq"><summary>Is 77 good?</summary>
+      <div class="ans"><p>Yes. The open web sits around 64 on the same three components, so a streaming
+      buy that scores in the mid-to-high 70s is doing what you bought it to do. Below about 65 on a CTV
+      campaign, something is wrong — usually the inventory mix rather than the creative.</p>
+      <p>Judge the trend more than the level. A score that falls while spend rises is the earliest
+      warning you get that a campaign is scaling into worse inventory.</p></div></details>
+
+    <details class="faq"><summary>Why does a campaign show no score at all?</summary>
+      <div class="ans"><p>It needs 48 hours on air before there are enough impressions to score. Until
+      then it is <b>excluded</b> from the account average rather than counted as zero — counting it as
+      zero would drag the number down for something that simply has not run yet.</p>
+      <p>A dash on this product never means zero. It means not measured.</p></div></details>
+
+    <details class="faq"><summary>Attention is high but I have no leads. What does that mean?</summary>
+      <div class="ans"><p>That the media was bought well and the offer is not landing. Attention says
+      people watched; it says nothing about whether they wanted the thing. When attention is high and
+      results are thin, change the message, the offer or the landing page — not the targeting.</p>
+      <p>The reverse is rarer and more urgent: leads holding up while attention falls usually means you
+      are harvesting existing demand while the campaign quietly stops building any.</p></div></details>
+
+    <details class="faq"><summary>Does a longer spot score better?</summary>
+      <div class="ans"><p>On this account, yes — 30-second cuts average 77 against 74 for the 15. A
+      longer spot has more chance of being abandoned, so the gap is not obvious in advance, but it runs
+      the same direction on every campaign you have run.</p>
+      <p>The cheaper impressions a 15 buys are not cheaper per lead once completion is accounted for.
+      Worth testing a 30-second cutdown before scaling a 15.</p></div></details>
+
+    <details class="faq"><summary>Can I see attention by app, or by time of day?</summary>
+      <div class="ans"><p>Yes. Every row of <a href="#/results">Where it ran</a> on Results carries its
+      own attention score — by day, by market, by genre, by app and by device. Each cut rolls up to the
+      same account figure of 77, so you can compare across them without the numbers arguing.</p>
+      <p>The sharpest one is usually device: on this account, connected TV scores 79 while phone is 66
+      and desktop 61.</p></div></details>
+
+    <details class="faq"><summary>Is this the same as viewability?</summary>
+      <div class="ans"><p>No. Viewability asks whether an ad had the <i>opportunity</i> to be seen —
+      pixels in the viewport for a minimum time. Attention asks whether the conditions for it actually
+      being watched were present: on screen, audible, completed.</p>
+      <p>A muted autoplay in a background tab can be perfectly viewable. It scores badly here, which is
+      the point.</p></div></details>
+
+    <details class="faq"><summary>How is attention actually measured?</summary>
+      <div class="ans"><p>From signals the device and the player report back: screen state, audio state,
+      and the quartile completion events in the video ad response. It is not a panel, not a survey and
+      not modelled from a sample — it is scored on the impressions you actually bought.</p>
+      <p>Refreshed hourly as delivery comes in. Figures for the last few hours are partial and will move
+      as the rest of the day settles.</p></div></details>
+
+    <details class="faq"><summary>What is attention <i>not</i>?</summary>
+      <div class="ans"><p>It is not a measure of whether the campaign worked. A spot can be watched
+      closely by people who were never going to call. <b>Attention tells you the media was bought well;
+      <a href="#/results">Results</a> tells you whether it earned anything.</b></p>
+      <p>Both moving the right way at once — which is the case here — is the state in which scaling is
+      the obvious next move.</p></div></details>
+  </div>
+
+  <!-- ── Measurement ───────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Measurement and attribution</h2>
+      <p class="cap">Why the numbers are what they are</p></div></div>
+
+    <details class="faq"><summary>Why do your numbers differ from Google Analytics?</summary>
+      <div class="ans"><p>GA4 credits the last click before a purchase. There are no clicks on streaming
+      television, so Attune matches a lead to an ad by view-through: the household saw the ad, then
+      called or filled in a form within the attribution window.</p>
+      <p>The two will never agree and neither is wrong — they are measuring different things. GA4 will
+      systematically under-credit television, because the medium leaves no click to credit.</p></div></details>
+
+    <details class="faq"><summary>How does a household get matched to a lead?</summary>
+      <div class="ans"><p>By IP. The television that played the ad and the phone or laptop that later
+      visited your site are usually on the same home network, so they share an address. That match is
+      what turns an impression into an attributed visit.</p>
+      <p>It is a household-level match, not a person-level one. If two people in a house both look you
+      up, that is one household and two events.</p></div></details>
+
+    <details class="faq"><summary>What is the attribution window, and can I change it?</summary>
+      <div class="ans"><p>14 days by default: a call or a form fill counts if it happens within 14 days
+      of the household seeing the ad. You can change it per campaign on Results, and the figure applied
+      is always printed beside the numbers it produced.</p>
+      <p>A shorter window is more conservative and will show fewer leads. Changing it re-attributes
+      history rather than only affecting new delivery, so the whole series moves — which is why the
+      window in force is stated rather than assumed.</p></div></details>
+
+    <details class="faq"><summary>I can see events on the site tag but zero leads in Results. Why?</summary>
+      <div class="ans"><p>The site tag reports every event from every source — organic, paid, direct,
+      someone typing your name into a browser. Results only counts events it can attribute to an Attune
+      campaign.</p>
+      <p>Early in a flight it is normal to see traffic on one and nothing on the other. Attribution
+      needs delivery before it can match anything.</p></div></details>
+
+    <details class="faq"><summary>What counts as a lead?</summary>
+      <div class="ans"><p>A phone call to your tracked number that lasted long enough to be a real
+      conversation, or a form fill on a page carrying the site tag. Both are counted once, inside the
+      attribution window. Your split is currently 68% calls.</p></div></details>
+
+    <details class="faq"><summary>Can two campaigns both claim the same lead?</summary>
+      <div class="ans"><p>No. A lead is credited once, to the last campaign that reached that household
+      inside the window. The campaign totals on Results therefore add up to the account total exactly —
+      if they did not, one of them would be counting someone else's work.</p></div></details>
+
+    <details class="faq"><summary>Why does a week show spend but no leads?</summary>
+      <div class="ans"><p>Because measurement was not connected yet. The first week of May on this
+      account is exactly that: spend served, nothing counted. It is shown as a dash and excluded from
+      the cost-per-lead maths rather than counted as a zero, which would make that week look
+      catastrophic instead of unmeasured.</p></div></details>
+
+    <details class="faq"><summary>How fresh is the data?</summary>
+      <div class="ans"><p>Delivery updates hourly. The most recent few hours are partial — impressions
+      settle behind live, so today's figures will rise for a while after you look at them.</p>
+      <p>Leads lag further, by the length of the attribution window. Any campaign younger than 14 days
+      has more leads coming that are not on the page yet.</p></div></details>
+  </div>
+
+  <!-- ── Money ─────────────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Money and pacing</h2>
+      <p class="cap">Prepaid, drawn in arrears, never in advance</p></div></div>
+
+    <details class="faq"><summary>What happens when the wallet hits zero?</summary>
+      <div class="ans"><p>Delivery stops and every campaign moves to <b>Out of funds</b>. Nothing is
+      cancelled and nothing is lost; they resume automatically the moment the wallet is funded.</p>
+      <p>The cost is the gap in the flight. A campaign that restarts after a break relearns its audience
+      and is usually more expensive for a few days than it was before it stopped.</p></div></details>
+
+    <details class="faq"><summary>Why is a campaign "under-pacing"?</summary>
+      <div class="ans"><p>It is spending slower than its budget divided by its flight length. Usually
+      the audience is too narrow, the bid is too low, or the wallet ran dry mid-flight.</p>
+      <p>Under-pacing is not failure. It often means an efficient line has headroom — Sequential
+      Retargeting is your cheapest source of leads and your most under-paced campaign at the same time.
+      But the budget goes unspent unless something changes.</p></div></details>
+
+    <details class="faq"><summary>Is a typical cost per lead $97?</summary>
+      <div class="ans"><p>For local streaming television, $60–$150 is the usual band. It moves with how
+      competitive your category is and how tight your radius is. Yours is $97.06 and falling.</p>
+      <p>Compare it against your own history rather than the band. A number inside the band that is
+      rising is worse news than a number above it that is coming down.</p></div></details>
+
+    <details class="faq"><summary>What am I actually charged for?</summary>
+      <div class="ans"><p>Impressions that served. Not impressions bid on, not impressions won and
+      dropped. Delivery is drawn from the wallet weekly in arrears, after the fact — which is why the
+      transaction list shows a draw dated after the week it covers.</p></div></details>
+
+    <details class="faq"><summary>Is there a minimum, or a contract?</summary>
+      <div class="ans"><p>No minimum and no commitment. Whatever is left in the wallet stays yours; you
+      can stop a campaign at any point and the unspent balance is unaffected.</p></div></details>
+
+    <details class="faq"><summary>Why does adding a campaign shorten my runway so much?</summary>
+      <div class="ans"><p>Because runway is the whole account's, not one campaign's. A new campaign's
+      daily pace is added to what is already burning — $12,000 a month is about $429 a day on top of the
+      $2,326 already running, which takes seven days of cover down to six.</p>
+      <p>The builder does that arithmetic on the review step as you type the budget, rather than after
+      you launch.</p></div></details>
+  </div>
+
+  <!-- ── Campaigns ─────────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Campaigns and targeting</h2>
+      <p class="cap">What the choices actually do</p></div></div>
+
+    <details class="faq"><summary>What is the PGAM Optimized Network?</summary>
+      <div class="ans"><p>One line across all 53 destinations, with the mix rebalanced weekly toward
+      whatever is producing leads for <i>you</i> — not toward whatever is cheapest to buy.</p>
+      <p>It is not a black box. It only moves budget between destinations you are already eligible for,
+      it never bids past your cap, and every week's mix is on the campaign's Where it ran panel. Switch
+      to choosing channels yourself at any point and the mix freezes where the optimizer left it.</p></div></details>
+
+    <details class="faq"><summary>Should I narrow the targeting?</summary>
+      <div class="ans"><p>Usually not, and never by default. Every filter — age, income, daypart,
+      channel, genre — is a hard exclusion. Each one shrinks the pool, raises the cost per result and
+      slows down how fast the campaign learns.</p>
+      <p>The one case where narrowing genuinely helps is device: connected TV scores 79 on attention
+      while phone and desktop score 66 and 61. That is the rare filter that raises quality rather than
+      just cutting volume.</p></div></details>
+
+    <details class="faq"><summary>How big should my radius be?</summary>
+      <div class="ans"><p>Big enough that the budget can be seen more than once. The reach bar in the
+      builder shows how many times each household will see the ad at your budget — under about once a
+      month, nobody remembers it, and you have bought a very wide silence.</p>
+      <p>Your Q1 pilot ran at 8 miles and cost $142.86 a lead, the dearest campaign on the account.
+      Everything since has run 12–25 miles and nothing has been above $107.</p></div></details>
+
+    <details class="faq"><summary>Why is DMA targeting greyed out for some markets?</summary>
+      <div class="ans"><p>Because we can only guarantee 38 of roughly 210 US markets today. DMA is
+      applied through a crosswalk between Nielsen's market codes and the ad server's own metro ids, and
+      the rest are not yet matched.</p>
+      <p>An unmatched market would be accepted and then silently dropped — you would be targeting
+      nothing and not know it. Being refused is better than being ignored, so the ones we cannot resolve
+      are disabled rather than offered.</p></div></details>
+
+    <details class="faq"><summary>What does dayparting cost me?</summary>
+      <div class="ans"><p>Every hour you remove is inventory you cannot bid on. Narrowing the daypart
+      grid is the commonest way a campaign quietly under-delivers.</p>
+      <p>If you do daypart, follow the shape rather than fighting it: 62% of your delivery already
+      lands between 5pm and 11pm, and weekends alone are 36% of the week.</p></div></details>
+
+    <details class="faq"><summary>How long should a campaign run?</summary>
+      <div class="ans"><p>Four weeks minimum for anything measured by leads — attribution needs
+      delivery before it can show you anything, and a fortnight of data is mostly noise. Awareness wants
+      eight weeks or more. An event campaign is the exception: it is time-boxed and front-loads
+      delivery into the run-up, because impressions after the date are worthless.</p></div></details>
+  </div>
+
+  <!-- ── Creative ──────────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Creative</h2>
+      <p class="cap">Getting a spot on air</p></div></div>
+
+    <details class="faq"><summary>What format does my video need to be?</summary>
+      <div class="ans"><p>15 or 30 seconds, 1920×1080, MP4 or MOV, with audio. Broadcast-grade encoding
+      is handled for you. Approval takes about one working day.</p></div></details>
+
+    <details class="faq"><summary>I do not have a video. What now?</summary>
+      <div class="ans"><p>We can make one from photographs of the business, your logo and a short script.
+      It is not a substitute for a real production, but it is a great deal better than not being on
+      television, and the same approval path applies.</p></div></details>
+
+    <details class="faq"><summary>Why was my creative rejected?</summary>
+      <div class="ans"><p>Almost always one of four things: no audio track, a resolution below 1080p,
+      a claim that needs substantiation, or a phone number or URL on screen that does not match the
+      account. The rejection names which.</p></div></details>
+
+    <details class="faq"><summary>Can I run more than one video in a campaign?</summary>
+      <div class="ans"><p>Yes, and you should. Delivery is split between them and the per-video figures
+      appear on the campaign, so the comparison is made for you rather than requiring two campaigns and
+      a spreadsheet.</p></div></details>
+  </div>
+
+  <!-- ── Reporting ─────────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Reporting and exports</h2>
+      <p class="cap">Getting the numbers out</p></div></div>
+
+    <details class="faq"><summary>Why does the same figure appear on three screens?</summary>
+      <div class="ans"><p>Because there is one set of numbers underneath all of them. Every figure in
+      Attune is a sum over a single weekly ledger — the dashboard, Results, the campaign pages, the
+      wallet statements and the exports are all slices of it.</p>
+      <p>That is deliberate. A statement and a report that can disagree is a support ticket waiting to
+      happen.</p></div></details>
+
+    <details class="faq"><summary>Can I schedule a report?</summary>
+      <div class="ans"><p>Yes — daily, weekly or monthly, to any address. Scheduled reports carry the
+      same figures as the screen they came from and state the attribution window applied, so a report
+      opened three weeks later still says what it was measuring.</p></div></details>
+
+    <details class="faq"><summary>Why is spend approximate in the Where it ran breakdowns?</summary>
+      <div class="ans"><p>Because impressions are counted per row and cost is not. Spend in a breakdown
+      is worked back from impressions at your account's blended rate. With one rate that is exact; across
+      several it is close but not to the dollar.</p>
+      <p>The exact figures are the totals and the per-campaign rows. We would rather say this than let
+      you reconcile a breakdown against an invoice and lose an afternoon.</p></div></details>
+
+    <details class="faq"><summary>Why can I not see leads by hour, or by app?</summary>
+      <div class="ans"><p>Because attribution resolves to a campaign and a household, not to a moment or
+      a placement. We know a household saw your ad and later called; we do not know which of the eleven
+      impressions it saw that week was the one that did it.</p>
+      <p>Anyone who splits leads by hour is modelling, not measuring. Impressions and attention are
+      broken out that way because they genuinely are measured that way.</p></div></details>
+  </div>
+
+  <!-- ── Account ───────────────────────────────────────────── -->
+  <div class="card helpcard">
+    <div class="cardhead"><div><h2>Account and access</h2>
+      <p class="cap">People, permissions and getting help</p></div></div>
+
+    <details class="faq"><summary>Can I add someone to the account?</summary>
+      <div class="ans"><p>Yes, with three levels: owner, can edit campaigns, and can view only. Invites
+      expire after seven days. Only an owner can add funds or change the business details.</p></div></details>
+
+    <details class="faq"><summary>Can I white-label reports for a client?</summary>
+      <div class="ans"><p>Yes — Attune branding comes off client-facing reports from Settings. The
+      figures and the methodology notes stay, because a report that cannot explain itself is worth
+      less than no report.</p></div></details>
+
+    <details class="faq"><summary>Something looks wrong. Who do I talk to?</summary>
+      <div class="ans"><p>Book a call from the top of this page. Bring the screen and the window you
+      were looking at — every number in Attune is reproducible from the ledger, so a specific
+      disagreement is usually resolved in one conversation.</p></div></details>
+  </div>
+
+  <div class="card" id="hEmpty" hidden>
+    <div class="cardbody empty">
+      <h2 id="hEmptyT">Nothing matches that</h2>
+      <p>Try a shorter term — the search looks at question and answer text. Or book a call and ask a
+      person; the questions people actually ask are how this page gets written.</p>
+      <span class="ghost">Book a call</span>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,1968 @@
+<script>
+(function () {
+  "use strict";
+
+  var CHANNELS = [
+    ["Premium entertainment",[["Hulu","Hu",40.5,"emerald"],["HBO Max","HM",24.8,"purple"],["Disney+","D+",24.1,"sky"],["Peacock","Pe",22.6,"amber"],["Paramount+","P+",18.4,"blue"],["Netflix (ad tier)","Nf",17.2,"red"],["Apple TV+","AT",9.5,"slate"],["Showtime / Paramount+ w/ Showtime","Sh",6.8,"red"],["Starz","Sz",5.6,"zinc"],["AMC+","AM",4.9,"amber"]]],
+    ["Free streaming (FAST)",[["Tubi","Tu",36.8,"orange"],["The Roku Channel","Rk",33.5,"purple"],["Pluto TV","Pl",28.2,"indigo"],["Samsung TV+","ST",19.1,"slate"],["Amazon Freevee","Fv",16.4,"blue"],["Xumo Play","Xu",14.7,"indigo"],["Local Now","LN",8.3,"emerald"],["LG Channels","LG",11.2,"rose"],["Vizio WatchFree+","Vz",13.5,"violet"],["Crackle","Ck",6.1,"stone"],["Plex","Px",5.4,"amber"]]],
+    ["Live TV bundles",[["YouTube TV","YT",21.7,"red"],["Sling TV","Sg",11.9,"orange"],["FuboTV","Fb",7.5,"rose"],["DIRECTV Stream","DT",6.4,"blue"],["Philo","Ph",4.4,"purple"],["Hulu + Live TV","HL",12.3,"emerald"]]],
+    ["News",[["CBS News","CB",12.8,"blue"],["NBC News NOW","NB",9.8,"amber"],["ABC News Live","AB",8.4,"blue"],["Fox News","FN",14.6,"red"],["CNN","Cn",10.5,"red"],["MSNBC","Mn",7.9,"blue"],["Bloomberg","Bb",4.2,"orange"],["Newsmax","Nm",5.1,"red"]]],
+    ["Sports",[["ESPN+","Es",8.9,"red"],["FOX Sports","FS",7.6,"amber"],["NBC Sports / Peacock Sports","NS",8.2,"blue"],["CBS Sports","CS",5.9,"blue"],["MLB.TV","ML",3.4,"blue"],["NFL+","NF",6.1,"emerald"],["DAZN","Dz",2.8,"amber"]]],
+    ["Lifestyle",[["Discovery+","Di",9.6,"blue"],["HGTV (Max)","HG",7.2,"emerald"],["Food Network (Max)","FD",6.8,"red"],["Magnolia Network","Mg",3.5,"amber"],["Travel Channel (Max)","Tv",4.1,"sky"],["History Channel","Hs",5.6,"amber"]]],
+    ["Kids & family",[["Cartoon Network (Max)","CN",6.4,"purple"],["Nick Jr / Paramount+","NJ",5.2,"orange"],["PBS KIDS","PK",4.8,"amber"],["Disney Jr (Disney+)","DJ",5.7,"pink"],["Boomerang","Bm",2.3,"amber"]]]
+  ];
+
+  // ── Channel marks ───────────────────────────────────────────────
+  //
+  // Each service's own short mark on its own brand colour: "hulu" in
+  // Hulu green, a red N on Netflix black, a play triangle for YouTube
+  // TV. Drawn in CSS and SVG from the brand palettes rather than pulled
+  // from the platforms' asset kits — close enough to recognise at 26px,
+  // and to be swapped for licensed files before anything ships. The
+  // colours are best-known values, not brand-book extracts.
+  //
+  // Several marks sit under 4.5:1 against their own tile — Netflix's red
+  // on black is 4.11. WCAG 1.4.3 exempts logotypes, and the channel name
+  // sits beside every tile in full-contrast ink, so the tile is never
+  // the only place the name appears.
+  var LOGO = {
+    "Hulu":["#1CE783","#0B0C0F","hulu","l"],
+    "HBO Max":["#002BE7","#FFFFFF","max","l"],
+    "Disney+":["#0E2A6B","#FFFFFF","D+",""],
+    "Peacock":["#0B0B0B","#FFFFFF","","g:peacock"],
+    "Paramount+":["#0064FF","#FFFFFF","P+",""],
+    "Netflix (ad tier)":["#0B0B0B","#E50914","N","big"],
+    "Apple TV+":["#0B0B0B","#FFFFFF","","g:apple"],
+    "Showtime / Paramount+ w/ Showtime":["#C8102E","#FFFFFF","SHO","u"],
+    "Starz":["#111111","#FFFFFF","STARZ","u"],
+    "AMC+":["#0B0B0B","#FFFFFF","AMC+","u"],
+    "Tubi":["#7408FF","#FFFFFF","tubi","l"],
+    "The Roku Channel":["#6E1EB1","#FFFFFF","Roku","l"],
+    "Pluto TV":["#101438","#FFE700","pluto","l"],
+    "Samsung TV+":["#1428A0","#FFFFFF","TV+",""],
+    "Amazon Freevee":["#35C5F0","#0B0C0F","free","l"],
+    "Xumo Play":["#1B1B1B","#FFFFFF","xumo","l"],
+    "Local Now":["#0A2540","#FFFFFF","now","l"],
+    "LG Channels":["#A50034","#FFFFFF","LG","big"],
+    "Vizio WatchFree+":["#111111","#FFFFFF","VIZIO","u"],
+    "Crackle":["#ED1C24","#FFFFFF","crkl","l"],
+    "Plex":["#1F2326","#EBAF00","plex","l"],
+    "YouTube TV":["#FF0000","#FFFFFF","","g:play"],
+    "Sling TV":["#009BDE","#FFFFFF","sling","l"],
+    "FuboTV":["#FA4616","#FFFFFF","fubo","l"],
+    "DIRECTV Stream":["#00A8E0","#FFFFFF","DTV","u"],
+    "Philo":["#6C3AE8","#FFFFFF","philo","l"],
+    "Hulu + Live TV":["#1CE783","#0B0C0F","hulu+","l"],
+    "CBS News":["#033B71","#FFFFFF","CBS","u"],
+    "NBC News NOW":["#0B0B0B","#FFFFFF","NBC","u"],
+    "ABC News Live":["#0B0B0B","#FFFFFF","abc","l"],
+    "Fox News":["#003366","#FFFFFF","FOX","u"],
+    "CNN":["#CC0000","#FFFFFF","CNN","u"],
+    "MSNBC":["#0089D0","#FFFFFF","msnbc","l"],
+    "Bloomberg":["#0B0B0B","#FFFFFF","B","big"],
+    "Newsmax":["#002F6C","#FFFFFF","NM","big"],
+    "ESPN+":["#C8102E","#FFFFFF","ESPN","u"],
+    "FOX Sports":["#0C2340","#FFFFFF","FOX","u"],
+    "NBC Sports / Peacock Sports":["#0B0B0B","#FFFFFF","NBC","u"],
+    "CBS Sports":["#033B71","#FFFFFF","CBS","u"],
+    "MLB.TV":["#041E42","#FFFFFF","MLB","u"],
+    "NFL+":["#013369","#FFFFFF","NFL","u"],
+    "DAZN":["#0B0B0B","#F8FF13","DAZN","u"],
+    "Discovery+":["#2175D9","#FFFFFF","d+","big"],
+    "HGTV (Max)":["#009B48","#FFFFFF","HGTV","u"],
+    "Food Network (Max)":["#E31837","#FFFFFF","food","l"],
+    "Magnolia Network":["#1B4332","#FFFFFF","MAG","u"],
+    "Travel Channel (Max)":["#F2A900","#0B0C0F","trvl","l"],
+    "History Channel":["#1A1A1A","#FFFFFF","H","big"],
+    "Cartoon Network (Max)":["#0B0B0B","#FFFFFF","CN","big"],
+    "Nick Jr / Paramount+":["#FF6600","#FFFFFF","nick","l"],
+    "PBS KIDS":["#1E4EA1","#FFFFFF","PBS","u"],
+    "Disney Jr (Disney+)":["#0E2A6B","#FFFFFF","D jr",""],
+    "Boomerang":["#F5A623","#0B0C0F","boom","l"]
+  };
+
+  var GLYPH = {
+    play:  '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M9 7.5v9l7.5-4.5z" fill="currentColor"/></svg>',
+    apple: '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M16.2 12.6c0-2 1.6-3 1.7-3.05-.9-1.35-2.35-1.5-2.85-1.55-1.2-.12-2.35.72-2.96.72-.6 0-1.55-.7-2.55-.68-1.3.02-2.5.76-3.17 1.93-1.36 2.35-.35 5.83 1 7.73.65.93 1.43 1.97 2.45 1.93.98-.04 1.35-.63 2.54-.63 1.19 0 1.52.63 2.56.61 1.06-.02 1.73-.95 2.38-1.88.75-1.08 1.06-2.12 1.07-2.18-.02-.01-2.06-.79-2.08-3.13z" fill="currentColor"/><path d="M14.3 6.6c.54-.65.9-1.56.8-2.46-.78.03-1.72.52-2.28 1.17-.5.57-.94 1.5-.82 2.38.87.07 1.76-.44 2.3-1.09z" fill="currentColor"/></svg>',
+    peacock:'<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 3.4c-1 0-1.7.9-1.5 1.9l1 5.2-2.8-4a1.5 1.5 0 1 0-2.4 1.8l3.3 4-4.2-2.1a1.5 1.5 0 0 0-1.3 2.7l6.4 3v3.7h3v-3.7l6.4-3a1.5 1.5 0 0 0-1.3-2.7l-4.2 2.1 3.3-4a1.5 1.5 0 0 0-2.4-1.8l-2.8 4 1-5.2c.2-1-.5-1.9-1.5-1.9z" fill="currentColor"/></svg>'
+  };
+  /** A channel's mark, or its two-letter monogram when we have no brand. */
+  function logoHtml(name, mono, cls){
+    var l = LOGO[name];
+    if (!l) return '<span class="' + (cls || "mono") + '" aria-hidden="true">' + mono + '</span>';
+    var style = "background:" + l[0] + ";color:" + l[1];
+    var body, extra = "";
+    if (l[3].indexOf("g:") === 0) body = GLYPH[l[3].slice(2)] || "";
+    else {
+      body = l[2];
+      var n = l[2].length;
+      var fs = l[3] === "big" ? 13 : n <= 2 ? 11 : n === 3 ? 9.5 : n === 4 ? 8.5 : 7.5;
+      extra = ";font-size:" + fs + "px";
+      if (l[3] === "u") extra += ";letter-spacing:.02em";
+      if (l[3] === "l") extra += ";letter-spacing:-.03em";
+    }
+    return '<span class="' + (cls || "mono") + ' brandmark" aria-hidden="true" style="' +
+      style + extra + '">' + body + '</span>';
+  }
+
+
+
+  var CAMPAIGNS = {
+    "adventure-hero": {"title": "Adventure Hero \u00b7 CTV Q3", "sub": "Streaming TV \u00b7 30s \u00b7 12 miles around Ridgeline Ave \u00b7 Jun 1 \u2013 Jul 5", "pill": ["ok", "On pace"], "spend": 28400, "budget": 48000, "leads": 312, "cpl": "$91.03", "att": [84, 77, 76], "attAvg": 79, "calls": 212, "forms": 100, "creative": "Adventure Hero \u2014 hero cut \u00b7 30s \u00b7 approved", "goal": "Calls &amp; leads", "aud": "Households into hiking and the outdoors", "area": "12 miles around Ridgeline Ave", "week": [0, 0, 0, 0, 5377, 7001, 8884, 7138], "note": null, "mix": [["Premium entertainment", 41], ["Free streaming (FAST)", 28], ["Live TV bundles", 17], ["Sports", 9], ["Lifestyle", 5]], "acts": [["Bid optimiser routed +12% of spend to higher-attention slots", "1m ago"], ["Call attributed to YouTube TV \u00b7 $65 lead", "2m ago"], ["Frequency cap held at 5/day \u2014 3.2 average", "6h ago"]]},
+    "brand-awareness": {"title": "Brand Awareness Always-on", "sub": "Streaming TV \u00b7 30s \u00b7 25 miles around Ridgeline Ave \u00b7 May 11 \u2013 Jul 11", "pill": ["ok", "On pace"], "spend": 47280, "budget": 60000, "leads": 445, "cpl": "$106.25", "att": [79, 74, 75], "attAvg": 76, "calls": 329, "forms": 116, "creative": "PolyTrek brand film \u00b7 30s \u00b7 approved", "goal": "Awareness", "aud": "Everyone in the area", "area": "25 miles around Ridgeline Ave", "week": [0, 6106, 6685, 6090, 5783, 7636, 8161, 6819], "note": ["", "<b>Judged on reach and attention, not cost per lead.</b> This is the widest campaign you run, and its $106.25 is the dearest lead on the account \u2014 expected for awareness. The 445 leads are a by-product, not the objective."], "mix": [["Premium entertainment", 34], ["Free streaming (FAST)", 31], ["News", 14], ["Live TV bundles", 12], ["Kids &amp; family", 9]], "acts": [["Reach passed 210,000 households in the area", "22m ago"], ["Creative rotated \u2014 brand film served to 61% of impressions", "3h ago"], ["Frequency cap held at 5/day \u2014 2.8 average", "9h ago"]]},
+    "retargeting": {"title": "Sequential Retargeting", "sub": "Retargeting \u00b7 15s \u00b7 12 miles around Ridgeline Ave \u00b7 Jun 8 \u2013 Jul 14", "pill": ["warn", "Under-pacing"], "spend": 6240, "budget": 18000, "leads": 87, "cpl": "$71.72", "att": [76, 71, 75], "attAvg": 74, "calls": 36, "forms": 51, "creative": "Come back \u2014 15s cutdown \u00b7 approved", "goal": "Bring people back", "aud": "People who visited in the last 30 days", "area": "12 miles around Ridgeline Ave", "week": [0, 0, 0, 0, 0, 1534, 2379, 2327], "note": ["warn", "<b>Spending slower than planned.</b> At $432 a day this flight will finish about $7,900 under its $18,000 monthly budget. Widening the audience or raising the bid are the two levers \u2014 but the pool is finite, so the marginal lead will cost more than the $71.72 average. The wallet covers 7 days at today's burn, so fund it before scaling."], "mix": [["Free streaming (FAST)", 44], ["Premium entertainment", 26], ["Live TV bundles", 18], ["News", 12]], "acts": [["Pacing fell below plan \u2014 flagged for review", "3h ago"], ["Audience pool refreshed \u2014 4,100 households eligible", "5h ago"], ["Bid raised automatically to $19.40 CPM", "1d ago"]]},
+    "q1-pilot": {"title": "Q1 Conversion Pilot", "sub": "Streaming TV \u00b7 15s \u00b7 8 miles around Ridgeline Ave \u00b7 Mar 2 \u2013 Apr 4", "pill": ["muted", "Completed"], "spend": 24000, "budget": 24000, "leads": 168, "cpl": "$142.86", "att": [74, 69, 73], "attAvg": 72, "calls": 104, "forms": 64, "creative": "Q1 pilot cut \u00b7 15s \u00b7 approved", "goal": "Calls &amp; leads", "aud": "Everyone in the area", "area": "8 miles around Ridgeline Ave", "week": null, "note": ["", "<b>Finished on 4 April, having spent its full $24,000.</b> Its $142.86 cost per lead is the dearest you have run \u2014 the 8-mile radius was too tight to find enough of the right households, which is why later campaigns widened. Kept for comparison; it cannot be reactivated."], "mix": [["Premium entertainment", 46], ["Live TV bundles", 24], ["Free streaming (FAST)", 21], ["News", 9]], "acts": [["Flight completed \u2014 full budget delivered", "Apr 4"], ["Final attribution window closed", "Apr 18"]]},
+    "holiday": {"title": "Holiday Promo", "sub": "Not scheduled \u00b7 15s \u00b7 draft", "pill": ["muted", "Draft"], "spend": null, "budget": 35000, "leads": null, "cpl": "\u2014", "att": null, "attAvg": null, "calls": null, "forms": null, "creative": null, "goal": "Not chosen yet", "aud": "Not chosen yet", "area": "Not chosen yet", "week": null, "note": ["warn", "<b>Two things are missing.</b> There is no video, and no dates. Neither can be defaulted \u2014 a campaign cannot be checked for playback without a file, and cannot be paced without a flight. Everything else is already set from your most similar campaign."], "mix": null, "acts": [["Draft created from Adventure Hero \u00b7 CTV Q3", "Jun 19"]]}
+  };
+
+
+  // ── Real ledger figures, d60513d. Nothing here is invented. ─────
+  /** Chart colours read from the token layer, so a palette change
+      reaches the SVG rather than only the CSS. */
+  function tok(n){
+    return getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  }
+  var C_PRIMARY = tok("--primary") || "#0F6DD6",
+      C_FILL    = tok("--primary-fill") || "#BFDCFA",
+      C_INK3    = tok("--ink3") || "#676F7F",
+      C_GRID    = tok("--line-faint") || "#F4F5F8";
+
+  var LABELS = ["May 4","May 11","May 18","May 25","Jun 1","Jun 8","Jun 15","Jun 22"];
+  var SERIES = {
+    spend: { cur:[0,6106,6685,6090,11160,16171,19424,16284],
+             prior:[4816,6342,4407,4849,0,0,0,0],
+             total:"$81,920", delta:"+301% vs previous 8 weeks", zero:true,
+             axis:function(v){return v>=1000?"$"+Math.round(v/1000)+"k":"$"+Math.round(v);},
+             read:function(v){return "$"+Math.round(v).toLocaleString("en-US");} },
+    leads: { cur:[null,41,70,70,129,153,184,197], prior:[null,null,null,null,null,null,null,null],
+             total:"844", delta:"+474% vs previous 8 weeks", zero:true,
+             axis:function(v){return String(Math.round(v));},
+             read:function(v){return Math.round(v).toLocaleString("en-US")+" leads";} },
+    // A rate pinned to zero flattens the variation the chart exists to
+    // show, so rates get a padded baseline and the axis says so.
+    cpl:   { cur:[null,148.93,95.50,87.00,86.51,105.69,105.57,82.66],
+             prior:[null,null,null,null,null,null,null,null],
+             total:"$97.06", delta:"−30% vs previous 8 weeks", zero:false,
+             axis:function(v){return "$"+Math.round(v);},
+             read:function(v){return "$"+v.toFixed(2);} }
+  };
+
+  var W=760,H=230,padL=56,padR=16,padT=14,padB=30;
+
+  function niceStep(span){
+    if(span<=0) return 1;
+    var raw=span/4, exp=Math.floor(Math.log10(raw)), f=raw/Math.pow(10,exp);
+    var nf = f<=1?1 : f<=2?2 : f<=2.5?2.5 : f<=5?5 : 10;
+    return nf*Math.pow(10,exp);
+  }
+  function el(t,a){var n=document.createElementNS("http://www.w3.org/2000/svg",t);for(var k in a)n.setAttribute(k,a[k]);return n;}
+  function clear(n){while(n.firstChild)n.removeChild(n.firstChild);}
+
+  /** Draw one line chart. Returns geometry for the readout. */
+  function plot(svg, opts){
+    clear(svg);
+    var cur=opts.cur, prior=opts.prior||[], labels=opts.labels, fmtAxis=opts.axis, zero=opts.zero!==false;
+    var vals=cur.filter(function(v){return v!==null;});
+    if(opts.showPrior) vals=vals.concat(prior.filter(function(v){return v!==null;}));
+    var dMax=Math.max.apply(null,vals.concat([1])), dMin=zero?0:Math.min.apply(null,vals);
+    var step=niceStep(dMax-dMin);
+    var hi=Math.ceil(dMax/step)*step, lo=zero?0:Math.floor(dMin/step)*step;
+    if(lo>=hi){lo=0;hi=Math.max(hi,step);}
+    var ticks=Math.max(1,Math.round((hi-lo)/step));
+    var n=cur.length;
+    var x=function(i){return padL+i*(W-padL-padR)/(n-1);};
+    var y=function(v){return padT+(1-(v-lo)/(hi-lo))*(H-padT-padB);};
+
+    var defs=el("defs"), g=el("linearGradient",{id:opts.gid,x1:"0",y1:"0",x2:"0",y2:"1"});
+    g.appendChild(el("stop",{offset:"0%","stop-color":C_PRIMARY,"stop-opacity":".15"}));
+    g.appendChild(el("stop",{offset:"100%","stop-color":C_PRIMARY,"stop-opacity":"0"}));
+    defs.appendChild(g); svg.appendChild(defs);
+
+    for(var k=0;k<=ticks;k++){
+      var v=lo+(hi-lo)*(k/ticks);
+      svg.appendChild(el("line",{x1:padL,x2:W-padR,y1:y(v),y2:y(v),stroke:C_GRID,"stroke-width":"1"}));
+      var tx=el("text",{x:padL-10,y:y(v)+3.5,"text-anchor":"end","font-size": "11",fill:C_INK3,
+        "font-family":"Inter, sans-serif",style:"font-variant-numeric:tabular-nums"});
+      tx.textContent=fmtAxis(v); svg.appendChild(tx);
+    }
+    if(!zero){
+      var nz=el("text",{x:padL-10,y:H-padB+15,"text-anchor":"end","font-size": "11",fill:C_INK3,"font-family":"Inter, sans-serif"});
+      nz.textContent="not zero"; svg.appendChild(nz);
+    }
+
+    function path(a){var d="",pen=false;a.forEach(function(v,i){
+      if(v===null){pen=false;return;} d+=(pen?"L":"M")+x(i).toFixed(1)+","+y(v).toFixed(1)+" ";pen=true;});return d.trim();}
+
+    var pts=[]; cur.forEach(function(v,i){if(v!==null)pts.push(x(i).toFixed(1)+","+y(v).toFixed(1));});
+    if(pts.length>1){
+      var base=(H-padB).toFixed(1);
+      svg.appendChild(el("path",{d:"M"+pts[0].split(",")[0]+","+base+" L"+pts.join(" L")+" L"+pts[pts.length-1].split(",")[0]+","+base+" Z",
+        fill:"url(#"+opts.gid+")"}));
+    }
+    if(opts.showPrior && prior.some(function(v){return v!==null;})){
+      svg.appendChild(el("path",{d:path(prior),fill:"none",stroke:C_INK3,"stroke-width":"1.5",
+        "stroke-dasharray":"3 3","stroke-opacity":".45","stroke-linecap":"round"}));
+    }
+    svg.appendChild(el("path",{d:path(cur),fill:"none",stroke:C_PRIMARY,"stroke-width":"2.25",
+      "stroke-linecap":"round","stroke-linejoin":"round"}));
+    for(var i=n-1;i>=0;i--){ if(cur[i]!==null){svg.appendChild(el("circle",{cx:x(i),cy:y(cur[i]),r:"3.5",fill:C_PRIMARY}));break;} }
+
+    var stepLbl=Math.max(1,Math.ceil(n/6));
+    labels.forEach(function(lab,i){
+      if(i%stepLbl!==0 && i!==n-1) return;
+      var t=el("text",{x:x(i),y:H-9,"font-size": "11",fill:C_INK3,"font-family":"Inter, sans-serif",
+        "text-anchor":i===0?"start":(i===n-1?"end":"middle")});
+      t.textContent=lab; svg.appendChild(t);
+    });
+
+    if(opts.interactive){
+      svg.appendChild(el("line",{id:"xh",y1:padT,y2:H-padB,stroke:C_PRIMARY,"stroke-width":"1","stroke-opacity":".28",visibility:"hidden"}));
+      svg.appendChild(el("circle",{id:"xd",r:"4.5",fill:"#fff",stroke:C_PRIMARY,"stroke-width":"2.5",visibility:"hidden"}));
+    }
+    return {x:x,y:y,n:n};
+  }
+
+  // ── Dashboard chart, with readout ───────────────────────────────
+  var svg=document.getElementById("chart"), tip=document.getElementById("tip");
+  var wrap=svg.parentNode, active="spend", focus=-1, geom=null, showPrior=true;
+
+  function drawMain(){
+    var s=SERIES[active];
+    showPrior=document.getElementById("cmpToggle").checked;
+    geom=plot(svg,{cur:s.cur,prior:s.prior,labels:LABELS,axis:s.axis,zero:s.zero,
+      showPrior:showPrior,gid:"gmain",interactive:true});
+    geom.s=s;
+    document.getElementById("chartTotal").textContent=s.total;
+    document.getElementById("chartDelta").textContent=s.delta;
+    if(focus>=0) show(focus); else hide();
+  }
+  function show(i){
+    if(!geom) return;
+    var s=geom.s, v=s.cur[i];
+    var c=svg.querySelector("#xh"), d=svg.querySelector("#xd");
+    c.setAttribute("x1",geom.x(i)); c.setAttribute("x2",geom.x(i)); c.setAttribute("visibility","visible");
+    if(v===null){ d.setAttribute("visibility","hidden"); }
+    else { d.setAttribute("cx",geom.x(i)); d.setAttribute("cy",geom.y(v)); d.setAttribute("visibility","visible"); }
+    var p = showPrior ? s.prior[i] : null;
+    tip.innerHTML='<span class="w">'+LABELS[i]+'</span><span class="v">'+(v===null?"Not measured":s.read(v))+'</span>'+
+      (p!==null&&p!==undefined?'<span class="p">'+s.read(p)+' previous period</span>':'');
+    tip.setAttribute("data-on","1");
+    var scale=wrap.clientWidth/W, px=geom.x(i)*scale, tw=tip.offsetWidth||130;
+    tip.style.left=Math.max(4,Math.min(px+14,wrap.clientWidth-tw-4))+"px";
+    tip.style.top="16px"; focus=i;
+  }
+  function hide(){
+    tip.setAttribute("data-on","0"); focus=-1;
+    var c=svg.querySelector("#xh"), d=svg.querySelector("#xd");
+    if(c)c.setAttribute("visibility","hidden"); if(d)d.setAttribute("visibility","hidden");
+  }
+  function nearest(clientX){
+    var r=svg.getBoundingClientRect(), vx=(clientX-r.left)/r.width*W, best=0, bd=Infinity;
+    for(var i=0;i<geom.n;i++){var dd=Math.abs(geom.x(i)-vx);if(dd<bd){bd=dd;best=i;}}
+    return best;
+  }
+  svg.addEventListener("mousemove",function(e){if(geom)show(nearest(e.clientX));});
+  svg.addEventListener("mouseleave",hide);
+  svg.addEventListener("blur",hide);
+  svg.addEventListener("focus",function(){if(focus<0)show(geom.n-1);});
+  svg.addEventListener("keydown",function(e){
+    if(!geom)return;
+    if(e.key==="ArrowRight"){show(Math.min(geom.n-1,(focus<0?-1:focus)+1));e.preventDefault();}
+    else if(e.key==="ArrowLeft"){show(Math.max(0,(focus<0?geom.n:focus)-1));e.preventDefault();}
+    else if(e.key==="Home"){show(0);e.preventDefault();}
+    else if(e.key==="End"){show(geom.n-1);e.preventDefault();}
+    else if(e.key==="Escape"){hide();}
+  });
+  document.querySelectorAll("[data-metric]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-metric]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true"); active=b.dataset.metric; drawMain();
+    });
+  });
+  document.getElementById("cmpToggle").addEventListener("change",drawMain);
+  window.addEventListener("resize",function(){if(focus>=0)show(focus);});
+
+  // ── Secondary charts ────────────────────────────────────────────
+
+  // ── Insight disclosure ──────────────────────────────────────────
+  var moreBtn=document.getElementById("moreBtn");
+  moreBtn.addEventListener("click",function(){
+    var open=moreBtn.getAttribute("aria-expanded")==="true";
+    moreBtn.setAttribute("aria-expanded",String(!open));
+    document.getElementById("moreIns").hidden=open;
+    moreBtn.textContent=open?"Show 3 more signals ↓":"Show fewer ↑";
+  });
+
+  // ── Timeline / table toggle ─────────────────────────────────────
+  document.querySelectorAll("[data-view]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-view]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true");
+      var table=b.dataset.view==="table";
+      document.getElementById("viewTable").hidden=!table;
+      document.getElementById("viewTimeline").hidden=table;
+    });
+  });
+
+  // ── Campaigns filter + search ───────────────────────────────────
+  var cFilter="all";
+  function applyCampaignFilter(){
+    var q=(document.getElementById("cq").value||"").trim().toLowerCase();
+    var rows=document.querySelectorAll("#cTable tbody tr"), shown=0;
+    rows.forEach(function(r){
+      var st=r.dataset.status||"", name=r.textContent.toLowerCase();
+      var okF = cFilter==="all" || st.indexOf(cFilter)>-1;
+      var okQ = !q || name.indexOf(q)>-1;
+      r.hidden = !(okF && okQ); if(okF&&okQ) shown++;
+    });
+    document.getElementById("cCount").textContent = shown+" shown";
+  }
+  document.querySelectorAll("[data-filter]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-filter]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true"); cFilter=b.dataset.filter; applyCampaignFilter();
+    });
+  });
+  document.getElementById("cq").addEventListener("input",applyCampaignFilter);
+
+  // ── Campaign detail, rendered from CAMPAIGNS ────────────────────
+  //
+  // Every one of the five reads from the same record, so a figure can
+  // never disagree with the row it was opened from. Anything the
+  // platform cannot state renders as an em dash with the reason, never
+  // as a zero.
+  var MIXC=[C_PRIMARY,"#4C9BEE","#8FC3F5","#B9D9FA","#DCEBFD"];
+  function fmtUsd(n){ return "$"+n.toLocaleString("en-US"); }
+
+  function paintCampaign(key){
+    var c=CAMPAIGNS[key]||CAMPAIGNS["retargeting"];
+    document.getElementById("cdName").textContent=c.title;
+    document.getElementById("cdTitle").textContent=c.title;
+    document.getElementById("cdSub").textContent=c.sub;
+
+    var pill=document.getElementById("cdPill");
+    pill.className="pill "+c.pill[0];
+    pill.innerHTML=(c.pill[0]==="muted"?"":'<i style="background:'+(c.pill[0]==="warn"?"var(--warn)":"var(--positive)")+'"></i>')+c.pill[1];
+
+    // Derived from the pill rather than a separate status field, so the
+    // badge and the branch can never disagree about what this campaign is.
+    var draft=c.pill[1]==="Draft", done=c.pill[1]==="Completed";
+    document.getElementById("cdAct1").textContent = draft?"Finish setup":(done?"Duplicate":"Edit budget");
+    document.getElementById("cdAct2").hidden = draft||done;
+
+    var note=document.getElementById("cdNote");
+    if(c.note){ note.hidden=false; note.className="note "+(c.note[0]||""); note.innerHTML=c.note[1]; }
+    else note.hidden=true;
+
+    // KPI strip
+    var cells;
+    if(draft){
+      cells=[["Spend","—","Nothing has served yet"],
+             ["Leads","—","Starts counting when it runs"],
+             ["Cost per lead","—","Needs a campaign and a lead"],
+             ["Budget",fmtUsd(c.budget),"Monthly, once it launches"]];
+    } else {
+      cells=[["Spend",fmtUsd(c.spend),"of "+fmtUsd(c.budget)+" monthly budget"],
+             ["Leads",String(c.leads),c.calls+" calls · "+c.forms+" form fills"],
+             ["Cost per lead",c.cpl, key==="retargeting"?"Cheapest of your live campaigns":
+                                     (key==="q1-pilot"?"Dearest you have run":"Against a $97.06 account average")],
+             ["Attention",String(c.attAvg),c.att[0]+" on screen · "+c.att[2]+" completed"]];
+    }
+    document.getElementById("cdStrip").innerHTML=cells.map(function(x){
+      return '<div><div class="label">'+x[0]+'</div><div class="row"><span class="val">'+x[1]+
+             '</span></div><p class="foot">'+x[2]+'</p></div>';}).join("");
+
+    // Chart — only when there is delivery to plot
+    var card=document.getElementById("cdChartCard");
+    if(c.week && c.week.some(function(v){return v>0;})){
+      card.hidden=false;
+      plot(document.getElementById("cdChart"),{cur:c.week,labels:LABELS,zero:true,gid:"gcd",
+        axis:function(v){return v>=1000?"$"+Math.round(v/1000)+"k":"$"+Math.round(v);}});
+    } else { card.hidden=true; }
+
+    // Setup
+    document.getElementById("cdSetup").innerHTML=
+      [["Goal",c.goal],["Audience",c.aud],["Area",c.area],
+       ["Creative",c.creative||"<span style='color:var(--ink3)'>None yet — this is what blocks it</span>"],
+       ["Budget",fmtUsd(c.budget)+" / month"],["Bidding","Automatic"],["Frequency","5 per day"]]
+      .map(function(x){return "<dt>"+x[0]+"</dt><dd>"+x[1]+"</dd>";}).join("");
+
+    // Channel mix + attention
+    var lower=document.getElementById("cdLower");
+    if(c.mix){
+      lower.hidden=false;
+      document.getElementById("cdMix").innerHTML=
+        '<div class="mixbar">'+c.mix.map(function(m,i){return '<i style="width:'+m[1]+'%;background:'+MIXC[i%5]+'"></i>';}).join("")+'</div>'+
+        c.mix.map(function(m,i){return '<div class="mixrow"><span class="sw" style="background:'+MIXC[i%5]+'"></span>'+
+          '<span class="mn">'+m[0]+'</span><span class="mv">'+m[1]+'%</span></div>';}).join("")+
+        '<p class="foot" style="margin-top:10px">Share of delivered spend, not of channels selected. '+
+        'The bidder moves budget toward whatever is holding attention.</p>';
+      document.getElementById("cdAtt").innerHTML=
+        '<div style="display:flex;align-items:baseline;gap:10px"><span style="font-size:40px;font-weight:600;'+
+        'letter-spacing:-.03em;line-height:1;color:var(--ink);font-variant-numeric:tabular-nums">'+c.attAvg+
+        '</span><span style="font-size:13px;font-weight:500;color:var(--positive)">'+
+        (c.attAvg>=80?"Very strong":c.attAvg>=70?"Strong":"About average")+'</span></div>'+
+        '<div style="margin-top:14px;display:grid;gap:11px">'+
+        [["On screen",c.att[0]],["Sound on",c.att[1]],["Watched to the end",c.att[2]]].map(function(a){
+          return '<div><div class="rowsplit" style="padding:0"><span class="k">'+a[0]+'</span><span class="v">'+a[1]+
+                 '</span></div><div class="bar"><i style="width:'+a[1]+'%"></i></div></div>';}).join("")+'</div>';
+    } else { lower.hidden=true; }
+
+    document.getElementById("cdActs").innerHTML=c.acts.map(function(a){
+      return '<div class="rowsplit"><span class="k">'+a[0]+'</span><span class="v">'+a[1]+'</span></div>';}).join("");
+  }
+
+  // ── Campaign builder ────────────────────────────────────────────
+  //
+  // The eight objectives the platform actually maps, with the behaviour
+  // each one changes: what it optimises toward, the default flight, how
+  // delivery is paced, and what has to exist before it can launch. An
+  // objective picked blind is the commonest way a self-serve campaign
+  // ends up measuring the wrong thing.
+  var GOALS={
+    customers:{t:"Get more customers", out:"Calls and enquiries", flight:"30 days",
+      pace:"Even across the flight", need:"A destination phone number",
+      good:"Businesses where the next step is a phone call or an enquiry form — services, appointments, quotes.",
+      buy:"We bid toward households that have called or enquired after seeing streaming ads before, and toward inventory that holds attention.",
+      needsTag:true},
+    sales:{t:"Drive online sales", out:"Purchases on your site", flight:"30 days",
+      pace:"Even across the flight", need:"The site tag, firing a purchase event",
+      good:"Anything transacted on the site. Judge it on cost per purchase, not cost per lead.",
+      buy:"We bid toward households that have bought after streaming exposure, and weight recency of visit heavily.",
+      needsTag:true},
+    awareness:{t:"Build awareness", out:"People who remember you", flight:"30 days",
+      pace:"Even across the flight", need:"Nothing beyond a video",
+      good:"Being known before anyone is shopping. Judge it on reach and attention, not on cost per lead.",
+      buy:"We buy for reach across the area at a controlled frequency, so the same household is not hit repeatedly.",
+      needsTag:false},
+    event:{t:"Promote an event", out:"Sign-ups before the date", flight:"14 days",
+      pace:"Front-loaded, so delivery lands before the date", need:"A destination phone number and the event date",
+      good:"Anything with a deadline — a sale weekend, an open day, a fixture. The date does the work.",
+      buy:"We compress delivery into the run-up rather than spreading it, because impressions after the date are worthless.",
+      needsTag:false},
+    website:{t:"Send people to my website", out:"Visits to your site", flight:"30 days",
+      pace:"Even across the flight", need:"The site tag, to see the visits",
+      good:"Content, listings, anything where the visit itself is the point.",
+      buy:"We bid toward households that reliably look something up after seeing it on TV, and favour second-screen-heavy inventory.",
+      needsTag:true},
+    retarget:{t:"Re-engage past visitors", out:"Return visits", flight:"30 days",
+      pace:"Even across the flight", need:"The site tag, and a pool it has already filled",
+      good:"People who already visited the site and did not act. Your cheapest leads come from here.",
+      buy:"We reach the households behind those visits. The pool is finite, so the marginal lead costs more than the average.",
+      needsTag:true},
+    app:{t:"Get more app installs", out:"App installs", flight:"30 days",
+      pace:"Even across the flight", need:"An App Store or Play listing and an MMP postback",
+      good:"A published app where the install is the conversion. Needs a measurement partner wired up first.",
+      buy:"We bid toward households with the device the app runs on, and hand off attribution to your MMP.",
+      needsTag:false},
+    abm:{t:"Reach specific companies", out:"Reach at named companies", flight:"30 days",
+      pace:"Even across the flight", need:"A company list, matched to IP ranges by your account team",
+      good:"B2B, where the buying unit is an office rather than a household. Reach is the deliverable.",
+      buy:"We target the IP ranges behind named companies rather than households, so household-level frequency does not apply.",
+      needsTag:false}
+  };
+  var wGoal="customers", wArea="12 miles around Ridgeline Ave", wWho="Into hiking and the outdoors", wCv="Adventure Hero — hero cut";
+
+  function paintGoal(){
+    var g=GOALS[wGoal];
+    document.getElementById("gTitle").textContent=g.t;
+    document.getElementById("gOut").textContent=g.out;
+    document.getElementById("gFlight").textContent=g.flight;
+    document.getElementById("gPace").textContent=g.pace;
+    document.getElementById("gNeed").textContent=g.need;
+    document.getElementById("gGood").textContent=g.good;
+    document.getElementById("gBuy").textContent=g.buy;
+    document.getElementById("gWarn").hidden=!g.needsTag;
+    document.getElementById("rGoal").textContent=g.t;
+  }
+  // ── The rail ────────────────────────────────────────────────────
+  //
+  // Mirrors the review panel's five lines, but live from step one. It
+  // reads the same elements the review does rather than keeping a
+  // second copy of the state — a rail that can disagree with the
+  // review is worse than no rail.
+  var RAIL = [
+    ["Goal",     "rGoal", 1],
+    ["Where",    "rArea", 2],
+    ["Audience", "rWho",  2],
+    ["Channels", "rCh",   3],
+    ["Video",    "rCv",   4],
+    ["Budget",   "rBud",  5]
+  ];
+  var railStep = 1;
+  function paintRail(){
+    var host = document.getElementById("railList");
+    if (!host) return;
+    var prev = {};
+    host.querySelectorAll("li").forEach(function(li){ prev[li.dataset.k] = li.querySelector(".rv").textContent; });
+    host.innerHTML = RAIL.map(function(r){
+      var el = document.getElementById(r[1]);
+      var done = railStep > r[2] || (railStep === r[2]);
+      var val = done && el ? el.textContent : "Not set yet";
+      return '<li class="' + (done ? "set" : "pend") + '" data-k="' + r[0] + '">' +
+        '<span class="rk">' + r[0] + '</span><span class="rv">' + val + '</span></li>';
+    }).join("");
+    // Flag only what actually changed, so the animation marks news
+    // rather than firing on every repaint.
+    host.querySelectorAll("li").forEach(function(li){
+      var k = li.dataset.k;
+      if (prev[k] !== undefined && prev[k] !== li.querySelector(".rv").textContent) li.classList.add("fresh");
+    });
+    var bar = document.getElementById("railBar");
+    if (bar) bar.style.width = (railStep / 5 * 100) + "%";
+    var pc = document.getElementById("railPc");
+    if (pc) pc.textContent = "Step " + railStep + " of 5";
+  }
+
+  function gotoStep(n, fromRoute){
+    railStep = n;
+    for(var i=1;i<=5;i++){
+      var pane=document.getElementById("w"+i); if(pane) pane.classList.toggle("on",i===n);
+    }
+    // Writing the step into the hash makes Back go back a step rather
+    // than out of the builder. When the router is what called us the
+    // hash is already right, so writing it again would loop.
+    if(!fromRoute){
+      var want = "#/new" + (n > 1 ? "/" + n : "");
+      if(location.hash !== want) location.hash = want;
+    }
+    document.querySelectorAll(".step").forEach(function(b){
+      var i=Number(b.dataset.step);
+      if(i===n) b.setAttribute("aria-current","step"); else b.removeAttribute("aria-current");
+      b.classList.toggle("done", i<n);
+    });
+    paintRail();
+    window.scrollTo(0,0);
+  }
+  document.querySelectorAll("[data-goal]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-goal]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true"); wGoal=b.dataset.goal; paintGoal();
+    });
+  });
+  document.querySelectorAll("[data-aud]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-aud]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true");
+      wArea=b.querySelector(".on").textContent.trim();
+      document.getElementById("rArea").textContent=wArea;
+    });
+  });
+  document.querySelectorAll("[data-who]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-who]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true");
+      wWho=b.querySelector(".on").textContent.trim();
+      document.getElementById("rWho").textContent=wWho;
+    });
+  });
+  document.querySelectorAll("[data-cv]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-cv]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true");
+      wCv=b.querySelector(".on").textContent.trim();
+      document.getElementById("rCv").textContent=wCv;
+    });
+  });
+  document.querySelectorAll("[data-go]").forEach(function(b){
+    b.addEventListener("click",function(){gotoStep(Number(b.dataset.go));});
+  });
+  document.querySelectorAll(".step").forEach(function(b){
+    b.addEventListener("click",function(){gotoStep(Number(b.dataset.step));});
+  });
+
+  // ── Settings toggles ────────────────────────────────────────────
+  document.querySelectorAll(".toggle").forEach(function(t){
+    t.addEventListener("click",function(){
+      t.setAttribute("aria-pressed", t.getAttribute("aria-pressed")==="true" ? "false" : "true");
+    });
+  });
+
+
+  // ── The optimizer's channel flow ────────────────────────────────
+  (function netFlow(){
+    var host = document.getElementById("netFlow");
+    if (!host) return;
+    var track = host.querySelector(".track");
+    var all = [];
+    CHANNELS.forEach(function(g){ g[1].forEach(function(c){ all.push(c); }); });
+    // Doubled, so translating the track by -50% lands exactly where it
+    // started and the loop has no seam.
+    var one = all.map(function(c){ return logoHtml(c[0], c[1], "fm"); }).join("");
+    track.innerHTML = one + one;
+
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    // Lift one mark every few seconds — the weekly rebalance, at a speed
+    // a person can see. Only while the card is the chosen mode and the
+    // tab is visible; an animation running behind another tab is waste.
+    var marks = track.querySelectorAll(".fm");
+    setInterval(function(){
+      if (document.hidden) return;
+      var card = document.querySelector("[data-net='pgam']");
+      if (!card || card.getAttribute("aria-pressed") !== "true") return;
+      if (!host.offsetParent) return;
+      var i = Math.floor(Date.now() / 3200) % all.length;
+      [marks[i], marks[i + all.length]].forEach(function(m){
+        if (!m) return;
+        m.classList.remove("hot");
+        void m.offsetWidth;
+        m.classList.add("hot");
+      });
+    }, 3200);
+  })();
+
+  // ── Channel selection mode ──────────────────────────────────────
+  //
+  // Two ways to buy, and the difference is real rather than cosmetic:
+  // under the optimizer the catalogue is a reference — the mix moves
+  // weekly — so its chips are locked rather than hidden. Hiding them
+  // would make a managed buy look like a smaller one.
+  function setNet(mode){
+    var pgam = mode === "pgam";
+    document.querySelectorAll("[data-net]").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b.dataset.net === mode));
+    });
+    var card = document.getElementById("chCard");
+    if (card) card.classList.toggle("locked", pgam);
+    var cap = document.getElementById("chCap");
+    if (cap) cap.textContent = pgam
+      ? "53 destinations, all in the optimized pool. Open it to see what is in there, or switch to manual above to pick."
+      : "53 destinations. All selected by default — deselecting is how you narrow, and every removal costs reach.";
+    var note = document.getElementById("netNote");
+    if (note) note.hidden = !pgam;
+    var q = document.getElementById("chq");
+    if (q) q.disabled = pgam;
+    var r = document.getElementById("rCh");
+    if (r) r.textContent = pgam
+      ? "PGAM Optimized Network · all 53 · 609.2M households"
+      : chSummary();
+    if (!pgam) chReach();
+  }
+  document.querySelectorAll("[data-net]").forEach(function(b){
+    b.addEventListener("click", function(){ setNet(b.dataset.net); });
+  });
+
+  // ── Geography ───────────────────────────────────────────────────
+  var STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut",
+    "Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky",
+    "Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri",
+    "Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina",
+    "North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina",
+    "South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia",
+    "Wisconsin","Wyoming"];
+  var DMAS = ["New York","Los Angeles","Chicago","Dallas-Ft. Worth","Philadelphia","Houston","Atlanta",
+    "Washington DC","Boston","San Francisco","Phoenix","Seattle","Tampa-St. Petersburg","Minneapolis",
+    "Denver","Miami-Ft. Lauderdale","Detroit","Orlando","Cleveland","Sacramento","Portland","Charlotte",
+    "St. Louis","Indianapolis","Pittsburgh","San Diego","Nashville","Salt Lake City","Raleigh-Durham",
+    "Baltimore","San Antonio","Kansas City","Columbus","Hartford-New Haven","Austin","Milwaukee",
+    "Cincinnati","Las Vegas","Jacksonville","San Jose","Virginia Beach-Norfolk","Grand Rapids",
+    "Birmingham","Greensboro","Oklahoma City","Albuquerque","Louisville","New Orleans","Memphis",
+    "Providence"];
+  var IAB = ["Arts & Entertainment","Automotive","Business","Careers","Education","Health & Fitness",
+    "Food & Drink","Hobbies & Interests","Home & Garden","News","Personal Finance","Society","Pets",
+    "Sports","Tech & Computing","Travel"];
+
+  // Households reachable, by how the area is described. A radius scales
+  // with area, so doubling the miles roughly quadruples the households —
+  // which is exactly why 8 miles cost what it did.
+  var RADIUS_HH = { "5":42000, "8":96000, "12":184000, "15":268000, "25":610000, "50":1980000 };
+  var stSel = {Colorado:1, Utah:1, Wyoming:1};
+
+  function fmtHH(n){
+    return n >= 1e6 ? (n/1e6).toFixed(1)+"M" : Math.round(n/1000)*1000 >= 1000
+      ? Math.round(n).toLocaleString("en-US") : String(n);
+  }
+  function geoHouseholds(){
+    var mode = (document.querySelector("[data-geo][aria-pressed='true']")||{}).dataset;
+    mode = mode ? mode.geo : "radius";
+    if (mode === "radius") return RADIUS_HH[document.getElementById("geoRad").value] || 184000;
+    if (mode === "zip") return zipList().length * 9200;            // ~9.2k households a ZIP
+    if (mode === "states") {
+      var n = Object.keys(stSel).length;
+      var inc = (document.querySelector("[data-gmode][aria-pressed='true']")||{dataset:{}}).dataset.gmode !== "exclude";
+      // 131M US households across 50 states; exclude flips the selection.
+      return Math.round(131000000 * (inc ? n : 50 - n) / 50);
+    }
+    if (mode === "dma") return 0;
+    return 131000000;
+  }
+  function zipList(){
+    var v = document.getElementById("zipBox").value;
+    return v.split(/[\s,;]+/).filter(function(z){ return /^\d{5}$/.test(z); });
+  }
+  function paintGeo(){
+    var hh = geoHouseholds();
+    // $42.23 is this account's own CPM — $81,920 over the 1.94M
+    // impressions the Attention page counts — not a rate card. Frequency
+    // is impressions / households, and it is the number that says whether
+    // the area fits the budget: too wide and nobody sees it twice, too
+    // narrow and the 5-a-day cap throws the money back.
+    var imp = 12000 / 42.23 * 1000;
+    document.getElementById("geoReach").textContent = hh ? fmtHH(hh) : "—";
+    document.getElementById("geoImp").textContent = hh
+      ? (imp >= 1e6 ? (imp/1e6).toFixed(2)+"M" : Math.round(imp).toLocaleString("en-US"))
+      : "—";
+    var f = hh ? imp/hh : 0;
+    var el = document.getElementById("geoFreq");
+    var note = document.getElementById("geoFreqNote");
+    el.textContent = !hh ? "not available"
+      : f < 0.01 ? "< 0.01 a month"
+      : "≈ " + (f < 1 ? f.toFixed(2) : f.toFixed(1)) + " a month";
+    // 150 a month is the 5-a-day cap. At the other end, below one a
+    // month the average household never sees it at all, which is the
+    // failure mode of widening the area without widening the budget.
+    var bad = hh && (f < 1 || f > 150);
+    el.style.color = bad ? "var(--warn-text)" : "";
+    if (note) note.textContent = !hh ? "—"
+      : f > 150 ? "above your 5-a-day cap — spend will under-deliver"
+      : f < 1   ? "under once a household — too thin to register"
+      : "inside the useful range";
+  }
+  function selectGeo(mode){
+    document.querySelectorAll("[data-geo]").forEach(function(b){
+      b.setAttribute("aria-pressed", String(b.dataset.geo === mode));
+    });
+    ["radius","zip","dma","states","national"].forEach(function(k){
+      document.getElementById("geo-"+k).hidden = k !== mode;
+    });
+    var label = { radius: "", zip: "", dma: "DMAs — on request", states: "", national: "Nationwide" }[mode];
+    if (mode === "radius") label = document.getElementById("geoRad").selectedOptions[0].text.split(" —")[0] +
+      " around Ridgeline Ave";
+    if (mode === "zip") label = zipList().length + " ZIP codes";
+    if (mode === "states") label = Object.keys(stSel).length + " states";
+    var r = document.getElementById("rArea"); if (r) r.textContent = label;
+    paintGeo();
+  }
+  if (document.getElementById("geo-radius")) {
+    document.querySelectorAll("[data-geo]").forEach(function(b){
+      b.addEventListener("click", function(){ selectGeo(b.dataset.geo); });
+    });
+    document.getElementById("geoRad").addEventListener("change", function(){
+      var v = this.value;
+      document.getElementById("radWarn").hidden = v !== "8";
+      document.getElementById("radHint").textContent = v === "12"
+        ? "Matches your two best-performing campaigns."
+        : fmtHH(RADIUS_HH[v]) + " households inside this radius.";
+      selectGeo("radius");
+    });
+    document.getElementById("zipBox").addEventListener("input", function(){
+      var n = zipList().length;
+      document.getElementById("zipCount").textContent = n + (n === 1 ? " ZIP code" : " ZIP codes") +
+        " parsed. Comma, space or newline separated.";
+      selectGeo("zip");
+    });
+
+    // 38 of the top DMAs resolve to an ad-server metro id; the rest are
+    // unmatched in the crosswalk and would be dropped without a word, so
+    // they are disabled rather than offered.
+    var DMA_OK = 38;
+    document.getElementById("dmaList").innerHTML = DMAS.map(function(d, i){
+      var ok = i < DMA_OK;
+      return '<button class="gchip" type="button"' + (ok ? '' : ' disabled') +
+        ' title="' + (ok ? "Resolves to an ad-server metro id" :
+        "Not in the Nielsen crosswalk — would be dropped silently") + '">' + d +
+        (ok ? '' : ' <span class="pbadge">no id</span>') + '</button>';
+    }).join("");
+    document.getElementById("dmaList").querySelectorAll(".gchip:not([disabled])").forEach(function(b){
+      b.setAttribute("aria-pressed", "false");
+      b.addEventListener("click", function(){
+        b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") === "true" ? "false" : "true");
+      });
+    });
+
+    var stHost = document.getElementById("stateList");
+    function paintStates(q){
+      stHost.innerHTML = STATES.filter(function(s){
+        return !q || s.toLowerCase().indexOf(q) >= 0;
+      }).map(function(s){
+        return '<button class="gchip" type="button" aria-pressed="'+(stSel[s]?"true":"false")+
+          '" data-st="'+s+'">'+s+'</button>';
+      }).join("");
+      stHost.querySelectorAll("[data-st]").forEach(function(b){
+        b.addEventListener("click", function(){
+          if (stSel[b.dataset.st]) delete stSel[b.dataset.st]; else stSel[b.dataset.st] = 1;
+          b.setAttribute("aria-pressed", String(!!stSel[b.dataset.st]));
+          document.getElementById("stCount").textContent =
+            Object.keys(stSel).length + " of 50 states selected.";
+          selectGeo("states");
+        });
+      });
+    }
+    paintStates("");
+    document.getElementById("stq").addEventListener("input", function(){
+      paintStates(this.value.trim().toLowerCase());
+    });
+    document.querySelectorAll("[data-gmode]").forEach(function(b){
+      b.addEventListener("click", function(){
+        document.querySelectorAll("[data-gmode]").forEach(function(o){ o.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed","true");
+        selectGeo("states");
+      });
+    });
+
+    document.getElementById("iabGrid").innerHTML = IAB.map(function(c){
+      return '<button class="tog" type="button" aria-pressed="true">'+c+'</button>';
+    }).join("");
+
+    paintGeo();
+  }
+
+  // Single-choice segmented groups that only need to move their own
+  // pressed state. Anything with a computation behind it owns its
+  // handler instead.
+  document.querySelectorAll("[data-gender]").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll("[data-gender]").forEach(function(o){ o.setAttribute("aria-pressed","false"); });
+      b.setAttribute("aria-pressed","true");
+    });
+  });
+
+  // ── Dayparting ──────────────────────────────────────────────────
+  var DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+  var dpOn = [];  // 7 x 24 booleans
+  var DP_PRESETS = {
+    all:     function(){ return true; },
+    prime:   function(d,h){ return h >= 19 && h < 23; },
+    daytime: function(d,h){ return h >= 9  && h < 17; },
+    late:    function(d,h){ return h >= 23 || h < 2;  },
+    morning: function(d,h){ return h >= 6  && h < 12; },
+    weekend: function(d){ return d >= 5; }
+  };
+  function dpHours(){
+    var n = 0;
+    for (var d = 0; d < 7; d++) for (var h = 0; h < 24; h++) if (dpOn[d][h]) n++;
+    return n;
+  }
+  /** Describe the selection in words, or say it cannot be summarised. */
+  function dpDescribe(){
+    var n = dpHours();
+    if (n === 168) return "Any time, any day. Narrowing this is the commonest way a campaign " +
+      "under-delivers — it is a hard filter, not a preference.";
+    if (n === 0) return "Nothing selected. A campaign with no hours cannot deliver at all.";
+    // Every selected day sharing one hour pattern is the common case and
+    // the only one worth putting into a sentence.
+    var days = [], pat = null, same = true;
+    for (var d = 0; d < 7; d++) {
+      var key = dpOn[d].map(function(v){ return v ? 1 : 0; }).join("");
+      if (key.indexOf("1") < 0) continue;
+      days.push(DAYS[d]);
+      if (pat === null) pat = key; else if (pat !== key) same = false;
+    }
+    var span = "";
+    if (same && pat) {
+      var runs = [], start = -1;
+      for (var h = 0; h <= 24; h++) {
+        var on = h < 24 && pat[h] === "1";
+        if (on && start < 0) start = h;
+        if (!on && start >= 0) {
+          runs.push(start === 0 && h === 24 ? "all day" : hLabel(start) + "–" + hLabel(h));
+          start = -1;
+        }
+      }
+      span = runs.join(", ");
+    }
+    var dayTxt = days.length === 7 ? "Every day"
+      : days.length === 2 && days[0] === "Sat" ? "Weekends"
+      : days.join(", ");
+    return n + " of 168 hours" + (span ? " · " + dayTxt + " " + span : " selected across " + dayTxt) +
+      ". Every hour you remove is inventory you cannot bid on.";
+  }
+  function hLabel(h){
+    if (h === 0 || h === 24) return "12am";
+    if (h === 12) return "12pm";
+    return (h % 12) + (h < 12 ? "am" : "pm");
+  }
+  function paintDp(){
+    for (var d = 0; d < 7; d++) for (var h = 0; h < 24; h++) {
+      var c = document.getElementById("dp" + d + "_" + h);
+      if (c) c.setAttribute("aria-pressed", String(!!dpOn[d][h]));
+    }
+    var n = dpHours();
+    document.getElementById("dpCount").textContent = n + " of 168 hours";
+    document.getElementById("dpRead").textContent = dpDescribe();
+    // A preset lights up only when the grid matches it exactly, so the
+    // chip can never claim a shape the grid is not in.
+    document.querySelectorAll("[data-dp]").forEach(function(b){
+      var f = DP_PRESETS[b.dataset.dp], match = true;
+      for (var d2 = 0; d2 < 7 && match; d2++) for (var h2 = 0; h2 < 24; h2++)
+        if (!!dpOn[d2][h2] !== !!f(d2, h2)) { match = false; break; }
+      b.setAttribute("aria-pressed", String(match));
+    });
+  }
+  function buildDp(){
+    var host = document.getElementById("dpGrid");
+    if (!host) return;
+    for (var d = 0; d < 7; d++) { dpOn[d] = []; for (var h = 0; h < 24; h++) dpOn[d][h] = true; }
+    var html = '<span></span>';
+    for (var h3 = 0; h3 < 24; h3++)
+      html += '<button class="dph" type="button" data-col="' + h3 + '" title="Toggle ' + hLabel(h3) +
+        ' on every day">' + (h3 % 3 === 0 ? (h3 === 0 ? "12a" : h3 === 12 ? "12p" : (h3 % 12) + (h3 < 12 ? "a" : "p")) : "") + '</button>';
+    for (var d3 = 0; d3 < 7; d3++) {
+      html += '<button class="dpd" type="button" data-row="' + d3 + '" title="Toggle all of ' + DAYS[d3] + '">' + DAYS[d3] + '</button>';
+      for (var h4 = 0; h4 < 24; h4++)
+        html += '<button class="dpc" type="button" tabindex="-1" id="dp' + d3 + '_' + h4 +
+          '" data-d="' + d3 + '" data-h="' + h4 + '" aria-pressed="true" aria-label="' +
+          DAYS[d3] + ' ' + hLabel(h4) + '"></button>';
+    }
+    host.innerHTML = html;
+    var first = document.getElementById("dp0_0");
+    if (first) first.tabIndex = 0;
+
+    var painting = false, paintTo = false;
+    function setCell(d, h, v){ dpOn[d][h] = v; }
+    host.addEventListener("mousedown", function(e){
+      var c = e.target.closest(".dpc"); if (!c) return;
+      painting = true;
+      paintTo = c.getAttribute("aria-pressed") !== "true";
+      setCell(+c.dataset.d, +c.dataset.h, paintTo); paintDp();
+      e.preventDefault();
+    });
+    host.addEventListener("mouseover", function(e){
+      if (!painting) return;
+      var c = e.target.closest(".dpc"); if (!c) return;
+      setCell(+c.dataset.d, +c.dataset.h, paintTo); paintDp();
+    });
+    document.addEventListener("mouseup", function(){ painting = false; });
+    host.addEventListener("click", function(e){
+      var row = e.target.closest("[data-row]"), col = e.target.closest("[data-col]");
+      if (row) {
+        var d = +row.dataset.row, allOn = dpOn[d].every(Boolean);
+        for (var h = 0; h < 24; h++) dpOn[d][h] = !allOn;
+        paintDp();
+      } else if (col) {
+        var hh = +col.dataset.col, colOn = true;
+        for (var dd = 0; dd < 7; dd++) if (!dpOn[dd][hh]) colOn = false;
+        for (var d2 = 0; d2 < 7; d2++) dpOn[d2][hh] = !colOn;
+        paintDp();
+      }
+    });
+    host.addEventListener("keydown", function(e){
+      var c = e.target.closest(".dpc"); if (!c) return;
+      var d = +c.dataset.d, h = +c.dataset.h, nd = d, nh = h;
+      if (e.key === "ArrowRight") nh = Math.min(23, h + 1);
+      else if (e.key === "ArrowLeft") nh = Math.max(0, h - 1);
+      else if (e.key === "ArrowDown") nd = Math.min(6, d + 1);
+      else if (e.key === "ArrowUp") nd = Math.max(0, d - 1);
+      else if (e.key === " " || e.key === "Enter") { dpOn[d][h] = !dpOn[d][h]; paintDp(); e.preventDefault(); return; }
+      else return;
+      e.preventDefault();
+      var next = document.getElementById("dp" + nd + "_" + nh);
+      if (next) { c.tabIndex = -1; next.tabIndex = 0; next.focus(); }
+    });
+    document.querySelectorAll("[data-dp]").forEach(function(b){
+      b.addEventListener("click", function(){
+        var f = DP_PRESETS[b.dataset.dp];
+        for (var d = 0; d < 7; d++) for (var h = 0; h < 24; h++) dpOn[d][h] = !!f(d, h);
+        paintDp();
+      });
+    });
+    paintDp();
+  }
+  buildDp();
+
+  // ── Channel picker ──────────────────────────────────────────────
+  //
+  // Everything is selected by default. Deselecting is how an advertiser
+  // narrows, and the reach counter makes the cost of each removal
+  // visible — the opposite of an empty picker that has to be filled in.
+  var chOff = {};
+  function chTotals(){
+    var sel=0, n=0, all=0;
+    CHANNELS.forEach(function(g){ g[1].forEach(function(c){
+      all++; if(!chOff[c[0]]){ sel+=c[2]; n++; } }); });
+    return { sel: sel, n: n, all: all };
+  }
+  function chSummary(){
+    var t = chTotals();
+    return (t.n === t.all ? "All " + t.all : t.n + " of " + t.all) + " · " + t.sel.toFixed(1) + "M households";
+  }
+  /**
+   * Roll a number to a new value instead of swapping it.
+   *
+   * A figure that jumps is read as a different figure; one that travels
+   * is read as the same figure changing, which is what deselecting a
+   * channel actually does to your reach. ~320ms, and prefers-reduced-
+   * motion gets the destination immediately.
+   */
+  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function rollTo(el, to, fmt){
+    if (!el) return;
+    var from = parseFloat(el.dataset.v);
+    if (isNaN(from) || REDUCED) { el.dataset.v = to; el.textContent = fmt(to); return; }
+    el.dataset.v = to;
+    if (el._raf) cancelAnimationFrame(el._raf);
+    var t0 = null, dur = 320;
+    function step(ts){
+      if (t0 === null) t0 = ts;
+      var k = Math.min(1, (ts - t0) / dur);
+      var e = 1 - Math.pow(1 - k, 3);
+      el.textContent = fmt(from + (to - from) * e);
+      if (k < 1) el._raf = requestAnimationFrame(step);
+    }
+    el._raf = requestAnimationFrame(step);
+  }
+  function chReach(){
+    var t = chTotals();
+    rollTo(document.getElementById("chReach"), t.sel, function(v){ return v.toFixed(1) + "M"; });
+    document.getElementById("chCount").textContent = t.n + " of " + t.all;
+    // Under the optimizer the review line names the network, not a count
+    // the buyer did not choose, so it is left alone here.
+    var opt = (document.querySelector("[data-net='pgam']") || {}).getAttribute
+      ? document.querySelector("[data-net='pgam']").getAttribute("aria-pressed") === "true" : false;
+    var r = document.getElementById("rCh");
+    if (r && !opt) r.textContent = chSummary();
+  }
+  function buildChannels(){
+    var host=document.getElementById("chGroups"); if(!host) return;
+    host.innerHTML=CHANNELS.map(function(g,gi){
+      var reach=g[1].reduce(function(a,c){return a+c[2];},0);
+      // Each category carries its share of the whole pool, so the
+      // catalogue has a shape rather than being seven equal drawers.
+      var share = reach / 609.2 * 100;
+      return '<div class="chgroup"><button class="chhead" type="button" aria-expanded="'+(gi===0?"true":"false")+
+        '" data-g="'+gi+'"><svg class="chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg>'+
+        '<span class="cn">'+g[0]+'</span>'+
+        '<span class="cbar" aria-hidden="true"><i style="width:'+share.toFixed(1)+'%"></i></span>'+
+        '<span class="cc">'+g[1].length+' · '+reach.toFixed(1)+'M</span></button>'+
+        '<div class="chlist" id="chl'+gi+'"'+(gi===0?"":" hidden")+'>'+
+        g[1].map(function(c){
+          var l = LOGO[c[0]];
+          return '<button class="chip2" type="button" aria-pressed="true" data-ch="' +
+            c[0].replace(/"/g,"&quot;") + '"' + (l ? ' style="--bc:' + l[0] + '"' : '') + '>' +
+            logoHtml(c[0], c[1]) +
+            '<span class="nm">'+c[0]+'</span><span class="rc">'+c[2]+'M households</span>'+
+            '<span class="tick" aria-hidden="true"></span></button>';
+        }).join("")+'</div></div>';
+    }).join("");
+    host.querySelectorAll(".chhead").forEach(function(b){
+      b.addEventListener("click",function(){
+        var open=b.getAttribute("aria-expanded")==="true";
+        b.setAttribute("aria-expanded",String(!open));
+        document.getElementById("chl"+b.dataset.g).hidden=open;
+      });
+    });
+    host.querySelectorAll(".chip2").forEach(function(b){
+      b.addEventListener("click",function(){
+        var on=b.getAttribute("aria-pressed")==="true";
+        b.setAttribute("aria-pressed",String(!on));
+        if(on) chOff[b.dataset.ch]=1; else delete chOff[b.dataset.ch];
+        chReach();
+      });
+    });
+    var q=document.getElementById("chq");
+    if(q) q.addEventListener("input",function(){
+      var t=q.value.trim().toLowerCase();
+      host.querySelectorAll(".chgroup").forEach(function(g,gi){
+        var any=false;
+        g.querySelectorAll(".chip2").forEach(function(c){
+          var m=!t||c.dataset.ch.toLowerCase().indexOf(t)>=0;
+          c.hidden=!m; if(m) any=true;
+        });
+        g.hidden=!any;
+        if(t){ g.querySelector(".chhead").setAttribute("aria-expanded","true");
+               document.getElementById("chl"+gi).hidden=false; }
+      });
+    });
+    chReach();
+  }
+
+  if (document.querySelector("[data-net]")) setNet("pgam");
+
+  var advBtn=document.getElementById("advBtn");
+  if(advBtn) advBtn.addEventListener("click",function(){
+    var open=advBtn.getAttribute("aria-expanded")==="true";
+    advBtn.setAttribute("aria-expanded",String(!open));
+    document.getElementById("advBody").hidden=open;
+  });
+  // Plain on/off chips only. Daypart presets and the geo include/exclude
+  // modes wear the same class but own their pressed state, and a second
+  // handler flipping it here would undo what they just set.
+  document.querySelectorAll(".tog:not([data-dp]):not([data-gmode])").forEach(function(t){
+    t.addEventListener("click",function(){
+      t.setAttribute("aria-pressed", t.getAttribute("aria-pressed")==="true"?"false":"true");
+    });
+  });
+  buildChannels();
+
+
+  // ── Results pivot ───────────────────────────────────────────────
+  //
+  // Four groupings of one window. Every one totals $81,920 and 844
+  // leads — that invariant is the point of the control, so the footer
+  // is fixed rather than recomputed per view.
+  var PIVOTS = {
+    campaign: { head:"Campaign", rows:[
+      ["Brand Awareness Always-on",47280,445,"$106.25","#/campaign/brand-awareness"],
+      ["Adventure Hero · CTV Q3",  28400,312,"$91.03", "#/campaign/adventure-hero"],
+      ["Sequential Retargeting",    6240, 87,"$71.72", "#/campaign/retargeting"]]},
+    week: { head:"Week", rows:[
+      ["May 4",      0,null,"—",null],["May 11", 6106, 41,"$148.93",null],
+      ["May 18",  6685,  70,"$95.50",null],["May 25", 6090, 70,"$87.00",null],
+      ["Jun 1",  11160, 129,"$86.51",null],["Jun 8", 16171,153,"$105.69",null],
+      ["Jun 15", 19424, 184,"$105.57",null],["Jun 22",16284,197,"$82.66",null]]},
+    month: { head:"Month", rows:[
+      ["May 2026", 18881,181,"$104.31",null],["June 2026",63039,663,"$95.08",null]]},
+    type: { head:"Lead type", rows:[
+      ["Phone calls",     null,577,"—",null],
+      ["Form fills",      null,267,"—",null]]}
+  };
+  function paintPivot(key){
+    var p=PIVOTS[key]||PIVOTS.campaign;
+    document.getElementById("pvH0").textContent=p.head;
+    document.getElementById("pvFoot").textContent="Total";
+    // Share is a share of the window total, not of the largest row. Scaling
+    // the bar to the biggest row would draw a 53% share full-width under a
+    // column headed "Share of leads", so the number sits beside the bar and
+    // both say the same thing.
+    var tot=p.rows.reduce(function(a,r){return a+(r[2]||0);},0)||1;
+    document.getElementById("pvBody").innerHTML=p.rows.map(function(r){
+      var nm = r[4] ? '<a class="cname" href="'+r[4]+'">'+r[0]+'</a>' : '<span class="cname">'+r[0]+'</span>';
+      var spend = r[1]===null ? '<span style="color:var(--ink3)">—</span>' : "$"+r[1].toLocaleString("en-US");
+      var leads = r[2]===null ? '<span style="color:var(--ink3)">not measured</span>' : r[2];
+      var share = r[2]===null
+        ? '<span style="color:var(--ink3)">—</span>'
+        : '<span class="pvcell"><span class="pvbar"><i style="width:'+(r[2]/tot*100).toFixed(1)+
+          '%"></i></span><span class="pvpct">'+Math.round(r[2]/tot*100)+'%</span></span>';
+      return '<tr><td>'+nm+'</td><td class="r" style="color:var(--ink);font-weight:500">'+spend+
+             '</td><td class="r">'+leads+'</td><td class="r">'+r[3]+
+             '</td><td>'+share+'</td></tr>';
+    }).join("");
+    var cap = key==="type"
+      ? "Split by how the lead arrived. Spend cannot be divided between call and form, so it shows a dash."
+      : "Same window, pivoted. The total is the same however you group it.";
+    document.getElementById("pvCap").textContent=cap;
+  }
+  document.querySelectorAll("[data-pivot]").forEach(function(b){
+    b.addEventListener("click",function(){
+      document.querySelectorAll("[data-pivot]").forEach(function(o){o.setAttribute("aria-pressed","false");});
+      b.setAttribute("aria-pressed","true");
+      paintPivot(b.dataset.pivot);
+    });
+  });
+  paintPivot("campaign");
+
+  // ── Wallet: what the money buys ─────────────────────────────────
+  // A balance is a number you have to divide in your head; days are the
+  // answer. Both the balance and the runway are recomputed from the same
+  // $2,326 dailyBurn every other screen uses, so a top-up preview can
+  // never quote a different rate to the tile above it.
+  var W_BAL = 18240, W_BURN = 2326, W_TODAY = new Date(2026, 5, 23);
+  var MONTHS = ["January","February","March","April","May","June",
+                "July","August","September","October","November","December"];
+  function wUsd(n){ return "$" + Math.round(n).toLocaleString("en-US"); }
+  function wDry(days){
+    var d = new Date(W_TODAY.getTime());
+    d.setDate(d.getDate() + days);
+    return d.getDate() + " " + MONTHS[d.getMonth()];
+  }
+  function paintBuys(amt){
+    var buys = document.getElementById("buys");
+    var pay  = document.getElementById("payBtn");
+    var copy = document.getElementById("autoCopy");
+    if (!buys) return;
+    if (!(amt > 0)) {
+      buys.innerHTML = "Enter an amount to see how many days of delivery it buys.";
+      pay.textContent = "Add funds";
+      return;
+    }
+    var days = Math.floor((W_BAL + amt) / W_BURN);
+    buys.innerHTML = "<b>" + wUsd(amt) + "</b> takes your balance to <b>" + wUsd(W_BAL + amt) +
+      "</b> — about <b>" + days + " days</b> at today's rate, taking you to <b>" + wDry(days) + "</b>.";
+    pay.textContent = "Add " + wUsd(amt);
+    if (copy) copy.innerHTML = "Add " + wUsd(amt) + " whenever the balance drops below three days of " +
+      "delivery — " + wUsd(W_BURN * 3) + " at today's rate — so a campaign never goes dark halfway " +
+      "through a flight.";
+  }
+  var amtIn = document.getElementById("amtCustom");
+  if (amtIn) {
+    document.querySelectorAll(".amt").forEach(function(b){
+      b.addEventListener("click", function(){
+        document.querySelectorAll(".amt").forEach(function(o){ o.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed","true");
+        amtIn.value = b.dataset.amt;
+        paintBuys(Number(b.dataset.amt));
+      });
+    });
+    amtIn.addEventListener("input", function(){
+      var v = Number(amtIn.value);
+      // A typed amount that happens to match a preset should light it up;
+      // one that doesn't should leave every preset off rather than leaving
+      // a stale selection contradicting the field.
+      document.querySelectorAll(".amt").forEach(function(o){
+        o.setAttribute("aria-pressed", String(Number(o.dataset.amt) === v));
+      });
+      paintBuys(v);
+    });
+    paintBuys(Number(amtIn.value));
+  }
+  // The generic .toggle handler already owns aria-pressed, so this one
+  // only mirrors the resulting state — flipping it here too would leave
+  // the switch exactly where it started.
+  var autoTog = document.getElementById("autoTog");
+  if (autoTog) {
+    autoTog.addEventListener("click", function(){
+      document.getElementById("autoOn").hidden =
+        autoTog.getAttribute("aria-pressed") !== "true";
+    });
+  }
+
+  // ── Results: window, chart, breakdowns ──────────────────────────
+  //
+  // One weekly ledger, 24 buckets from 5 January. Every figure on the
+  // page — the subline, the chart, the pivot totals, the statements on
+  // Wallet — is a sum over a slice of this. A week is attributed to the
+  // month it starts in, so a week straddling a boundary sits in one
+  // month rather than being split across two.
+  var WK = [
+    ["2026-01-05",0,null],["2026-01-12",0,null],["2026-01-19",0,null],["2026-01-26",0,null],
+    ["2026-02-02",0,null],["2026-02-09",0,null],["2026-02-16",1712,10],["2026-02-23",1874,11],
+    ["2026-03-02",0,null],["2026-03-09",4816,32],["2026-03-16",6342,42],["2026-03-23",4407,32],
+    ["2026-03-30",4849,41],
+    ["2026-04-06",0,null],["2026-04-13",0,null],["2026-04-20",0,null],["2026-04-27",0,null],
+    ["2026-05-04",0,null],["2026-05-11",6106,41],["2026-05-18",6685,70],["2026-05-25",6090,70],
+    ["2026-06-01",11160,129],["2026-06-08",16171,153],["2026-06-15",19424,184],["2026-06-22",16284,197]
+  ];
+  var MON = ["January","February","March","April","May","June","July","August",
+             "September","October","November","December"];
+  function dLabel(iso){
+    var p = iso.split("-");
+    return Number(p[2]) + " " + MON[Number(p[1]) - 1];
+  }
+  function rUsd(n){ return "$" + Math.round(n).toLocaleString("en-US"); }
+  function rCents(n){ return "$" + n.toFixed(2); }
+
+  var rgFrom = "2026-05-04", rgTo = "2026-06-22";
+  function slice(){
+    return WK.filter(function(w){ return w[0] >= rgFrom && w[0] <= rgTo; });
+  }
+  function paintRange(){
+    var ws = slice();
+    var spend = ws.reduce(function(a, w){ return a + w[1]; }, 0);
+    // A week with spend and no measurement is excluded from the lead
+    // count rather than counted as zero, which is what would drag the
+    // cost per lead up for a week nobody measured.
+    var leads = ws.reduce(function(a, w){ return a + (w[2] || 0); }, 0);
+    var line = document.getElementById("rgLine");
+    if (line) line.textContent = ws.length + (ws.length === 1 ? " week" : " weeks") + " to " +
+      dLabel(rgTo) + " · " + rUsd(spend) + " spent · " + leads.toLocaleString("en-US") + " leads · " +
+      (leads ? rCents(spend / leads) : "—") + " each";
+    drawRChart(ws);
+  }
+
+  // Bars for spend, a line for cost per lead. Two encodings because the
+  // page's whole claim is that the two move in opposite directions, and
+  // a single series cannot show that.
+  function drawRChart(ws){
+    var svg = document.getElementById("rChart2");
+    if (!svg) return;
+    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    var W = 760, H = 230, pl = 52, pr = 52, pt = 16, pb = 30;
+    function E(t, a){
+      var n = document.createElementNS("http://www.w3.org/2000/svg", t);
+      for (var k in a) n.setAttribute(k, a[k]);
+      return n;
+    }
+    if (!ws.length) return;
+    var maxS = Math.max.apply(null, ws.map(function(w){ return w[1]; }).concat([1]));
+    var cpls = ws.filter(function(w){ return w[2]; }).map(function(w){ return w[1] / w[2]; });
+    var maxC = cpls.length ? Math.max.apply(null, cpls) : 1;
+    var hiS = Math.ceil(maxS / 5000) * 5000 || 5000;
+    var hiC = Math.ceil(maxC / 50) * 50 || 50;
+    var bw = (W - pl - pr) / ws.length;
+    var y  = function(v){ return pt + (1 - v / hiS) * (H - pt - pb); };
+    var yc = function(v){ return pt + (1 - v / hiC) * (H - pt - pb); };
+
+    for (var t = 0; t <= 4; t++) {
+      var gv = hiS * t / 4;
+      svg.appendChild(E("line", { x1: pl, x2: W - pr, y1: y(gv), y2: y(gv),
+        stroke: C_GRID, "stroke-width": "1" }));
+      var lt = E("text", { x: pl - 9, y: y(gv) + 3.5, "text-anchor": "end", "font-size": "11",
+        fill: C_INK3, "font-family": "Inter, sans-serif", style: "font-variant-numeric:tabular-nums" });
+      lt.textContent = gv >= 1000 ? "$" + Math.round(gv / 1000) + "k" : "$" + gv;
+      svg.appendChild(lt);
+      var rt = E("text", { x: W - pr + 9, y: yc(hiC * t / 4) + 3.5, "font-size": "11",
+        fill: C_PRIMARY, "font-family": "Inter, sans-serif", style: "font-variant-numeric:tabular-nums" });
+      rt.textContent = "$" + Math.round(hiC * t / 4);
+      svg.appendChild(rt);
+    }
+
+    ws.forEach(function(w, i) {
+      var x = pl + i * bw, h = (H - pt - pb) * (w[1] / hiS);
+      if (w[1] > 0) svg.appendChild(E("rect", { x: x + bw * 0.18, y: H - pb - h,
+        width: Math.max(2, bw * 0.64), height: h, rx: "2", fill: C_FILL }));
+    });
+
+    var d = "", pen = false, pts = [];
+    ws.forEach(function(w, i) {
+      if (!w[2]) { pen = false; return; }
+      var cx = pl + i * bw + bw / 2, cy = yc(w[1] / w[2]);
+      d += (pen ? "L" : "M") + cx.toFixed(1) + "," + cy.toFixed(1) + " ";
+      pen = true;
+      pts.push([cx, cy]);
+    });
+    if (d) svg.appendChild(E("path", { d: d.trim(), fill: "none", stroke: C_PRIMARY,
+      "stroke-width": "2.25", "stroke-linecap": "round", "stroke-linejoin": "round" }));
+    pts.forEach(function(p){ svg.appendChild(E("circle", { cx: p[0], cy: p[1], r: "3", fill: C_PRIMARY })); });
+
+    // Label the first, last and middle week only; more than that and the
+    // axis is unreadable at any realistic width.
+    [0, Math.floor(ws.length / 2), ws.length - 1].filter(function(v, i, a){ return a.indexOf(v) === i; })
+      .forEach(function(i) {
+        var tx = E("text", { x: pl + i * bw + bw / 2, y: H - 9, "font-size": "11", fill: C_INK3,
+          "font-family": "Inter, sans-serif", "text-anchor": "middle" });
+        tx.textContent = dLabel(ws[i][0]).replace(/ (\w{3})\w*$/, " $1");
+        svg.appendChild(tx);
+      });
+
+    // The verdict pill states what the two series actually did over the
+    // window shown, rather than repeating the eight-week headline.
+    var pill = document.getElementById("rcVerdict");
+    if (pill && cpls.length > 1) {
+      var firstHalf = cpls.slice(0, Math.ceil(cpls.length / 2));
+      var lastHalf  = cpls.slice(Math.ceil(cpls.length / 2));
+      var avg = function(a){ return a.reduce(function(x, y){ return x + y; }, 0) / a.length; };
+      var down = avg(lastHalf) < avg(firstHalf);
+      pill.className = "pill " + (down ? "ok" : "warn");
+      pill.innerHTML = '<i style="background:var(--' + (down ? "positive" : "warn") + ')"></i>' +
+        (down ? "Spend up, cost down" : "Cost per lead rising");
+    } else if (pill) {
+      pill.className = "pill muted";
+      pill.textContent = "Too few measured weeks to call it";
+    }
+  }
+
+  var rangeCard = document.getElementById("rangeCard");
+  if (rangeCard) {
+    document.querySelectorAll("[data-range]").forEach(function(b){
+      b.addEventListener("click", function(){
+        document.querySelectorAll("[data-range]").forEach(function(o){ o.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed", "true");
+        var r = b.dataset.range;
+        rangeCard.hidden = r !== "custom";
+        if (r !== "custom") {
+          rgTo = "2026-06-22";
+          rgFrom = WK[WK.length - Number(r)][0];
+          document.getElementById("rgFrom").value = rgFrom;
+          document.getElementById("rgTo").value = rgTo;
+        } else {
+          rgFrom = document.getElementById("rgFrom").value;
+          rgTo = document.getElementById("rgTo").value;
+        }
+        paintRange();
+      });
+    });
+    ["rgFrom", "rgTo"].forEach(function(id){
+      document.getElementById(id).addEventListener("change", function(){
+        var f = document.getElementById("rgFrom").value, t = document.getElementById("rgTo").value;
+        // A backwards range is a slip, not an instruction: swap it and
+        // say so rather than rendering an empty chart.
+        var swapped = f > t;
+        rgFrom = swapped ? t : f;
+        rgTo = swapped ? f : t;
+        document.getElementById("rgNote").textContent = swapped
+          ? "Those dates were the wrong way round, so they have been swapped."
+          : "The ledger holds 24 weeks, from 5 January. Weeks are whole — a range is snapped to the " +
+            "weeks it covers rather than pro-rated across a part week.";
+        paintRange();
+      });
+    });
+    paintRange();
+  }
+
+  // ── Attribution window ──────────────────────────────────────────
+  //
+  // One window for the whole page. Vibe ships a per-campaign setting
+  // plus two session-only report filters that reset on reload and can
+  // silently disagree with it — their own docs call that "a common
+  // source of 'why don't my numbers match'". One control, stated in
+  // words beside the numbers, is the fix.
+  //
+  // A shorter window credits fewer leads: the same spend, fewer matches
+  // inside it. These are the share of the 844 that land inside each.
+  var ATTR = { "1": 0.41, "7": 0.83, "14": 1, "30": 1.07 };
+  function paintAttr(days){
+    var share = ATTR[days] || 1;
+    var leads = Math.round(844 * share);
+    var el = document.getElementById("attrNote");
+    if (!el) return;
+    var cpl = 81920 / leads;
+    el.innerHTML = "<b>" + days + "-day attribution, applied to the whole window above.</b> " +
+      "A lead counts if the household called or filled in a form within " + days +
+      (days === "1" ? " day" : " days") + " of seeing the ad" +
+      (days === "14" ? "" : " — <b>" + leads.toLocaleString("en-US") + " leads at $" + cpl.toFixed(2) +
+        "</b> against 844 at $97.06 on the 14-day default") +
+      ". Changing it re-attributes history rather than only affecting new delivery, so every figure on " +
+      "this page moves together — there is one window, not one per screen. Delivery updates hourly and " +
+      "the last few hours are partial; leads keep arriving for the length of the window, so anything " +
+      "younger than " + days + " days is still filling in.";
+  }
+  document.querySelectorAll("[data-attr]").forEach(function(b){
+    b.addEventListener("click", function(){
+      document.querySelectorAll("[data-attr]").forEach(function(o){ o.setAttribute("aria-pressed","false"); });
+      b.setAttribute("aria-pressed","true");
+      paintAttr(b.dataset.attr);
+    });
+  });
+
+  // ── Where it ran ────────────────────────────────────────────────
+  var RUN = {
+    dow: [["Sunday",351140,14827,277632],["Saturday",337560,14254,266894],["Monday",263840,11141,200685],["Thursday",254140,10732,193307],["Friday",250260,10568,187851],["Tuesday",244440,10322,185929],["Wednesday",238620,10076,181502]],
+    hod: [["12am",14024,593],["1am",9349,395],["2am",7012,296],["3am",4675,197],["4am",4675,197],["5am",7012,296],["6am",16361,691],["7am",28048,1184],["8am",37398,1579],["9am",44410,1875],["10am",49084,2073],["11am",53759,2270],["12pm",60771,2566],["1pm",65446,2764],["2pm",70120,2961],["3pm",79470,3356],["4pm",98169,4145],["5pm",130892,5527],["6pm",172964,7304],["7pm",229060,9672],["8pm",261783,11054],["9pm",243084,10265],["10pm",165952,7008],["11pm",86482,3652]],
+    dma: [["Denver",1191160,50298,932532],["Colorado Springs",217280,9175,165742],["Salt Lake City",151320,6390,113909],["Cheyenne–Scottsbluff",98940,4178,73486],["Grand Junction",89240,3768,66281],["Albuquerque–Santa Fe",81480,3441,61335],["Casper–Riverton",60140,2540,44064],["Other",50440,2130,36451]],
+    genre: [["Home & lifestyle",415160,17530,329437],["News",345320,14582,253466],["Sports",302640,12780,246154],["Drama",256080,10813,200664],["Reality & documentary",223100,9421,168182],["Comedy",195940,8274,145764],["Film",141620,5980,109569],["Kids & family",60140,2540,40564]],
+    apps: [["Tubi",333680,14090,247508],["The Roku Channel",298760,12616,227596],["Hulu",267720,11305,220051],["Pluto TV",215340,9093,157571],["Samsung TV+",166840,7045,125426],["Peacock",143560,6062,116559],["Discovery+",114460,4833,90638],["Other (44 channels)",399640,16876,308451]],
+    cre: [["PolyTrek brand film · 30s",1119668,47280,852190],["Adventure Hero — hero cut · 30s",672559,28400,532098],["Come back — 15s cutdown",147773,6240,109512]],
+    dev: [["Connected TV",1707200,72090,1341337],["Phone",155200,6554,101874],["Tablet",50440,2130,34112],["PC",27160,1146,16477]]
+  };
+  function fmtImp(n){
+    return n >= 1e6 ? (n / 1e6).toFixed(2) + "M" : Math.round(n / 1000) + "k";
+  }
+  (function drawHours(){
+    var host = document.getElementById("brk-hod");
+    if (!host) return;
+    var rows = RUN.hod;
+    var max = Math.max.apply(null, rows.map(function(r){ return r[1]; }));
+    var tot = rows.reduce(function(a, r){ return a + r[1]; }, 0);
+    host.className = "hodchart";
+    host.innerHTML = rows.map(function(r, i){
+      return '<span class="hb" title="' + r[0] + " · " + fmtImp(r[1]) + " impressions · " +
+        rUsd(r[2]) + " · " + (r[1] / tot * 100).toFixed(1) + '%">' +
+        '<i style="height:' + Math.max(2, r[1] / max * 100).toFixed(1) + '%"></i>' +
+        '<em>' + (i % 6 === 0 ? r[0].replace("am", "a").replace("pm", "p") : "") + '</em></span>';
+    }).join("");
+    var peak = rows.reduce(function(a, r){ return r[1] > a[1] ? r : a; });
+    var low  = rows.reduce(function(a, r){ return r[1] < a[1] ? r : a; });
+    // The bars carry their figures in a title, which a screen reader
+    // never reaches. The same 24 rows go into a visually-hidden table.
+    var tb = document.querySelector("#hodTable tbody");
+    if (tb) tb.innerHTML = rows.map(function(r){
+      return "<tr><th scope=\"row\">" + r[0] + "</th><td>" + r[1].toLocaleString("en-US") +
+        "</td><td>" + rUsd(r[2]) + "</td></tr>";
+    }).join("");
+    var cap = document.getElementById("hodCap");
+    if (cap) cap.textContent = "Peaks at " + peak[0] + " with " + fmtImp(peak[1]) +
+      " impressions, " + Math.round(peak[1] / low[1]) + "× the " + low[0] + " trough. " +
+      "Nothing is dayparted, so this is the audience's shape, not yours.";
+  })();
+
+  Object.keys(RUN).forEach(function(k){
+    if (k === "hod") return;
+    var host = document.getElementById("brk-" + k);
+    if (!host) return;
+    var rows = RUN[k];
+    // Bars are scaled to the largest row, and the share is printed, so
+    // the bar reads as a comparison and the number carries the truth.
+    var max = Math.max.apply(null, rows.map(function(r){ return r[1]; }));
+    var tot = rows.reduce(function(a, r){ return a + r[1]; }, 0);
+    // Top apps are channels, so they get the same mark the picker uses —
+    // the row reads as the thing you selected, not as a string that
+    // happens to match one.
+    var marked = k === "apps";
+    host.innerHTML = rows.map(function(r){
+      // Attention is the reason to read a breakdown rather than a total:
+      // it is the only column that says whether the impressions in this
+      // slice were worth buying. Blank where the API returns no
+      // attentive count for the dimension.
+      // Name and attention on the top line, the rest under the bar. One
+      // long value string wrapped on some rows and not others, which
+      // made a tidy column look ragged for no gain.
+      var att = r[3] ? Math.round(r[3] / r[1] * 100) : null;
+      var attCls = att === null ? "" : att >= 77 ? " up" : att < 72 ? " down" : "";
+      return '<li><div class="r1"><span class="bk">' +
+        (marked ? logoHtml(r[0], r[0].slice(0, 2), "amark") : "") + r[0] + '</span>' +
+        (att === null ? "" : '<span class="batt' + attCls + '">' + att +
+          '<em>att</em></span>') + '</div>' +
+        '<div class="bt"><i style="width:' + Math.max(1.5, r[1] / max * 100).toFixed(1) + '%"></i></div>' +
+        '<div class="bsub">' + fmtImp(r[1]) + ' imps · ' + rUsd(r[2]) + ' · ' +
+        (r[1] / tot * 100).toFixed(1) + '% of impressions</div></li>';
+    }).join("");
+  });
+
+  // Flag the scrolled state on <body> rather than restyling the header
+  // directly, so any surface can respond to it later. Passive listener
+  // and a class flip only on the transition, not on every frame.
+  (function scrolledFlag(){
+    var on = false;
+    function check(){
+      var next = window.scrollY > 4;
+      if (next === on) return;
+      on = next;
+      document.body.dataset.scrolled = on ? "1" : "0";
+    }
+    window.addEventListener("scroll", check, { passive: true });
+    check();
+  })();
+
+  // ── Integrations ────────────────────────────────────────────────
+  //
+  // Grouped by the job each one does rather than by vendor. The four
+  // audience states are the ones a synced list actually moves through:
+  // a list that has been accepted but not yet matched is not usable,
+  // and calling that "connected" is the lie that generates the ticket.
+  var INTEG = {
+    aud: [
+      ["Klaviyo","ok","Active","3 segments · 61,400 matched","Segments refresh hourly. Vibe-style flows are created for you and send nothing to your customers."],
+      ["HubSpot","pop","Populating","1 list · matching","Lists refresh daily. First sync can take 48 hours before the audience is usable."],
+      ["Customer list (CSV)","ok","Active","1 upload · 12,800 matched","Email or postal address. Matched to households, never to a person."],
+      ["Mailchimp","idle","Not connected","","Audiences and segments, refreshed daily."],
+      ["Segment","idle","Not connected","","Engage audiences only, near real time as people enter and leave."],
+      ["Customer.io","idle","Not connected","","Needs an App API key and the region your data lives in."]
+    ],
+    out: [
+      ["Google Analytics 4","ok","Connected","Events tagged source=attune, medium=ctv","Web streams only. Expect GA4 to under-count us: it credits the last click and there is no click on television."],
+      ["Scheduled reports","ok","2 scheduled","Monday 6am · month-end","Same figures as the screen they came from, with the attribution window printed on them."],
+      ["Reporting API","idle","Key not generated","","Hourly refresh, 45-day maximum window per query, any historical start date."],
+      ["Northbeam","idle","Not connected","","Spend data immediately; deterministic views need one more toggle their side."],
+      ["Triple Whale","idle","Not connected","","Pick the attribution window on their side to match the one set here, or the two will disagree."],
+      ["Webhook","idle","Not configured","","A POST per completed day, if you would rather pull nothing."]
+    ],
+    mmp: [
+      ["AppsFlyer","idle","Not connected","","OneLink with cross-platform attribution on, and a view-through lookback."],
+      ["Adjust","idle","Not connected","","Cross-device link, then map purchase and signup back to us."],
+      ["Singular","idle","Not connected","","Needs view-through postbacks on, and revenue values included."],
+      ["Branch","idle","On request","","Not wired yet — tell us if you need it and we will."]
+    ]
+  };
+  var ST = { ok:["ok","positive"], pop:["up","primary"], warn:["warn","warn"], idle:["muted","ink3"] };
+  function intCard(r){
+    var s = ST[r[1]] || ST.idle;
+    return '<div class="intcard"><div class="inthead">' +
+      '<span class="inti" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">' +
+      '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/></svg></span>' +
+      '<span class="intn">' + r[0] + '</span>' +
+      '<span class="pill ' + s[0] + '"><i style="background:var(--' + s[1] + ')"></i>' + r[2] + '</span></div>' +
+      '<p class="intd">' + r[4] + '</p>' +
+      (r[3] ? '<span class="intmeta">' + r[3] + '</span>' : '') + '</div>';
+  }
+  ["aud","out","mmp"].forEach(function(k){
+    var host = document.getElementById(k + "Grid");
+    if (host) host.innerHTML = INTEG[k].map(intCard).join("");
+  });
+
+  // ── Install paths ───────────────────────────────────────────────
+  var INSTALL = {
+    gtm: {
+      steps: ["Add the <b>Attune Pixel</b> tag from the Tag Manager gallery, or a Custom HTML tag with the snippet below.",
+              "Set the base tag's trigger to <b>All Pages</b>.",
+              "Add a second tag for the Lead event, triggered only on the page that confirms the action.",
+              "Click <b>Submit → Publish</b>. Saving is not publishing, and this is where most installs stop."],
+      code: '<script src="https://t.attune.tv/att.js" data-tag="att-8f3c19" async><\/script>',
+      note: "Verify in the browser's network tab: att.js loads, and a request to /e?t=att-8f3c19 fires on page load."
+    },
+    shopify: {
+      steps: ["Install the Attune app from the Shopify App Store and paste the tag id.",
+              "The app handles page views, add-to-cart as a Lead, and checkout as a Purchase with the order value.",
+              "On a headless storefront, install the snippet yourself for pages and leads and keep the app for checkout."],
+      code: "Tag ID  att-8f3c19",
+      note: "Shopify blocks third-party scripts on its checkout, so the app is the only way to see a purchase. A manual snippet there will silently never fire."
+    },
+    wp: {
+      steps: ["Install a header-and-footer plugin and paste the snippet into the site-wide header.",
+              "For the Lead event, add the event line to the confirmation page only — conditional logic, not every page.",
+              "On WooCommerce, hook the thank-you page for the purchase event and pass the order total."],
+      code: '<script src="https://t.attune.tv/att.js" data-tag="att-8f3c19" async><\/script>',
+      note: "Clear any page cache after installing, or you will be checking a cached copy without the tag."
+    },
+    manual: {
+      steps: ["Paste the base snippet into the <b>&lt;head&gt;</b> of every page.",
+              "Call the event function on the page that confirms a lead.",
+              "Call it with a value on the order confirmation page, and nowhere else."],
+      code: '<!-- every page -->\n<script src="https://t.attune.tv/att.js" data-tag="att-8f3c19" async><\/script>\n\n<!-- lead confirmation page -->\n<script>att("lead")<\/script>\n\n<!-- order confirmation only -->\n<script>att("purchase", { value: 129.00, id: "ORDER-1042" })<\/script>',
+      note: "A purchase event on a page that is not the order confirmation multiplies your reported revenue. It is the single most expensive install mistake."
+    },
+    s2s: {
+      steps: ["Send one request per conversion from your backend.",
+              "<b>The IP must be the customer's, not your server's</b> — it is the only thing we can match a household on.",
+              "Include a unique event id so a retry cannot double-count."],
+      code: 'POST https://t.attune.tv/s2s\n{\n  "tag":   "att-8f3c19",\n  "event": "lead",\n  "id":    "crm-88214",\n  "ip":    "203.0.113.42",\n  "ts":    1782518400000\n}',
+      note: "Server-side events appear in Results like any other, but they cannot fill a retargeting pool — there is no browser to remember."
+    }
+  };
+  var instBtns = document.querySelectorAll("[data-inst]");
+  if (instBtns.length) {
+    function paintInstall(k){
+      var d = INSTALL[k] || INSTALL.gtm;
+      document.getElementById("instSteps").innerHTML =
+        d.steps.map(function(s){ return "<li>" + s + "</li>"; }).join("");
+      var code = document.getElementById("instCode");
+      code.textContent = d.code;
+      document.getElementById("instNote").textContent = d.note;
+    }
+    instBtns.forEach(function(b){
+      b.addEventListener("click", function(){
+        instBtns.forEach(function(o){ o.setAttribute("aria-pressed","false"); });
+        b.setAttribute("aria-pressed","true");
+        paintInstall(b.dataset.inst);
+      });
+    });
+    paintInstall("gtm");
+  }
+
+  // ── Router ──────────────────────────────────────────────────────
+  var PAGES=["dashboard","campaigns","campaign","results","attention","grow","tools","billing","help","creatives","settings","new","integrations"];
+  function route(){
+    // In-page anchors (#addfunds) share the address bar with the router.
+    // Without this guard "#addfunds" fails the PAGES lookup and silently
+    // throws you back to the dashboard, which is the opposite of a jump
+    // link. Only "#/..." is a route; anything else scrolls where it is.
+    if (location.hash && location.hash.charAt(1) !== "/" &&
+        document.querySelector("section.page.on")) return;
+    var h=(location.hash||"#/dashboard").replace(/^#\/?/,"");
+    var parts=h.split("/"), name=parts[0]||"dashboard";
+    if(PAGES.indexOf(name)===-1) name="dashboard";
+    PAGES.forEach(function(p){
+      var s=document.getElementById("p-"+p); if(s) s.classList.toggle("on", p===name);
+    });
+    document.querySelectorAll("nav.main a").forEach(function(a){
+      var m = a.dataset.nav===name
+           || ((name==="campaign"||name==="new") && a.dataset.nav==="campaigns")
+           || ((name==="creatives"||name==="integrations") && a.dataset.nav==="tools");
+      if(m) a.setAttribute("aria-current","page"); else a.removeAttribute("aria-current");
+    });
+    window.scrollTo(0,0);
+    if(name==="dashboard"){ hide(); drawMain(); }
+    if(name==="campaign") paintCampaign(parts[1]||"retargeting");
+    // #/new/3 opens the builder on step 3, so a step can be linked to
+    // and a reload does not throw you back to the start.
+    if(name==="new"){
+      var st = Math.min(5, Math.max(1, parseInt(parts[1], 10) || 1));
+      // Normalise an out-of-range step so a shared link never shows
+      // "/9" while sitting on step 5. replaceState, not the hash, so it
+      // adds no history entry and cannot re-enter the router.
+      var canon = "#/new" + (st > 1 ? "/" + st : "");
+      if (location.hash !== canon) history.replaceState(null, "", canon);
+      gotoStep(st, true); paintGoal();
+    }
+  }
+  window.addEventListener("hashchange",route);
+
+  // ── Budget forecast ─────────────────────────────────────────────
+  //
+  // The old hint restated the budget with one number attached to it. A
+  // forecast is only useful if it moves, and only honest if it carries
+  // the spread it was drawn from: this account's campaigns run between
+  // $71.72 and $106.25 a lead, so a single figure is the midpoint of a
+  // range, never a floor.
+  var CPL_BEST = 71.72, CPL_WORST = 106.25, CPL_NOW = 97.06, CPM = 42.23;
+  var BURN = 2326, BALANCE = 18240, FLIGHT_DAYS = 28;
+  function fInt(n){ return Math.round(n).toLocaleString("en-US"); }
+  function paintForecast(){
+    var el = document.getElementById("bAmt");
+    if (!el) return;
+    var amt = Number(el.value) || 0;
+    var imp = amt / CPM * 1000;
+    var leads = amt / CPL_NOW;
+    var daily = amt / FLIGHT_DAYS;
+    document.getElementById("fImp").textContent = amt ? fInt(imp) : "—";
+    document.getElementById("fLeads").textContent = amt ? fInt(leads) : "—";
+    document.getElementById("fDaily").textContent = amt ? "$" + fInt(daily) : "—";
+    document.getElementById("fRange").textContent = amt
+      ? fInt(amt / CPL_WORST) + " to " + fInt(amt / CPL_BEST) + " leads"
+      : "nothing yet";
+    document.getElementById("bHint").innerHTML = amt
+      ? 'At your $97.06 cost per lead, roughly <b style="color:var(--ink)">' + fInt(leads) +
+        ' leads a month</b> — an estimate at today\'s rate, not a commitment.'
+      : "Enter a monthly budget to see what it is likely to buy.";
+    var rb = document.getElementById("rBud");
+    if (rb) rb.textContent = amt ? "$" + fInt(amt) + " / month" : "—";
+
+    // Runway is the whole account's, so a new campaign has to be added
+    // to the burn already running — the number people get wrong.
+    var newBurn = BURN + daily;
+    var days = newBurn > 0 ? Math.floor(BALANCE / newBurn) : null;
+    var rw = document.getElementById("bRunway");
+    if (rw) rw.textContent = days === null ? "—" : days + (days === 1 ? " day" : " days");
+    var w = document.getElementById("bWallet");
+    if (w) w.className = days !== null && days < 14 ? "note warn" : "note";
+  }
+  var bAmt = document.getElementById("bAmt");
+  if (bAmt) { bAmt.addEventListener("input", paintForecast); paintForecast(); }
+
+  // ── Sortable campaigns table ────────────────────────────────────
+  //
+  // Sorting reads the cells rather than a parallel data array, so it
+  // cannot disagree with what is on screen, and it skips rows the
+  // status filter has hidden.
+  (function sortable(){
+    var table = document.querySelector("#p-campaigns table.dt");
+    if (!table) return;
+    var ths = table.querySelectorAll("thead th");
+    var tbody = table.querySelector("tbody");
+    var order = {};
+    ths.forEach(function(th, i){
+      if (i === 1) return;                       // Status is a pill, not a scale
+      var label = th.textContent.trim();
+      th.classList.add("sortable");
+      th.innerHTML = '<button type="button"><span>' + label + '</span><span class="ar" aria-hidden="true">▼</span></button>';
+      th.querySelector("button").addEventListener("click", function(){
+        var dir = order[i] === "asc" ? "desc" : "asc";
+        order = {}; order[i] = dir;
+        ths.forEach(function(o){ o.removeAttribute("aria-sort"); });
+        th.setAttribute("aria-sort", dir === "asc" ? "ascending" : "descending");
+        th.querySelector(".ar").textContent = dir === "asc" ? "▲" : "▼";
+        var rows = [].slice.call(tbody.querySelectorAll("tr"));
+        // A dash is not a zero. Rows with no value sort to the bottom
+        // whichever direction is chosen, rather than pretending to be
+        // the smallest number in the column.
+        function key(tr){
+          var c = tr.children[i];
+          if (!c) return null;
+          var t = c.textContent.replace(/[$,%]/g, "").trim();
+          if (t === "—" || t === "") return null;
+          var n = parseFloat(t);
+          return isNaN(n) ? t.toLowerCase() : n;
+        }
+        rows.sort(function(a, b){
+          var ka = key(a), kb = key(b);
+          if (ka === null && kb === null) return 0;
+          if (ka === null) return 1;
+          if (kb === null) return -1;
+          if (typeof ka === "string" || typeof kb === "string")
+            return dir === "asc" ? String(ka).localeCompare(kb) : String(kb).localeCompare(ka);
+          return dir === "asc" ? ka - kb : kb - ka;
+        });
+        rows.forEach(function(r){ tbody.appendChild(r); });
+      });
+    });
+  })();
+
+  // ── Help search ─────────────────────────────────────────────────
+  //
+  // Forty questions is past the point where scanning headings works.
+  // Matches on question and answer text, opens what it finds so the
+  // match is visible, and hides a topic card once nothing in it
+  // survives — an empty card with a heading reads as a dead end.
+  var hq = document.getElementById("hq");
+  if (hq) {
+    var hCount = document.getElementById("hCount");
+    var hEmpty = document.getElementById("hEmpty");
+    var hCards = [].slice.call(document.querySelectorAll(".helpcard"));
+    var hTotal = document.querySelectorAll(".helpcard .faq").length;
+    hq.addEventListener("input", function(){
+      var q = hq.value.trim().toLowerCase();
+      var shown = 0, topics = 0;
+      hCards.forEach(function(card){
+        var any = 0;
+        card.querySelectorAll(".faq").forEach(function(d){
+          var hit = !q || d.textContent.toLowerCase().indexOf(q) >= 0;
+          d.hidden = !hit;
+          if (hit) { any++; shown++; }
+          // Open a match so the answer is on screen, and close what was
+          // opened by a previous search rather than leaving a trail.
+          d.open = q ? hit : d.dataset.wasopen === "1";
+        });
+        card.hidden = any === 0;
+        if (any) topics++;
+      });
+      hEmpty.hidden = shown > 0;
+      hCount.textContent = q
+        ? shown + (shown === 1 ? " question" : " questions") + " across " +
+          topics + (topics === 1 ? " topic" : " topics")
+        : hTotal + " questions across " + hCards.length + " topics";
+      var t = document.getElementById("hEmptyT");
+      if (t && q) t.textContent = "Nothing matches “" + hq.value.trim() + "”";
+    });
+    // Remember which one shipped open so clearing the box restores it.
+    document.querySelectorAll(".helpcard .faq[open]").forEach(function(d){ d.dataset.wasopen = "1"; });
+  }
+
+  // ── Jump to (⌘K) ────────────────────────────────────────────────
+  //
+  // Twelve screens and five campaigns is past the point where the nav
+  // is the fastest way to anywhere. One keystroke, type three letters,
+  // enter. The list is built from the routes that exist rather than a
+  // hand-kept copy, so it cannot drift out of date.
+  var JUMP = [
+    ["Dashboard","#/dashboard","screen"],
+    ["Campaigns","#/campaigns","screen"],
+    ["New campaign","#/new","screen"],
+    ["Results","#/results","screen"],
+    ["Attention","#/attention","screen"],
+    ["Grow","#/grow","screen"],
+    ["Tools","#/tools","screen"],
+    ["Wallet","#/billing","screen"],
+    ["Creatives","#/creatives","screen"],
+    ["Integrations","#/integrations","screen"],
+    ["Settings","#/settings","screen"],
+    ["Help","#/help","screen"],
+    ["Add funds","#/billing","action"],
+    ["Upload a video","#/creatives","action"],
+    ["Where it ran — reporting breakdowns","#/results","section"],
+    ["Site tag","#/integrations","section"],
+    ["Call tracking","#/integrations","section"],
+    ["Dayparting","#/new","section"],
+    ["Channel picker","#/new","section"]
+  ];
+  Object.keys(CAMPAIGNS || {}).forEach(function(k){
+    JUMP.push([CAMPAIGNS[k].title, "#/campaign/" + k, "campaign"]);
+  });
+
+  var cmdk = document.getElementById("cmdk"), cq = document.getElementById("cmdkq"),
+      clist = document.getElementById("cmdklist"), cSel = 0, cRows = [], cPrevFocus = null;
+
+  function cmdkPaint(){
+    var q = cq.value.trim().toLowerCase();
+    // A brand-new account has no campaigns, so offering to jump to one
+    // would open a detail page for something that does not exist.
+    var isNew = document.getElementById("main").classList.contains("newacct");
+    cRows = JUMP.filter(function(r){
+      if (isNew && r[2] === "campaign") return false;
+      return !q || r[0].toLowerCase().indexOf(q) >= 0;
+    });
+    if (cSel >= cRows.length) cSel = Math.max(0, cRows.length - 1);
+    clist.innerHTML = cRows.length
+      ? cRows.map(function(r, i){
+          return '<li><a href="' + r[1] + '" data-i="' + i + '" data-sel="' + (i === cSel ? 1 : 0) +
+            '">' + r[0] + '<span class="kind">' + r[2] + '</span></a></li>';
+        }).join("")
+      : '<li><p class="cmdkempty">Nothing matches “' + cq.value.trim() + '”.</p></li>';
+  }
+  // aria-modal is a promise to assistive tech, and tabbing straight out
+  // of the dialog into the page behind breaks it. `inert` takes the rest
+  // of the page out of both focus order and the accessibility tree; the
+  // Tab wrap below covers engines that do not support it yet.
+  function cmdkChrome(off){
+    ["proto", "topbar", "main", "pgfoot"].forEach(function(sel){
+      var el = document.getElementById(sel) || document.querySelector("." + sel);
+      if (!el) return;
+      if (off) { el.setAttribute("inert", ""); el.setAttribute("aria-hidden", "true"); }
+      else { el.removeAttribute("inert"); el.removeAttribute("aria-hidden"); }
+    });
+  }
+  function cmdkOpen(){
+    cPrevFocus = document.activeElement;
+    cmdk.setAttribute("data-open", "1");
+    cmdkChrome(true);
+    cq.value = ""; cSel = 0; cmdkPaint(); cq.focus();
+  }
+  function cmdkClose(){
+    cmdk.setAttribute("data-open", "0");
+    cmdkChrome(false);
+    if (cPrevFocus && cPrevFocus.focus) cPrevFocus.focus();
+  }
+  function cmdkGo(i){
+    var r = cRows[i];
+    if (!r) return;
+    cmdkClose();
+    location.hash = r[1];
+  }
+  if (cmdk) {
+    cq.addEventListener("input", function(){ cSel = 0; cmdkPaint(); });
+    clist.addEventListener("click", function(e){
+      var a = e.target.closest("a[data-i]");
+      if (!a) return;
+      e.preventDefault();
+      cmdkGo(+a.dataset.i);
+    });
+    cq.addEventListener("keydown", function(e){
+      if (e.key === "ArrowDown") { cSel = Math.min(cRows.length - 1, cSel + 1); cmdkPaint(); e.preventDefault(); }
+      else if (e.key === "ArrowUp") { cSel = Math.max(0, cSel - 1); cmdkPaint(); e.preventDefault(); }
+      else if (e.key === "Enter") { cmdkGo(cSel); e.preventDefault(); }
+      else if (e.key === "Escape") { cmdkClose(); e.preventDefault(); }
+    });
+    cmdk.addEventListener("mousedown", function(e){ if (e.target === cmdk) cmdkClose(); });
+    cmdk.addEventListener("keydown", function(e){
+      if (e.key !== "Tab") return;
+      var f = cmdk.querySelectorAll("input, a[href]");
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+      else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+    });
+    document.addEventListener("keydown", function(e){
+      var open = cmdk.getAttribute("data-open") === "1";
+      if ((e.key === "k" || e.key === "K") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault(); open ? cmdkClose() : cmdkOpen(); return;
+      }
+      if (e.key === "Escape" && open) { cmdkClose(); return; }
+      // A bare "/" opens it too, but not while someone is typing into
+      // a field — a slash in a ZIP box should be a slash.
+      if (e.key === "/" && !open) {
+        var t = e.target.tagName;
+        if (t === "INPUT" || t === "TEXTAREA" || t === "SELECT" || e.target.isContentEditable) return;
+        e.preventDefault(); cmdkOpen();
+      }
+    });
+    var jb = document.getElementById("jumpBtn");
+    if (jb) jb.addEventListener("click", cmdkOpen);
+  }
+
+  // ── Account state switch ────────────────────────────────────────
+  //
+  // This used to change the dashboard only, so switching to a brand-new
+  // account left a $0 wallet in the header above eight weeks of spend on
+  // every other screen. The flag now reaches every page: sublines swap,
+  // funded content is replaced by what is actually true, and the two
+  // "connected" claims on Settings become the honest answer.
+  var EMPTY_SUB = {
+    rgLine: "No delivery in any window",
+    "p-campaigns": "Nothing built yet",
+    "p-attention": "No campaign scored yet",
+    "p-grow": "Nothing to compare against yet",
+    "p-billing": "Streaming is prepaid. Nothing serves until the wallet is funded.",
+    "p-creatives": "No videos uploaded"
+  };
+  var LIVE_SUB = {};
+  function subOf(id){
+    var sec = document.getElementById(id);
+    return sec ? sec.querySelector(".pagehead .subline") : null;
+  }
+  function setState(isNew){
+    document.getElementById("stateNew").setAttribute("aria-pressed",String(isNew));
+    document.getElementById("stateLive").setAttribute("aria-pressed",String(!isNew));
+    document.getElementById("main").classList.toggle("newacct", isNew);
+    document.getElementById("dashLive").hidden=isNew;
+    document.getElementById("dashNew").hidden=!isNew;
+    document.getElementById("dashTitle").textContent=isNew?"Let’s get you on air":"Good morning, Priyesh";
+    document.getElementById("dashSub").textContent=isNew
+      ? "Four things stand between you and your first campaign. None of them take long."
+      : "3 campaigns on air · $81,920 spent these 8 weeks · 844 leads";
+    var amt=document.getElementById("walletAmt"), chip=document.getElementById("walletChip");
+    amt.textContent=isNew?"$0":"$18,240";
+    chip.classList.toggle("low",true);
+
+    Object.keys(EMPTY_SUB).forEach(function(k){
+      var el = k === "rgLine" ? document.getElementById("rgLine") : subOf(k);
+      if (!el) return;
+      if (LIVE_SUB[k] === undefined) LIVE_SUB[k] = el.textContent;
+      el.textContent = isNew ? EMPTY_SUB[k] : LIVE_SUB[k];
+    });
+    // Tools stays useful when empty — setup is the whole job for a new
+    // account — so it keeps its cards and only its readiness card changes.
+    var rdy = document.getElementById("rdyNew"), rdyLive = document.getElementById("rdyLive");
+    if (rdy && rdyLive) { rdy.hidden = !isNew; rdyLive.hidden = isNew; }
+    // Tools' corner states are account facts, so they have to move too —
+    // a brand-new account showing "577 calls" is the same lie the
+    // sublines were telling.
+    document.querySelectorAll("[data-newstate]").forEach(function(t){
+      if (t.dataset.livestate === undefined) {
+        t.dataset.livestate = t.textContent;
+        t.dataset.liveclass = t.className;
+      }
+      t.textContent = isNew ? t.dataset.newstate : t.dataset.livestate;
+      t.className = isNew && t.dataset.newwarn ? "tstate warn" : t.dataset.liveclass;
+    });
+    document.querySelectorAll("[data-livepill]").forEach(function(p){
+      if (p.dataset.emptypill === undefined) p.dataset.emptypill = p.dataset.livepill;
+      p.className = "pill " + (isNew ? "warn" : "ok");
+      p.innerHTML = '<i style="background:var(--' + (isNew ? "warn" : "positive") + ')"></i>' +
+        (isNew ? "Not connected" : p.dataset.livepill);
+    });
+    if(!isNew){ drawMain(); }
+  }
+  document.getElementById("stateNew").addEventListener("click",function(){setState(true);location.hash="#/dashboard";});
+  document.getElementById("stateLive").addEventListener("click",function(){setState(false);location.hash="#/dashboard";});
+
+  var newPage = document.getElementById("p-new");
+  if (newPage) {
+    // Every control that feeds the rail also writes one of the review
+    // fields, so one delegated listener keeps them in step without a
+    // call threaded through eight handlers.
+    newPage.addEventListener("click", function(){ setTimeout(paintRail, 0); });
+    newPage.addEventListener("input", function(){ setTimeout(paintRail, 0); });
+  }
+
+  drawMain(); applyCampaignFilter(); paintGoal(); route(); paintRail();
+})();
+</script>

@@ -1,8 +1,9 @@
 # Attune self-serve prototype — engineering handoff
 
-**Prototype:** https://claude.ai/code/artifact/3f4eded5-4205-4927-b47e-6133a6b06d00
+**Prototype:** `docs/dsp/prototype/` in this repo · published at
+https://claude.ai/code/artifact/3f4eded5-4205-4927-b47e-6133a6b06d00
 **Companion:** `docs/dsp/ss-dashboard-ab-comparison.md` (the A/B review the design came out of)
-**Written:** 2026-08-26. Verified against `pgam-dsp-dashboard@c155b18`-era `main`.
+**Written:** 2026-08-26, revised 2026-08-27. Verified against `pgam-dsp-dashboard@c155b18`-era `main`.
 
 Twelve screens, five campaign detail pages, a five-step builder. This
 document is the part that does not survive in a picture: which constraints
@@ -10,6 +11,37 @@ in the prototype are real, which figures are modelled, and what has to be
 decided before anyone starts building.
 
 Read it as three lists — **verified**, **modelled**, **open**.
+
+### What changed on 27 August
+
+Thirteen screens now, not twelve. Since the first draft of this document the
+prototype gained:
+
+- **PGAM Optimized Network** as the default way to buy on builder step 3 — one
+  line across all 53 destinations, rebalanced weekly, with the catalogue kept
+  visible but locked underneath it. Choosing channels by hand is the second
+  option, not the first.
+- **A help centre**: 40 questions across 7 topics, nine of them on attention,
+  with search that filters on answer text.
+- **Reach and frequency as reported metrics** — households, times each one saw
+  it, cost per household. Vibe reports these and we did not.
+- **A selectable attribution window** (1/7/14/30 days) that restates the lead
+  count and cost per lead for the window chosen.
+- **Seven reporting dimensions, not five** — devices and creative added — and
+  **an attention score on every breakdown row**, because
+  `attentiveImpressions` is already in the payload and nothing read it.
+- **An Integrations screen** grouped by job rather than by vendor: measurement,
+  audiences in, results out, app attribution. Five pixel install paths, each
+  with its own failure mode.
+- **The palette from the PGAM/TripleLift one-pager**, sampled from the PDF's
+  colour operators. Two tones darkened for AA; `#1E90FF` restricted to fills
+  and rules. See §3.1 — this resolves an open decision.
+- **A design-system pass**: 25 type sizes to 9, 14 radii to 4, 13 tracking
+  values to 3, five transition durations to three on one curve, spacing onto a
+  4px grid, shadows off static cards.
+- ⌘K, a working empty-account mode that reaches every screen, a focus trap on
+  the dialog, sortable campaigns, deep-linked builder steps, and a live budget
+  forecast.
 
 ---
 
@@ -113,7 +145,10 @@ came from the database.
 | Data | Where | Status |
 |---|---|---|
 | The 24-week ledger (`WK`) | every figure on every screen | modelled |
-| Six reporting dimensions (`RUN`) | Results → Where it ran | modelled volumes, real shape |
+| Seven reporting dimensions (`RUN`) | Results → Where it ran | modelled volumes, real shape |
+| Attention per breakdown row | Results → Where it ran | modelled, rolls up to exactly 77 |
+| Households / frequency / cost per household | Results | modelled |
+| Integration states | Integrations | modelled; the partner list is real |
 | 53-channel catalogue + reach | builder step 3 | **real catalogue**, reach is eMarketer-class estimate |
 | Household counts per radius/ZIP/state | builder step 2 | modelled |
 | $42.23 CPM | forecast, reach bar | derived from the modelled ledger |
@@ -135,6 +170,21 @@ boundaries breaks both.
 ---
 
 ## 3. Open decisions
+
+### 3.0 Palette — decided 27 August
+
+Taken from the PGAM/TripleLift one-pager and sampled from the PDF's own colour
+operators rather than a screenshot: `#0B1220 / #33415C / #5A6B87` ink,
+`#0E72D9` primary, `#1E90FF` accent, `#D6E6F7` rules, `#F7FBFF` ground.
+
+Its neutrals are navy-tinted rather than grey, which is most of why that deck
+holds together, and `#1E90FF` is already the Attune mark's blue.
+
+Two tones are darkened in the prototype because they carry body text and did
+not clear AA on the tinted grounds: `#5A6B87 → #596A86` and `#0E72D9 →
+#0D68C5`. **`#1E90FF` is used only for fills, rules and the top hairline** — it
+reaches 2.67 against every ground in the system and fails as text at any size.
+If a designer wants it on type, the type has to sit on a dark ground.
 
 ### 3.1 Channel marks — needs a decision, not an implementation
 
@@ -222,5 +272,23 @@ The prototype passes, and the build should hold the line:
 
 One token fix the prototype carries that the product should take: shipped
 `--att-ink3` (`#6B7383`) scores 4.43:1 on tint and 4.45:1 on the page,
-both under AA, and it carries every caption and axis label. `#676F7F`
-clears it at 4.69 / 4.72 / 5.05.
+both under AA, and it carries every caption and axis label. Under the new
+palette the equivalent is `#596A86`, which clears at 4.52 on the worst ground
+in the set.
+
+Two more the audit turned up and the prototype fixes:
+
+- The campaign builder's pending step numbers were `--att-ink3` on the step
+  chip: 4.43:1 for 11px text.
+- Nothing rendered below 11px any more. The 9px and 10px chart axis labels
+  were both illegible and under the floor; they are 11px now.
+
+---
+
+## 6. Where the source lives
+
+`docs/dsp/prototype/` — the built file, the five parts it is assembled from,
+and a README with the rebuild command and the invariants the code holds itself
+to. It is committed because a prototype that exists only as a published URL
+cannot be edited by the next person, and this one carries a fortnight of
+decisions in its comments.
