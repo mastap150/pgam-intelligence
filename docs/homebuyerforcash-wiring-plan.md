@@ -110,12 +110,13 @@ short version:
 
 **Calls** are specified separately in
 [`homebuyerforcash-call-tracking.md`](./homebuyerforcash-call-tracking.md).
-Short version: a call and a form fill are both `lead` events, we buy our own
-tracking numbers that forward to the call centre rather than using theirs, and
-TV needs a dedicated static number while the website needs dynamic number
-insertion. The gating unknown is whether the DNI provider's webhook exposes the
-visitor's IP — without it, calls cannot be posted back as attributed
-conversions.
+Short version: there is a **native CallRail integration** that attributes calls
+by caller IP and adds Calls / Cost per Call metrics, so no hand-built postback
+is needed. It requires a CallRail Website Pool — static numbers carry no IP and
+cannot be attributed, which is why the TV number is measured in CallRail only.
+We buy our own numbers that forward to the call centre rather than using theirs.
+The open item is whether integration-sourced calls count toward the Leads 0.1%
+conversion floor, which could move the Leads launch date.
 
 ---
 
