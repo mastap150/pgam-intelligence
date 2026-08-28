@@ -89,14 +89,64 @@ rule above exists because a real published headline demanded it. The
 invented-example version of this file would have caught the C-17 story and
 missed the entire trade-B2B family, which is four times larger.
 
+## The analytics were wrong while all of this was being decided
+
+Recorded here because it invalidates the arithmetic in the audit and in the
+strategy doc, and because it lives nowhere else but a commit message.
+
+On 2026-08-26 destination.com's number-one page was `/destination.html` at
+**1,121 of 1,991 pageviews — 56% of the day.** That URL has never existed:
+not in the repo, not in git history, no redirect. It resolves through the
+`/[locale]` catch-all and returns HTTP 404. It reached analytics because
+`not-found.tsx` renders inside the root layout, and the layout mounted
+`<Analytics />` and `<MetaPixel />` unconditionally, so a dead URL fired GA4
+and Meta exactly as a real article would.
+
+Real traffic was therefore ~870/day, not 1,991. Every top-pages read was 56%
+noise, every per-article figure was measured against an inflated denominator,
+and Meta's optimiser was being told those paid clicks landed on a real page.
+Roughly 2,000 requests a day still hit it, and its own blocked scripts made
+`/api/csp-report` the busiest route on the site.
+
+Fixed in destination-com #479: `not-found.tsx` sets `window.__DC_NOT_FOUND__`
+inline, GA4 sets `send_page_view:false` and emits a `page_not_found` event
+carrying the requested path and referrer, Meta sends `PageNotFound` instead
+of `PageView`. Dead URLs stay measurable, they stop counting as content.
+
+**Where the traffic comes from is still unknown.** The referrer on that new
+event is the instrument for it. Do not redirect `/destination.html` before
+reading it — the event fires on the 404 page, so a redirect destroys the
+only signal that can identify the source.
+
+## Closed since this was written
+
+- **The dedup gap is fixed** (destination-com #464). The two Delta
+  flight-attendant articles were 30 hours apart with a token Jaccard of 0.78
+  against a 0.35 threshold, so the threshold was never the problem — the
+  comparison space was. `filterAlreadyCovered` compared the incoming RSS
+  title against published headlines, but a published headline is Claude's
+  rewrite and can diverge from the RSS title that produced it by more than
+  the threshold. The synthesis loop now runs the same Jaccard on the
+  rewritten headline before persisting. The two already-published articles
+  were left in place.
+- **Primary sourcing is being wired** in destination-com #482, which is a
+  different session's work and supersedes the gap this file describes.
+  `primarySourceFeeds()` maps all 25 newsrooms into the ingest, per-feed
+  health is reported rather than swallowed, and an `isOriginallyReportable`
+  check rejects single-secondary-source clusters as "rewrite, not a report".
+  It keeps `relevance.admit` as a hard gate, so the families catalogued above
+  stay rejected on the new path.
+
 ## Still open
 
-- The dedup stack has a gap: "Delta Flight Attendant Commutes 5,100 Miles
-  From Ghana To New York Base" and "Delta Flight Attendant Commutes from
-  Ghana to New York Base" are both live. Same story, two articles.
 - The gate is a keyword model. It will drift as feeds change. The Monday
   `news-editorial-review` is the intended place to notice that, but it has
   not yet completed a cycle against a gated corpus.
 - No performance data flows back into the gate. Nothing yet connects "this
   story got 633 views" to "admit stories like it". That remains the
-  unfinished half of the feedback loop.
+  unfinished half of the feedback loop — and note that the 633 figure was
+  never a daily number: on 2026-08-26 that article drew 3 sessions, and
+  NewsBreak referral totalled 4 across the whole day.
+- Vercel Web Analytics is disabled on all eight PGAM projects, so no session
+  can read per-path traffic without GA4 credentials. One toggle would fix
+  that for every future investigation.
