@@ -74,7 +74,7 @@ BATCH = [
 # name does not match, so a rename does not break the run.
 BANK_ACCOUNT_NAME = "Business Fundamentals Chk (6228)"
 UNDEPOSITED_FUNDS_NAME = "Undeposited Funds"
-BANK_CHARGES_NAME = "Bank Charges"
+BANK_CHARGES_NAME = "Bank Charges & Fees"
 
 
 def _money(raw: str | Decimal) -> Decimal:
