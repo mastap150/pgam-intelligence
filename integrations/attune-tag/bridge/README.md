@@ -129,12 +129,56 @@ formats, dedup, refusal to attribute unknown numbers, timestamp handling in
 seconds and milliseconds, proxy-hop resolution at every depth, and the
 bridge-down case where the page's own number must survive untouched.
 
+## Serves both configs from one endpoint
+
+`/v1/call` does not need to know in advance whether the phone vendor can supply
+a visitor IP:
+
+- **Payload carries a usable public IP** → used directly, no lease lookup.
+  That is Config A.
+- **It does not, or the IP is private / reserved / malformed** → falls back to
+  matching the leased number. That is Config B.
+
+So the endpoint can be wired up before the DNI tests come back, and the answer
+changes nothing about the wiring.
+
+A private or reserved address in the payload is refused rather than used. A
+vendor sending its own server IP would otherwise put every call on one address
+— garbage that looks exactly like success. Note `203.0.113.0/24` and the other
+RFC 5737 documentation ranges count as non-routable here.
+
+## Auth
+
+`/v1/call` takes a shared secret, as `Authorization: Bearer <token>`,
+`X-Attune-Token`, or `?token=` for senders that only let you configure a URL.
+Compared in constant time. Generate with `openssl rand -hex 32`.
+
+If `ATTUNE_CALL_TOKEN` is unset the endpoint is open and startup warns loudly.
+Never leave it unset anywhere publicly reachable.
+
+## Deploying
+
+`attune-bridge.service`, `attune-bridge.env.example` and `nginx.conf.example`
+are in this directory.
+
+```sh
+install -d /opt/attune-bridge && cp bridge.py /opt/attune-bridge/
+cp attune-bridge.env.example /etc/attune-bridge.env   # fill in, chmod 600
+cp attune-bridge.service /etc/systemd/system/
+systemctl daemon-reload && systemctl enable --now attune-bridge
+```
+
+The nginx example terminates TLS and is exactly one hop, so
+`ATTUNE_TRUSTED_PROXY_HOPS=1`. Verify it before trusting the data: hit
+`/v1/session` from a known external IP and confirm the stored lease carries
+*that* address, not a private one.
+
+Leases older than `ATTUNE_LEASE_RETENTION_DAYS` (default 30) are pruned at
+startup and daily thereafter. Conversion rows are kept — they are the dedup
+record and there is one small row per real call.
+
 ## Not done
 
 - Never deployed or run against a real phone system
-- No auth on `/v1/call` — anyone who learns the URL could post fake calls.
-  Before production add a shared secret or verify the sender's signature
-- No lease-table pruning; rows accumulate. Fine for months at this volume,
-  but it needs a cleanup job eventually
-- `http.server` is adequate for one local advertiser but belongs behind a real
-  reverse proxy for TLS and timeouts
+- `http.server` is adequate for one local advertiser but belongs behind the
+  reverse proxy above for TLS and timeouts

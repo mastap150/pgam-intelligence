@@ -35,6 +35,8 @@ single local advertiser is tiny; put it behind a real reverse proxy for TLS and
 set ATTUNE_TRUSTED_PROXY_HOPS accordingly.
 """
 
+import hmac
+import ipaddress
 import json
 import os
 import re
@@ -68,9 +70,33 @@ CONFIG = {
     # When true, log the conversion instead of sending it.
     "dry_run": (_env("ATTUNE_DRY_RUN", "0") == "1"),
     "origins": [o.strip() for o in (_env("ATTUNE_ALLOWED_ORIGINS", "*") or "").split(",") if o.strip()],
+    # Shared secret for /v1/call. Without it anyone who learns the URL can post
+    # fake conversions. Accepted in the Authorization header or, for senders
+    # that can only be given a URL, a ?token= query parameter.
+    "call_token": _env("ATTUNE_CALL_TOKEN", ""),
+    # Retention for lease rows. They are only needed until the grace window
+    # closes; keeping them forever grows the table without bound.
+    "lease_retention_days": int(_env("ATTUNE_LEASE_RETENTION_DAYS", "30")),
 }
 
 E164 = re.compile(r"^\+?[1-9]\d{7,14}$")
+
+
+def usable_public_ip(raw):
+    """True only for a routable public address.
+
+    A phone vendor that sends its own server IP, a private address, or a
+    placeholder would otherwise have every call attributed to that one address
+    — garbage that looks exactly like success. Reject rather than guess.
+    """
+    if not raw:
+        return False
+    try:
+        ip = ipaddress.ip_address(str(raw).strip())
+    except ValueError:
+        return False
+    return not (ip.is_private or ip.is_loopback or ip.is_reserved
+                or ip.is_multicast or ip.is_unspecified or ip.is_link_local)
 
 
 def digits(n):
@@ -156,6 +182,15 @@ class Store:
                 "INSERT OR REPLACE INTO conversions VALUES (?,?,?,?,?)",
                 (call_id, lease_id, ip, int(time.time()), 1 if ok else 0))
             self._db.commit()
+
+    def prune(self, older_than_days):
+        """Drop leases past any plausible matching window. Conversions are kept:
+        they are the dedup record and are one small row per real call."""
+        cutoff = int(time.time()) - older_than_days * 86400
+        with self._lock:
+            cur = self._db.execute("DELETE FROM leases WHERE leased_at < ?", (cutoff,))
+            self._db.commit()
+            return cur.rowcount
 
 
 # --------------------------------------------------------------------------- s2s
@@ -280,9 +315,30 @@ class Handler(BaseHTTPRequestHandler):
             "ttl": self.cfg["lease_ttl"],
         })
 
+    def _authorised(self, qs):
+        """Constant-time shared-secret check. Header or ?token=, because some
+        webhook senders let you configure only a URL."""
+        expected = self.cfg.get("call_token") or ""
+        if not expected:
+            return True                      # unset = open; startup warns loudly
+        supplied = ""
+        auth = self.headers.get("Authorization", "")
+        if auth.lower().startswith("bearer "):
+            supplied = auth[7:].strip()
+        elif self.headers.get("X-Attune-Token"):
+            supplied = self.headers["X-Attune-Token"].strip()
+        elif qs.get("token"):
+            supplied = qs["token"][0].strip()
+        return hmac.compare_digest(supplied, expected)
+
     def _call(self):
         body = self._body()
         qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+
+        if not self._authorised(qs):
+            self.log_message("rejected unauthorised /v1/call")
+            return self._json(401, {"error": "unauthorised"})
+
         def field(*names):
             for n in names:
                 if body.get(n):
@@ -294,6 +350,11 @@ class Handler(BaseHTTPRequestHandler):
         number = field("dialed_number", "to", "tracking_number", "number")
         call_id = field("call_id", "id", "uuid", "sid")
         ts_raw = field("timestamp", "ts", "created_at")
+        # If the phone vendor already knows the web visitor's IP (Config A),
+        # take it and skip the lease lookup entirely. One endpoint therefore
+        # serves both configs, so we do not need to know which one we are on
+        # before wiring it up.
+        supplied_ip = field("visitor_ip", "ip_address", "client_ip", "ip")
 
         if not number:
             return self._json(400, {"error": "no dialled number in payload"})
@@ -311,6 +372,21 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"matched": True, "conversion_sent": False,
                                     "reason": "duplicate call id"})
 
+        # Config A: the vendor supplied the visitor IP itself.
+        if supplied_ip:
+            if not usable_public_ip(supplied_ip):
+                # A private or reserved address means they sent us the wrong
+                # thing — their server, a carrier hop, a placeholder. Attributing
+                # it would point every call at one address and look like success.
+                self.log_message("payload ip %r is not a routable public address; "
+                                 "falling back to lease lookup", supplied_ip)
+            else:
+                ok = send_conversion(supplied_ip, call_id, call_ts * 1000, self.cfg)
+                self.store.record(call_id, None, supplied_ip, ok)
+                return self._json(200, {"matched": True, "conversion_sent": ok,
+                                        "source": "payload_ip"})
+
+        # Config B: we leased the number, so we know who saw it.
         lease = self.store.find_lease(number, call_ts, self.cfg["match_grace"])
         if not lease:
             # No lease means we do not know who called. Do NOT invent an IP —
@@ -322,7 +398,7 @@ class Handler(BaseHTTPRequestHandler):
         ok = send_conversion(lease["ip"], call_id, call_ts * 1000, self.cfg)
         self.store.record(call_id, lease["lease_id"], lease["ip"], ok)
         return self._json(200, {"matched": True, "conversion_sent": ok,
-                                "lease_id": lease["lease_id"]})
+                                "source": "lease", "lease_id": lease["lease_id"]})
 
 
 def build(cfg=None, store=None):
@@ -348,11 +424,32 @@ def main():
         if not cfg["dry_run"]:
             sys.exit(1)
 
+    if not cfg["call_token"]:
+        sys.stderr.write("[bridge] WARNING: ATTUNE_CALL_TOKEN is unset — /v1/call is "
+                         "open, and anyone who learns the URL can post fake "
+                         "conversions. Set it before this is publicly reachable.\n")
+
     port = int(_env("PORT", "8088"))
-    build(cfg)
+    store = Store(cfg["db"])
+    removed = store.prune(cfg["lease_retention_days"])
+    if removed:
+        sys.stderr.write(f"[bridge] pruned {removed} expired leases\n")
+    build(cfg, store)
+
+    def prune_loop():
+        while True:
+            time.sleep(86400)
+            try:
+                store.prune(cfg["lease_retention_days"])
+            except Exception as exc:                       # noqa: BLE001
+                sys.stderr.write(f"[bridge] prune failed: {exc}\n")
+
+    threading.Thread(target=prune_loop, daemon=True).start()
+
     srv = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     sys.stderr.write(f"[bridge] listening on :{port} pool={len(cfg['pool'])} "
-                     f"dry_run={cfg['dry_run']} proxy_hops={cfg['proxy_hops']}\n")
+                     f"dry_run={cfg['dry_run']} proxy_hops={cfg['proxy_hops']} "
+                     f"auth={'on' if cfg['call_token'] else 'OFF'}\n")
     srv.serve_forever()
 
 

@@ -8,6 +8,7 @@ import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from http.server import ThreadingHTTPServer
 
@@ -39,9 +40,12 @@ def fake_opener(url, timeout=None):
     return R()
 
 
-def post(port, path, payload):
+def post(port, path, payload, token="s3cret"):
+    url = f"http://127.0.0.1:{port}{path}"
+    if token and path.startswith("/v1/call"):
+        url += ("&" if "?" in url else "?") + urllib.parse.urlencode({"token": token})
     req = urllib.request.Request(
-        f"http://127.0.0.1:{port}{path}",
+        url,
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
         method="POST")
@@ -65,6 +69,8 @@ def main():
         "proxy_hops": 0,
         "dry_run": False,
         "origins": ["*"],
+        "call_token": "s3cret",
+        "lease_retention_days": 30,
     })
 
     # Route conversions to the capture instead of the network.
@@ -157,6 +163,50 @@ def main():
           bridge.client_ip(FakeHandler, 2))
     check("more hops than the chain degrades to the leftmost entry",
           bridge.client_ip(FakeHandler, 9) == "203.0.113.9")
+
+    # ---- auth ----------------------------------------------------------
+    SENT.clear()
+    s, r = post(port, "/v1/call", {"dialed_number": b["number"], "call_id": "no-auth",
+                                   "timestamp": now}, token=None)
+    check("call without a token is rejected", s == 401 and not SENT, f"{s} {r}")
+
+    s, r = post(port, "/v1/call", {"dialed_number": b["number"], "call_id": "bad-auth",
+                                   "timestamp": now}, token="wrong")
+    check("call with a wrong token is rejected", s == 401 and not SENT, f"{s} {r}")
+
+    # ---- Config A: vendor supplies the visitor IP ----------------------
+    SENT.clear()
+    s, r = post(port, "/v1/call", {"dialed_number": "+19995550000", "call_id": "cfgA-1",
+                                   "timestamp": now, "visitor_ip": "8.8.8.8"})
+    check("payload IP is used directly, no lease needed",
+          r.get("source") == "payload_ip" and r.get("conversion_sent"), str(r))
+    check("payload IP is the one sent onward",
+          SENT and "ip=8.8.8.8" in SENT[0], SENT[0] if SENT else "none")
+
+    SENT.clear()
+    s, r = post(port, "/v1/call", {"dialed_number": "+19995550000", "call_id": "cfgA-2",
+                                   "timestamp": now, "visitor_ip": "10.1.2.3"})
+    check("private IP in payload is refused, not attributed",
+          r.get("matched") is False and not SENT, str(r))
+
+    SENT.clear()
+    s, r = post(port, "/v1/call", {"dialed_number": a["number"], "call_id": "cfgA-3",
+                                   "timestamp": now, "visitor_ip": "not-an-ip"})
+    check("garbage IP falls back to the lease rather than failing",
+          r.get("source") == "lease" and r.get("conversion_sent"), str(r))
+
+    check("public IP validator accepts a routable address",
+          bridge.usable_public_ip("8.8.8.8"))
+    check("public IP validator rejects loopback, link-local and doc ranges",
+          not bridge.usable_public_ip("127.0.0.1")
+          and not bridge.usable_public_ip("169.254.1.1")
+          and not bridge.usable_public_ip("203.0.113.55"))
+
+    # ---- pruning -------------------------------------------------------
+    check("prune keeps leases inside the retention window",
+          store.prune(30) == 0)
+    check("prune removes leases past the retention window",
+          store.prune(-1) >= 1)
 
     # ---- health --------------------------------------------------------
     with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=5) as r:
