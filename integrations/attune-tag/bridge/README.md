@@ -120,13 +120,15 @@ an unattributed call, and the log line is the signal to buy more numbers.
 ## Tests
 
 ```sh
-python3 test_bridge.py     # 19 checks, runs a real server on a real socket
+python3 test_bridge.py     # 29 checks, runs a real server on a real socket
 ../test/run.sh             # 22 browser checks, includes the number swap
 ```
 
 Covered: leasing and uniqueness, pool exhaustion, matching across number
 formats, dedup, refusal to attribute unknown numbers, timestamp handling in
-seconds and milliseconds, proxy-hop resolution at every depth, and the
+seconds and milliseconds, proxy-hop resolution at every depth, auth rejection
+with a missing and a wrong token, the payload-IP path including refusal of
+private and malformed addresses, lease pruning in both directions, and the
 bridge-down case where the page's own number must survive untouched.
 
 ## Serves both configs from one endpoint
