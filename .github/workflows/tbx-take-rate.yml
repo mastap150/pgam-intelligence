@@ -48,6 +48,7 @@ jobs:
 
     env:
       PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
       PYTHONUNBUFFERED: "1"
       IN_LOOKBACK: ${{ inputs.lookback || '14' }}
       IN_THRESHOLD: ${{ inputs.threshold || '3' }}
@@ -77,8 +78,24 @@ jobs:
           echo "DSN present."
 
       - name: Which sources moved their take rate
+        # Drift against each source's own recent history. Posts to Slack only
+        # when something moved.
         run: |
           python3 scripts/tbx_take_rate.py \
             --lookback "$IN_LOOKBACK" \
             --threshold "$IN_THRESHOLD" \
-            --min-revenue "$IN_MIN_REVENUE"
+            --min-revenue "$IN_MIN_REVENUE" \
+            --slack
+
+      - name: Still below the legacy rate
+        # The drift check above compares TBX to TBX, so it cannot see a step
+        # that happened AT the cutover — and that step is where the ten points
+        # went. This is the standing gap, and it stays in the report until the
+        # revenue shares are put back. Never fails the job: it is a known
+        # position, not a new event, and the step above owns the red.
+        if: always()
+        run: |
+          python3 scripts/tbx_take_rate.py \
+            --vs-legacy "${TB_TBX_CUTOVER:-2026-08-21}" \
+            --threshold "$IN_THRESHOLD" \
+            --min-revenue "$IN_MIN_REVENUE" || true

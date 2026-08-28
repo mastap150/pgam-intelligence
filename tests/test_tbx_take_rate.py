@@ -153,6 +153,60 @@ def _():
     assert r["profit_delta_usd"] > 0
 
 
+# --- Slack routing ------------------------------------------------------
+# The sentry ran daily into a workflow log nobody opened while the number it
+# measures became the largest component of the profit gap.
+
+@check("a quiet day posts nothing — a daily 'all clear' trains people to ignore")
+def _():
+    posted = []
+    import core.slack as _s
+    orig, _s.send_blocks = _s.send_blocks, lambda b, text="": posted.append(b)
+    try:
+        t.to_slack([{"name": "A", "flagged": False, "delta_points": 0.2,
+                     "profit_delta_usd": 3.0, "margin_median": 30.0,
+                     "margin_now": 30.2}], TARGET, 3.0, "drift", None)
+    finally:
+        _s.send_blocks = orig
+    assert posted == [], posted
+
+
+@check("a flagged source posts, and the dollar total counts only the fallers")
+def _():
+    posted = []
+    import core.slack as _s
+    orig, _s.send_blocks = _s.send_blocks, lambda b, text="": posted.append(b)
+    try:
+        t.to_slack([
+            {"name": "Fell", "flagged": True, "delta_points": -8.0,
+             "profit_delta_usd": -80.0, "margin_median": 30.0, "margin_now": 22.0},
+            {"name": "Rose", "flagged": True, "delta_points": +5.0,
+             "profit_delta_usd": +50.0, "margin_median": 20.0, "margin_now": 25.0},
+        ], TARGET, 3.0, "drift", None)
+    finally:
+        _s.send_blocks = orig
+    assert len(posted) == 1
+    ctx = posted[0][-1]["elements"][0]["text"]
+    # -80 from the faller; the +50 riser must not net it off to -30.
+    assert "-80.00/day" in ctx, ctx
+
+
+@check("cutover mode flags on the threshold, not on a 'flagged' key")
+def _():
+    posted = []
+    import core.slack as _s
+    orig, _s.send_blocks = _s.send_blocks, lambda b, text="": posted.append(b)
+    try:
+        t.to_slack([{"name": "Advetisi", "delta_points": -12.4,
+                     "profit_delta_usd": -292.39,
+                     "margin_before": 31.6, "margin_after": 19.3}],
+                   TARGET, 3.0, "cutover", "2026-08-21")
+    finally:
+        _s.send_blocks = orig
+    assert len(posted) == 1
+    assert "Advetisi" in posted[0][1]["text"]["text"]
+
+
 def main() -> int:
     failed = 0
     for name, fn in CHECKS:

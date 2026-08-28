@@ -130,18 +130,34 @@ def _exists(conn, table: str) -> bool:
     """, (table,)))
 
 
-def windows(cutover: date, days: int, today: date) -> tuple[list[date], list[date]]:
+def windows(cutover: date, days: int, today: date,
+            rolling: bool = True) -> tuple[list[date], list[date]]:
     """The settled days either side of the cutover.
 
-    The 'after' window ends yesterday, never today: today is partial on the
-    platform's US/Eastern clock, and comparing a part-day against a full one
-    manufactures a gap out of nothing. That is the same mistake §12 records
-    against 2026-08-24.
+    The 'before' window is fixed: it is the last `days` the legacy host served,
+    and that is history now — it cannot change.
+
+    The 'after' window ROLLS. It is the most recent `days` settled days, not
+    the `days` immediately following the cutover. That distinction is the
+    difference between a report and a photograph: pinned to the cutover, this
+    read the same on 28 Aug as on 25 Aug and could not say whether a collapsed
+    publisher had recovered — while impressions rose ~500k/day over exactly
+    that span. Pass rolling=False for the original pinned comparison, which is
+    still the right frame for "what did the migration itself cost".
+
+    Neither window ever includes today: today is partial on the platform's
+    US/Eastern clock, and comparing a part-day against a full one manufactures
+    a gap out of nothing. That is the mistake §12 records against 2026-08-24.
     """
     before = [cutover - timedelta(days=n) for n in range(days, 0, -1)]
     last_settled = today - timedelta(days=1)
-    after = [d for d in (cutover + timedelta(days=n) for n in range(days))
-             if d <= last_settled]
+
+    if rolling:
+        after = [last_settled - timedelta(days=n) for n in range(days - 1, -1, -1)]
+        after = [d for d in after if d >= cutover]
+    else:
+        after = [d for d in (cutover + timedelta(days=n) for n in range(days))
+                 if d <= last_settled]
     return before, after
 
 
@@ -430,7 +446,13 @@ def trace(conn, needle: str, before_days: list[date], after_days: list[date],
               f"{rest:>12,.0f}")
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Separate from main() so a test can assert the flags main() reads exist.
+
+    That is not hypothetical: a call site reading `args.pinned` once shipped
+    without the `add_argument` that defines it, and every test passed because
+    they all called the pure functions directly and never the parser.
+    """
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -441,6 +463,10 @@ def main() -> int:
                    help="window length either side of the cutover (default 4)")
     p.add_argument("--quiet-pct", type=float, default=60.0,
                    help="impression drop that counts as QUIET (default 60)")
+    p.add_argument("--pinned", action="store_true",
+                   help="compare the days immediately after the cutover "
+                        "instead of the most recent ones — the frame for "
+                        "'what did the migration cost', not 'where are we now'")
     p.add_argument("--rosters", type=int, metavar="N",
                    help="print the top N names on each candidate table and "
                         "exit — use this to establish the join key before "
@@ -453,7 +479,11 @@ def main() -> int:
                    help="rows in the no-legacy-counterpart list (default 25)")
     p.add_argument("--json", action="store_true",
                    help="emit the finding as JSON instead of a table")
-    args = p.parse_args()
+    return p
+
+
+def main() -> int:
+    args = build_parser().parse_args()
 
     try:
         cutover = date.fromisoformat(args.cutover)
@@ -467,7 +497,8 @@ def main() -> int:
         print("Set PGAM_DIRECT_DATABASE_URL (or DATABASE_URL).", file=sys.stderr)
         return 2
 
-    before_days, after_days = windows(cutover, args.days, date.today())
+    before_days, after_days = windows(cutover, args.days, date.today(),
+                                      rolling=not args.pinned)
     if not after_days:
         print(f"No settled days after {cutover} yet — nothing to compare.",
               file=sys.stderr)

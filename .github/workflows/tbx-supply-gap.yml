@@ -9,6 +9,12 @@ name: TBX Supply Gap
 # answering "which publishers", which is the form the question has to take
 # before anyone can act on it.
 #
+# The "after" window rolls: it is the most recent settled days, not the days
+# right after the cutover. Pinned, this report read identically on 25 and 28
+# Aug and so could not say whether a collapsed publisher had recovered, which
+# is the only question worth asking of it daily. `pinned` on dispatch restores
+# the original frame — that one answers "what did the migration cost".
+#
 # Scheduled daily rather than left as a diagnostic on purpose: a publisher can
 # stop sending at any point, not only at the cutover, and the report is
 # designed to read clean once the roster is whole. When it has read clean for
@@ -36,6 +42,11 @@ on:
         description: "Impression drop that counts as QUIET (default 60)"
         required: false
         default: "60"
+      pinned:
+        description: "Compare the days right after the cutover instead of the most recent ones — 'what did the migration cost', not 'where are we now'"
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -51,6 +62,7 @@ jobs:
       PYTHONUNBUFFERED: "1"
       IN_DAYS: ${{ inputs.days || '4' }}
       IN_QUIET: ${{ inputs.quiet_pct || '60' }}
+      IN_PINNED: ${{ inputs.pinned }}
 
     steps:
       - uses: actions/checkout@v4
@@ -77,5 +89,6 @@ jobs:
 
       - name: Which supply stopped arriving
         run: |
-          python3 scripts/tbx_supply_gap.py \
-            --days "$IN_DAYS" --quiet-pct "$IN_QUIET"
+          ARGS="--days $IN_DAYS --quiet-pct $IN_QUIET"
+          if [ "$IN_PINNED" = "true" ]; then ARGS="$ARGS --pinned"; fi
+          python3 scripts/tbx_supply_gap.py $ARGS

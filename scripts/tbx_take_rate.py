@@ -269,6 +269,64 @@ def render(rows: list[dict], target: date, lookback: int,
         print("  publisher revenue-share configuration on api.pgammedia.com.")
 
 
+def to_slack(rows: list[dict], target: date, threshold: float,
+             mode: str, cutover: str | None) -> None:
+    """Post the finding to the revenue channel.
+
+    This report has run daily since 2026-08-25 and written to a workflow log
+    nobody opens, while the take rate it measures became the largest single
+    component of the profit gap (§12/§13). A number that costs ~$744/day
+    belongs where the revenue alert already goes.
+
+    Posts only when something is flagged. A daily "nothing moved" is how a
+    channel teaches people to ignore it.
+    """
+    flagged = [r for r in rows if r.get("flagged") or
+               (mode == "cutover" and r["delta_points"] <= -threshold)]
+    if not flagged:
+        print("[slack] nothing flagged — not posting.")
+        return
+
+    worse = [r for r in flagged if r["profit_delta_usd"] < 0]
+    total = sum(r["profit_delta_usd"] for r in worse)
+
+    if mode == "cutover":
+        head = (f"*Take rate since the {cutover} cutover* — "
+                f"{len(worse)} source(s) below their legacy rate")
+        col = "before → after"
+    else:
+        head = (f"*Take rate moved on {target}* — {len(flagged)} source(s) "
+                f"past ±{threshold:.0f} points vs their own median")
+        col = "median → now"
+
+    lines = [f"{'source':<32} {col:>16} {'Δ pts':>7} {'$/day':>9}",
+             "-" * 68]
+    for r in sorted(flagged, key=lambda r: r["profit_delta_usd"])[:12]:
+        a = r.get("margin_before", r.get("margin_median"))
+        b = r.get("margin_after", r.get("margin_now"))
+        lines.append(f"{str(r['name'])[:32]:<32} "
+                     f"{a:>7.1f}% →{b:>6.1f}% "
+                     f"{r['delta_points']:>+7.1f} "
+                     f"{r['profit_delta_usd']:>+9.2f}")
+
+    blocks = [
+        {"type": "section",
+         "text": {"type": "mrkdwn", "text": head}},
+        {"type": "section",
+         "text": {"type": "mrkdwn", "text": "```\n" + "\n".join(lines) + "\n```"}},
+        {"type": "context",
+         "elements": [{"type": "mrkdwn",
+                       "text": f"*{total:+,.2f}/day* from the sources that fell. "
+                               f"A take rate that moves while price and volume do not "
+                               f"is a revenue-share setting — check these on "
+                               f"api.pgammedia.com."}]},
+    ]
+
+    from core.slack import send_blocks
+    send_blocks(blocks, text=head.replace("*", ""))
+    print(f"[slack] posted {len(flagged)} flagged source(s).")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -284,6 +342,9 @@ def main() -> int:
                    help="instead of drift, compare each source's margin "
                         "before and after this cutover date — the step the "
                         "trailing-median mode structurally cannot see")
+    p.add_argument("--slack", action="store_true",
+                   help="post the finding to SLACK_WEBHOOK (only when "
+                        "something is flagged)")
     p.add_argument("--json", action="store_true")
     args = p.parse_args()
 
@@ -322,6 +383,8 @@ def main() -> int:
                 print(json.dumps(xrows, indent=2, default=str))
             else:
                 render_cutover(xrows, cut, 4)
+            if args.slack:
+                to_slack(xrows, cut, args.threshold, "cutover", args.vs_legacy)
             return 1 if any(r["delta_points"] <= -args.threshold
                             for r in xrows) else 0
 
@@ -348,6 +411,9 @@ def main() -> int:
                           "sources": assessed}, indent=2, default=str))
     else:
         render(assessed, target, args.lookback, args.threshold)
+
+    if args.slack:
+        to_slack(assessed, target, args.threshold, "drift", None)
 
     return 1 if any(r["flagged"] for r in assessed) else 0
 
