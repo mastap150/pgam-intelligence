@@ -363,6 +363,73 @@ def rosters(conn, before_days: list[date], after_days: list[date],
         print()
 
 
+def trace(conn, needle: str, before_days: list[date], after_days: list[date],
+          top: int) -> None:
+    """Where did one source's traffic go?
+
+    A source can vanish from this report for two very different reasons: it
+    stopped sending, or TBX broke it out under names legacy never used. TBX
+    carries ~387 supply sources against legacy's 29, much of the difference
+    being domain-level entries (`decoist.com`), so the second is a real
+    possibility and the two want opposite responses — one is a conversation
+    with the publisher, the other is a naming map.
+
+    Three things, in the order that settles it:
+      1. every name on either host containing `needle`, with its volume
+      2. its per-day shape, so a collapse can be told from a clean stop
+      3. the largest sources with no legacy counterpart, to see whether the
+         missing impressions turn up under a name nobody recognises
+    """
+    n = needle.lower()
+
+    print(_HDR)
+    print(f"TRACE '{needle}'")
+    print(_HDR)
+
+    for label, table, id_col, name_col, days in (
+        ("legacy", LEGACY_SUPPLY, "publisher_id", "publisher_name", before_days),
+        ("TBX", TBX_SUPPLY, "supply_id", "supply_name", after_days),
+    ):
+        rows = _q(conn, f"""
+            SELECT {name_col}, report_date, impressions, gross_revenue
+              FROM pgam_direct.{table}
+             WHERE report_date = ANY(%(d)s)
+               AND lower({name_col}) LIKE %(n)s
+             ORDER BY 1, 2
+        """, {"d": days, "n": f"%{n}%"})
+        print(f"\n  {label}: {len(rows)} matching row(s) "
+              f"{days[0]} → {days[-1]}")
+        if not rows:
+            print(f"    no name on this host contains '{needle}'")
+            continue
+        for name, d, imps, gross in rows:
+            print(f"    {str(name)[:44]:<44} {d}  {int(imps or 0):>12,} imps  "
+                  f"{float(gross or 0):>9,.2f}")
+
+    # Anything on TBX with no legacy counterpart at all, biggest first. If the
+    # traffic moved rather than stopped, it is in this list.
+    before = collect(conn, LEGACY_SUPPLY, "publisher_id", "publisher_name",
+                     before_days)
+    after = collect(conn, TBX_SUPPLY, "supply_id", "supply_name", after_days)
+    fresh = [(k, v) for k, v in after.items() if k not in before]
+    fresh.sort(key=lambda kv: kv[1]["imps"], reverse=True)
+
+    n_after = len(after_days)
+    total_fresh = sum(v["imps"] for _, v in fresh)
+    print(f"\n  {len(fresh)} TBX source(s) with no legacy name, "
+          f"{total_fresh:,} imps total "
+          f"({total_fresh / n_after:,.0f}/day):\n")
+    print(f"    {'supply source':<44} {'imps/day':>12} {'gross/day':>11}")
+    print(f"    {'-' * 44} {'-' * 12} {'-' * 11}")
+    for _, v in fresh[:top]:
+        print(f"    {str(v['name'])[:44]:<44} "
+              f"{v['imps'] / n_after:>12,.0f} {v['gross'] / n_after:>11,.2f}")
+    if len(fresh) > top:
+        rest = sum(v["imps"] for _, v in fresh[top:]) / n_after
+        print(f"    {'… and ' + str(len(fresh) - top) + ' smaller':<44} "
+              f"{rest:>12,.0f}")
+
+
 def main() -> int:
     p = argparse.ArgumentParser(
         description=__doc__,
@@ -378,6 +445,12 @@ def main() -> int:
                    help="print the top N names on each candidate table and "
                         "exit — use this to establish the join key before "
                         "trusting any comparison built on it")
+    p.add_argument("--trace", metavar="NAME",
+                   help="follow one source across the cutover: matching names "
+                        "on both hosts, its per-day shape, and the largest "
+                        "TBX sources with no legacy counterpart")
+    p.add_argument("--top", type=int, default=25,
+                   help="rows in the no-legacy-counterpart list (default 25)")
     p.add_argument("--json", action="store_true",
                    help="emit the finding as JSON instead of a table")
     args = p.parse_args()
@@ -409,6 +482,10 @@ def main() -> int:
             if not _exists(conn, t):
                 print(f"pgam_direct.{t} does not exist.", file=sys.stderr)
                 return 2
+
+        if args.trace:
+            trace(conn, args.trace, before_days, after_days, args.top)
+            return 0
 
         if args.rosters:
             rosters(conn, before_days, after_days, args.rosters)
