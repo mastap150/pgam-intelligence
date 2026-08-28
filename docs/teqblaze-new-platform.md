@@ -505,14 +505,60 @@ guard that, and one of them needs human confirmation:
    whereas hard-refusing on a vendored spec that has fallen behind the platform
    would block every write for a reason that is ours. The warning goes to stderr
    and rides along on the result as `unknown_keys`.
-4. **Unverified:** whether the platform actually accepts the round trip.
+4. Whether the platform actually accepts the round trip.
    `python3 scripts/tbx_probe.py --diff-shape supply:<id>` prints the GET
-   response beside the exact payload an update would POST, and now checks both
+   response beside the exact payload an update would POST, and checks both
    directions against a real account: fields dropped that we did not mean to
    drop, and fields the live response carries that `SupplySourceRequest` /
    `DemandSourceRequest` will not accept. The second is what finds the next
    `uuid` — the account, not the spec, is the authority on what comes back. Any
    finding under either heading means do not set `TBX_ALLOW_WRITES`.
+
+   It found one on the first real run (2026-08-28, supply source 264): the live
+   GET returns **`has_inactive_company`**, which the vendored spec declares in
+   *neither* schema, so the set difference in item 1 could not derive it and the
+   payload was carrying a key `SupplySourceRequest` never advertised accepting.
+   Named by hand in `_UNDECLARED_RESPONSE_FIELDS` and re-checked by
+   `tests/test_tbx.py`, which now also fails if a re-vendored spec picks the
+   field up and makes the exception stale. Re-run `--diff-shape` and get a clean
+   round trip before setting `TBX_ALLOW_WRITES`; it takes a comma-separated list
+   (`supply:264,supply:65,supply:194`) so a finding can be told apart from an
+   account-wide one in a single run.
+
+### 6.1 The supply margin lever is read-only
+
+The same run answered a question the margin work had been assuming. Supply
+source 264 carries its margin at the **top level** of the entity:
+
+```json
+"margin_type": "range", "margin_min": 5, "margin_max": 30
+```
+
+and, separately, inside `source`:
+
+```json
+"is_dynamic_margin": false, "dynamic_margin": "0.00"
+```
+
+`margin_type` / `margin_min` / `margin_max` are exactly the fields
+`SupplySourceRequest` refuses (item 1) — they are read-only over this API.
+So the margin actually in force on this source is a 5–30% range that
+`POST /supply-sources/{id}/update` **cannot set**, and
+`set_supply_source_fields(is_dynamic_margin=…, dynamic_margin=…)` reaches a
+different mechanism that is currently switched off.
+
+That matters for how a margin change gets made:
+
+- Turning `is_dynamic_margin` on is **not** an adjustment to the current
+  setting; it swaps which mechanism governs the source. Its interaction with
+  a live `margin_type: "range"` is undocumented and untested here.
+- Moving the 5–30% range itself is a **dashboard change**, not an API one,
+  until Teqblaze exposes those fields for write.
+- So do not describe a planned margin move as "set `dynamic_margin` via the
+  API" without saying which of the two mechanisms it lands on.
+
+Read the current shape of any source before proposing a margin change to it;
+the realised take rate in the reports is an outcome, not the configuration.
 
 Also unverified: `POST /filter-lists/{id}/import-values`. The spec documents it
 as a file/CSV import; `import_filter_values` sends `{"values": [...]}`, which is
