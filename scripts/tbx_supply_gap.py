@@ -379,7 +379,13 @@ def rosters(conn, before_days: list[date], after_days: list[date],
         print()
 
 
-def main() -> int:
+def build_parser() -> argparse.ArgumentParser:
+    """Separate from main() so a test can assert the flags main() reads exist.
+
+    That is not hypothetical: a call site reading `args.pinned` once shipped
+    without the `add_argument` that defines it, and every test passed because
+    they all called the pure functions directly and never the parser.
+    """
     p = argparse.ArgumentParser(
         description=__doc__,
         formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -390,13 +396,21 @@ def main() -> int:
                    help="window length either side of the cutover (default 4)")
     p.add_argument("--quiet-pct", type=float, default=60.0,
                    help="impression drop that counts as QUIET (default 60)")
+    p.add_argument("--pinned", action="store_true",
+                   help="compare the days immediately after the cutover "
+                        "instead of the most recent ones — the frame for "
+                        "'what did the migration cost', not 'where are we now'")
     p.add_argument("--rosters", type=int, metavar="N",
                    help="print the top N names on each candidate table and "
                         "exit — use this to establish the join key before "
                         "trusting any comparison built on it")
     p.add_argument("--json", action="store_true",
                    help="emit the finding as JSON instead of a table")
-    args = p.parse_args()
+    return p
+
+
+def main() -> int:
+    args = build_parser().parse_args()
 
     try:
         cutover = date.fromisoformat(args.cutover)

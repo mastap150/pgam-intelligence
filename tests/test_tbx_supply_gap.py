@@ -215,6 +215,38 @@ def _():
     assert legacy == tbx, (legacy, tbx)
 
 
+# --- CLI wiring ---------------------------------------------------------
+# main() crashed in production with AttributeError: 'pinned' — the call site
+# reading args.pinned shipped while the add_argument defining it did not,
+# because the edit was anchored on a flag that only exists on another branch.
+# Every other check calls the pure functions directly, so none of them saw it.
+
+@check("every flag main() reads is defined on the parser")
+def _():
+    ns = g.build_parser().parse_args([])
+    for attr in ("cutover", "days", "quiet_pct", "pinned", "rosters", "json"):
+        assert hasattr(ns, attr), f"parser has no --{attr.replace('_', '-')}"
+
+
+@check("--pinned defaults off, so the scheduled run gets the rolling frame")
+def _():
+    assert g.build_parser().parse_args([]).pinned is False
+    assert g.build_parser().parse_args(["--pinned"]).pinned is True
+
+
+@check("the source reads no args attribute the parser does not define")
+def _():
+    # Belt and braces: scrape every `args.X` out of the module source and
+    # check each one against a parsed namespace. Catches the next one of
+    # these without anybody remembering to extend the list above.
+    import re as _re
+    src = open(g.__file__).read()
+    used = set(_re.findall(r"\bargs\.([a-z_]+)", src))
+    ns = g.build_parser().parse_args([])
+    missing = sorted(a for a in used if not hasattr(ns, a))
+    assert not missing, f"main() reads undefined arg(s): {missing}"
+
+
 def main() -> int:
     failed = 0
     for name, fn in CHECKS:

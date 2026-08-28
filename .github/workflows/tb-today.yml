@@ -104,7 +104,7 @@ jobs:
           if [ "$IN_SUPPLY_GAP" = "rosters" ]; then
             python3 scripts/tbx_supply_gap.py --rosters 15
           else
-            python3 scripts/tbx_supply_gap.py --days "$IN_SUPPLY_GAP" || true
+            python3 scripts/tbx_supply_gap.py --days "$IN_SUPPLY_GAP" || [ $? -eq 1 ]
           fi
 
       - name: Take rate by supply source
@@ -116,7 +116,7 @@ jobs:
         run: |
           pip install --quiet "psycopg2-binary>=2.9"
           if [ "$IN_TAKE_RATE" = "cutover" ]; then
-            python3 scripts/tbx_take_rate.py --vs-legacy 2026-08-21 || true
+            python3 scripts/tbx_take_rate.py --vs-legacy 2026-08-21 || [ $? -eq 1 ]
           else
-            python3 scripts/tbx_take_rate.py --lookback "$IN_TAKE_RATE" || true
+            python3 scripts/tbx_take_rate.py --lookback "$IN_TAKE_RATE" || [ $? -eq 1 ]
           fi
