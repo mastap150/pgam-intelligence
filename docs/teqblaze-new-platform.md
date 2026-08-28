@@ -560,6 +560,35 @@ That matters for how a margin change gets made:
 Read the current shape of any source before proposing a margin change to it;
 the realised take rate in the reports is an outcome, not the configuration.
 
+**What the three margin candidates actually carry** (read 2026-08-28, run
+`33175637798`, `--diff-shape supply:264,supply:65,supply:194`):
+
+| id | name | `margin_type` | min | max | `is_dynamic_margin` | `is_smart_floor` |
+|---|---|---|---|---|---|---|
+| 264 | Advetisi - Zmaticoo | `range` | 5 | 30 | false | **true** |
+| 65 | Illumin - Video Unruly OTTA | `adaptive` | 5 | 95 | false | **true** |
+| 194 | Illumin Display and Video EU Correct | `fixed` | 2 | 0 | false | **true** |
+
+Three different `margin_type` values across three sources, so this is
+deliberate per-source configuration and not an account default that happens
+to be showing through. Two things follow that were not previously written
+down:
+
+- **194 is on a 2% fixed margin.** Whatever it turns over, it turns over at
+  2%. If it carries meaningful volume that is a structural drag on blended
+  margin, and no floor change or dynamic-margin flip touches it — the number
+  is the configuration, and the configuration is a dashboard field.
+- **`is_smart_floor` is true on all three.** Teqblaze's own floor optimiser
+  already owns the floor on these sources. Per the "pick one owner per lever"
+  rule below, a PGAM floor agent must not be pointed at them while that
+  holds; that is the April thrash. Whether the platform optimiser is doing a
+  good job here is a separate question worth asking, but the answer is not
+  "run ours as well".
+
+All three also sit at `floor_price: "0.00"` with
+`bid_floor_type: "fixed_bid_price"` — i.e. no source-level floor of our own,
+which is consistent with smart floor owning it.
+
 Also unverified: `POST /filter-lists/{id}/import-values`. The spec documents it
 as a file/CSV import; `import_filter_values` sends `{"values": [...]}`, which is
 a guess. Confirm before relying on it for large lists — `add_filter_values`
