@@ -1,0 +1,86 @@
+{
+  "_comment": [
+    "Every launch parameter for one client, in one place. Feeds",
+    "scripts/build_campaign_payload.py and scripts/preflight.py.",
+    "",
+    "Fields set to null are deliberately unset and MUST be filled before launch.",
+    "optimization_goal_value in particular has to come from the advertiser --",
+    "platform rules forbid us pre-filling it from a default, an industry average,",
+    "or another client's campaign. The builder refuses to run while it is null."
+  ],
+
+  "client": {
+    "name": "HomeBuyerForCash",
+    "website": "https://homebuyerforcash.com",
+    "market": "Oklahoma City metro"
+  },
+
+  "vibe": {
+    "advertiser_id": null,
+    "advertiser_name": "HomeBuyerForCash",
+    "pixel_id": null
+  },
+
+  "campaign": {
+    "name": "HomeBuyerForCash - Oklahoma - Traffic - Sept 2026",
+    "goal": "TRAFFIC",
+    "optimization_goal_type": "COST_PER_SESSION",
+    "optimization_goal_value": null,
+    "attribution_window": "THIRTY_DAYS",
+    "countries": ["USA"]
+  },
+
+  "strategy": {
+    "_comment": "ONE strategy. Two overlapping ones bid against each other, split the learning signal, and make attribution between them unreadable.",
+    "name": "OKC Metro - Homeowner + Distress Signals",
+    "budget_usd_per_day": 100,
+    "budget_type": "DAILY",
+    "starts_at": null,
+    "ends_at": null,
+    "bidding_mode": "AUTOMATIC",
+    "delivery": "ANY_TIME_ANY_DAY",
+
+    "counties": [
+      { "fips": "40109", "name": "Oklahoma",     "seat": "Oklahoma City", "households": 328211 },
+      { "fips": "40027", "name": "Cleveland",    "seat": "Norman",        "households": 105744 },
+      { "fips": "40017", "name": "Canadian",     "seat": "Yukon",         "households": 53703 },
+      { "fips": "40125", "name": "Pottawatomie", "seat": "Shawnee",       "households": 26715 }
+    ],
+    "_counties_note": "Tulsa 40143 (273,288) is expansion, not their stated footprint. Add only on client confirmation.",
+
+    "interest_mode": "SUGGESTION",
+    "interests": [
+      "HOMEOWNER",
+      "FINANCIAL_SERVICES",
+      "REAL_ESTATE",
+      "LEGAL_SERVICES__ESTATE_PLANNING",
+      "LEGAL_SERVICES__FAMILY_LAW",
+      "INSURANCE__HOME_AND_PROPERTY_INSURANCE",
+      "HOME_IMPROVEMENT__ROOFING"
+    ],
+
+    "age_mode": "SUGGESTION",
+    "age_ranges": ["RANGE_45_54", "RANGE_55_64", "RANGE_65_MORE"],
+
+    "demographic_mode": "SUGGESTION",
+    "_demographics_note": "Max 2 groups. Income + net worth uses both; adding language is rejected by the platform.",
+    "demographics": [
+      "ESTIMATED_HOUSEHOLD_INCOME__LESS_THAN_20000_DOLLARS",
+      "ESTIMATED_HOUSEHOLD_INCOME__20000_49999_DOLLARS",
+      "ESTIMATED_HOUSEHOLD_INCOME__50000_74999_DOLLARS",
+      "ESTIMATED_HOUSEHOLD_NET_WORTH__LESS_THAN_100000_DOLLARS",
+      "ESTIMATED_HOUSEHOLD_NET_WORTH__100000_499999_DOLLARS"
+    ],
+
+    "creative_ids": []
+  },
+
+  "measurement": {
+    "tag_url": "https://tag.pgammedia.com/attune.js",
+    "bridge_url": null,
+    "call_pool": [],
+    "fallback_number": null,
+    "tv_number": null,
+    "_tv_number_note": "Static, appears nowhere else, baked into the creative. Unattributable by nature -- counted in the phone system only. Decide BEFORE the video edit is locked."
+  }
+}
