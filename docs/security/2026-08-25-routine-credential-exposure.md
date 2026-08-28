@@ -77,10 +77,15 @@ Removing the prompt text does **not** un-expose a stored secret.
 
 In the Neon console, for each project:
 
-- `pgam_direct` (`ep-small-math-anb9afsp`) — reset the `neondb_owner`
-  password.
-- boxingnews (`ep-delicate-star-anufzx20`) — reset the `neondb_owner`
-  password.
+- the `pgam_direct` project (endpoint `ep-small-math-…`) — reset the
+  `neondb_owner` password.
+- the boxingnews project (endpoint `ep-delicate-star-…`) — reset the
+  `neondb_owner` password.
+
+Endpoint IDs are deliberately abbreviated throughout this file: **this
+repository is public**, and the host half of a DSN is precisely the
+part that rotation does *not* change. Both projects are unambiguous
+from the prefixes above in the Neon console.
 
 Then update every consumer. Grep before you rotate, so nothing is
 missed:
@@ -90,30 +95,70 @@ grep -rn "PGAM_DIRECT_DATABASE_URL\|BOXINGNEWS_DATABASE_URL" \
   --include='*.py' --include='*.yml' --include='*.ts' . | grep -v '\.git/'
 ```
 
-Known consumers at time of writing: the local `.env`, the Render
-worker environment, GitHub Actions secrets used by the scheduled
-workflows, and this Routine.
+Known consumers at time of writing: the local `.env`, the Render worker
+environment, and the GitHub Actions secrets used by the scheduled
+workflows.
+
+**Not the Routine.** It is the thing being remediated — pasting a fresh
+connection string back into its prompt would recreate the exposure with
+a new password. The Routine gets its values from the environment
+instead; that is step 3, and step 4 rewrites the prompt to stop
+carrying them at all.
 
 ### 2. Prefer a read-only role over rotating owner in place
 
-`hasib_trigger_check.py` issues **two SELECTs** and writes nothing. It
-reads a `pgam_direct` join and `articles`. Handing a weekly monitor
-owner credentials is more rights than the job has ever needed.
+`hasib_trigger_check.py` issues **two SELECTs** and writes nothing.
+Handing a weekly monitor owner credentials is more rights than the job
+has ever needed.
+
+Note the two databases use **different schemas**, so the grants are not
+symmetric. Granting only `public` on the `pgam_direct` side — the
+obvious-looking default — fails at the first query with `permission
+denied for schema pgam_direct`, and an operator mid-incident will
+reasonably conclude the read-only role "doesn't work" and go back to
+`neondb_owner`, which defeats this step entirely.
 
 ```sql
--- per database
+-- ── pgam_direct database ──
+-- Reads pgam_direct.msn_article_peak JOIN pgam_direct.msn_article_meta
 CREATE ROLE hasib_monitor WITH LOGIN PASSWORD '<generated>';
-GRANT CONNECT ON DATABASE <db> TO hasib_monitor;
+GRANT CONNECT ON DATABASE neondb TO hasib_monitor;
+GRANT USAGE ON SCHEMA pgam_direct TO hasib_monitor;
+GRANT SELECT ON ALL TABLES IN SCHEMA pgam_direct TO hasib_monitor;
+ALTER DEFAULT PRIVILEGES IN SCHEMA pgam_direct
+  GRANT SELECT ON TABLES TO hasib_monitor;
+```
+
+```sql
+-- ── boxingnews database ──
+-- Reads public.articles
+CREATE ROLE hasib_monitor WITH LOGIN PASSWORD '<generated>';
+GRANT CONNECT ON DATABASE neondb TO hasib_monitor;
 GRANT USAGE ON SCHEMA public TO hasib_monitor;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO hasib_monitor;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
   GRANT SELECT ON TABLES TO hasib_monitor;
 ```
 
+Verify before repointing the Routine — a role that can log in but not
+read is the failure mode this note exists to prevent:
+
+```bash
+PGAM_DIRECT_DATABASE_URL='<new monitor dsn>' \
+BOXINGNEWS_DATABASE_URL='<new monitor dsn>' \
+  python3 scripts/hasib_trigger_check.py --weeks 2
+```
+
 Point the Routine at `hasib_monitor`. If it leaks again, the loss is a
 read of two reporting tables rather than owner on both databases.
 
 ### 3. Provision the values — with eyes open
+
+> The script's USAGE block already describes the cloud path in the
+> present tense ("injected by the environment at session start"). That
+> is the intended end state, not today's: until this step is ticked,
+> a cloud run exits with the missing-variable message naming which one.
+
 
 `CLAUDE.md` is explicit that a cloud environment is **not** a secrets
 store:
@@ -197,8 +242,13 @@ Do NOT auto-cut anything. This is a monitor.
 ### 5. Verify
 
 ```
-list_triggers → the prompt contains no "postgresql://"
+list_triggers → the prompt contains neither "postgres://" nor "postgresql://"
 ```
+
+Both spellings matter: Postgres accepts either scheme and
+`.env.example` documents these two variables with `postgres://`, so a
+check for the longer form alone would pass a prompt that still holds a
+live credential.
 
 Then let one Sunday firing complete and confirm it still reports a
 verdict.
@@ -213,7 +263,7 @@ verdict.
 - [ ] Update `.env`, Render env, GitHub Actions secrets
 - [ ] Set both vars on the `PGAM` cloud environment
 - [ ] `update_trigger` the Routine prompt to the version above
-- [ ] Confirm no `postgresql://` in `list_triggers` output
+- [ ] Confirm no `postgres://` **or** `postgresql://` in `list_triggers` output
 - [ ] Confirm the next Sunday run reports a verdict
 
 ---
