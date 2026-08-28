@@ -27,6 +27,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -39,9 +40,25 @@ MINOR_VERSION = "75"
 TIMEOUT = 60
 
 
+# Transient failures worth one more attempt. Auth failures (400/401/403) are
+# never retried — an invalid_grant does not become valid by asking again, and
+# hammering the token endpoint is how you get rate-limited.
+RETRY_STATUSES = {429, 500, 502, 503, 504}
+MAX_ATTEMPTS = 3
+BACKOFF_SECONDS = 2
+
+
 class QBOError(RuntimeError):
     """An API call failed. Carries the response body, which is where Intuit
-    puts the actual reason — the HTTP status alone is rarely enough."""
+    puts the actual reason — the HTTP status alone is rarely enough — and the
+    intuit_tid, which is the only handle Intuit support can trace a request by.
+    """
+
+    def __init__(self, message: str, *, intuit_tid: str | None = None):
+        if intuit_tid:
+            message = f"{message} [intuit_tid={intuit_tid}]"
+        super().__init__(message)
+        self.intuit_tid = intuit_tid
 
 
 # ---------------------------------------------------------------------------
@@ -146,8 +163,10 @@ def access_token(cfg: dict | None = None) -> str:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
             payload = json.loads(resp.read().decode())
     except urllib.error.HTTPError as exc:
+        tid = exc.headers.get("intuit_tid") if exc.headers else None
         raise QBOError(
-            f"token refresh failed ({exc.code}): {exc.read().decode()[:500]}"
+            f"token refresh failed ({exc.code}): {exc.read().decode()[:500]}",
+            intuit_tid=tid,
         ) from exc
 
     rotated = payload.get("refresh_token")
@@ -174,13 +193,35 @@ def _request(cfg: dict, token: str, method: str, path: str,
         headers["Content-Type"] = "application/json"
 
     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-    try:
-        with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-            return json.loads(resp.read().decode())
-    except urllib.error.HTTPError as exc:
-        raise QBOError(
-            f"{method} {path} failed ({exc.code}): {exc.read().decode()[:800]}"
-        ) from exc
+
+    last: Exception | None = None
+    for attempt in range(1, MAX_ATTEMPTS + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
+                return json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            # intuit_tid is the request handle Intuit support traces by. It is
+            # only on the response, so capture it before the body is consumed.
+            tid = exc.headers.get("intuit_tid") if exc.headers else None
+            body = exc.read().decode()[:800]
+            last = QBOError(
+                f"{method} {path} failed ({exc.code}): {body}", intuit_tid=tid
+            )
+            if exc.code not in RETRY_STATUSES or attempt == MAX_ATTEMPTS:
+                raise last from exc
+            wait = BACKOFF_SECONDS * (2 ** (attempt - 1))
+            print(
+                f"[qbo_api] {method} {path} → {exc.code}, retrying in {wait}s "
+                f"(attempt {attempt}/{MAX_ATTEMPTS}) [intuit_tid={tid}]"
+            )
+            time.sleep(wait)
+        except urllib.error.URLError as exc:
+            last = QBOError(f"{method} {path} failed to connect: {exc.reason}")
+            if attempt == MAX_ATTEMPTS:
+                raise last from exc
+            time.sleep(BACKOFF_SECONDS * (2 ** (attempt - 1)))
+
+    raise last  # unreachable; keeps the type checker honest
 
 
 def get(cfg: dict, token: str, path: str, params: dict | None = None) -> dict:
