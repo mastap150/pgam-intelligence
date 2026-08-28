@@ -52,9 +52,7 @@ State
 
 from __future__ import annotations
 
-import base64
 import json
-import urllib.parse
 import urllib.request
 from datetime import date, datetime
 from decimal import Decimal
@@ -62,11 +60,10 @@ from typing import Any
 
 import pytz
 
+from core import qbo_api
+
 ET = pytz.timezone("US/Eastern")
 
-QBO_API_BASE = "https://quickbooks.api.intuit.com"
-QBO_TOKEN_URL = "https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer"
-MINOR_VERSION = "75"
 
 # Cash-basis history start. Earlier than PGAM's first QBO invoice, so absence
 # from this report genuinely means "never paid", not "paid before the window".
@@ -81,6 +78,7 @@ MATERIALITY = Decimal("50.00")
 # ---------------------------------------------------------------------------
 
 def _config() -> dict:
+    """QBO credentials plus this agent's delivery settings."""
     import os
     from core.config import RECIPIENTS, SENDER_EMAIL, SENDGRID_KEY
 
@@ -89,33 +87,19 @@ def _config() -> dict:
     ] or RECIPIENTS
 
     return {
-        "client_id":     os.environ.get("QBO_CLIENT_ID", ""),
-        "client_secret": os.environ.get("QBO_CLIENT_SECRET", ""),
-        "refresh_seed":  os.environ.get("QBO_REFRESH_TOKEN", ""),
-        "realm_id":      os.environ.get("QBO_REALM_ID", ""),
-        "sendgrid_key":  SENDGRID_KEY,
-        "sender":        SENDER_EMAIL,
-        "recipients":    recipients,
+        **qbo_api.config(),
+        "sendgrid_key": SENDGRID_KEY,
+        "sender":       SENDER_EMAIL,
+        "recipients":   recipients,
     }
 
 
-# ---------------------------------------------------------------------------
-# Token store — Neon, because Render's disk does not survive a redeploy
-# ---------------------------------------------------------------------------
-
 def _ensure_tables() -> None:
+    """Token table lives in core.qbo_api; the snapshot table is ours."""
     from core.neon import connect
 
+    qbo_api.ensure_token_table()
     with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            CREATE TABLE IF NOT EXISTS qbo_oauth_token (
-                realm_id      TEXT PRIMARY KEY,
-                refresh_token TEXT        NOT NULL,
-                updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
-            )
-            """
-        )
         cur.execute(
             """
             CREATE TABLE IF NOT EXISTS ar_aging_snapshot (
@@ -132,88 +116,9 @@ def _ensure_tables() -> None:
         conn.commit()
 
 
-def _stored_refresh_token(realm_id: str) -> str | None:
-    from core.neon import connect
-
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            "SELECT refresh_token FROM qbo_oauth_token WHERE realm_id = %s",
-            (realm_id,),
-        )
-        row = cur.fetchone()
-    return row[0] if row else None
-
-
-def _store_refresh_token(realm_id: str, token: str) -> None:
-    from core.neon import connect
-
-    with connect() as conn, conn.cursor() as cur:
-        cur.execute(
-            """
-            INSERT INTO qbo_oauth_token (realm_id, refresh_token, updated_at)
-            VALUES (%s, %s, now())
-            ON CONFLICT (realm_id)
-            DO UPDATE SET refresh_token = EXCLUDED.refresh_token,
-                          updated_at    = now()
-            """,
-            (realm_id, token),
-        )
-        conn.commit()
-
-
-def _access_token(cfg: dict) -> str:
-    """Exchange the refresh token for an access token, persisting the rotation."""
-    refresh = _stored_refresh_token(cfg["realm_id"]) or cfg["refresh_seed"]
-    if not refresh:
-        raise RuntimeError(
-            "No QBO refresh token available — set QBO_REFRESH_TOKEN for the first run."
-        )
-
-    basic = base64.b64encode(
-        f"{cfg['client_id']}:{cfg['client_secret']}".encode()
-    ).decode()
-    body = urllib.parse.urlencode(
-        {"grant_type": "refresh_token", "refresh_token": refresh}
-    ).encode()
-
-    req = urllib.request.Request(
-        QBO_TOKEN_URL,
-        data=body,
-        headers={
-            "Authorization": f"Basic {basic}",
-            "Content-Type":  "application/x-www-form-urlencoded",
-            "Accept":        "application/json",
-        },
-        method="POST",
-    )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        payload = json.loads(resp.read().decode())
-
-    rotated = payload.get("refresh_token")
-    if rotated and rotated != refresh:
-        _store_refresh_token(cfg["realm_id"], rotated)
-        print("[ar_aging_sentry] refresh token rotated and persisted")
-
-    return payload["access_token"]
-
-
 # ---------------------------------------------------------------------------
 # QBO report fetch + parsing
 # ---------------------------------------------------------------------------
-
-def _report(cfg: dict, token: str, name: str, params: dict) -> dict:
-    qs = urllib.parse.urlencode({**params, "minorversion": MINOR_VERSION})
-    url = f"{QBO_API_BASE}/v3/company/{cfg['realm_id']}/reports/{name}?{qs}"
-    req = urllib.request.Request(
-        url,
-        headers={
-            "Authorization": f"Bearer {token}",
-            "Accept":        "application/json",
-        },
-    )
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        return json.loads(resp.read().decode())
-
 
 def _walk_rows(node: Any) -> list[list[str]]:
     """Flatten a QBO report's nested Rows into a list of ColData value lists.
@@ -250,7 +155,7 @@ def _money(raw: str) -> Decimal:
 
 def _aging(cfg: dict, token: str) -> dict[str, dict]:
     """Return {customer: {current, d1_30, d31_60, d61_90, d91, total}}."""
-    report = _report(
+    report = qbo_api.report(
         cfg, token, "AgedReceivables",
         {"report_date": date.today().isoformat(), "aging_method": "Report_Date"},
     )
@@ -280,7 +185,7 @@ def _ever_paid(cfg: dict, token: str) -> set[str]:
     suppressed rather than the whole alert being lost.
     """
     try:
-        report = _report(
+        report = qbo_api.report(
             cfg, token, "CustomerSales",
             {
                 "start_date":         CASH_HISTORY_START,
@@ -558,10 +463,7 @@ def run() -> None:
         return
 
     cfg = _config()
-    missing = [
-        k for k in ("client_id", "client_secret", "realm_id")
-        if not cfg[k]
-    ]
+    missing = qbo_api.missing_config(cfg)
     if missing:
         print(f"[ar_aging_sentry] skipping — missing QBO config: {', '.join(missing)}")
         return
@@ -571,7 +473,7 @@ def run() -> None:
 
     _ensure_tables()
 
-    token = _access_token(cfg)
+    token = qbo_api.access_token(cfg)
     aging = _aging(cfg, token)
     if not aging:
         print("[ar_aging_sentry] aging report returned no customers — nothing to do")
