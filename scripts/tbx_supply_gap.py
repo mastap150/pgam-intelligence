@@ -130,18 +130,34 @@ def _exists(conn, table: str) -> bool:
     """, (table,)))
 
 
-def windows(cutover: date, days: int, today: date) -> tuple[list[date], list[date]]:
+def windows(cutover: date, days: int, today: date,
+            rolling: bool = True) -> tuple[list[date], list[date]]:
     """The settled days either side of the cutover.
 
-    The 'after' window ends yesterday, never today: today is partial on the
-    platform's US/Eastern clock, and comparing a part-day against a full one
-    manufactures a gap out of nothing. That is the same mistake §12 records
-    against 2026-08-24.
+    The 'before' window is fixed: it is the last `days` the legacy host served,
+    and that is history now — it cannot change.
+
+    The 'after' window ROLLS. It is the most recent `days` settled days, not
+    the `days` immediately following the cutover. That distinction is the
+    difference between a report and a photograph: pinned to the cutover, this
+    read the same on 28 Aug as on 25 Aug and could not say whether a collapsed
+    publisher had recovered — while impressions rose ~500k/day over exactly
+    that span. Pass rolling=False for the original pinned comparison, which is
+    still the right frame for "what did the migration itself cost".
+
+    Neither window ever includes today: today is partial on the platform's
+    US/Eastern clock, and comparing a part-day against a full one manufactures
+    a gap out of nothing. That is the mistake §12 records against 2026-08-24.
     """
     before = [cutover - timedelta(days=n) for n in range(days, 0, -1)]
     last_settled = today - timedelta(days=1)
-    after = [d for d in (cutover + timedelta(days=n) for n in range(days))
-             if d <= last_settled]
+
+    if rolling:
+        after = [last_settled - timedelta(days=n) for n in range(days - 1, -1, -1)]
+        after = [d for d in after if d >= cutover]
+    else:
+        after = [d for d in (cutover + timedelta(days=n) for n in range(days))
+                 if d <= last_settled]
     return before, after
 
 
@@ -394,7 +410,8 @@ def main() -> int:
         print("Set PGAM_DIRECT_DATABASE_URL (or DATABASE_URL).", file=sys.stderr)
         return 2
 
-    before_days, after_days = windows(cutover, args.days, date.today())
+    before_days, after_days = windows(cutover, args.days, date.today(),
+                                      rolling=not args.pinned)
     if not after_days:
         print(f"No settled days after {cutover} yet — nothing to compare.",
               file=sys.stderr)

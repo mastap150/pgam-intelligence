@@ -31,18 +31,43 @@ def _():
                       date(2026, 8, 19), date(2026, 8, 20)], before
 
 
-@check("the after window starts on the cutover and never includes today")
+@check("the after window rolls to the most recent settled days")
 def _():
-    _, after = g.windows(CUT, 4, date(2026, 8, 25))
+    # On 28 Aug the interesting question is 24-27, not 21-24. Pinned to the
+    # cutover this report read identically on the 25th and the 28th and so
+    # could not say whether a collapsed publisher had come back.
+    _, after = g.windows(CUT, 4, date(2026, 8, 28))
+    assert after == [date(2026, 8, 24), date(2026, 8, 25),
+                     date(2026, 8, 26), date(2026, 8, 27)], after
+
+
+@check("--pinned still gives the days immediately after the cutover")
+def _():
+    _, after = g.windows(CUT, 4, date(2026, 8, 28), rolling=False)
     assert after == [date(2026, 8, 21), date(2026, 8, 22),
                      date(2026, 8, 23), date(2026, 8, 24)], after
 
 
-@check("a partial after-window is clipped to settled days, not padded")
+@check("the rolling window never reaches back before the cutover")
 def _():
-    # Two days after the cutover: only the 21st and 22nd have closed.
+    # Two days in, a 4-day rolling window must not borrow legacy days and
+    # compare the legacy host against itself.
     _, after = g.windows(CUT, 4, date(2026, 8, 23))
     assert after == [date(2026, 8, 21), date(2026, 8, 22)], after
+
+
+@check("neither window includes today")
+def _():
+    _, after = g.windows(CUT, 4, date(2026, 8, 28))
+    assert date(2026, 8, 28) not in after
+
+
+@check("the before window stays fixed however far the after window rolls")
+def _():
+    a, _ = g.windows(CUT, 4, date(2026, 8, 25))
+    b, _ = g.windows(CUT, 4, date(2026, 9, 30))
+    assert a == b == [date(2026, 8, 17), date(2026, 8, 18),
+                      date(2026, 8, 19), date(2026, 8, 20)]
 
 
 @check("a publisher with no rows after the cutover is GONE")
