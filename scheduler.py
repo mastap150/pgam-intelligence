@@ -294,6 +294,8 @@ def setup_schedule():
     change_outcome_digest  = _import("agents.reports.change_outcome_digest")
     # Weekly Monday digest of proposals needing human review
     weekly_review_digest   = _import("agents.reports.weekly_review_digest")
+    # Weekly Sunday 06:00 ET pub-ops health routine — read-only, posts to #pubops
+    weekly_health_routine  = _import("agents.reports.weekly_health_routine")
     # Pilot program
     pilot_snapshot         = _import("scripts.pilot_snapshot")
     pilot_watchdog         = _import("scripts.pilot_watchdog")
@@ -682,6 +684,9 @@ def setup_schedule():
     schedule.every().day.at("09:15").do(_run("change_outcome_digest",  change_outcome_digest))
     # Weekly proposal review digest — Monday 09:00 ET (internal Monday+hour guard)
     schedule.every().day.at("09:00").do(_run("weekly_review_digest",   weekly_review_digest))
+    # Weekly pub-ops health routine — Sunday 06:00 ET (internal Sunday+hour guard)
+    # Read-only Slack post to #pubops with optimization + compliance signals.
+    schedule.every().day.at("06:00").do(_run("weekly_health_routine",  weekly_health_routine))
     schedule.every().day.at("08:45").do(_run("publisher_optimizer",      publisher_optimizer))       # daily — SSP supply partner dead-weight & expand recs
     schedule.every().day.at("09:00").do(_run("dsp_optimizer",          dsp_optimizer))           # daily — downstream DSP prune (dry-run by default, --apply gated)
     schedule.every().day.at("09:15").do(_run("ssp_company_optimizer",  ssp_company_optimizer))   # daily — /ad-exchange/ SSP Company roll-up (Illumin, Smaato, Dexerto, ...)
