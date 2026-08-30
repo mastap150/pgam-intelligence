@@ -212,6 +212,20 @@ Routine prompts are stored server-side and echoed back in full by
 created through the web UI cannot be edited from a session, so a secret
 pasted into one has to be rotated to be removed — moving it is not enough.
 
+**This has already happened once.** The weekly `Hasib trigger check`
+routine carried two live Neon owner connection strings in its prompt from
+2026-07-27 until 2026-08-25 — found, fittingly, by a `list_triggers` call
+made for an unrelated reason, which printed both passwords into a
+transcript. Record, rotation runbook and the replacement prompt:
+`docs/security/2026-08-25-routine-credential-exposure.md`.
+
+The reason it happened is the part worth carrying forward: the script's
+own usage docs gave only a `~/Desktop/…/.env` recipe, so a cloud routine
+had **no compliant way to run**. A rule with no compliant path for a real
+use case doesn't prevent the behaviour, it just relocates it. When a
+script is going to be driven by a routine, document the cloud path in the
+script itself.
+
 ### Bounded work, not exhaustive work
 
 - Prefer "run the failing tests → fix → re-run those tests" over "run
