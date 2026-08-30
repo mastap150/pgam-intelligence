@@ -247,4 +247,35 @@ blocked by the egress proxy. Unverified from here:
   that money arrived, not observed.
 - Actual `affiliate_clicks` volume, and the position breakdown.
 
-A local session with `DATABASE_URL` can settle all four in about four queries.
+**These are now scripted.** `scripts/healthnation_affiliate_audit.py` answers
+all four — the first, second and fourth from SQL, the third from a live fetch
+behind `--check-live` (it isn't a database question: the tagger no-ops
+silently when the env var is missing, so the only proof is a rendered page).
+
+```bash
+export HEALTHNATION_DATABASE_URL=...   # healthnation-web .env.local DATABASE_URL
+python3 scripts/healthnation_affiliate_audit.py --check-live
+```
+
+Ten sections, then a VERDICT block that turns the counts into named next
+actions. The raw SQL is in `docs/healthnation-affiliate-audit-queries.sql` if
+you'd rather paste it into the Neon console.
+
+Four of the ten go beyond the original open items, because the review raised
+questions the numbers can settle:
+
+- **Q3** counts Amazon links sitting in `product_reviews`. `/reviews/[slug]`
+  never calls `tagAmazonLinks`, so those render with no tag at all — strictly
+  worse than the mis-tagged international links, and not something §4 spotted.
+- **Q5** finds articles whose `has_affiliate_links` flag is `false` despite
+  carrying Amazon links. The flag defaults `false` and the tagger never sets
+  it, so any disclosure logic keyed on it would skip exactly the wrong pages.
+- **Q9/Q10** rank products and source pages by click volume, which is what
+  decides *which* brands justify a direct Impact/ShareASale application
+  (§5.4). That recommendation is unactionable without this ranking.
+
+Validated against the real schema: `healthnation-web/migrations/000{1..6}.sql`
+applied to a scratch Postgres 16 cluster with fixtures covering US and
+international Amazon links, an untagged review body, a flag mismatch, and
+clicks across networks and positions. All ten queries and every verdict rule
+were exercised against it.
