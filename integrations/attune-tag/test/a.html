@@ -1,0 +1,54 @@
+<!doctype html><meta charset="utf-8"><title>A</title>
+<a id="tel" href="tel:+14055550123">Call <span id="inner">now</span></a>
+<a id="web" href="https://example.com">Not a call</a>
+<pre id="out">(not started)</pre>
+<script>
+  window.__warns = []; window.__errs = [];
+  var _w = console.warn; console.warn = function(m){ window.__warns.push(m); };
+  window.addEventListener('error', function(e){ window.__errs.push(String(e.message)); });
+  // Stop the harness navigating away when we synthesise link clicks.
+  document.addEventListener('click', function(e){ e.preventDefault(); }, false);
+  window.__attuneQueue = [['event','lead',{source:'early'}]];
+</script>
+<script src="./attune-test.js" data-attune-id="TEST123"></script>
+<script>
+var R=[];
+function ok(name, cond, extra){ R.push((cond?'PASS':'FAIL')+' :: '+name+(extra?' :: '+extra:''));
+  document.getElementById('out').textContent = R.join('\n'); }
+(function poll(n){
+  if (!window.__vendorLoaded && n < 150) return setTimeout(function(){poll(n+1);}, 20);
+  try {
+    var L = window.__log || [];
+    function calls(k){ return L.filter(function(c){ return c[0]===k; }); }
+    function callClicks(){ return calls('event').filter(function(c){return c[2]&&c[2].source==='call_click';}).length; }
+
+    ok('vendor loaded', !!window.__vendorLoaded);
+    ok('init once with correct id', calls('init').length===1 && calls('init')[0][1]==='TEST123', JSON.stringify(calls('init')));
+    ok('pre-load queue replayed', L.some(function(c){return c[0]==='event'&&c[1]==='lead'&&c[2]&&c[2].source==='early';}));
+
+    var b1=calls('event').length; attune('event','lead');
+    ok('lead forwarded', calls('event').length===b1+1);
+
+    attune('event','purchase',{price_usd:9.99,purchase_id:'o-1'});
+    var p=calls('event').filter(function(c){return c[1]==='purchase';})[0];
+    ok('purchase detail passed through', !!p && p[2].price_usd===9.99 && p[2].purchase_id==='o-1');
+
+    var wB=window.__warns.length, eB=calls('event').length;
+    attune('event','banana');
+    ok('unknown event rejected + warned', calls('event').length===eB && window.__warns.length===wB+1);
+
+    var c0=callClicks(); document.getElementById('tel').click(); var c1=callClicks();
+    ok('tel: click fires exactly one lead', c1-c0===1, 'delta='+(c1-c0));
+
+    document.getElementById('inner').click(); var c2=callClicks();
+    ok('nested click inside tel: link counted once', c2-c1===1, 'delta='+(c2-c1));
+
+    var n0=calls('event').length; document.getElementById('web').click();
+    ok('non-tel link ignored', calls('event').length===n0);
+
+    ok('no uncaught errors', window.__errs.length===0, JSON.stringify(window.__errs));
+  } catch(e) {
+    ok('harness completed', false, 'threw: '+e.message);
+  }
+})(0);
+</script>
