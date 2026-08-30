@@ -108,6 +108,13 @@ Consequence: `/go/skimlinks/thorne-magnesium-bisglycinate` logs the click, then
 tracking parameter of any kind. The click is recorded; the revenue is not.
 Twelve products × every "Check current price" button on every review page.
 
+**And installing the script would not have fixed it** — see the correction in
+§5.4. Because the redirect is issued server-side, the fix has to be
+server-side too. This is the trap worth remembering: the config said
+`skimlinks`, so the catalog *looked* wired to a network, and the obvious
+remedy (install the missing script) would have left it earning nothing while
+appearing solved.
+
 ### 4.2 Zero Amazon products in the catalog
 
 `affiliate_network` supports `'amazon'` and the bouncer has a dedicated Amazon
@@ -168,9 +175,17 @@ Amazon revenue with no error — `tagAmazonLinks` no-ops by design.
 ### P1 — Turn on the catalog
 
 4. **Pick a network and actually install it.** Two viable paths:
-   - *Skimlinks* — install the script, keep the 12 bare URLs as-is, and it
-     wraps everything site-wide including brands we have no direct deal with.
-     Fastest to revenue; lowest rate; takes a cut.
+   - *Skimlinks* — install the script AND wrap the bouncer's redirects
+     server-side. **Correction (2026-08-30, after tracing the click path):
+     the script alone does nothing for the 12 products.** Their CTAs point at
+     `/go/[network]/[slug]`, which is same-origin, so the script ignores it;
+     the bouncer then redirects server-side, where no client script can see
+     the click. The script only covers merchant links in rendered prose.
+     Wrapping the bouncer's destination in Skimlinks' documented
+     `go.skimresources.com` redirect is what actually monetises the catalog —
+     implemented in mastap150/healthnation-web#2. Fastest to revenue; lowest
+     rate; takes a cut. Note also that Skimlinks dropped Amazon as a merchant
+     in 2020, so it neither helps nor threatens the Amazon tag.
    - *Direct programs* — `08_monetization_strategy.md` already quotes Thorne
      10–15%, Pure Encapsulations 10%, Momentous 10–15%. That's roughly 3–10×
      Amazon's health-category rate. Slower (per-brand applications) but this is
