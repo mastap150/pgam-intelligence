@@ -55,7 +55,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 sys.path.insert(0, __file__.rsplit("/scripts/", 1)[0])
 
@@ -63,6 +63,39 @@ from core import tbx_api as tbx          # noqa: E402
 from scripts import tbx_trim as trim     # noqa: E402
 
 _HDR = "=" * 78
+
+
+# Money only. Take rate is (dsp_price_sum - ssp_price_sum) / dsp_price_sum,
+# so this never needs `ssp_requests_sum` — which is the heaviest counter in
+# the system and the one whose latency swings unpredictably (§5.9). Reusing
+# `tbx_trim.pull_supply` would have fetched it on every run for a column this
+# report does not print, leaving a daily job exposed to that variability for
+# no reason. Not a measured speedup: the QA run that prompted this took 50s
+# either way. It is about which columns a scheduled job depends on.
+SENTRY_METRICS = ["imps_sum", "dsp_price_sum", "ssp_price_sum"]
+
+
+def pull_take_rates(start: date, days: int) -> tuple[list[dict], int]:
+    """Realised take rate per supply source, from money metrics alone."""
+    print("  → supply money, one call per day ...", flush=True)
+    rows, days_with_data = trim.pull_daily(
+        "supply_source", start, days, SENTRY_METRICS)
+    divisor = max(days_with_data, 1)
+
+    out = []
+    for row in rows:
+        name, sid = trim.split_name_id(row.get("supply_source", ""))
+        gross = trim.num(row, "dsp_price_sum")
+        payout = trim.num(row, "ssp_price_sum")
+        profit = gross - payout
+        out.append({
+            "id": sid,
+            "name": name,
+            "gross_day": gross / divisor,
+            "profit_day": profit / divisor,
+            "take_rate": (profit / gross * 100.0) if gross > 0 else None,
+        })
+    return out, days_with_data
 
 
 def floor_for(cfg: dict) -> float | None:
@@ -161,6 +194,21 @@ def render(rows: list[dict], include_above: bool) -> tuple[list[dict], list[dict
               f"{trim.money(sum(r['shortfall_day'] for r in below))}/day not taken "
               f"at the configured rate")
 
+    # A sentry that is silent for weeks is indistinguishable from a broken
+    # one unless it says how close it came. This also surfaces the finding
+    # from the first live run: nothing was below floor because the floors
+    # are set at 2-5% across the book, so most sources clear them by a mile.
+    # If every gap here is enormous, the floors are not a guardrail and the
+    # silence means the configuration is loose, not that the book is healthy.
+    clear = sorted((r for r in rows if r["verdict"] != "BELOW"),
+                   key=lambda r: r["realised"] - r["floor"])[:5]
+    if clear:
+        print("\n  closest to breaching a floor:")
+        for r in clear:
+            print(f"    · {r['name']} #{r['id']} — {r['realised']:.1f}% against a "
+                  f"{r['floor']:.0f}% floor (+{r['realised'] - r['floor']:.1f} points, "
+                  f"{trim.money(r['gross_day'])}/day)")
+
     print(f"\n{_HDR}\nABOVE the configured ceiling — informational\n{_HDR}")
     print(f"  {len(above)} source(s).")
     if above and include_above:
@@ -241,10 +289,6 @@ def build_parser() -> argparse.ArgumentParser:
                         "default; see the module docstring.")
     p.add_argument("--slack", action="store_true",
                    help="post to the revenue channel when something is below")
-    # Passed through to trim.assess_supply, which needs them on the namespace.
-    p.add_argument("--min-requests-day", type=float, default=0.0)
-    p.add_argument("--min-revenue-day", type=float, default=1.0)
-    p.add_argument("--hungry-multiple", type=float, default=5.0)
     return p
 
 
@@ -260,12 +304,11 @@ def main(argv: list[str] | None = None) -> int:
     start = end - timedelta(days=args.days - 1)
     print(f"Margin sentry — {start} → {end} ({args.days} settled days)")
 
-    rows, days_with_data = trim.pull_supply(start, args.days)
+    sources, days_with_data = pull_take_rates(start, args.days)
     if days_with_data == 0:
         print("no supply data came back — not reporting on an empty read.",
               file=sys.stderr)
         return 2
-    sources, _ = trim.assess_supply(rows, days_with_data, args)
 
     earning = sorted((s for s in sources if s["gross_day"] >= args.min_gross_day),
                      key=lambda s: -s["gross_day"])[:args.top]
