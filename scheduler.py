@@ -187,6 +187,12 @@ def setup_schedule():
     # Render the data starts flowing with no redeploy. Separate tables from
     # tb_daily_* — same marketplace, so a union double counts.
     tbx_revenue_etl        = _import("agents.etl.tbx_revenue_etl")
+    # Downstream bridge: aggregate TBX demand rows by canonical partner_key
+    # (rules in agents/etl/tbx_ssp_recon_bridge.py) and UPSERT into
+    # finance.ssp_recon_daily so /admin/finance partner rows reflect TB-side
+    # revenue after the legacy adx-report went dark. Depends on the rows
+    # tbx_revenue_etl just wrote — scheduled right after it below.
+    tbx_ssp_recon_bridge   = _import("agents.etl.tbx_ssp_recon_bridge")
     ll_revenue             = _import("agents.alerts.ll_revenue")
     # TB analogue of ll_revenue — hourly Slack snapshot of Teqblaze
     # revenue, pacing, margin, top publishers, and MTD vs $1M combined goal.
@@ -376,6 +382,10 @@ def setup_schedule():
     schedule.every().hour.at(":52").do(_run("partner_scheduled_reports", partner_scheduled_reports))
     _hourly("tb_revenue_etl",     tb_revenue_etl)         # :40
     _hourly("tbx_revenue_etl",    tbx_revenue_etl)        # :41
+    # Bridge runs at :43 — right after tbx_revenue_etl finishes writing
+    # pgam_direct.tbx_daily_demand_revenue, so ssp_recon_daily picks up
+    # the latest per-partner numbers within the same hour.
+    _hourly("tbx_ssp_recon_bridge", tbx_ssp_recon_bridge)  # :43 (needs run() to accept default 3d window)
     _hourly("ll_revenue",         ll_revenue)             # :44
     # ML tranche 1 — collect hourly funnel, rebuild bid-landscape 2x/day,
     # refresh holdout assignments weekly (countries/tuples don't churn fast).
