@@ -316,6 +316,53 @@ def test_ledger_round_trip() -> None:
           seen.get("replace") is True, str(seen))
 
 
+def test_partial_window_cannot_drive_a_write() -> None:
+    """A pair that only traded on a day that timed out looks dead.
+
+    pull_pairs now keeps the days that answered rather than losing the run,
+    which is right for a report and dangerous for a blacklist.
+    """
+    print("\na partial window blocks --apply but not a dry run")
+    rows = [pair(501, "BR", 5_000_000), pair(501, "US", 1, imps=1, spend=90.0)]
+
+    def fake_measure(args):
+        return rows, 3                      # 3 of 7 days answered
+
+    calls = []
+    real_measure, real_conf = gc.measure, gc.tbx.configured
+    real_write, real_resolve = gc.tbm.set_demand_geo_blacklist, gc.tbx.country_ids
+    gc.measure = fake_measure
+    # Without this main() returns 2 at the credential check, which is the same
+    # code the coverage gate uses — the refusal has to be the reason.
+    gc.tbx.configured = lambda: True
+    gc.tbx.country_ids = lambda codes: [1] * len(codes)
+    gc.tbm.set_demand_geo_blacklist = lambda *a, **k: calls.append(a) or {
+        "applied": True, "added": [], "blacklist_before": []}
+    try:
+        rc_apply = gc.main(["--apply"])
+        refused_writes = list(calls)     # must be empty; the later two are not
+        rc_dry = gc.main([])
+        rc_override = gc.main(["--apply", "--min-days-with-data", "3"])
+    finally:
+        gc.measure, gc.tbx.configured = real_measure, real_conf
+        gc.tbm.set_demand_geo_blacklist = real_write
+        gc.tbx.country_ids = real_resolve
+
+    check("--apply is refused on a partial window", rc_apply == 2, str(rc_apply))
+    check("and it refused before reaching the writer",
+          refused_writes == [], str(refused_writes))
+    check("a dry run still reports", rc_dry in (0, 1), str(rc_dry))
+    check("an explicit lower bar is honoured", rc_override != 2, str(rc_override))
+
+
+def test_crash_exit_code_is_not_the_refusal_code() -> None:
+    print("\na crash is distinguishable from a refused write")
+    src = Path(gc.__file__).read_text()
+    guard = src.rsplit('if __name__ == "__main__":', 1)[-1]
+    check("the entrypoint catches TbxError", "TbxError" in guard, guard.strip())
+    check("and exits 3, not 1", "sys.exit(3)" in guard, guard.strip())
+
+
 def test_parser() -> None:
     print("\nargument surface")
     import re
@@ -348,6 +395,8 @@ def main() -> int:
     test_dry_run_never_writes()
     test_partial_country_resolution_refuses_the_buyer()
     test_ledger_round_trip()
+    test_partial_window_cannot_drive_a_write()
+    test_crash_exit_code_is_not_the_refusal_code()
     test_parser()
     print("\n" + "=" * 70)
     print(f"{PASS} passed, {FAIL} failed")

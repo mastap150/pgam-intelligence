@@ -33,6 +33,12 @@ What it refuses to do
    problem under a hundred country-level edits.
 4. **`--min-requests-day` sets a floor on volume**, so the run is about cost
    that is actually being paid, not a tail of pairs sending nine requests.
+5. **A partial window cannot drive a write.** Days time out at this grain
+   routinely (§5.9), and `pull_pairs` now keeps the days that answered rather
+   than losing the run. That is right for a report and wrong for a blacklist:
+   a pair that only traded on the missing day looks dead. `--apply` therefore
+   requires every requested day, unless `--min-days-with-data` explicitly
+   lowers the bar. A dry run reports on whatever came back.
 
 Merge, not replace
 ------------------
@@ -305,6 +311,10 @@ def build_parser() -> argparse.ArgumentParser:
         description="Blacklist the DSP × country pairs that never trade.")
     parser.add_argument("--days", type=int, default=7,
                         help="settled days to re-measure over (default 7)")
+    parser.add_argument("--min-days-with-data", type=int, default=0,
+                        help="days that must answer before --apply may write. "
+                             "0 (default) means all of them. A pair that only "
+                             "traded on a missing day looks dead.")
     parser.add_argument("--min-requests-day", type=float, default=100_000,
                         help="only pairs above this outbound volume "
                              "(default 1e5 — the pair grain is much finer "
@@ -362,6 +372,19 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     print(f"  {len(pairs)} pair(s) over {days_with_data}/{args.days} days")
 
+    required = args.min_days_with_data or args.days
+    if days_with_data < required:
+        note = (f"only {days_with_data}/{args.days} day(s) answered; "
+                f"{required} required to write")
+        if args.apply:
+            print(f"\n::error::{note}. Refusing to blacklist on a partial "
+                  f"window — a pair that only traded on a missing day looks "
+                  f"dead. Re-run, use fewer --days, or set "
+                  f"--min-days-with-data explicitly.", file=sys.stderr)
+            return 2
+        print(f"\n  ⚠ {note}. This dry run still reports, but --apply would "
+              f"refuse.")
+
     targets, skipped = select(pairs, args)
     render(targets, skipped)
 
@@ -392,4 +415,10 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Exit 1 means "a write was refused or failed". An unhandled TbxError
+    # must not land on the same code — see the note in tbx_geo_waste.
+    try:
+        sys.exit(main())
+    except tbx.TbxError as exc:
+        print(f"\nplatform unreachable: {exc}", file=sys.stderr)
+        sys.exit(3)

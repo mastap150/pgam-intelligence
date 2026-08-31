@@ -177,6 +177,71 @@ def test_pull_pairs_filters() -> None:
           len(rows2) == 2, str(rows2))
 
 
+def test_a_failed_day_does_not_lose_the_good_ones() -> None:
+    """The 2026-08-31 failure: day 4 timed out, days 1-3 were discarded.
+
+    Three good days of data went in the bin and the run reported success. The
+    pull must keep what answered and say what did not.
+    """
+    print("\na day that times out is skipped, not fatal")
+    served = {
+        "2026-08-25": [{"date": "2026-08-25", "demand_source": "A #1",
+                        "country": "BR", "requests_sum": "100",
+                        "imps_sum": "0", "dsp_price_sum": "0"}],
+        "2026-08-27": [{"date": "2026-08-27", "demand_source": "A #1",
+                        "country": "BR", "requests_sum": "300",
+                        "imps_sum": "0", "dsp_price_sum": "0"}],
+    }
+
+    def flaky_report(df, dt, **kw):
+        if df not in served:
+            raise g.tbx.TbxError(f"POST /report/ unreachable: read timed out")
+        return served[df], {}
+
+    real = g.tbx.report
+    g.tbx.report = flaky_report
+    try:
+        rows, days = g.pull_pairs(date(2026, 8, 25), 3)
+    finally:
+        g.tbx.report = real
+
+    check("the run survives the failed day", days == 2, str(days))
+    check("the good days are kept, not discarded",
+          rows and rows[0]["requests_sum"] == 400.0,
+          str(rows))
+    check("per-day division uses the days that answered",
+          g.summarise(rows, "demand_source", days)[0]["requests_day"] == 200.0,
+          str(g.summarise(rows, "demand_source", days)[0]["requests_day"]))
+
+    # ...but every day failing is still an empty read, not a zero.
+    g.tbx.report = lambda df, dt, **kw: (_ for _ in ()).throw(
+        g.tbx.TbxError("read timed out"))
+    try:
+        rows, days = g.pull_pairs(date(2026, 8, 25), 2)
+    finally:
+        g.tbx.report = real
+    check("all days failing reports no coverage", days == 0, str(days))
+    check("and returns nothing to report on", rows == [], str(rows))
+
+
+def test_crash_exit_code_is_not_the_finding_code() -> None:
+    """Exit 1 means 'found waste' and callers treat it as success.
+
+    A Python traceback also exits 1, which is how a crashed pairs run reported
+    success on 2026-08-31. The module guard must map an unreachable platform
+    somewhere else.
+    """
+    print("\na crash is distinguishable from a finding")
+    from pathlib import Path
+    src = Path(g.__file__).read_text()
+    guard = src.rsplit('if __name__ == "__main__":', 1)[-1]
+    check("the entrypoint catches TbxError", "TbxError" in guard, guard.strip())
+    check("and exits on a code callers do not treat as success",
+          "sys.exit(3)" in guard, guard.strip())
+    check("exit 1 is still documented as the finding code",
+          "1  at least one wasteful country or pair" in src)
+
+
 def test_parser() -> None:
     print("\nargument surface")
     import re
@@ -199,6 +264,8 @@ def main() -> int:
     test_waste_thresholds()
     test_country_view_waste()
     test_pull_pairs_filters()
+    test_a_failed_day_does_not_lose_the_good_ones()
+    test_crash_exit_code_is_not_the_finding_code()
     test_parser()
     print("\n" + "=" * 70)
     print(f"{PASS} passed, {FAIL} failed")

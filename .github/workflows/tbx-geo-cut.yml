@@ -86,6 +86,10 @@ jobs:
       TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
       TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
       TBX_TIMEZONE: US/Eastern
+      # The pair grain routinely exceeds the 60s default — see the note on the
+      # same variable in tbx-probe.yml. A day that still times out is now
+      # skipped rather than fatal, and a partial window cannot drive a write.
+      TBX_TIMEOUT: "300"
       # The gate opens ONLY when apply is literally "yes". A dry run leaves it
       # shut, so even a bug in the script cannot write — core/tbx_mgmt.py
       # refuses independently of anything here.
