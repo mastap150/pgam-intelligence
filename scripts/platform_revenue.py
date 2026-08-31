@@ -15,17 +15,26 @@ are the same marketplace:
     tb_daily_publisher_revenue    TB legacy   ssp.pgammedia.com
     tbx_daily_supply_revenue      TBX         api.pgammedia.com
 
-**TB legacy and TBX report the same impressions.** Summing them double-counts
-every one — the trap the migration notes call out repeatedly and the reason
-the ETL keeps `tbx_daily_*` separate from `tb_daily_*`
-(migrations/2026_08_21_tbx_daily_revenue.sql, docs/teqblaze-new-platform.md
-§7.4). So this script never adds them. It *stitches* them into one TB
-marketplace series at a cutover date — legacy before, TBX from the cutover on
-— and prints, per period, how many days came from each side and where they
-overlap, so the seam is auditable rather than assumed. Legacy ran full through
-2026-08-20 and TBX full from 2026-08-20, which is the default cutover.
+**TB legacy and TBX report the same marketplace, and the rule for combining
+them is not this script's to invent.** `core/tb_unified` already owns it, and
+already serves the Slack alert and `/admin/pnl`. Its rule has three phases,
+not two:
 
-    Platform total = LL + stitched TB marketplace
+    day <  TB_SPLIT_START     -> legacy only
+    day in [SPLIT, CUTOVER)   -> legacy + TBX, summed
+    day >= TB_TBX_CUTOVER     -> TBX only
+
+That middle phase is the part a naive cutover gets wrong. During the split
+each host reports only what actually flowed through it, so the two are
+complementary rather than two readings of one number — picking one side there
+drops real revenue (on 2026-08-20 that is $7,505.66 against $2,605.46, a
+$4,900 hole). Outside the split window they do report the same impressions and
+summing would double-count every one.
+
+So the TB leg here is `tb_unified.fetch()`, verbatim. Three implementations of
+one rule is how a P&L and a Slack alert come to disagree about revenue, which
+is the exact problem that module was written to end; a fourth would reopen it.
+This script adds LL and the period arithmetic, and nothing else.
 
 Revenue is defined as the platform defines it:
 
@@ -45,7 +54,6 @@ Usage:
     python3 scripts/platform_revenue.py                      # YTD by month
     python3 scripts/platform_revenue.py --grain quarter
     python3 scripts/platform_revenue.py --from 2026-01-01 --to 2026-08-31
-    python3 scripts/platform_revenue.py --cutover 2026-08-20
     python3 scripts/platform_revenue.py --json
 
 Requires PGAM_DIRECT_DATABASE_URL (or DATABASE_URL).
@@ -59,14 +67,13 @@ import os
 import sys
 from datetime import date, datetime, timedelta, timezone
 
-LL_TABLE = "ll_daily_partner_revenue"
-TB_TABLE = "tb_daily_publisher_revenue"
-TBX_TABLE = "tbx_daily_supply_revenue"
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-# Legacy ran full through the 20th, TBX full from the 20th
-# (docs/tb-data-workflow-integration.md §12). The 20th is served by both, so
-# the cutover is the first day TBX owns.
-DEFAULT_CUTOVER = date(2026, 8, 20)
+from core import tb_unified as u        # noqa: E402  the one owner of the TB rule
+
+LL_TABLE = "ll_daily_partner_revenue"
+TB_TABLE = "tb_daily_publisher_revenue"      # diagnostics only — see tb_leg()
+TBX_TABLE = "tbx_daily_supply_revenue"       # diagnostics only
 
 _HDR = "=" * 92
 
@@ -121,27 +128,23 @@ def period_key(day: date, grain: str) -> str:
     return f"{day.year}-{day.month:02d}"
 
 
-def stitch_tb(tb: dict[date, dict], tbx: dict[date, dict],
-              cutover: date) -> tuple[dict[date, dict], dict[date, str]]:
-    """One TB marketplace series, never the sum of the two.
+def tb_leg(start: date, end: date) -> tuple[dict[date, dict], dict[date, str]]:
+    """The TB marketplace per day, straight out of `core.tb_unified`.
 
-    Before the cutover the legacy host is authoritative; from the cutover on,
-    TBX is. Where the authoritative side has no row for a day, the other side
-    fills it rather than dropping the day — a gap would understate the period,
-    which is the more misleading error. Every day's origin is returned so the
-    caller can show its work.
+    No rule is applied here beyond reshaping its rows. `legs_for` supplies the
+    origin label from the same module, so the report cannot describe a seam
+    the numbers were not actually built with.
     """
     out: dict[date, dict] = {}
     origin: dict[date, str] = {}
-    for day in sorted(set(tb) | set(tbx)):
-        primary, fallback = ((tbx, tb), ("tbx", "tb")) if day >= cutover \
-            else ((tb, tbx), ("tb", "tbx"))
-        if day in primary[0]:
-            out[day] = primary[0][day]
-            origin[day] = fallback[0]
-        else:
-            out[day] = primary[1][day]
-            origin[day] = fallback[1] + "*"      # * = filled from the other host
+    for row in u.fetch("DATE", [], start.isoformat(), end.isoformat()):
+        day = date.fromisoformat(row["DATE"])
+        out[day] = {"gross": row["GROSS_REVENUE"],
+                    "payout": row["PUB_PAYOUT"],
+                    "imps": int(row["IMPRESSIONS"])}
+        use_legacy, use_tbx = u.legs_for(day)
+        origin[day] = ("legacy+tbx" if use_legacy and use_tbx
+                       else "tbx" if use_tbx else "legacy")
     return out, origin
 
 
@@ -202,9 +205,8 @@ def _table(title: str, periods: dict[str, dict], keys: list[str]) -> None:
     print(_row("TOTAL", tot))
 
 
-def report(ll: dict, tb: dict, tbx: dict, start: date, end: date,
-           grain: str, cutover: date, as_json: bool) -> int:
-    tb_series, origin = stitch_tb(tb, tbx, cutover)
+def report(ll: dict, tb: dict, tbx: dict, tb_series: dict, origin: dict,
+           start: date, end: date, grain: str, as_json: bool) -> int:
 
     platform: dict[date, dict] = {}
     for day in sorted(set(ll) | set(tb_series)):
@@ -228,12 +230,14 @@ def report(ll: dict, tb: dict, tbx: dict, start: date, end: date,
         print(json.dumps({
             "range": {"from": start.isoformat(), "to": end.isoformat()},
             "grain": grain,
-            "cutover": cutover.isoformat(),
+            "split_start": u.split_start().isoformat(),
+            "cutover": u.cutover().isoformat(),
             "periods": keys,
             "legs": legs,
             "stitch": {
                 "overlap_days": [d.isoformat() for d in overlaps(tb, tbx)],
                 "origin": {d.isoformat(): o for d, o in sorted(origin.items())},
+                "rule": "core.tb_unified",
             },
         }, indent=2, default=str))
         return 0 if keys else 1
@@ -255,22 +259,18 @@ def report(ll: dict, tb: dict, tbx: dict, start: date, end: date,
               f"{days[0]} → {days[-1]}")
 
     dup = overlaps(tb, tbx)
+    split = sorted(d for d, o in origin.items() if o == "legacy+tbx")
     print()
+    print(f"  Rule       core.tb_unified — legacy before {u.split_start()}, "
+          f"both summed")
+    print(f"             through the split window, TBX from {u.cutover()} on.")
     if dup:
-        print(f"  TB legacy and TBX both reported {len(dup)} day(s): "
-              f"{dup[0]} → {dup[-1]}.")
-        print("  These are the SAME impressions on two hosts. They are never")
-        print("  added — the stitch below takes one side per day.")
-    else:
-        print("  No day has rows on both TB hosts, so the stitch is unambiguous.")
-
-    filled = [d for d, o in origin.items() if o.endswith("*")]
-    if filled:
-        print(f"\n  {len(filled)} day(s) fell back to the non-authoritative host "
-              f"because the")
-        print(f"  authoritative one had no row: "
-              f"{', '.join(d.isoformat() for d in filled[:6])}"
-              f"{' …' if len(filled) > 6 else ''}")
+        print(f"  Both hosts hold rows for {len(dup)} day(s): {dup[0]} → {dup[-1]}.")
+        print("  Outside the split window those are the SAME impressions and are")
+        print("  never added; inside it they are complementary and are.")
+    if split:
+        print(f"  Split days summed from both hosts: "
+              f"{', '.join(d.isoformat() for d in split)}")
 
     # ---- 2. the legs -------------------------------------------------------
     print()
@@ -280,16 +280,17 @@ def report(ll: dict, tb: dict, tbx: dict, start: date, end: date,
     _table("LL  (ll_daily_partner_revenue)", legs["ll"], keys)
     _table(f"TB legacy  ({TB_TABLE})", legs["tb_legacy"], keys)
     _table(f"TBX  ({TBX_TABLE})", legs["tbx"], keys)
-    print("\n  TB legacy and TBX are the same marketplace. Do not add these two")
-    print("  tables together — section 3 stitches them instead.")
+    print("\n  These two are shown for coverage only. Do not add them together —")
+    print("  section 3 combines them through core.tb_unified instead.")
 
     # ---- 3. the platform ---------------------------------------------------
     print()
     print(_HDR)
     print("3. THE PLATFORM")
     print(_HDR)
-    print(f"  TB marketplace = legacy before {cutover}, TBX from {cutover} on.")
-    _table("TB marketplace (stitched)", legs["tb_marketplace"], keys)
+    print("  TB marketplace as core.tb_unified resolves it — the same figures")
+    print("  the Slack alert posts and the P&L row holds.")
+    _table("TB marketplace (core.tb_unified)", legs["tb_marketplace"], keys)
     _table("PLATFORM TOTAL  (LL + TB marketplace)", legs["platform_total"], keys)
 
     print("\n  Platform only. This excludes every revenue stream the")
@@ -307,8 +308,6 @@ def main() -> int:
     ap.add_argument("--from", dest="start", help="first day (YYYY-MM-DD), default Jan 1 this year")
     ap.add_argument("--to", dest="end", help="last day (YYYY-MM-DD), default yesterday")
     ap.add_argument("--grain", choices=("month", "quarter"), default="month")
-    ap.add_argument("--cutover", default=DEFAULT_CUTOVER.isoformat(),
-                    help=f"first day TBX is authoritative (default {DEFAULT_CUTOVER})")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
 
@@ -322,7 +321,6 @@ def main() -> int:
     try:
         end = date.fromisoformat(args.end) if args.end else today - timedelta(days=1)
         start = date.fromisoformat(args.start) if args.start else date(end.year, 1, 1)
-        cutover = date.fromisoformat(args.cutover)
     except ValueError as exc:
         print(f"Bad date: {exc}. Use YYYY-MM-DD.", file=sys.stderr)
         return 2
@@ -336,7 +334,8 @@ def main() -> int:
         print("Platform revenue — marketplace warehouse only, not the books")
         print(f"  range    {start} → {end}   ({args.grain})")
         print(f"  source   pgam_direct: {LL_TABLE}, {TB_TABLE}, {TBX_TABLE}")
-        print(f"  cutover  {cutover}  (first day TBX is authoritative)")
+        print(f"  TB rule  core.tb_unified — split {u.split_start()}, "
+              f"cutover {u.cutover()}")
         print( "  mode     READ ONLY — this script writes nothing")
         print()
 
@@ -349,11 +348,15 @@ def main() -> int:
     finally:
         conn.close()
 
-    if not (ll or tb or tbx):
+    # Opens its own connection, by design: the rule lives in one place and
+    # this script does not reach around it.
+    tb_series, origin = tb_leg(start, end)
+
+    if not (ll or tb_series):
         print("No rows in any of the three tables over this range.", file=sys.stderr)
         return 1
 
-    return report(ll, tb, tbx, start, end, args.grain, cutover, args.json)
+    return report(ll, tb, tbx, tb_series, origin, start, end, args.grain, args.json)
 
 
 if __name__ == "__main__":

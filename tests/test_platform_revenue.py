@@ -2,13 +2,19 @@
 """
 Offline checks for the platform revenue rollup.
 
-The whole risk in this report is one mistake — adding TB legacy to TBX and
-double-counting the marketplace. So the tests are weighted there: the stitch
-must pick exactly one side per day, must never sum, and must say which side it
-picked. Period bucketing is checked because a quarter boundary off by one
-silently moves money between quarters.
+The risk here is not the arithmetic, it is ownership. Combining TB legacy with
+TBX is a rule with three phases and a split window where the two ARE summed,
+and `core/tb_unified` owns it for every consumer. An earlier draft of this
+script reimplemented it as a plain two-phase cutover, which silently dropped
+the legacy half of every split day — $4,900 on 2026-08-20 alone.
 
-No credentials, no database.
+So the checks are weighted on delegation: the TB leg must come out of
+`tb_unified.fetch()` unchanged, the origin label must come from
+`tb_unified.legs_for()` rather than being re-derived here, and a split day
+must survive at its summed value. Period bucketing is checked because a
+quarter boundary off by one silently moves money between quarters.
+
+No credentials, no database — `fetch` is stubbed.
 """
 
 from __future__ import annotations
@@ -18,6 +24,7 @@ from datetime import date
 
 sys.path.insert(0, __file__.rsplit("/tests/", 1)[0])
 
+from core import tb_unified as u             # noqa: E402
 from scripts import platform_revenue as pr   # noqa: E402
 
 PASS = FAIL = 0
@@ -45,62 +52,81 @@ CUT = d("2026-08-20")
 
 
 # ---------------------------------------------------------------------------
-# the stitch — the double-count guard
+# delegation — the TB rule is not ours
 # ---------------------------------------------------------------------------
 
-def test_stitch_never_sums() -> None:
-    print("\nthe stitch never adds the two hosts")
-    tb = {d("2026-08-19"): row(100.0), d("2026-08-20"): row(200.0)}
-    tbx = {d("2026-08-19"): row(999.0), d("2026-08-20"): row(300.0)}
-    out, origin = pr.stitch_tb(tb, tbx, CUT)
-    check("an overlap day yields one value, not the sum",
-          out[d("2026-08-20")]["gross"] == 300.0,
+def stub_fetch(rows):
+    """Stand in for tb_unified.fetch, which needs a database."""
+    def _f(breakdown, metrics, start, end):
+        return rows
+    return _f
+
+
+def urow(day, gross, payout=0.0, imps=0):
+    return {"DATE": day, "PUBLISHER": None, "GROSS_REVENUE": gross,
+            "PUB_PAYOUT": payout, "IMPRESSIONS": float(imps),
+            "BIDS": 0.0, "WINS": 0.0}
+
+
+def with_stub(rows, fn):
+    real = u.fetch
+    u.fetch = stub_fetch(rows)
+    try:
+        return fn()
+    finally:
+        u.fetch = real
+
+
+def test_tb_leg_passes_through() -> None:
+    print("\nthe TB leg is tb_unified's answer, unchanged")
+    rows = [urow("2026-08-19", 8011.13, 5546.89, 8713946),
+            urow("2026-08-20", 7505.66, 5389.68, 9689743)]
+    out, origin = with_stub(rows, lambda: pr.tb_leg(d("2026-08-19"), d("2026-08-20")))
+    check("gross carried verbatim", out[d("2026-08-20")]["gross"] == 7505.66,
           f"got {out[d('2026-08-20')]['gross']}")
-    check("before the cutover legacy wins",
-          out[d("2026-08-19")]["gross"] == 100.0)
-    check("from the cutover TBX wins",
-          origin[d("2026-08-20")] == "tbx")
-    total = sum(v["gross"] for v in out.values())
-    check("stitched total is not the sum of both tables",
-          total == 400.0 and total != 100.0 + 200.0 + 999.0 + 300.0,
-          f"got {total}")
+    check("payout carried verbatim", out[d("2026-08-20")]["payout"] == 5389.68)
+    check("impressions become an int", out[d("2026-08-20")]["imps"] == 9689743)
+    check("every returned day is kept", len(out) == 2)
 
 
-def test_cutover_is_inclusive() -> None:
-    print("\nthe cutover day belongs to TBX")
-    tb = {CUT: row(10.0)}
-    tbx = {CUT: row(20.0)}
-    out, origin = pr.stitch_tb(tb, tbx, CUT)
-    check("day == cutover takes TBX", out[CUT]["gross"] == 20.0)
-    check("and is labelled tbx", origin[CUT] == "tbx")
+def test_split_day_keeps_both_hosts() -> None:
+    print("\na split day survives at its summed value")
+    # 2026-08-20 is inside tb_unified's split window, where legacy and TBX are
+    # complementary. A two-phase cutover would return TBX's 2,605.46 here.
+    out, origin = with_stub([urow("2026-08-20", 7505.66, 5389.68, 9689743)],
+                            lambda: pr.tb_leg(d("2026-08-20"), d("2026-08-20")))
+    check("value is the summed one, not one host's",
+          out[d("2026-08-20")]["gross"] == 7505.66 != 2605.46)
+    check("and it is labelled as both", origin[d("2026-08-20")] == "legacy+tbx",
+          f"got {origin[d('2026-08-20')]!r}")
 
 
-def test_fallback_fills_gaps_and_is_marked() -> None:
-    print("\na missing authoritative row falls back, and says so")
-    # after the cutover but TBX has no row: legacy fills rather than dropping
-    tb = {d("2026-08-25"): row(50.0)}
-    tbx: dict = {}
-    out, origin = pr.stitch_tb(tb, tbx, CUT)
-    check("the day survives", out[d("2026-08-25")]["gross"] == 50.0)
-    check("and is flagged as a fallback", origin[d("2026-08-25")] == "tb*")
+def test_origin_labels_come_from_legs_for() -> None:
+    print("\norigin labels are tb_unified's, not re-derived")
+    rows = [urow("2026-08-19", 1.0), urow("2026-08-20", 1.0), urow("2026-08-21", 1.0)]
+    _, origin = with_stub(rows, lambda: pr.tb_leg(d("2026-08-19"), d("2026-08-21")))
+    for day, expect in (("2026-08-19", "legacy"),
+                        ("2026-08-20", "legacy+tbx"),
+                        ("2026-08-21", "tbx")):
+        legacy_leg, tbx_leg = u.legs_for(d(day))
+        want = ("legacy+tbx" if legacy_leg and tbx_leg
+                else "tbx" if tbx_leg else "legacy")
+        check(f"{day} labelled {expect}",
+              origin[d(day)] == expect == want, f"got {origin[d(day)]!r}")
 
-    # before the cutover but legacy has no row
-    out2, origin2 = pr.stitch_tb({}, {d("2026-03-02"): row(7.0)}, CUT)
-    check("works in the other direction too", origin2[d("2026-03-02")] == "tbx*")
 
-
-def test_dropping_a_day_would_understate() -> None:
-    print("\nno day is silently dropped")
-    tb = {d("2026-08-18"): row(5.0)}
-    tbx = {d("2026-08-22"): row(9.0)}
-    out, _ = pr.stitch_tb(tb, tbx, CUT)
-    check("both days present", sorted(out) == [d("2026-08-18"), d("2026-08-22")])
-    check("totals add across days (not across hosts)",
-          sum(v["gross"] for v in out.values()) == 14.0)
+def test_no_local_rule() -> None:
+    print("\nthe module defines no cutover of its own")
+    src = open(pr.__file__).read()
+    check("no stitch_tb function survives", "def stitch_tb" not in src)
+    check("no DEFAULT_CUTOVER constant", "DEFAULT_CUTOVER" not in src)
+    check("no --cutover flag to drift from tb_unified's env vars",
+          '"--cutover"' not in src)
+    check("tb_unified is imported", "from core import tb_unified" in src)
 
 
 def test_overlaps_reported() -> None:
-    print("\noverlap days are surfaced")
+    print("\noverlap days are still surfaced for coverage")
     tb = {d("2026-08-19"): row(1), d("2026-08-20"): row(1)}
     tbx = {d("2026-08-20"): row(1), d("2026-08-21"): row(1)}
     check("only the shared day is listed",
@@ -157,10 +183,10 @@ def main() -> int:
     print("=" * 70)
     print("platform_revenue — offline checks")
     print("=" * 70)
-    test_stitch_never_sums()
-    test_cutover_is_inclusive()
-    test_fallback_fills_gaps_and_is_marked()
-    test_dropping_a_day_would_understate()
+    test_tb_leg_passes_through()
+    test_split_day_keeps_both_hosts()
+    test_origin_labels_come_from_legs_for()
+    test_no_local_rule()
     test_overlaps_reported()
     test_period_key()
     test_roll_up_maths()

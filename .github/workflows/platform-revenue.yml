@@ -15,12 +15,14 @@ name: Platform revenue (month / quarter)
 # Actions, the query runs on a runner, and the report comes back in the run
 # summary and an artifact.
 #
-# THE ONE THING TO KNOW: tb_daily_publisher_revenue (legacy) and
-# tbx_daily_supply_revenue (TBX) report the SAME marketplace. Adding them
-# double-counts every impression. The script never does — it stitches them at a
-# cutover date and prints which host each day came from, so the seam is
-# auditable. See migrations/2026_08_21_tbx_daily_revenue.sql and
-# docs/teqblaze-new-platform.md §7.4.
+# THE ONE THING TO KNOW: combining tb_daily_publisher_revenue (legacy) with
+# tbx_daily_supply_revenue (TBX) is a rule with three phases — legacy, a split
+# window where both are summed because each host carries only what flowed
+# through it, then TBX — and core/tb_unified owns that rule for every consumer.
+# This report delegates to it rather than reimplementing it; the split window
+# is exactly what a naive two-phase cutover gets wrong, worth $4,900 on
+# 2026-08-20 alone. Override the phase boundaries through tb_unified's own env
+# vars (TB_SPLIT_START, TB_TBX_CUTOVER) if you ever need to, never here.
 #
 # READ-ONLY. The connection runs inside SET TRANSACTION READ ONLY, and the TBX
 # write gates are shut in the job env as well, so a future edit to this file
@@ -60,10 +62,6 @@ on:
         description: "Last day YYYY-MM-DD (default: yesterday)"
         required: false
         default: ""
-      cutover:
-        description: "First day TBX is authoritative (default 2026-08-20)"
-        required: false
-        default: "2026-08-20"
 
 permissions:
   contents: read
@@ -110,7 +108,7 @@ jobs:
           PYTHONUNBUFFERED: "1"
         run: |
           set +e
-          ARGS="--grain ${{ inputs.grain }} --cutover ${{ inputs.cutover }}"
+          ARGS="--grain ${{ inputs.grain }}"
           if [ -n "${{ inputs.from }}" ]; then ARGS="$ARGS --from ${{ inputs.from }}"; fi
           if [ -n "${{ inputs.to }}" ]; then ARGS="$ARGS --to ${{ inputs.to }}"; fi
           echo "Running: platform_revenue.py $ARGS"
@@ -128,7 +126,7 @@ jobs:
           {
             echo "## Platform revenue — marketplace only"
             echo
-            echo "Grain \`${{ inputs.grain }}\` · cutover \`${{ inputs.cutover }}\`"
+            echo "Grain \`${{ inputs.grain }}\` · TB rule from \`core/tb_unified\`"
             echo
             if [ "${{ steps.pre.outputs.present }}" != "true" ]; then
               echo "**Misconfigured** — \`PGAM_DIRECT_DATABASE_URL\` is not set, so nothing ran."
