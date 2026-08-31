@@ -79,16 +79,21 @@ _HDR = "=" * 78
 SENTRY_METRICS = ["imps_sum", "dsp_price_sum", "ssp_price_sum"]
 
 
-def pull_take_rates(start: date, days: int) -> tuple[list[dict], int]:
-    """Realised take rate per supply source, from money metrics alone."""
-    print("  → supply money, one call per day ...", flush=True)
+def pull_take_rates(start: date, days: int,
+                    grain: str = "supply_source") -> tuple[list[dict], int]:
+    """Realised take rate per entity, from money metrics alone.
+
+    Same formula on both grains — (dsp - ssp) / dsp — because it is the same
+    spread, sliced by who it came from rather than who it went to.
+    """
+    print(f"  → {grain} money, one call per day ...", flush=True)
     rows, days_with_data = trim.pull_daily(
-        "supply_source", start, days, SENTRY_METRICS)
+        grain, start, days, SENTRY_METRICS)
     divisor = max(days_with_data, 1)
 
     out = []
     for row in rows:
-        name, sid = trim.split_name_id(row.get("supply_source", ""))
+        name, sid = trim.split_name_id(row.get(grain, ""))
         gross = trim.num(row, "dsp_price_sum")
         payout = trim.num(row, "ssp_price_sum")
         profit = gross - payout
@@ -100,6 +105,36 @@ def pull_take_rates(start: date, days: int) -> tuple[list[dict], int]:
             "take_rate": (profit / gross * 100.0) if gross > 0 else None,
         })
     return out, days_with_data
+
+
+def read_demand_margin_config(ids: list[int]) -> dict[int, dict]:
+    """Configured margin band per DEMAND source.
+
+    Unlike the supply side, these fields are writable — `DemandSourceRequest`
+    declares margin_type/margin_min/margin_max, and
+    `core.tbx_mgmt.set_demand_economics` sets them. So a finding here is
+    actionable over the API rather than a dashboard errand (§6.1).
+
+    A source that fails to read is absent from the result rather than
+    present with a zero band, which would make every source look wrong.
+    """
+    from core import tbx_mgmt as tbm
+    out: dict[int, dict] = {}
+    for did in ids:
+        try:
+            entity = tbm.get_demand_source(did) or {}
+        except Exception as exc:                      # noqa: BLE001
+            print(f"  ! could not read config for demand {did}: {exc}",
+                  file=sys.stderr)
+            continue
+        if not entity:
+            continue
+        out[did] = {
+            "margin_type": entity.get("margin_type"),
+            "margin_min": entity.get("margin_min"),
+            "margin_max": entity.get("margin_max"),
+        }
+    return out
 
 
 def floor_for(cfg: dict) -> float | None:
@@ -276,6 +311,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Alert when a supply source realises less than its "
                     "configured margin floor.")
+    p.add_argument("--side", choices=("supply", "demand"), default="supply",
+                   help="which entity to assess. Supply margin is read-only "
+                        "over this API so a finding there is a dashboard "
+                        "errand; demand margin IS writable (§6.1), so a "
+                        "finding there can be acted on directly.")
     p.add_argument("--days", type=int, default=7,
                    help="settled days to average over (default 7)")
     p.add_argument("--tolerance", type=float, default=1.0,
@@ -304,21 +344,27 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
 
+    grain = "supply_source" if args.side == "supply" else "demand_source"
     end = trim.latest_settled(datetime.now(timezone.utc))
     start = end - timedelta(days=args.days - 1)
-    print(f"Margin sentry — {start} → {end} ({args.days} settled days)")
+    print(f"Margin sentry ({args.side}) — {start} → {end} "
+          f"({args.days} settled days)")
+    if args.side == "demand":
+        print("  demand margin is writable over the API — a finding here is "
+              "actionable, not a dashboard errand")
 
-    sources, days_with_data = pull_take_rates(start, args.days)
+    sources, days_with_data = pull_take_rates(start, args.days, grain)
     if days_with_data == 0:
-        print("no supply data came back — not reporting on an empty read.",
+        print(f"no {args.side} data came back — not reporting on an empty read.",
               file=sys.stderr)
         return 2
 
     earning = sorted((s for s in sources if s["gross_day"] >= args.min_gross_day),
                      key=lambda s: -s["gross_day"])[:args.top]
     ids = [s["id"] for s in earning if s["id"]]
-    print(f"  reading margin config for {len(ids)} sources...")
-    config = trim.read_margin_config(ids)
+    print(f"  reading margin config for {len(ids)} {args.side} sources...")
+    config = (trim.read_margin_config(ids) if args.side == "supply"
+              else read_demand_margin_config(ids))
 
     assessed = assess(sources, config, args.tolerance, args.min_gross_day)
     print(f"  {len(assessed)} source(s) had both a take rate and a readable band")
