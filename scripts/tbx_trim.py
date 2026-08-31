@@ -190,8 +190,15 @@ def pull_daily(grain: str, start: date, days: int,
 
     for offset in range(days):
         day = (start + timedelta(days=offset)).isoformat()
+        # Per-day timing, flushed. Two runs were cancelled at 34 and 48
+        # minutes having printed nothing at all, so there was no way to tell
+        # a slow call from a hung one, or to know which grain was to blame.
+        # A line per day costs nothing and makes the next slow run legible.
+        day_started = time.monotonic()
         rows, _ = tbx.report(day, day, attributes=["date", grain],
                              metrics=metrics)
+        print(f"    {day}: {len(rows)} rows in "
+              f"{time.monotonic() - day_started:.1f}s", flush=True)
         kept = 0
         for row in rows:
             if str(row.get("date") or "")[:10] != day:
@@ -209,8 +216,6 @@ def pull_daily(grain: str, start: date, days: int,
             kept += 1
         if kept:
             days_with_data += 1
-        else:
-            print(f"    ! {day}: no {grain} rows", flush=True)
 
     out = []
     for key, vals in totals.items():
