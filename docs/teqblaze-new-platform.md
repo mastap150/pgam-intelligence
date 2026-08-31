@@ -485,6 +485,20 @@ of ours. The connectivity probe (`tbx_probe.py`, most groups skipped) ran in
 *same* runner was still going after **15 minutes** at 12:52. Nothing changed
 on our side between those runs.
 
+It had not recovered eleven minutes later: a fourth dispatch at 12:55 was
+still in the probe step five minutes in. So the window of timings, all from
+GitHub-hosted runners with the same credentials and the same skip list, is:
+
+| dispatch (UTC) | probe step |
+|---|---|
+| 12:44 | 26s |
+| 12:49 | 26s |
+| 12:52 | >15 min (cancelled) |
+| 12:55 | >5 min (cancelled) |
+
+That is the shape to hand Teqblaze if it recurs — same command, same client,
+an order-of-magnitude change inside eight minutes.
+
 So a TBX read taking minutes is not by itself evidence of a bad query. Before
 rewriting one:
 
