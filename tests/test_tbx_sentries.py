@@ -13,12 +13,13 @@ No credentials, no platform call.
 from __future__ import annotations
 
 import sys
-from datetime import date
+from datetime import date, date as _date
 
 sys.path.insert(0, __file__.rsplit("/tests/", 1)[0])
 
 from scripts import tbx_margin_sentry as m   # noqa: E402
 from scripts import tbx_nowin_watch as w     # noqa: E402
+from scripts import tbx_trim as t_trim       # noqa: E402
 
 PASS = FAIL = 0
 
@@ -244,6 +245,33 @@ def test_nowin_pull_filters() -> None:
           missing == ["2026-08-26"], str(missing))
 
 
+def test_side_option() -> None:
+    """--side picks the entity, and demand is the writable one."""
+    print("\nsupply vs demand side")
+    args = m.build_parser().parse_args([])
+    check("supply is the default side", args.side == "supply", args.side)
+    check("demand is selectable",
+          m.build_parser().parse_args(["--side", "demand"]).side == "demand")
+
+    # The pull must key rows off the grain it was asked for. Reading
+    # "supply_source" out of a demand row would silently yield no ids and a
+    # clean-looking empty report.
+    served = {"2026-08-25": [
+        {"date": "2026-08-25", "demand_source": "Some DSP #501",
+         "imps_sum": "100", "dsp_price_sum": "100", "ssp_price_sum": "80"},
+    ]}
+    real = t_trim.tbx.report
+    t_trim.tbx.report = lambda df, dt, **kw: (served.get(df, []), {})
+    try:
+        rows, days = m.pull_take_rates(_date(2026, 8, 25), 1, "demand_source")
+    finally:
+        t_trim.tbx.report = real
+    check("a demand row is keyed off demand_source", rows and rows[0]["id"] == 501,
+          str(rows))
+    check("and its take rate is (dsp - ssp) / dsp",
+          rows and abs(rows[0]["take_rate"] - 20.0) < 1e-9, str(rows))
+
+
 def test_parsers() -> None:
     print("\nargument surfaces")
     import re
@@ -274,6 +302,7 @@ def main() -> int:
     test_nowin_assess()
     test_nowin_slack_silence()
     test_nowin_pull_filters()
+    test_side_option()
     test_parsers()
     print("\n" + "=" * 70)
     print(f"{PASS} passed, {FAIL} failed")
