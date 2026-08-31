@@ -1,0 +1,166 @@
+name: TBX Cut (WRITES)
+
+# The one TBX workflow that can change platform state.
+#
+# Everything else in this repo's TBX set pins TBX_ALLOW_WRITES to "0" and says
+# so in its header. This one does not, and is kept separate for exactly that
+# reason: a read-only diagnostic that grew a write path is how someone runs a
+# mutation believing they ran a report.
+#
+# It disables supply and demand sources that scripts/tbx_cut.py still flags as
+# waste on a FRESH measurement. It never edits margins, floors, or anything
+# else, and it cannot: tbx_cut.py only calls set_supply_source_status and
+# set_demand_source_status.
+#
+# Safety, in the order it applies:
+#
+#   1. `apply` defaults to "no". A default run is a dry run, and a dry run
+#      does not even set the gate — TBX_ALLOW_WRITES stays "0" unless you
+#      explicitly ask to apply.
+#   2. `buckets` is required. There is no cut-everything default, because
+#      DEAD (earned nothing all window) and HUNGRY (a live partner with a bad
+#      ratio) are different decisions.
+#   3. max_revenue_day is an absolute refusal inside the script, and it beats
+#      an explicit --include.
+#   4. The Illumin RON cluster and Dexerto Display are excluded by default in
+#      EXCLUDE_BY_DEFAULT, each with the reason attached.
+#   5. Every applied run writes a ledger, uploaded as an artifact below.
+#      Reverting without that file is not possible, so the upload runs on
+#      failure too.
+#
+# To undo a run: download its ledger artifact and use the `revert_ledger`
+# input, or locally:
+#     python3 scripts/tbx_cut.py --revert cut-ledger-<stamp>.json --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      buckets:
+        description: "REQUIRED. Comma-separated: DEAD, NEAR-DEAD, LOSS, HUNGRY, NO-WIN, TIMEOUT"
+        required: true
+        default: "DEAD"
+      side:
+        description: "supply, demand or both"
+        required: false
+        default: "both"
+      apply:
+        description: "Type yes to actually disable. Anything else is a dry run."
+        required: false
+        default: "no"
+      days:
+        description: "Settled days to re-measure over"
+        required: false
+        default: "7"
+      max_revenue_day:
+        description: "Absolute refusal above this $/day"
+        required: false
+        default: "1.0"
+      also_exclude:
+        description: "Extra ids to skip, comma-separated"
+        required: false
+        default: ""
+      revert_ledger:
+        description: "Path to a downloaded ledger to REVERT instead of cutting"
+        required: false
+        default: ""
+
+concurrency:
+  # Shares the platform's undocumented rate limit with the TBX readers, and
+  # stops two cut runs ever overlapping.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cut:
+    name: Disable flagged sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      # The gate opens ONLY when apply is literally "yes". A dry run leaves it
+      # shut, so even a bug in the script cannot write on a dry run —
+      # core/tbx_mgmt.py refuses independently of anything here.
+      TBX_ALLOW_WRITES: ${{ inputs.apply == 'yes' && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        # Before the credential gate and before any write: if the refusal
+        # logic is broken, this run must not reach the platform.
+        run: |
+          python3 tests/test_tbx_cut.py
+          python3 tests/test_tbx_trim.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: Say what this run will do
+        run: |
+          echo "buckets        : ${{ inputs.buckets }}"
+          echo "side           : ${{ inputs.side }}"
+          echo "days           : ${{ inputs.days }}"
+          echo "max $/day      : ${{ inputs.max_revenue_day }}"
+          echo "also excluded  : ${{ inputs.also_exclude }}"
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          if [ "${{ inputs.apply }}" = "yes" ]; then
+            echo "::warning::APPLY MODE — sources will be disabled on the live platform."
+          else
+            echo "DRY RUN — nothing will be written."
+          fi
+
+      - name: Revert a previous run
+        if: inputs.revert_ledger != ''
+        env:
+          IN_LEDGER: ${{ inputs.revert_ledger }}
+        run: |
+          ARGS="--revert $IN_LEDGER"
+          if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
+          python3 scripts/tbx_cut.py $ARGS
+
+      - name: Cut
+        if: inputs.revert_ledger == ''
+        env:
+          IN_BUCKETS: ${{ inputs.buckets }}
+          IN_SIDE: ${{ inputs.side }}
+          IN_DAYS: ${{ inputs.days }}
+          IN_MAX_REV: ${{ inputs.max_revenue_day }}
+          IN_EXCLUDE: ${{ inputs.also_exclude }}
+        run: |
+          ARGS="--buckets $IN_BUCKETS --side $IN_SIDE --days $IN_DAYS"
+          ARGS="$ARGS --max-revenue-day $IN_MAX_REV"
+          if [ -n "$IN_EXCLUDE" ]; then ARGS="$ARGS --also-exclude $IN_EXCLUDE"; fi
+          if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
+          echo "running: tbx_cut.py $ARGS"
+          # Exit 1 means at least one write was refused or failed, which must
+          # fail the job. Exit 0 covers both "nothing to do" and success.
+          python3 scripts/tbx_cut.py $ARGS
+
+      - name: Upload ledger
+        # always(), because a run that half-applied and then failed is exactly
+        # the one whose ledger you need to revert with.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cut-ledger-${{ github.run_id }}
+          path: cut-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore
