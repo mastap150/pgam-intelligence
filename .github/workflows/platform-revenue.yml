@@ -1,0 +1,160 @@
+name: Platform revenue (month / quarter)
+
+# What the MARKETPLACE earned, by month or quarter — not what the books say.
+#
+# This exists because the two are different questions and conflating them is
+# the easy mistake. QuickBooks carries revenue this warehouse never sees (OTTA
+# among it), so a P&L total and a platform total are not expected to agree and
+# must not be reconciled to each other. This workflow answers only the platform
+# half, from `pgam_direct` and nothing else.
+#
+# It also exists for the same reason tbx-neon-reports.yml and tbx-probe.yml do:
+# a Claude Code cloud session cannot hold a database credential, and cloud
+# environments have no secrets store. Without a workflow, every run of this
+# report needs a person at a terminal with .env. Here the secret stays in
+# Actions, the query runs on a runner, and the report comes back in the run
+# summary and an artifact.
+#
+# THE ONE THING TO KNOW: tb_daily_publisher_revenue (legacy) and
+# tbx_daily_supply_revenue (TBX) report the SAME marketplace. Adding them
+# double-counts every impression. The script never does — it stitches them at a
+# cutover date and prints which host each day came from, so the seam is
+# auditable. See migrations/2026_08_21_tbx_daily_revenue.sql and
+# docs/teqblaze-new-platform.md §7.4.
+#
+# READ-ONLY. The connection runs inside SET TRANSACTION READ ONLY, and the TBX
+# write gates are shut in the job env as well, so a future edit to this file
+# cannot reach a mutation by accident.
+#
+# Setup — one time, by a repo admin (already done if the TBX reports run):
+#   Settings → Secrets and variables → Actions → New repository secret
+#     PGAM_DIRECT_DATABASE_URL   Neon DSN for pgam_direct. Required.
+#   A read-only Postgres role is sufficient and preferable.
+#
+# Run:  Actions → "Platform revenue (month / quarter)" → Run workflow
+#
+# Exit codes carry the verdict, matching the other Neon reports:
+#   0  a report was produced      1  nothing to report — look at it
+#   2  misconfigured
+# A 1 is surfaced as a warning with the job still GREEN; only a 2 or an
+# unexpected code fails, because a red X should mean the tooling broke.
+#
+# No schedule, deliberately — this answers a question asked now, not a cadence.
+# A recurring run against an unchanging answer is the cost pattern CLAUDE.md's
+# usage policy calls out.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grain:
+        description: "month or quarter"
+        required: false
+        default: "month"
+        type: choice
+        options: ["month", "quarter"]
+      from:
+        description: "First day YYYY-MM-DD (default: 1 Jan of the --to year)"
+        required: false
+        default: ""
+      to:
+        description: "Last day YYYY-MM-DD (default: yesterday)"
+        required: false
+        default: ""
+      cutover:
+        description: "First day TBX is authoritative (default 2026-08-20)"
+        required: false
+        default: "2026-08-20"
+
+permissions:
+  contents: read
+
+jobs:
+  revenue:
+    name: Roll up platform revenue
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "psycopg[binary]>=3.1.0" python-dotenv
+
+      - name: Offline sanity checks
+        run: python3 tests/test_platform_revenue.py
+
+      - name: Check the DSN is present
+        id: pre
+        env:
+          PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+        run: |
+          if [ -z "${PGAM_DIRECT_DATABASE_URL}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::error::PGAM_DIRECT_DATABASE_URL is not set. Add it under Settings → Secrets and variables → Actions."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "PGAM_DIRECT_DATABASE_URL is set."
+          fi
+
+      - name: Roll up
+        if: steps.pre.outputs.present == 'true'
+        id: run
+        env:
+          PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+          TBX_ALLOW_WRITES: "0"
+          TBX_DRY_RUN: "true"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set +e
+          ARGS="--grain ${{ inputs.grain }} --cutover ${{ inputs.cutover }}"
+          if [ -n "${{ inputs.from }}" ]; then ARGS="$ARGS --from ${{ inputs.from }}"; fi
+          if [ -n "${{ inputs.to }}" ]; then ARGS="$ARGS --to ${{ inputs.to }}"; fi
+          echo "Running: platform_revenue.py $ARGS"
+          python3 scripts/platform_revenue.py $ARGS | tee platform_revenue.txt
+          code=${PIPESTATUS[0]}
+          python3 scripts/platform_revenue.py $ARGS --json > platform_revenue.json 2>/dev/null || true
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          set -e
+          if [ "$code" -eq 2 ]; then exit 2; fi
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then exit "$code"; fi
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "## Platform revenue — marketplace only"
+            echo
+            echo "Grain \`${{ inputs.grain }}\` · cutover \`${{ inputs.cutover }}\`"
+            echo
+            if [ "${{ steps.pre.outputs.present }}" != "true" ]; then
+              echo "**Misconfigured** — \`PGAM_DIRECT_DATABASE_URL\` is not set, so nothing ran."
+            elif [ "${{ steps.run.outputs.code }}" = "0" ]; then
+              echo "**Report produced.** Full output below and in the artifact."
+            elif [ "${{ steps.run.outputs.code }}" = "1" ]; then
+              echo "> [!WARNING]"
+              echo "> Nothing to report over this range, or a leg is missing entirely. Look at the output."
+            fi
+            echo
+            echo '> This is the platform only. It excludes every stream the marketplace'
+            echo '> warehouse does not carry, so it will not match the P&L and is not meant to.'
+            echo
+            if [ -f platform_revenue.txt ]; then
+              echo '```'
+              cat platform_revenue.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: platform-revenue-${{ github.run_id }}
+          path: |
+            platform_revenue.txt
+            platform_revenue.json
+          if-no-files-found: ignore
