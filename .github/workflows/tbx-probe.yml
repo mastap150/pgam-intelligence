@@ -76,6 +76,10 @@ on:
         description: "Pre-merge QA hook for tbx_nowin_watch.py — settled days, e.g. 14. Never posts to Slack from here. Also skips the full pull."
         required: false
         default: ""
+      type_probe:
+        description: "demand, supply or both — live values vs declared types"
+        required: false
+        default: ""
       geo_waste:
         description: "Geo waste report. 'country' or 'pairs', optionally with :days (e.g. pairs:7). Read-only, never writes. Also skips the full pull."
         required: false
@@ -278,6 +282,19 @@ jobs:
           IN_NOWIN_WATCH: ${{ inputs.nowin_watch }}
         run: |
           python3 scripts/tbx_nowin_watch.py --days "$IN_NOWIN_WATCH" || [ $? -eq 1 ]
+
+      - name: Type mismatches (why demand writes 422)
+        # Read-only. Lists live field values that contradict the type their
+        # own spec declares — the reason every demand read-modify-write was
+        # refused on 2026-08-31. Exit 1 means "found mismatches", the expected
+        # outcome while this is unresolved, so it must not fail the job; the
+        # script exits 3 on an unreachable platform, outside this guard.
+        if: github.event_name == 'workflow_dispatch' && inputs.type_probe != ''
+        env:
+          IN_TYPES: ${{ inputs.type_probe }}
+        run: |
+          python3 scripts/tbx_type_probe.py --side "$IN_TYPES" --limit 8 \
+            || [ $? -eq 1 ]
 
       - name: Geo waste
         # Which countries, and which DSP x country pairs, take outbound
