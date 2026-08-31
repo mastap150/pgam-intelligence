@@ -745,6 +745,54 @@ a partially-resolved list would block a different set than the one reported,
 so `tbx_geo_cut.py` refuses a buyer outright unless every one of its countries
 resolves.
 
+### 6.3 Demand read-modify-write is blocked: entities are not round-trippable
+
+**Status 2026-08-31: every demand-source write fails. Not one has succeeded on
+TBX.** The first live geo-blacklist apply (run 33440341431) attempted 50 and
+the platform refused all 50:
+
+| n | HTTP 422 message |
+|---|---|
+| 38 | `The Advanced Setting -> VCR Optimization value must be a number. (and 2 more errors)` |
+| 12 | `The Advanced Setting -> Target sRCPM must be a string. (and 4 more errors)` |
+
+Nothing was applied, and nothing needed reverting — the platform's own
+validation was the thing that stopped it, after this repo's two gates had
+already opened. That is the failure mode working as intended, but it is luck
+that the rejection was total rather than partial.
+
+**This is not a geo problem.** `_apply_update` writes by GET → deep-merge →
+POST the whole object, so *every* demand writer goes through it:
+`set_demand_economics` (margins, spend limit, target sRCPM),
+`set_demand_geo_bid_floors`, `set_demand_geo_qps`, `set_demand_source_status`,
+`set_demand_schain_policy`. All of them are currently non-functional against
+live data, whatever they are trying to change. The margin raises discussed
+earlier in that session would have failed exactly this way.
+
+The supply side is unaffected — the 2026-08-31 supply cut disabled 11 sources
+through the same machinery without complaint.
+
+**The spec does not predict it.** `DemandSourceRequest` and
+`DemandSourceResource` declare *identical* types for every field, including
+`vcr_optimization` (number) and `target_srcpm` (string enum). So this is not
+the read/write schema divergence of §6.2 — it is the **live data** disagreeing
+with the type both halves declare. An entity as stored cannot be POSTed back
+to its own update endpoint unchanged.
+
+**Do not guess the coercion.** The error text is truncated ("and 2 more
+errors"), so the full offender list is unknown, and the right repair is not
+obvious: `vcr_optimization` arriving as `null` might want `0`, or might want
+the key dropped so the platform re-applies a default — and dropping it could
+switch VCR optimisation off on a live buyer. Those are different trading
+outcomes.
+
+`scripts/tbx_type_probe.py` measures it instead: read-only, it lists every
+live field whose value contradicts its declared type, with the value, so the
+coercion is chosen from evidence. Run it via `tbx-probe.yml`'s `type_probe`
+input. Once the full set is known, the fix belongs in `_apply_update` —
+coerce to spec types on the way out — and Teqblaze should be told their
+update endpoint rejects the entities their own read endpoint serves.
+
 ## 7. Suggested order of work
 
 Sequenced by payoff over risk. Everything in the first two tranches is
