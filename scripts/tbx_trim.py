@@ -8,8 +8,10 @@ against what they return.
 
 Read-only. Imports nothing from the write path and never sets
 TBX_ALLOW_WRITES; every finding is a recommendation for a human to action in
-the dashboard, since the margin fields are not writable over this API anyway
-(`docs/teqblaze-new-platform.md` §6.1).
+the dashboard: a SUPPLY source's margin_type/margin_min/margin_max are
+read-only over this API (`docs/teqblaze-new-platform.md` §6.1). Note the
+qualifier — a DEMAND source's margin fields ARE writable, via
+`set_demand_economics`; only the supply side is locked.
 
 What "cost" means here, and what it does not
 --------------------------------------------
@@ -556,8 +558,9 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  supply cut candidates: {len(supply_flagged)}")
     print(f"  demand cut candidates: {len(demand_flagged)}")
     print(f"  sources realising outside their band: {len(off_band)}")
-    print("\n  Nothing here was changed. The margin fields are not writable "
-          "over this API (§6.1) — these are dashboard actions.")
+    print("\n  Nothing here was changed. A supply source's margin is read-only "
+          "over this API (§6.1),\n  so the margin actions above are dashboard "
+          "changes. Demand-source margin IS writable.")
 
     return 1 if (supply_flagged or demand_flagged or off_band) else 0
 

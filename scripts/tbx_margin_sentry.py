@@ -43,7 +43,11 @@ volume. It is an upper bound on the fix, not a promise: raising a take rate
 reduces what the supply partner receives and can move their volume
 elsewhere.
 
-Read-only. No write path is imported.
+Read-only. No write path is imported. Acting on a finding here is a
+dashboard change: a SUPPLY source's margin_type/margin_min/margin_max are
+read-only over this API (§6.1). That restriction is supply-side only — a
+DEMAND source's margin fields are accepted by DemandSourceRequest and are
+settable through `core.tbx_mgmt.set_demand_economics`.
 
 Exit codes:
     0  nothing below band
