@@ -64,6 +64,7 @@ import argparse
 import os
 import re
 import sys
+import time
 from datetime import date, datetime, timedelta, timezone
 from statistics import median
 
@@ -128,30 +129,117 @@ def per_dollar(requests: float, revenue: float) -> float | None:
 # Pulls
 # ---------------------------------------------------------------------------
 
+# Counts and money only. Every rate metric the platform offers is derivable
+# from these (fill rate is imps/requests), and a report asking for computed
+# rates is markedly slower to come back — the first live run spent >25 minutes
+# on two calls. Ask for the raw numbers and do the division here.
 SUPPLY_METRICS = [
     "ssp_requests_sum", "imps_sum",
     "dsp_price_sum", "ssp_price_sum",
-    "supply_fill_rate",
 ]
 
+# `timeout_rate` is the one rate that cannot be derived from counts, so it
+# stays — but it is the sole reason the demand call is the expensive one, and
+# --no-timeout drops it when the supply half is all that is wanted.
 DEMAND_METRICS = [
     "requests_sum", "responses_sum", "wins_sum", "imps_sum",
     "dsp_price_sum", "timeout_rate",
 ]
 
+# Metrics that are ratios, not counts. Summing a rate across seven days gives
+# a number up to 700% and would put every demand partner in the TIMEOUT
+# bucket, so these are averaged instead — weighted by RATE_WEIGHT, because a
+# day on which a partner saw 12 requests should not count as much as a day it
+# saw twelve million.
+RATE_METRICS = frozenset({"timeout_rate"})
+RATE_WEIGHT = "requests_sum"
 
-def pull_supply(df: str, dt: str) -> list[dict]:
-    rows, _ = tbx.report(df, dt, attributes=["supply_source"],
-                         metrics=SUPPLY_METRICS,
-                         sort=[{"field": "ssp_requests_sum", "direction": "desc"}])
-    return rows
+
+def pull_daily(grain: str, start: date, days: int,
+               metrics: list[str]) -> tuple[list[dict], int]:
+    """Sum `metrics` per entity over `days`, ONE DAY PER REQUEST.
+
+    Not an optimisation — a correctness requirement, and the same conclusion
+    `tbx_revenue_etl` reached independently (its CHUNK_DAYS = 1). A multi-day
+    request is answered 200 with only the most recent ~5 days in it: no error,
+    no flag. Asked for 7 days in one call, this report would have divided a
+    5-day total by 7 and understated every source by ~30% while looking
+    entirely healthy.
+
+    It is also the faster shape in practice. The first live run asked for the
+    whole window at once and was still going after 34 minutes; the probe's
+    single-day calls return in under a second.
+
+    `date` is requested and checked on every row rather than trusted, because
+    a single-day request is only known to be single-day if the rows say so.
+
+    Returns (rows, days_with_data). The second is the divisor — dividing by a
+    nominal 7 when two days returned nothing is the same understatement in a
+    different place.
+    """
+    totals: dict[str, dict[str, float]] = {}
+    # Numerator and denominator for each rate metric, kept apart from the
+    # counts so the weighted average can be finished once at the end.
+    rate_acc: dict[str, dict[str, float]] = {}
+    rate_weight: dict[str, float] = {}
+    days_with_data = 0
+    started = time.monotonic()
+
+    counts = [m for m in metrics if m not in RATE_METRICS]
+    rates = [m for m in metrics if m in RATE_METRICS]
+
+    for offset in range(days):
+        day = (start + timedelta(days=offset)).isoformat()
+        rows, _ = tbx.report(day, day, attributes=["date", grain],
+                             metrics=metrics)
+        kept = 0
+        for row in rows:
+            if str(row.get("date") or "")[:10] != day:
+                continue                      # off-window row; the ETL's rule
+            key = row.get(grain) or ""
+            bucket = totals.setdefault(key, {m: 0.0 for m in counts})
+            for metric in counts:
+                bucket[metric] += num(row, metric)
+            if rates:
+                weight = num(row, RATE_WEIGHT)
+                acc = rate_acc.setdefault(key, {m: 0.0 for m in rates})
+                for metric in rates:
+                    acc[metric] += num(row, metric) * weight
+                rate_weight[key] = rate_weight.get(key, 0.0) + weight
+            kept += 1
+        if kept:
+            days_with_data += 1
+        else:
+            print(f"    ! {day}: no {grain} rows", flush=True)
+
+    out = []
+    for key, vals in totals.items():
+        row = {grain: key, **vals}
+        weight = rate_weight.get(key, 0.0)
+        for metric in rates:
+            # No weight means the rate was never observed against any
+            # traffic. Leave it out entirely rather than writing 0.0 — the
+            # assessor reads a missing key as "not measured", which is what
+            # this is.
+            if weight > 0:
+                row[metric] = rate_acc[key][metric] / weight
+        out.append(row)
+
+    elapsed = time.monotonic() - started
+    print(f"  ✓ {grain}: {len(out)} entities over {days_with_data}/{days} "
+          f"days in {elapsed:.1f}s", flush=True)
+    return out, days_with_data
 
 
-def pull_demand(df: str, dt: str) -> list[dict]:
-    rows, _ = tbx.report(df, dt, attributes=["demand_source"],
-                         metrics=DEMAND_METRICS,
-                         sort=[{"field": "requests_sum", "direction": "desc"}])
-    return rows
+def pull_supply(start: date, days: int) -> tuple[list[dict], int]:
+    print("  → supply, one call per day ...", flush=True)
+    return pull_daily("supply_source", start, days, SUPPLY_METRICS)
+
+
+def pull_demand(start: date, days: int,
+                metrics: list[str]) -> tuple[list[dict], int]:
+    print("  → demand, one call per day ...", flush=True)
+    return pull_daily("demand_source", start, days, metrics)
 
 
 # ---------------------------------------------------------------------------
@@ -181,7 +269,7 @@ def assess_supply(rows: list[dict], days: int, args) -> tuple[list[dict], float 
             "gross_day": gross / days,
             "profit_day": profit / days,
             "take_rate": (profit / gross * 100.0) if gross > 0 else None,
-            "fill_rate": num(row, "supply_fill_rate"),
+            "fill_rate": (imps / requests * 100.0) if requests else 0.0,
             "per_dollar": per_dollar(requests, gross),
             "requests": requests, "gross": gross, "imps": imps,
         })
@@ -218,7 +306,10 @@ def assess_demand(rows: list[dict], days: int, args) -> list[dict]:
         wins = num(row, "wins_sum")
         imps = num(row, "imps_sum")
         spend = num(row, "dsp_price_sum")
-        timeout = num(row, "timeout_rate")
+        # None, not 0.0, when the metric was not requested — a missing
+        # rate is "not measured", and scoring it as 0 would silently clear
+        # every partner of the TIMEOUT verdict.
+        timeout = num(row, "timeout_rate") if "timeout_rate" in row else None
         entry = {
             "name": name, "id": did,
             "requests_day": requests / days,
@@ -233,7 +324,7 @@ def assess_demand(rows: list[dict], days: int, args) -> list[dict]:
             entry["bucket"] = None
         elif wins == 0:
             entry["bucket"] = "NO-WIN"
-        elif timeout >= args.timeout_pct:
+        elif timeout is not None and timeout >= args.timeout_pct:
             entry["bucket"] = "TIMEOUT"
         else:
             entry["bucket"] = None
@@ -398,6 +489,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--config-top", type=int, default=20,
                         help="read the margin config for this many top "
                              "sources by revenue (one GET each, default 20)")
+    parser.add_argument("--no-timeout", action="store_true",
+                        help="drop timeout_rate from the demand pull. It is "
+                             "the one rate that cannot be derived from counts "
+                             "and the slowest metric to come back; without it "
+                             "the TIMEOUT bucket is not assessed at all")
     parser.add_argument("--no-config", action="store_true",
                         help="skip the per-source config reads entirely")
     return parser
@@ -420,16 +516,20 @@ def main(argv: list[str] | None = None) -> int:
     print(f"host {os.getenv('TBX_BASE_URL', 'https://api.pgammedia.com')}")
 
     section("SUPPLY — what we pay to receive")
-    supply_rows = pull_supply(df, dt)
-    supply, book_median = assess_supply(supply_rows, days, args)
+    supply_rows, supply_days = pull_supply(start, days)
+    supply, book_median = assess_supply(supply_rows, max(supply_days, 1), args)
     if book_median:
         print(f"  book median: {book_median:,.0f} requests per revenue dollar")
         print(f"  HUNGRY is above {book_median * args.hungry_multiple:,.0f}\n")
     supply_flagged = render_cuts(supply, "supply")
 
     section("DEMAND — what we pay to send")
-    demand_rows = pull_demand(df, dt)
-    demand = assess_demand(demand_rows, days, args)
+    demand_metrics = [m for m in DEMAND_METRICS
+                      if not (args.no_timeout and m == "timeout_rate")]
+    if args.no_timeout:
+        print("  --no-timeout: the TIMEOUT bucket is NOT assessed this run")
+    demand_rows, demand_days = pull_demand(start, days, demand_metrics)
+    demand = assess_demand(demand_rows, max(demand_days, 1), args)
     demand_flagged = render_cuts(demand, "demand")
 
     section("MARGIN — realised take rate against configured band")

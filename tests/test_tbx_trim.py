@@ -160,6 +160,19 @@ def test_demand_buckets() -> None:
                            7, Args())
     check("no wins outranks a timeout verdict", both[0]["bucket"] == "NO-WIN")
 
+    # --no-timeout drops timeout_rate from the pull entirely. A missing rate
+    # must read as "not measured", not as 0% — scoring it zero would quietly
+    # clear every partner of the TIMEOUT verdict while the report still
+    # printed a TIMEOUT heading, which is the worst of both.
+    no_rate = {"demand_source": "Unmeasured #15", "requests_sum": "7000000",
+               "responses_sum": "7000000", "wins_sum": "70000",
+               "imps_sum": "70000", "dsp_price_sum": "7000"}
+    unmeasured = t.assess_demand([no_rate], 7, Args())
+    check("a missing timeout_rate is not scored as 0%",
+          unmeasured[0]["timeout_rate"] is None, str(unmeasured[0]["timeout_rate"]))
+    check("and yields no TIMEOUT verdict rather than a false pass",
+          unmeasured[0]["bucket"] is None, str(unmeasured[0]["bucket"]))
+
 
 def test_band_verdict() -> None:
     print("\nrealised take rate against the configured band")
@@ -192,11 +205,78 @@ def test_band_verdict() -> None:
           "unknown margin_type" in t.band_verdict(10.0, {"margin_type": "weird"}))
 
 
+def test_pull_daily_aggregation() -> None:
+    """The day-chunked pull: sums counts, weight-averages rates, drops
+    off-window rows, and counts the days that actually answered."""
+    print("\nday-chunked aggregation")
+    from datetime import date as _date
+
+    served = {
+        "2026-08-25": [
+            {"date": "2026-08-25", "demand_source": "Buyer #1",
+             "requests_sum": "100", "dsp_price_sum": "10", "timeout_rate": "10"},
+            # An off-window row. The platform has been seen to answer a
+            # single-day request with neighbouring days in it, so every row's
+            # date is checked rather than trusted.
+            {"date": "2026-08-24", "demand_source": "Buyer #1",
+             "requests_sum": "9999", "dsp_price_sum": "999", "timeout_rate": "99"},
+        ],
+        "2026-08-26": [
+            {"date": "2026-08-26", "demand_source": "Buyer #1",
+             "requests_sum": "900", "dsp_price_sum": "90", "timeout_rate": "20"},
+        ],
+        "2026-08-27": [],          # a day that returned nothing
+    }
+    calls = []
+
+    def fake_report(df, dt, attributes=None, metrics=None, **kw):
+        calls.append((df, dt))
+        return served.get(df, []), {}
+
+    real = t.tbx.report
+    t.tbx.report = fake_report
+    try:
+        rows, days_with_data = t.pull_daily(
+            "demand_source", _date(2026, 8, 25), 3,
+            ["requests_sum", "dsp_price_sum", "timeout_rate"])
+    finally:
+        t.tbx.report = real
+
+    check("one request per day, never a multi-day window",
+          calls == [("2026-08-25", "2026-08-25"), ("2026-08-26", "2026-08-26"),
+                    ("2026-08-27", "2026-08-27")], str(calls))
+    check("a day with no rows is not counted as a day with data",
+          days_with_data == 2, str(days_with_data))
+
+    row = rows[0]
+    check("counts are summed across days", row["requests_sum"] == 1000.0,
+          str(row["requests_sum"]))
+    check("the off-window row is discarded, not added",
+          row["dsp_price_sum"] == 100.0, str(row["dsp_price_sum"]))
+    # 10% on 100 requests and 20% on 900 -> (10*100 + 20*900)/1000 = 19%.
+    # A naive sum would say 30%, and a flat mean 15%.
+    check("a rate is weight-averaged, not summed",
+          abs(row["timeout_rate"] - 19.0) < 1e-9, str(row["timeout_rate"]))
+
+    # A source with rows but no weight at all must not report a rate of 0.
+    t.tbx.report = lambda df, dt, **kw: (
+        [{"date": df, "demand_source": "Quiet #2", "requests_sum": "0",
+          "dsp_price_sum": "0", "timeout_rate": "0"}], {})
+    try:
+        quiet, _ = t.pull_daily("demand_source", _date(2026, 8, 25), 1,
+                                ["requests_sum", "dsp_price_sum", "timeout_rate"])
+    finally:
+        t.tbx.report = real
+    check("a rate with no traffic behind it is omitted, not zeroed",
+          "timeout_rate" not in quiet[0], str(quiet[0]))
+
+
 def test_parser() -> None:
     print("\nargument surface")
     args = t.build_parser().parse_args([])
     for field in ("days", "min_requests_day", "min_revenue_day",
-                  "hungry_multiple", "timeout_pct", "config_top", "no_config"):
+                  "hungry_multiple", "timeout_pct", "config_top", "no_config",
+                  "no_timeout"):
         check(f"--{field.replace('_', '-')} has a default",
               getattr(args, field, None) is not None)
 
@@ -223,6 +303,7 @@ def main() -> int:
     test_supply_buckets()
     test_demand_buckets()
     test_band_verdict()
+    test_pull_daily_aggregation()
     test_parser()
     print("\n" + "=" * 70)
     print(f"{PASS} passed, {FAIL} failed")
