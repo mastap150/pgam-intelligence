@@ -1,0 +1,114 @@
+name: TBX Margin Sentry
+
+# Is each supply source realising the margin it is CONFIGURED for?
+#
+# Complementary to tbx-take-rate.yml, not a duplicate of it:
+#
+#   take rate      has this source drifted from its OWN trailing median?
+#   margin sentry  is this source realising what it was configured to?
+#
+# The first is relative and catches movement. The second is absolute and
+# catches a source that has been quietly wrong the whole time — which the
+# drift report structurally cannot see, because a steady 7.6% under a 2-30%
+# band contains no drift. Supply source 194 sat on a flat 2% fixed margin for
+# weeks and nothing noticed.
+#
+# Posts to Slack only when a source is BELOW its configured floor, which is
+# the direction that costs money. Above-band is counted, not alerted: the
+# first live reading found all eight out-of-band sources above and none
+# below, which points at the take-rate definition rather than at eight
+# settings (docs/teqblaze-new-platform.md §6.1). A sentry that posted those
+# eight every morning would be ignored by Friday.
+#
+# READ-ONLY. TBX_ALLOW_WRITES is never set here, and the margin fields are
+# not writable over this API anyway — every finding is a dashboard action.
+#
+# Exit 1 means "found something", which is the normal outcome and must not
+# fail the job; the Slack post is the delivery. Any other code is a crash and
+# does fail, which is why this is `|| [ $? -eq 1 ]` and not `|| true`.
+
+on:
+  schedule:
+    # 08:00 ET (EDT) — after the supply gap (11:40) and take rate (11:50),
+    # so the three land together and share one settled-data window.
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Settled days to average over"
+        required: false
+        default: "7"
+      tolerance:
+        description: "Percentage points of slack before flagging"
+        required: false
+        default: "1.0"
+      include_above:
+        description: "Also list sources above their ceiling (yes/no)"
+        required: false
+        default: "no"
+      slack:
+        description: "Post to Slack (yes/no). Scheduled runs always post."
+        required: false
+        default: "no"
+
+concurrency:
+  # Shares the platform's undocumented rate limit with the other TBX readers.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  sentry:
+    name: Realised margin vs configured band
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      TBX_ALLOW_WRITES: "0"
+      TBX_DRY_RUN: "true"
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        # Before the credential gate on purpose: needs no secrets, so a run
+        # without them still proves the sentry logic holds on a clean runner.
+        run: python3 tests/test_tbx_sentries.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: Margin sentry
+        env:
+          IN_DAYS: ${{ inputs.days || '7' }}
+          IN_TOLERANCE: ${{ inputs.tolerance || '1.0' }}
+        run: |
+          ARGS="--days $IN_DAYS --tolerance $IN_TOLERANCE"
+          # A scheduled run always posts; a manual one only when asked, so
+          # testing a threshold change does not spam the channel.
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.slack }}" = "yes" ]; then
+            ARGS="$ARGS --slack"
+          fi
+          if [ "${{ inputs.include_above }}" = "yes" ]; then
+            ARGS="$ARGS --include-above"
+          fi
+          echo "running: tbx_margin_sentry.py $ARGS"
+          python3 scripts/tbx_margin_sentry.py $ARGS || [ $? -eq 1 ]

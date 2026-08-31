@@ -1,0 +1,112 @@
+name: TBX No-Win Watch
+
+# Do the nine zero-win Illumin RON demand endpoints ever win an auction?
+#
+# They receive ~872 million bid requests a day between them and won nothing
+# across the seven-day audit window (2026-08-31). That is the largest single
+# cut available and it is blocked on an ambiguity the totals cannot settle:
+#
+#   dormant  -> switching them off costs nothing
+#   live but misconfigured -> switching them off buries the bug
+#
+# Their names are the reason to doubt the first reading: RON, RON copy1,
+# RON copy2, Endpoint3 - RON, Endpoint3 - RON copy1. That plus identical
+# zero-win behaviour reads like one duplicated configuration rather than nine
+# partners independently going quiet.
+#
+# So this watches instead of guessing. One win is a state change worth the
+# same-day alert; a long enough run of zero settles the cut on evidence
+# rather than on inference.
+#
+# Silence is the steady state and the point. It posts to Slack ONLY when a
+# watched endpoint wins — a daily "still zero" would train the channel to
+# skip the one message that matters.
+#
+# READ-ONLY. TBX_ALLOW_WRITES is never set here.
+#
+# Exit codes, and why this one is allowed to go red:
+#   0  still zero wins        -> green
+#   1  an endpoint won        -> RED on purpose. The cut list is now wrong
+#                               and someone has to look before acting on it.
+#   2  none of the ids found  -> RED. Either they are already disabled or the
+#                               ids are stale; both need a human, and neither
+#                               should read as a clean streak.
+# Both non-zero codes fail the job deliberately, unlike the margin sentry
+# where a finding is the normal daily state.
+
+on:
+  schedule:
+    # 08:10 ET (EDT) — ten minutes after the margin sentry, sharing the
+    # concurrency group so the TBX readers never overlap.
+    - cron: "10 12 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Settled days to check (one request each)"
+        required: false
+        default: "14"
+      ids:
+        description: "Override the watch list, comma-separated demand ids"
+        required: false
+        default: ""
+      slack:
+        description: "Post if one wins (yes/no). Scheduled runs always post."
+        required: false
+        default: "no"
+
+concurrency:
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  watch:
+    name: Zero-win demand endpoints
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      TBX_ALLOW_WRITES: "0"
+      TBX_DRY_RUN: "true"
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        run: python3 tests/test_tbx_sentries.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: No-win watch
+        env:
+          IN_DAYS: ${{ inputs.days || '14' }}
+          IN_IDS: ${{ inputs.ids }}
+        run: |
+          ARGS="--days $IN_DAYS"
+          if [ -n "$IN_IDS" ]; then
+            ARGS="$ARGS --ids $IN_IDS"
+          fi
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.slack }}" = "yes" ]; then
+            ARGS="$ARGS --slack"
+          fi
+          echo "running: tbx_nowin_watch.py $ARGS"
+          python3 scripts/tbx_nowin_watch.py $ARGS

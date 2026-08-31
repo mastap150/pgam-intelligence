@@ -610,6 +610,27 @@ That matters for how a margin change gets made:
 - So do not describe a planned margin move as "set `dynamic_margin` via the
   API" without saying which of the two mechanisms it lands on.
 
+**This is a SUPPLY-side restriction only — corrected 2026-08-31.** Earlier
+wording here and in `tbx_trim.py` generalised it to "the margin fields are not
+writable over this API", which is wrong and was repeated three times before
+anyone checked the other entity. Set-differencing the spec:
+
+| entity | `margin_type` / `margin_min` / `margin_max` |
+|---|---|
+| supply source | in `SupplySourceResource`, **absent from** `SupplySourceRequest` → read-only |
+| demand source | in **both** `DemandSourceResource` and `DemandSourceRequest` → **writable** |
+
+`DemandSourceResource - DemandSourceRequest` is only
+`{id, operation_systems, uuid}`, so nothing margin-shaped is stripped on the
+demand side. `core.tbx_mgmt.set_demand_economics` already exposes all three,
+and has since it was written.
+
+Placements carry `margin_status`/`margin_type`/`margin_min`/`margin_max` on
+their read resources too, but there is no placement update endpoint that
+accepts them — `/supply-sources/{id}/placements/{placement_id}/status` toggles
+status and nothing else — so placement margin is read-only in practice as
+well.
+
 Read the current shape of any source before proposing a margin change to it;
 the realised take rate in the reports is an outcome, not the configuration.
 
