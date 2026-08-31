@@ -371,10 +371,26 @@ def list_companies(search: str | None = None, per_page: int = 250) -> list[dict]
 # `write_schema_fields()` below recomputes that from the spec on demand, which
 # is how `uuid` was caught: it is returned on a demand source and rejected on
 # the way back in, and only the supply schema accepts it. Keep this tuple and
-# the spec in agreement — `python3 tests/test_tbx.py` fails if they diverge.
+# the spec in agreement — `python3 tests/test_tbx.py` fails if they diverge,
+# allowing only the hand-named exceptions in `_UNDECLARED_RESPONSE_FIELDS`.
 _READ_ONLY_FIELDS = {
-    "supply_source": ("id", "margin_type", "margin_min", "margin_max"),
+    "supply_source": ("id", "margin_type", "margin_min", "margin_max",
+                      "has_inactive_company"),
     "demand_source": ("id", "operation_systems", "uuid"),
+}
+
+# The subset of the above that the spec cannot account for: fields the *live*
+# API returns which appear in neither the read nor the write schema, so the
+# set difference above yields nothing for them and they have to be named by
+# hand. Each one is a real finding from `--diff-shape` against the account,
+# and each is also a sign the vendored spec has fallen behind the platform.
+#
+# `has_inactive_company` (supply, found 2026-08-28 on source 264): returned
+# by GET, undeclared by SupplySourceRequest, so leaving it in the body sends
+# the platform a key it never advertised accepting.
+_UNDECLARED_RESPONSE_FIELDS = {
+    "supply_source": ("has_inactive_company",),
+    "demand_source": (),
 }
 
 # The OpenAPI request schema each entity's `/update` endpoint accepts. Used to

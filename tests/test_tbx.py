@@ -250,10 +250,19 @@ def test_strip_list_matches_spec() -> None:
         if not accepted:
             continue
         from_spec = tbm.read_only_fields_from_spec(kind)
+        undeclared = set(tbm._UNDECLARED_RESPONSE_FIELDS.get(kind, ()))
         declared = set(tbm._READ_ONLY_FIELDS[kind])
         check(f"{kind}: strip list matches the spec",
-              declared == from_spec,
-              f"declared={sorted(declared)} spec={sorted(from_spec)}")
+              declared == from_spec | undeclared,
+              f"declared={sorted(declared)} spec={sorted(from_spec)} "
+              f"undeclared={sorted(undeclared)}")
+        # An exception is only legitimate while the spec really is silent on
+        # it. Once a re-vendor picks the field up, the entry is stale and the
+        # set difference alone should carry it.
+        read_props = tbm._spec_properties(tbm._READ_SCHEMA[kind])
+        check(f"{kind}: every hand-named exception is absent from the spec",
+              not (undeclared & (read_props | accepted)),
+              f"now declared by the spec: {sorted(undeclared & (read_props | accepted))}")
 
 
 def test_unknown_write_keys() -> None:

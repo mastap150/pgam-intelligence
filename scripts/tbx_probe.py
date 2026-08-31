@@ -22,6 +22,7 @@ Usage
     # This is the check that must pass before TBX_ALLOW_WRITES is ever set.
     python3 scripts/tbx_probe.py --diff-shape supply:22
     python3 scripts/tbx_probe.py --diff-shape demand:91
+    python3 scripts/tbx_probe.py --diff-shape supply:264,supply:65,supply:194
 
     # write findings to a file for review
     python3 scripts/tbx_probe.py --reports --json /tmp/tbx_probe.json
@@ -156,6 +157,27 @@ def probe_reports(results: dict, days: int) -> None:
 
 
 def diff_shape(spec: str) -> int:
+    """
+    Shape-check one or more entities, comma-separated.
+
+    Returns the worst exit code of the lot, and keeps going after a failure:
+    one bad source should not hide the state of the next one, and the whole
+    point of checking several is to see whether a finding is account-wide or
+    particular to that entity.
+    """
+    specs = [part.strip() for part in spec.split(",") if part.strip()]
+    if not specs:
+        print("--diff-shape wants supply:<id> or demand:<id>", file=sys.stderr)
+        return 2
+    worst = 0
+    for one in specs:
+        worst = max(worst, _diff_shape_one(one))
+    if len(specs) > 1:
+        print(f"\n── {len(specs)} entities checked, worst exit code {worst} ──")
+    return worst
+
+
+def _diff_shape_one(spec: str) -> int:
     """
     Print an entity's current config beside the payload an update would send.
 
@@ -364,7 +386,7 @@ def main() -> int:
                         help="also probe every analytics surface (slower)")
     parser.add_argument("--dictionaries", action="store_true",
                         help="also probe the lookup tables")
-    parser.add_argument("--diff-shape", metavar="supply:22|demand:91",
+    parser.add_argument("--diff-shape", metavar="supply:22[,supply:65,...]",
                         help="dump one entity's read→write payload diff and exit")
     parser.add_argument("--reach-from", metavar="YYYY-MM-DD",
                         help="probe day-by-day reachability from this date and "

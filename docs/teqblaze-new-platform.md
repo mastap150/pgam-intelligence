@@ -477,6 +477,59 @@ credential to enter a Claude session.
 
 ---
 
+### 5.9 Heavy report queries have wildly variable latency
+
+The evidence, all from 2026-08-31, same account, same GitHub-hosted runner
+class, same credentials:
+
+| dispatch (UTC) | commit | probe step | `tbx_trim.py` |
+|---|---|---|---|
+| 12:43 | 2584087 (one 7-day call) | 28s | >34 min, cancelled |
+| 12:49 | 188c5d0 (chunked) | 26s | >48 min, cancelled |
+| 12:55 | f0aa1cc (chunked + prints) | 24s | **45s** |
+
+The last two differ only by `print` statements. A 60x swing on identical
+queries six minutes apart is the host, not the code.
+
+But note the probe column: **24–28 seconds throughout, including during both
+slow runs.** So the probe is *not* a canary for this. Its report calls ask for
+`imps_sum`, `ssp_price_sum`, `dsp_price_sum`, `profit`, `margin` — none of
+which is `ssp_requests_sum`, the raw inbound-request counter that
+`tbx_trim.py` aggregates by supply source. That is the heaviest column in the
+system, and it is the one whose latency swings.
+
+What follows for anything reading `ssp_requests_sum` or `requests_sum` at
+entity grain:
+
+- **A slow run is not necessarily a bug.** Before rewriting a query, re-run it
+  once. When it is fast the second time, the first was the host.
+- **A fast probe proves nothing** about a heavy query. Do not use it to
+  conclude your own query is at fault.
+- **Print per-item progress, flushed.** Two runs were cancelled having emitted
+  nothing, which is what made a slow call indistinguishable from a hung one
+  and cost four dispatches to sort out. `tbx_trim.py` now prints a line per
+  day per grain; when healthy those read 3–5s each, so a stalled run is
+  obvious within seconds instead of after half an hour.
+- **Read step timestamps, not wall-clock guesses.** A job object showing
+  `in_progress` may have completed a second later; I misread exactly that
+  during this session and drew the wrong conclusion from it twice.
+
+### 5.10 Never ask this API for a multi-day window
+
+Recorded here because three separate pieces of code have now had to learn it
+independently — `tb_revenue_etl` against the legacy host, `tbx_revenue_etl`
+(`CHUNK_DAYS = 1`), and `tbx_trim.py`.
+
+A multi-day report request is answered **200 with only the most recent ~5
+days in it**. No error, no flag, no short-window marker. A seven-day request
+therefore returns five days of data, and any code that divides by seven
+understates every figure by ~30% while looking perfectly healthy.
+
+Ask one day at a time, and check the `date` on every row that comes back
+rather than trusting a single-day request to have been answered as one.
+
+---
+
 ## 6. Before enabling writes
 
 The write path is read-modify-write against endpoints that replace the **whole
@@ -505,14 +558,89 @@ guard that, and one of them needs human confirmation:
    whereas hard-refusing on a vendored spec that has fallen behind the platform
    would block every write for a reason that is ours. The warning goes to stderr
    and rides along on the result as `unknown_keys`.
-4. **Unverified:** whether the platform actually accepts the round trip.
+4. Whether the platform actually accepts the round trip.
    `python3 scripts/tbx_probe.py --diff-shape supply:<id>` prints the GET
-   response beside the exact payload an update would POST, and now checks both
+   response beside the exact payload an update would POST, and checks both
    directions against a real account: fields dropped that we did not mean to
    drop, and fields the live response carries that `SupplySourceRequest` /
    `DemandSourceRequest` will not accept. The second is what finds the next
    `uuid` — the account, not the spec, is the authority on what comes back. Any
    finding under either heading means do not set `TBX_ALLOW_WRITES`.
+
+   It found one on the first real run (2026-08-28, supply source 264): the live
+   GET returns **`has_inactive_company`**, which the vendored spec declares in
+   *neither* schema, so the set difference in item 1 could not derive it and the
+   payload was carrying a key `SupplySourceRequest` never advertised accepting.
+   Named by hand in `_UNDECLARED_RESPONSE_FIELDS` and re-checked by
+   `tests/test_tbx.py`, which now also fails if a re-vendored spec picks the
+   field up and makes the exception stale. Re-run `--diff-shape` and get a clean
+   round trip before setting `TBX_ALLOW_WRITES`; it takes a comma-separated list
+   (`supply:264,supply:65,supply:194`) so a finding can be told apart from an
+   account-wide one in a single run.
+
+### 6.1 The supply margin lever is read-only
+
+The same run answered a question the margin work had been assuming. Supply
+source 264 carries its margin at the **top level** of the entity:
+
+```json
+"margin_type": "range", "margin_min": 5, "margin_max": 30
+```
+
+and, separately, inside `source`:
+
+```json
+"is_dynamic_margin": false, "dynamic_margin": "0.00"
+```
+
+`margin_type` / `margin_min` / `margin_max` are exactly the fields
+`SupplySourceRequest` refuses (item 1) — they are read-only over this API.
+So the margin actually in force on this source is a 5–30% range that
+`POST /supply-sources/{id}/update` **cannot set**, and
+`set_supply_source_fields(is_dynamic_margin=…, dynamic_margin=…)` reaches a
+different mechanism that is currently switched off.
+
+That matters for how a margin change gets made:
+
+- Turning `is_dynamic_margin` on is **not** an adjustment to the current
+  setting; it swaps which mechanism governs the source. Its interaction with
+  a live `margin_type: "range"` is undocumented and untested here.
+- Moving the 5–30% range itself is a **dashboard change**, not an API one,
+  until Teqblaze exposes those fields for write.
+- So do not describe a planned margin move as "set `dynamic_margin` via the
+  API" without saying which of the two mechanisms it lands on.
+
+Read the current shape of any source before proposing a margin change to it;
+the realised take rate in the reports is an outcome, not the configuration.
+
+**What the three margin candidates actually carry** (read 2026-08-28, run
+`33175637798`, `--diff-shape supply:264,supply:65,supply:194`):
+
+| id | name | `margin_type` | min | max | `is_dynamic_margin` | `is_smart_floor` |
+|---|---|---|---|---|---|---|
+| 264 | Advetisi - Zmaticoo | `range` | 5 | 30 | false | **true** |
+| 65 | Illumin - Video Unruly OTTA | `adaptive` | 5 | 95 | false | **true** |
+| 194 | Illumin Display and Video EU Correct | `fixed` | 2 | 0 | false | **true** |
+
+Three different `margin_type` values across three sources, so this is
+deliberate per-source configuration and not an account default that happens
+to be showing through. Two things follow that were not previously written
+down:
+
+- **194 is on a 2% fixed margin.** Whatever it turns over, it turns over at
+  2%. If it carries meaningful volume that is a structural drag on blended
+  margin, and no floor change or dynamic-margin flip touches it — the number
+  is the configuration, and the configuration is a dashboard field.
+- **`is_smart_floor` is true on all three.** Teqblaze's own floor optimiser
+  already owns the floor on these sources. Per the "pick one owner per lever"
+  rule below, a PGAM floor agent must not be pointed at them while that
+  holds; that is the April thrash. Whether the platform optimiser is doing a
+  good job here is a separate question worth asking, but the answer is not
+  "run ours as well".
+
+All three also sit at `floor_price: "0.00"` with
+`bid_floor_type: "fixed_bid_price"` — i.e. no source-level floor of our own,
+which is consistent with smart floor owning it.
 
 Also unverified: `POST /filter-lists/{id}/import-values`. The spec documents it
 as a file/CSV import; `import_filter_values` sends `{"values": [...]}`, which is
