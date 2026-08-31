@@ -477,43 +477,42 @@ credential to enter a Claude session.
 
 ---
 
-### 5.9 The account's API latency is not stable — time your reads
+### 5.9 Heavy report queries have wildly variable latency
 
-Observed 2026-08-31, and worth knowing before diagnosing a slow job as a bug
-of ours. The connectivity probe (`tbx_probe.py`, most groups skipped) ran in
-**26 seconds** at 12:44 UTC and again at 12:49, then the *same* command on the
-*same* runner was still going after **15 minutes** at 12:52. Nothing changed
-on our side between those runs.
+The evidence, all from 2026-08-31, same account, same GitHub-hosted runner
+class, same credentials:
 
-It had not recovered eleven minutes later: a fourth dispatch at 12:55 was
-still in the probe step five minutes in. So the window of timings, all from
-GitHub-hosted runners with the same credentials and the same skip list, is:
+| dispatch (UTC) | commit | probe step | `tbx_trim.py` |
+|---|---|---|---|
+| 12:43 | 2584087 (one 7-day call) | 28s | >34 min, cancelled |
+| 12:49 | 188c5d0 (chunked) | 26s | >48 min, cancelled |
+| 12:55 | f0aa1cc (chunked + prints) | 24s | **45s** |
 
-| dispatch (UTC) | probe step |
-|---|---|
-| 12:44 | 26s |
-| 12:49 | 26s |
-| 12:52 | >15 min (cancelled) |
-| 12:55 | >5 min (cancelled) |
+The last two differ only by `print` statements. A 60x swing on identical
+queries six minutes apart is the host, not the code.
 
-That is the shape to hand Teqblaze if it recurs — same command, same client,
-an order-of-magnitude change inside eight minutes.
+But note the probe column: **24–28 seconds throughout, including during both
+slow runs.** So the probe is *not* a canary for this. Its report calls ask for
+`imps_sum`, `ssp_price_sum`, `dsp_price_sum`, `profit`, `margin` — none of
+which is `ssp_requests_sum`, the raw inbound-request counter that
+`tbx_trim.py` aggregates by supply source. That is the heaviest column in the
+system, and it is the one whose latency swings.
 
-So a TBX read taking minutes is not by itself evidence of a bad query. Before
-rewriting one:
+What follows for anything reading `ssp_requests_sum` or `requests_sum` at
+entity grain:
 
-1. Check whether a known-fast command is also slow right now. The probe with
-   `skip=entities,reports,diagnostics,quality,recon,dictionaries` is the
-   cheapest baseline — it should come back in well under a minute.
-2. Only if that is fast is the slowness yours.
-
-Two runs of `tbx_trim.py` were cancelled at 34 and 48 minutes chasing this as
-a query-shape problem. The chunking fix that came out of it was worth making
-on its own merits (§5.10), but the latency was the platform's.
-
-Anything long-running against this host wants per-item progress printed and
-flushed, for the same reason: a silent 40-minute job cannot be told from a
-hung one.
+- **A slow run is not necessarily a bug.** Before rewriting a query, re-run it
+  once. When it is fast the second time, the first was the host.
+- **A fast probe proves nothing** about a heavy query. Do not use it to
+  conclude your own query is at fault.
+- **Print per-item progress, flushed.** Two runs were cancelled having emitted
+  nothing, which is what made a slow call indistinguishable from a hung one
+  and cost four dispatches to sort out. `tbx_trim.py` now prints a line per
+  day per grain; when healthy those read 3–5s each, so a stalled run is
+  obvious within seconds instead of after half an hour.
+- **Read step timestamps, not wall-clock guesses.** A job object showing
+  `in_progress` may have completed a second later; I misread exactly that
+  during this session and drew the wrong conclusion from it twice.
 
 ### 5.10 Never ask this API for a multi-day window
 
