@@ -68,6 +68,14 @@ on:
         description: "Traffic-and-margin trim report over this many settled days (e.g. 7). Read-only; also skips the full pull."
         required: false
         default: ""
+      margin_sentry:
+        description: "Pre-merge QA hook for tbx_margin_sentry.py — settled days, e.g. 7. Never posts to Slack from here. Also skips the full pull."
+        required: false
+        default: ""
+      nowin_watch:
+        description: "Pre-merge QA hook for tbx_nowin_watch.py — settled days, e.g. 14. Never posts to Slack from here. Also skips the full pull."
+        required: false
+        default: ""
       reach_from:
         description: "Day-reachability probe from this date (YYYY-MM-DD). Set this to SKIP the full pull — one small request per day, answers whether a backfill that far back is possible."
         required: false
@@ -203,7 +211,7 @@ jobs:
         # Skipped when any targeted probe ran — see above. The full pull walks
         # every surface and is the expensive path; a run that asked a specific
         # question does not also want it.
-        if: inputs.reach_from == '' && inputs.backfill_dry_from == '' && inputs.trim == ''
+        if: inputs.reach_from == '' && inputs.backfill_dry_from == '' && inputs.trim == '' && inputs.margin_sentry == '' && inputs.nowin_watch == ''
         # Inputs arrive via env, not ${{ }} interpolation into the shell —
         # dispatch inputs are free text and would otherwise be executed.
         env:
@@ -241,6 +249,31 @@ jobs:
         env:
           IN_TRIM: ${{ inputs.trim }}
         run: python3 scripts/tbx_trim.py --days "$IN_TRIM" || [ $? -eq 1 ]
+
+      - name: Margin sentry (QA)
+        # Pre-merge hook, same reasoning the take-rate step in tb-today.yml
+        # records: workflow_dispatch is only offered for workflows already on
+        # the default branch, so tbx-margin-sentry.yml cannot be dispatched
+        # until it is merged. This is how it gets run against real data first.
+        #
+        # Deliberately never passes --slack: a QA run must not post into the
+        # revenue channel. The Slack path is covered by tests/test_tbx_sentries.py.
+        if: github.event_name == 'workflow_dispatch' && inputs.margin_sentry != ''
+        env:
+          IN_MARGIN_SENTRY: ${{ inputs.margin_sentry }}
+        run: |
+          python3 scripts/tbx_margin_sentry.py --days "$IN_MARGIN_SENTRY" \
+            --include-above || [ $? -eq 1 ]
+
+      - name: No-win watch (QA)
+        # Same pre-merge reasoning. Exit 1 here means a watched endpoint won,
+        # which is a real finding rather than a crash, so it is tolerated in
+        # the QA hook; the scheduled workflow lets it go red on purpose.
+        if: github.event_name == 'workflow_dispatch' && inputs.nowin_watch != ''
+        env:
+          IN_NOWIN_WATCH: ${{ inputs.nowin_watch }}
+        run: |
+          python3 scripts/tbx_nowin_watch.py --days "$IN_NOWIN_WATCH" || [ $? -eq 1 ]
 
       - name: Upload data
         if: always()
