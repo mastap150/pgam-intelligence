@@ -1,9 +1,10 @@
 name: TBX Cut (WRITES)
 
-# The one TBX workflow that can change platform state.
+# One of the two TBX workflows that can change platform state — the other is
+# tbx-geo-cut.yml, which only edits demand-source country blacklists.
 #
 # Everything else in this repo's TBX set pins TBX_ALLOW_WRITES to "0" and says
-# so in its header. This one does not, and is kept separate for exactly that
+# so in its header. These two do not, and are kept separate for exactly that
 # reason: a read-only diagnostic that grew a write path is how someone runs a
 # mutation believing they ran a report.
 #

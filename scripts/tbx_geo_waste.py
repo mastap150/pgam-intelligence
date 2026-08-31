@@ -165,9 +165,17 @@ def render_pairs(rows: list[dict], args) -> list[dict]:
         if r["id"] is not None:
             by_dsp.setdefault(r["id"], []).append(r["country"])
     if by_dsp:
-        print(f"\n  One call per buyer:")
+        # Codes, not platform ids — set_demand_geo_blacklist takes the numeric
+        # ids that tbx_api.country_ids() resolves these to. scripts/
+        # tbx_geo_cut.py does that resolution, re-measures first, and refuses
+        # a buyer whose countries do not all resolve.
+        print(f"\n  One call per buyer (country CODES; resolve with "
+              f"tbx_api.country_ids):")
         for did, countries in sorted(by_dsp.items()):
-            print(f"    set_demand_geo_blacklist({did}, {sorted(set(countries))})")
+            print(f"    set_demand_geo_blacklist({did}, "
+                  f"country_ids({sorted(set(countries))}))")
+        print(f"\n  To apply, with a fresh measurement and a revertible "
+              f"ledger:\n    python3 scripts/tbx_geo_cut.py --apply")
     return waste
 
 

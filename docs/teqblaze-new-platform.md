@@ -332,7 +332,7 @@ write.
 |---|---|---|
 | **Per-country bid floor** | `geo_settings.bid_floor[]` | `set_demand_geo_bid_floors` |
 | Per-country QPS cap | `geo_settings.qps[]` | `set_demand_geo_qps` |
-| Country blocklist | `geo_settings.blacklist[]` | `set_demand_geo_blacklist` |
+| Country blocklist | `geo_settings.blacklist[]` | `set_demand_geo_blacklist` (merges — see §6.2) |
 | QPS envelope + auto-optimiser | `qps_limit.*` | `set_demand_qps_limit` |
 | Spend limit | `spend_limit` | `set_demand_economics` |
 | Margin model (fixed/adaptive/range) | `margin_type`, `margin_min/max` | `set_demand_economics` |
@@ -690,6 +690,32 @@ Pick one owner per lever. Two optimisers on one floor is the April thrash
 again, with a partner in the loop.
 
 ---
+
+### 6.2 The three `geo_settings` lists replace wholesale on the wire
+
+`geo_settings.bid_floor[]`, `geo_settings.qps[]` and `geo_settings.blacklist[]`
+are each sent as the complete list. There is no "append one country" verb, so
+a caller that POSTs only its own entries silently deletes every entry someone
+else put there — and a country blacklist is exactly the kind of standing
+trading rule a human sets by hand and never revisits. Nothing in the response
+would look wrong afterwards; the first signal would be a partner asking why
+they started receiving traffic from a country they blocked.
+
+All three helpers in `core/tbx_mgmt.py` therefore **read the current list and
+merge into it by default**, and take `replace=True` for a caller that has read
+the list and means to drop entries. `set_demand_geo_blacklist` gained this on
+2026-08-31; it had been the odd one out, replacing wholesale while its two
+neighbours merged. It also returns `added`, `removed`, `blacklist_before` and
+`blacklist_after`, so a ledger can record what actually changed rather than
+what was requested — which is what makes `scripts/tbx_geo_cut.py --revert`
+exact rather than approximate.
+
+Country arguments are the platform's **numeric ids**, not ISO codes. Resolve
+with `tbx_api.country_ids(["Brazil", "RU"])`, which warns on anything it
+cannot match. Warning, not raising, is the dangerous part for a batch caller:
+a partially-resolved list would block a different set than the one reported,
+so `tbx_geo_cut.py` refuses a buyer outright unless every one of its countries
+resolves.
 
 ## 7. Suggested order of work
 

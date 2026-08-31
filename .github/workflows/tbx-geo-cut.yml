@@ -1,0 +1,173 @@
+name: TBX Geo Cut (WRITES)
+
+# The second of the two TBX workflows that can change platform state — the
+# other is tbx-cut.yml. Both are kept apart from the read-only probe for the
+# same reason: a diagnostic that grew a write path is how someone runs a
+# mutation believing they ran a report.
+#
+# This one edits `geo_settings.blacklist` on demand sources, and nothing else.
+# It cannot disable a source, move a floor, or touch a margin: tbx_geo_cut.py
+# calls set_demand_geo_blacklist and no other writer.
+#
+# Safety, in the order it applies:
+#
+#   1. `apply` defaults to "no". A default run is a dry run, and a dry run
+#      does not even set the gate.
+#   2. The script refuses any pair with impressions (max_imps_day 0) or spend
+#      above max_spend_day. A pair that trades at all wants a floor, not a
+#      block, and that is tbx_demand_geo_floor's job.
+#   3. A buyer that spends nothing in ANY country is skipped rather than
+#      blacklisted geo by geo — that is a source-level decision for
+#      tbx-cut.yml's NO-WIN bucket.
+#   4. The write MERGES into whatever the buyer already blocks. A blacklist
+#      set by hand is a standing trading rule and must survive.
+#   5. Every applied run writes a ledger recording each buyer's prior list,
+#      uploaded below. Reverting without that file is not possible, so the
+#      upload runs on failure too.
+#
+# To undo a run: download its ledger artifact and use `revert_ledger`, or
+#     python3 scripts/tbx_geo_cut.py --revert geo-ledger-<stamp>.json --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Type yes to actually blacklist. Anything else is a dry run."
+        required: false
+        default: "no"
+      days:
+        description: "Settled days to re-measure over"
+        required: false
+        default: "7"
+      min_requests_day:
+        description: "Only pairs above this outbound volume"
+        required: false
+        default: "100000"
+      max_spend_day:
+        description: "Absolute refusal above this $/day"
+        required: false
+        default: "0.10"
+      max_imps_day:
+        description: "Absolute refusal above this imps/day. 0 means a pair that trades at all is never blocked."
+        required: false
+        default: "0"
+      include:
+        description: "Only these demand ids, comma-separated"
+        required: false
+        default: ""
+      also_exclude:
+        description: "Demand ids to skip, comma-separated"
+        required: false
+        default: ""
+      revert_ledger:
+        description: "Path to a downloaded ledger to REVERT instead of cutting"
+        required: false
+        default: ""
+
+concurrency:
+  # Shares the platform's undocumented rate limit with the TBX readers, and
+  # stops a geo run overlapping a source cut.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  geo-cut:
+    name: Blacklist dead DSP x country pairs
+    runs-on: ubuntu-latest
+    # The pair grain is the heaviest query this repo makes — demand_source x
+    # country with requests_sum, one call per day. See §5.9 of
+    # docs/teqblaze-new-platform.md: it swings from seconds to 45 minutes.
+    timeout-minutes: 60
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      # The gate opens ONLY when apply is literally "yes". A dry run leaves it
+      # shut, so even a bug in the script cannot write — core/tbx_mgmt.py
+      # refuses independently of anything here.
+      TBX_ALLOW_WRITES: ${{ inputs.apply == 'yes' && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        # Before the credential gate and before any write: if the refusal
+        # logic or the blacklist merge is broken, this run must not reach the
+        # platform.
+        run: |
+          python3 tests/test_tbx_geo_cut.py
+          python3 tests/test_tbx_geo_waste.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: Say what this run will do
+        run: |
+          echo "days           : ${{ inputs.days }}"
+          echo "min req/day    : ${{ inputs.min_requests_day }}"
+          echo "max \$/day      : ${{ inputs.max_spend_day }}"
+          echo "max imps/day   : ${{ inputs.max_imps_day }}"
+          echo "include        : ${{ inputs.include }}"
+          echo "also excluded  : ${{ inputs.also_exclude }}"
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          if [ "${{ inputs.apply }}" = "yes" ]; then
+            echo "::warning::APPLY MODE — countries will be blocked on live demand sources."
+          else
+            echo "DRY RUN — nothing will be written."
+          fi
+
+      - name: Revert a previous run
+        if: inputs.revert_ledger != ''
+        env:
+          IN_LEDGER: ${{ inputs.revert_ledger }}
+        run: |
+          ARGS="--revert $IN_LEDGER"
+          if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
+          python3 scripts/tbx_geo_cut.py $ARGS
+
+      - name: Geo cut
+        if: inputs.revert_ledger == ''
+        env:
+          IN_DAYS: ${{ inputs.days }}
+          IN_MINREQ: ${{ inputs.min_requests_day }}
+          IN_MAXSPEND: ${{ inputs.max_spend_day }}
+          IN_MAXIMPS: ${{ inputs.max_imps_day }}
+          IN_INCLUDE: ${{ inputs.include }}
+          IN_EXCLUDE: ${{ inputs.also_exclude }}
+        run: |
+          ARGS="--days $IN_DAYS --min-requests-day $IN_MINREQ"
+          ARGS="$ARGS --max-spend-day $IN_MAXSPEND --max-imps-day $IN_MAXIMPS"
+          if [ -n "$IN_INCLUDE" ]; then ARGS="$ARGS --include $IN_INCLUDE"; fi
+          if [ -n "$IN_EXCLUDE" ]; then ARGS="$ARGS --also-exclude $IN_EXCLUDE"; fi
+          if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
+          echo "running: tbx_geo_cut.py $ARGS"
+          # Exit 1 means at least one write was refused or failed, which must
+          # fail the job. Exit 0 covers both "nothing to do" and success.
+          python3 scripts/tbx_geo_cut.py $ARGS
+
+      - name: Upload ledger
+        # always(), because a run that half-applied and then failed is exactly
+        # the one whose ledger you need to revert with.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geo-ledger-${{ github.run_id }}
+          path: geo-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore
