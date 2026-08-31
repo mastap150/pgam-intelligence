@@ -64,6 +64,10 @@ on:
         description: "Optional write-shape check, e.g. supply:22 or demand:91. Prints the payload, sends nothing."
         required: false
         default: ""
+      trim:
+        description: "Traffic-and-margin trim report over this many settled days (e.g. 7). Read-only; also skips the full pull."
+        required: false
+        default: ""
       reach_from:
         description: "Day-reachability probe from this date (YYYY-MM-DD). Set this to SKIP the full pull — one small request per day, answers whether a backfill that far back is possible."
         required: false
@@ -196,8 +200,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Pull every surface
-        # Skipped when either targeted probe ran — see above.
-        if: inputs.reach_from == '' && inputs.backfill_dry_from == ''
+        # Skipped when any targeted probe ran — see above. The full pull walks
+        # every surface and is the expensive path; a run that asked a specific
+        # question does not also want it.
+        if: inputs.reach_from == '' && inputs.backfill_dry_from == '' && inputs.trim == ''
         # Inputs arrive via env, not ${{ }} interpolation into the shell —
         # dispatch inputs are free text and would otherwise be executed.
         env:
@@ -221,6 +227,20 @@ jobs:
         env:
           IN_DIFF_SHAPE: ${{ inputs.diff_shape }}
         run: python3 scripts/tbx_probe.py --diff-shape "$IN_DIFF_SHAPE"
+
+      - name: Trim report
+        # What traffic is worth cutting and which sources are realising
+        # outside the margin band they are configured for. Read-only: it
+        # imports nothing from the write path, and the margin fields it
+        # reports on are not writable over this API anyway (§6.1).
+        #
+        # Exit 1 means "found something", which is the normal outcome and
+        # must not fail the job — but any other code is a real crash and
+        # has to surface, so this is `|| [ $? -eq 1 ]` rather than `|| true`.
+        if: github.event_name == 'workflow_dispatch' && inputs.trim != ''
+        env:
+          IN_TRIM: ${{ inputs.trim }}
+        run: python3 scripts/tbx_trim.py --days "$IN_TRIM" || [ $? -eq 1 ]
 
       - name: Upload data
         if: always()
