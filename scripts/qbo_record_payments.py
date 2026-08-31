@@ -24,8 +24,13 @@ One deposit can cover several invoices — see the 1254 + 1269 entry.
 
 Usage
 -----
-    python3 scripts/qbo_record_payments.py            # dry run, prints a plan
-    python3 scripts/qbo_record_payments.py --apply    # writes to QuickBooks
+    # normal path — apply a plan produced by the matcher
+    python3 -m agents.recon.payment_matcher stmt.qbo --emit-plan plan.json
+    python3 scripts/qbo_record_payments.py --plan plan.json           # dry run
+    python3 scripts/qbo_record_payments.py --plan plan.json --apply
+
+    # no plan file: falls back to the hardcoded BATCH below
+    python3 scripts/qbo_record_payments.py
 
 Requires QBO_CLIENT_ID / QBO_CLIENT_SECRET / QBO_REFRESH_TOKEN / QBO_REALM_ID.
 Safe to re-run: an invoice already at zero balance is skipped.
@@ -34,6 +39,7 @@ Safe to re-run: an invoice already at zero balance is skipped.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import date
 from decimal import Decimal
@@ -46,9 +52,12 @@ from core import qbo_api  # noqa: E402
 # ---------------------------------------------------------------------------
 # What to record
 #
-# From the 2026-08-28 bank reconciliation. `deposit` is what hit the statement;
-# `fee` is invoice total minus deposit. Group several docs under one entry when
-# a single wire covered them.
+# From the 2026-08-28 bank reconciliation, kept as the fallback when no --plan
+# is given. `deposit` is what hit the statement; `fee` is invoice total minus
+# deposit. Group several docs under one entry when a single wire covered them.
+#
+# A plan file produced by agents.recon.payment_matcher has exactly this shape,
+# as a JSON list — which is the path to prefer for anything new.
 # ---------------------------------------------------------------------------
 
 BATCH = [
@@ -85,14 +94,37 @@ def _money(raw: str | Decimal) -> Decimal:
 # Planning
 # ---------------------------------------------------------------------------
 
-def build_plan(cfg: dict, token: str) -> tuple[list[dict], list[str]]:
+def load_batch(path: Path) -> list[dict]:
+    """Read a plan file emitted by agents.recon.payment_matcher.
+
+    Validated here rather than trusted: the matcher infers most of these from
+    amounts alone, and a malformed entry should stop the run before it reaches
+    the arithmetic check, not halfway through writing.
+    """
+    entries = json.loads(path.read_text())
+    if not isinstance(entries, list):
+        raise SystemExit(f"{path}: expected a JSON list of entries")
+
+    for index, entry in enumerate(entries):
+        if not isinstance(entry, dict):
+            raise SystemExit(f"{path}: entry {index} is not an object")
+        missing = [k for k in ("docs", "deposit", "fee") if k not in entry]
+        if missing:
+            raise SystemExit(f"{path}: entry {index} is missing {', '.join(missing)}")
+        if not isinstance(entry["docs"], list) or not entry["docs"]:
+            raise SystemExit(f"{path}: entry {index} has no invoice doc numbers")
+        entry.setdefault("memo", "")
+    return entries
+
+
+def build_plan(cfg: dict, token: str, batch: list[dict]) -> tuple[list[dict], list[str]]:
     """Resolve every doc number to a live invoice and check the arithmetic.
 
     Returns (plan, problems). Nothing is written if problems is non-empty.
     """
     plan, problems = [], []
 
-    for entry in BATCH:
+    for entry in batch:
         invoices = []
         for doc in entry["docs"]:
             inv = qbo_api.find_invoice_by_doc_number(cfg, token, doc)
@@ -197,7 +229,24 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--apply", action="store_true",
                     help="write to QuickBooks (default is a dry run)")
+    ap.add_argument("--plan", type=Path, metavar="FILE",
+                    help="JSON plan from agents.recon.payment_matcher "
+                         "(default: the hardcoded BATCH)")
     args = ap.parse_args()
+
+    if args.plan:
+        if not args.plan.exists():
+            print(f"No such plan file: {args.plan}")
+            return 1
+        batch = load_batch(args.plan)
+        print(f"Loaded {len(batch)} entr{'y' if len(batch) == 1 else 'ies'} "
+              f"from {args.plan}")
+        if not batch:
+            print("Plan is empty — nothing to do.")
+            return 0
+    else:
+        batch = BATCH
+        print(f"No --plan given; using the hardcoded BATCH ({len(batch)} entries).")
 
     cfg = qbo_api.config()
     missing = qbo_api.missing_config(cfg)
@@ -229,7 +278,7 @@ def main() -> int:
     }
 
     print("\nResolving invoices…")
-    plan, problems = build_plan(cfg, token)
+    plan, problems = build_plan(cfg, token, batch)
 
     if problems:
         print("\nRefusing to write — these need attention first:")
