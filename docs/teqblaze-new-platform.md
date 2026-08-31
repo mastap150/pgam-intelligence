@@ -332,7 +332,7 @@ write.
 |---|---|---|
 | **Per-country bid floor** | `geo_settings.bid_floor[]` | `set_demand_geo_bid_floors` |
 | Per-country QPS cap | `geo_settings.qps[]` | `set_demand_geo_qps` |
-| Country blocklist | `geo_settings.blacklist[]` | `set_demand_geo_blacklist` |
+| Country blocklist | `geo_settings.blacklist[]` | `set_demand_geo_blacklist` (merges — see §6.2) |
 | QPS envelope + auto-optimiser | `qps_limit.*` | `set_demand_qps_limit` |
 | Spend limit | `spend_limit` | `set_demand_economics` |
 | Margin model (fixed/adaptive/range) | `margin_type`, `margin_min/max` | `set_demand_economics` |
@@ -513,6 +513,27 @@ entity grain:
 - **Read step timestamps, not wall-clock guesses.** A job object showing
   `in_progress` may have completed a second later; I misread exactly that
   during this session and drew the wrong conclusion from it twice.
+- **Raise `TBX_TIMEOUT` for these queries; 60s is not enough.** The
+  `demand_source × country` pair grain is the heaviest read in the repo. On
+  2026-08-31 three days returned in 2–3 minutes *each* and the fourth timed
+  out on all three retries. The default 60s read timeout is calibrated for
+  entity reads, not this; `tbx-probe.yml`'s geo step and `tbx-geo-cut.yml`
+  both set 300.
+- **Let a slow day fail without losing the fast ones.** The same run threw
+  away three good days because the fourth timed out. `pull_pairs` now skips a
+  failed day, reports which, and divides per-day figures by the days that
+  answered. A short window is a smaller measurement, not a wrong one — but see
+  §6.2 on why a write must not accept one.
+
+#### The exit-code collision this exposed
+
+`tbx_geo_waste` exits 1 for "found waste", and its workflow step treats that
+as success (`|| [ $? -eq 1 ]`). **An uncaught Python exception also exits 1.**
+So the crashed pairs run above reported step success, job success, and
+produced no report — the failure was visible only by reading the log. Both geo
+scripts now catch `TbxError` at the module guard and exit **3**, which lands
+outside that guard. Any script whose caller special-cases exit 1 needs the
+same treatment; a bare `sys.exit(main())` will not do.
 
 ### 5.10 Never ask this API for a multi-day window
 
@@ -690,6 +711,39 @@ Pick one owner per lever. Two optimisers on one floor is the April thrash
 again, with a partner in the loop.
 
 ---
+
+### 6.2 The three `geo_settings` lists replace wholesale on the wire
+
+`geo_settings.bid_floor[]`, `geo_settings.qps[]` and `geo_settings.blacklist[]`
+are each sent as the complete list. There is no "append one country" verb, so
+a caller that POSTs only its own entries silently deletes every entry someone
+else put there — and a country blacklist is exactly the kind of standing
+trading rule a human sets by hand and never revisits. Nothing in the response
+would look wrong afterwards; the first signal would be a partner asking why
+they started receiving traffic from a country they blocked.
+
+All three helpers in `core/tbx_mgmt.py` therefore **read the current list and
+merge into it by default**, and take `replace=True` for a caller that has read
+the list and means to drop entries. `set_demand_geo_blacklist` gained this on
+2026-08-31; it had been the odd one out, replacing wholesale while its two
+neighbours merged. It also returns `added`, `removed`, `blacklist_before` and
+`blacklist_after`, so a ledger can record what actually changed rather than
+what was requested — which is what makes `scripts/tbx_geo_cut.py --revert`
+exact rather than approximate.
+
+A partial measurement must not drive one of these writes. `pull_pairs`
+tolerates a day that times out (§5.9), which is right for a report and wrong
+for a blacklist: a pair that only traded on the missing day reads as dead.
+`tbx_geo_cut.py --apply` therefore requires every requested day to answer
+unless `--min-days-with-data` explicitly lowers the bar; a dry run reports on
+whatever came back and says so.
+
+Country arguments are the platform's **numeric ids**, not ISO codes. Resolve
+with `tbx_api.country_ids(["Brazil", "RU"])`, which warns on anything it
+cannot match. Warning, not raising, is the dangerous part for a batch caller:
+a partially-resolved list would block a different set than the one reported,
+so `tbx_geo_cut.py` refuses a buyer outright unless every one of its countries
+resolves.
 
 ## 7. Suggested order of work
 

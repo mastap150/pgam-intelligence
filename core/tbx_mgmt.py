@@ -992,22 +992,57 @@ def set_demand_geo_qps(
 def set_demand_geo_blacklist(
     demand_source_id: int,
     country_ids: list[int],
+    replace: bool = False,
     actor: str = "manual",
     reason: str = "",
     dry_run: bool | None = None,
 ) -> dict:
     """
-    Replace a DSP's blocked-country list (`geo_settings.blacklist`).
+    Add countries to a DSP's blocked-country list (`geo_settings.blacklist`).
 
-    Replaces wholesale — pass the complete intended list. The natural writer
-    for this is a geo-leak agent that finds countries where a DSP spends but
-    never converts to margin.
+    The wire field replaces wholesale, so this reads the current blacklist and
+    sends the union. That is not a nicety: `geo_settings.blacklist` is a
+    standing trading rule someone set by hand, and an agent that appends one
+    dead country by POSTing only its own list silently unblocks every country
+    a human blocked earlier. Merge semantics therefore match the two
+    neighbouring geo writers, `set_demand_geo_bid_floors` and
+    `set_demand_geo_qps`, and for the same reason.
+
+    `replace=True` sends exactly `country_ids` and drops anything already
+    there — only for a caller that has read the current list and means it.
+
+    `country_ids` are the platform's numeric ids, not ISO codes; resolve with
+    `tbx_api.country_ids(["Brazil", "RU"])`.
+
+    The result carries `added` and `removed` (country ids) so a ledger can
+    record what actually changed rather than what was asked for.
     """
-    rows = [{"country_id": int(cid), "value": 0} for cid in country_ids]
-    return _apply_update("demand_source", demand_source_id,
-                         {"geo_settings": {"blacklist": rows}},
-                         actor=actor, reason=reason or f"blacklist {len(country_ids)} countries",
-                         action="set_demand_geo_blacklist", dry_run=dry_run)
+    current = get_demand_source(demand_source_id)
+    geo = (current or {}).get("geo_settings") or {}
+    existing = {
+        int(r["country_id"]) for r in (geo.get("blacklist") or [])
+        if r.get("country_id") is not None
+    }
+    wanted = {int(cid) for cid in country_ids}
+
+    merged = wanted if replace else (existing | wanted)
+    added = sorted(merged - existing)
+    removed = sorted(existing - merged)
+
+    rows = [{"country_id": cid, "value": 0} for cid in sorted(merged)]
+    detail = reason or (
+        f"blacklist +{len(added)} countries "
+        f"({len(existing)} already blocked{', ' + str(len(removed)) + ' dropped' if removed else ''})"
+    )
+    result = _apply_update("demand_source", demand_source_id,
+                           {"geo_settings": {"blacklist": rows}},
+                           actor=actor, reason=detail,
+                           action="set_demand_geo_blacklist", dry_run=dry_run)
+    result["added"] = added
+    result["removed"] = removed
+    result["blacklist_before"] = sorted(existing)
+    result["blacklist_after"] = sorted(merged)
+    return result
 
 
 def set_demand_qps_limit(

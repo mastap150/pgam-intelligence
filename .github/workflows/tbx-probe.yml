@@ -287,10 +287,17 @@ jobs:
         # in tbx-cut.yml.
         #
         # Exit 1 means "found waste", the normal outcome, so it must not fail
-        # the job; any other code is a crash and does.
+        # the job; any other code is a crash and does. The script exits 3 on an
+        # unreachable platform precisely so it lands outside this guard —
+        # before that, a crashed run exited 1 like any Python traceback and
+        # this step reported success having produced nothing (2026-08-31).
         if: github.event_name == 'workflow_dispatch' && inputs.geo_waste != ''
         env:
           IN_GEO: ${{ inputs.geo_waste }}
+          # The pair grain routinely exceeds the 60s default: on 2026-08-31
+          # three days returned in 2-3 minutes each and the fourth timed out
+          # three times over. The query is slow, not broken (§5.9).
+          TBX_TIMEOUT: "300"
         run: |
           VIEW="${IN_GEO%%:*}"
           DAYS="${IN_GEO#*:}"

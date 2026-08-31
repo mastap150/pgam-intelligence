@@ -165,9 +165,17 @@ def render_pairs(rows: list[dict], args) -> list[dict]:
         if r["id"] is not None:
             by_dsp.setdefault(r["id"], []).append(r["country"])
     if by_dsp:
-        print(f"\n  One call per buyer:")
+        # Codes, not platform ids — set_demand_geo_blacklist takes the numeric
+        # ids that tbx_api.country_ids() resolves these to. scripts/
+        # tbx_geo_cut.py does that resolution, re-measures first, and refuses
+        # a buyer whose countries do not all resolve.
+        print(f"\n  One call per buyer (country CODES; resolve with "
+              f"tbx_api.country_ids):")
         for did, countries in sorted(by_dsp.items()):
-            print(f"    set_demand_geo_blacklist({did}, {sorted(set(countries))})")
+            print(f"    set_demand_geo_blacklist({did}, "
+                  f"country_ids({sorted(set(countries))}))")
+        print(f"\n  To apply, with a fresh measurement and a revertible "
+              f"ledger:\n    python3 scripts/tbx_geo_cut.py --apply")
     return waste
 
 
@@ -216,6 +224,10 @@ def main(argv: list[str] | None = None) -> int:
 
     summarised = summarise(rows, key, days_with_data)
     print(f"  {len(summarised)} row(s) over {days_with_data}/{args.days} days")
+    if days_with_data < args.days:
+        print(f"  ⚠ partial window — every per-day figure below is divided by "
+              f"{days_with_data}, not {args.days}. A pair that only traded on a "
+              f"missing day looks dead here.")
 
     flagged = (render_country(summarised, args) if args.view == "country"
                else render_pairs(summarised, args))
@@ -233,11 +245,24 @@ def pull_pairs(start: date, days: int) -> tuple[list[dict], int]:
     """
     totals: dict[tuple, dict[str, float]] = {}
     days_with_data = 0
+    failed: list[str] = []
     for offset in range(days):
         day = (start + timedelta(days=offset)).isoformat()
-        rows, _ = tbx.report(day, day,
-                             attributes=["date", "demand_source", "country"],
-                             metrics=GEO_METRICS)
+        try:
+            rows, _ = tbx.report(day, day,
+                                 attributes=["date", "demand_source", "country"],
+                                 metrics=GEO_METRICS)
+        except tbx.TbxError as exc:
+            # One day timing out must not throw away the days that answered.
+            # This grain is the heaviest query the repo makes and read
+            # timeouts are routine here (§5.9) — on 2026-08-31 three good days
+            # were lost to the fourth one failing. Every per-day figure is
+            # already divided by the days that answered, so a short window is
+            # a smaller measurement, not a wrong one. The caller decides
+            # whether the coverage is enough to act on.
+            print(f"    {day}: FAILED — {exc}", file=sys.stderr, flush=True)
+            failed.append(day)
+            continue
         kept = 0
         for row in rows:
             if str(row.get("date") or "")[:10] != day:
@@ -252,6 +277,9 @@ def pull_pairs(start: date, days: int) -> tuple[list[dict], int]:
         print(f"    {day}: {kept} pair rows", flush=True)
         if kept:
             days_with_data += 1
+    if failed:
+        print(f"\n  {len(failed)}/{days} day(s) did not answer: {', '.join(failed)}",
+              flush=True)
     out = []
     for (did, dname, country), vals in totals.items():
         out.append({
@@ -264,4 +292,12 @@ def pull_pairs(start: date, days: int) -> tuple[list[dict], int]:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    # Exit 1 means "found waste" and callers treat it as success, so an
+    # unhandled TbxError must NOT also exit 1 — Python's default for an
+    # uncaught exception. On 2026-08-31 that collision let a crashed pairs
+    # run report success and produce nothing.
+    try:
+        sys.exit(main())
+    except tbx.TbxError as exc:
+        print(f"\nplatform unreachable: {exc}", file=sys.stderr)
+        sys.exit(3)
