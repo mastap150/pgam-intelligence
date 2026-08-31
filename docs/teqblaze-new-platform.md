@@ -477,6 +477,46 @@ credential to enter a Claude session.
 
 ---
 
+### 5.9 The account's API latency is not stable — time your reads
+
+Observed 2026-08-31, and worth knowing before diagnosing a slow job as a bug
+of ours. The connectivity probe (`tbx_probe.py`, most groups skipped) ran in
+**26 seconds** at 12:44 UTC and again at 12:49, then the *same* command on the
+*same* runner was still going after **15 minutes** at 12:52. Nothing changed
+on our side between those runs.
+
+So a TBX read taking minutes is not by itself evidence of a bad query. Before
+rewriting one:
+
+1. Check whether a known-fast command is also slow right now. The probe with
+   `skip=entities,reports,diagnostics,quality,recon,dictionaries` is the
+   cheapest baseline — it should come back in well under a minute.
+2. Only if that is fast is the slowness yours.
+
+Two runs of `tbx_trim.py` were cancelled at 34 and 48 minutes chasing this as
+a query-shape problem. The chunking fix that came out of it was worth making
+on its own merits (§5.10), but the latency was the platform's.
+
+Anything long-running against this host wants per-item progress printed and
+flushed, for the same reason: a silent 40-minute job cannot be told from a
+hung one.
+
+### 5.10 Never ask this API for a multi-day window
+
+Recorded here because three separate pieces of code have now had to learn it
+independently — `tb_revenue_etl` against the legacy host, `tbx_revenue_etl`
+(`CHUNK_DAYS = 1`), and `tbx_trim.py`.
+
+A multi-day report request is answered **200 with only the most recent ~5
+days in it**. No error, no flag, no short-window marker. A seven-day request
+therefore returns five days of data, and any code that divides by seven
+understates every figure by ~30% while looking perfectly healthy.
+
+Ask one day at a time, and check the `date` on every row that comes back
+rather than trusting a single-day request to have been answered as one.
+
+---
+
 ## 6. Before enabling writes
 
 The write path is read-modify-write against endpoints that replace the **whole
