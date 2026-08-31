@@ -436,6 +436,75 @@ def _spec_properties(schema_name: str) -> frozenset[str]:
     return fields
 
 
+_types_cache: dict[str, dict[str, str]] = {}
+
+
+def _spec_types(schema_name: str) -> dict[str, str]:
+    """{field: declared JSON type} for one schema. Empty when unreadable."""
+    if schema_name in _types_cache:
+        return _types_cache[schema_name]
+    try:
+        with open(_SPEC_PATH) as handle:
+            spec = json.load(handle)
+        props = (spec.get("components", {}).get("schemas", {})
+                 .get(schema_name, {}).get("properties") or {})
+        out = {name: prop["type"] for name, prop in props.items()
+               if isinstance(prop, dict) and isinstance(prop.get("type"), str)}
+    except (OSError, ValueError, AttributeError):
+        out = {}                      # degrade to "no opinion", never to a guess
+    _types_cache[schema_name] = out
+    return out
+
+
+def _normalise_for_write(entity: dict, kind: str) -> tuple[dict, list[str]]:
+    """
+    Make a freshly-read entity acceptable to its own update endpoint.
+
+    TBX serves demand sources it will not accept back (§6.3). Measured across
+    8 live demand sources on 2026-08-31 by `scripts/tbx_type_probe.py`:
+
+        target_srcpm_value   8/8  declared number, is null
+        vcr_optimization     8/8  declared number, is null
+        geo_settings         7/8  declared object, is []
+        target_srcpm         1/8  declared string, is null
+
+    and zero mismatches on supply, which is why supply writes have always
+    worked and demand writes have never succeeded at all.
+
+    Both repairs represent *absence*, which is what the platform stored — no
+    value is invented:
+
+    - **A null in a non-nullable field is dropped.** Omitting a key the entity
+      has no value for is the closest faithful statement of "unset". Coercing
+      instead would mean choosing one: `vcr_optimization: 0` is a VCR target
+      of zero, not an absent one, and `target_srcpm: "default"` vs `"target"`
+      is a live trading setting. Neither is ours to pick.
+    - **`[]` where an object is declared becomes `{}`.** PHP's `json_encode`
+      renders an empty associative array as `[]`, so this is the platform
+      spelling "no geo settings" in a shape its own schema rejects.
+
+    Returns the repaired copy and a description of what it changed, so the
+    caller can log it rather than mutating a live entity silently.
+    """
+    types = _spec_types(_READ_SCHEMA.get(kind, ""))
+    if not types:
+        return copy.deepcopy(entity), []
+
+    out = copy.deepcopy(entity)
+    notes: list[str] = []
+    for field, want in types.items():
+        if field not in out:
+            continue
+        value = out[field]
+        if value is None and want in ("number", "integer", "string", "boolean"):
+            del out[field]
+            notes.append(f"{field}: dropped null ({want})")
+        elif want == "object" and isinstance(value, list) and not value:
+            out[field] = {}
+            notes.append(f"{field}: [] -> {{}}")
+    return out, notes
+
+
 def write_schema_fields(kind: str) -> frozenset[str]:
     """Field names the platform's write schema accepts for `kind`."""
     return _spec_properties(_WRITE_SCHEMA.get(kind, ""))
@@ -540,7 +609,13 @@ def _apply_update(
     if not isinstance(current, dict) or not current:
         raise TbxError(f"GET /{path_root}/{entity_id} returned nothing usable")
 
-    body = _strip_read_only(current, kind)
+    # Normalise BEFORE the merge, so `_assert_no_key_loss` compares like with
+    # like: a null dropped here is a deliberate repair, not the field-blanking
+    # failure mode that check exists to catch.
+    body, repairs = _normalise_for_write(_strip_read_only(current, kind), kind)
+    if repairs:
+        print(f"{_LOG} {action}  {kind}={entity_id} — normalised for the write "
+              f"schema: {'; '.join(repairs)}")
     payload = _deep_merge(body, changes)
 
     lost = _assert_no_key_loss(body, payload)

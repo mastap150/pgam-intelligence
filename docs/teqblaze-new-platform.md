@@ -786,12 +786,40 @@ the key dropped so the platform re-applies a default — and dropping it could
 switch VCR optimisation off on a live buyer. Those are different trading
 outcomes.
 
-`scripts/tbx_type_probe.py` measures it instead: read-only, it lists every
-live field whose value contradicts its declared type, with the value, so the
-coercion is chosen from evidence. Run it via `tbx-probe.yml`'s `type_probe`
-input. Once the full set is known, the fix belongs in `_apply_update` —
-coerce to spec types on the way out — and Teqblaze should be told their
-update endpoint rejects the entities their own read endpoint serves.
+**Measured, 2026-08-31** (`scripts/tbx_type_probe.py`, run 33443545277, 8 live
+entities per side):
+
+| field | n/8 | declared | live value |
+|---|---|---|---|
+| `target_srcpm_value` | 8 | number | `null` |
+| `vcr_optimization` | 8 | number | `null` |
+| `geo_settings` | 7 | object | `[]` |
+| `target_srcpm` | 1 | string | `null` |
+
+Supply: **zero mismatches across all 8**. That is the whole explanation for
+why supply writes have always worked and demand writes had never succeeded.
+
+`_normalise_for_write` repairs both shapes, and neither invents a value:
+
+- **A null in a non-nullable field is dropped.** Omitting a key the entity has
+  no value for is the closest faithful statement of "unset". Coercing would
+  mean choosing one — `vcr_optimization: 0` is a VCR target of zero rather
+  than an absent one, and `target_srcpm` `"default"` vs `"target"` is a live
+  trading setting. Neither is ours to pick.
+- **`[]` where an object is declared becomes `{}`.** PHP's `json_encode`
+  renders an empty associative array as `[]`, so this is the platform spelling
+  "no geo settings" in a shape its own schema rejects. Only an *empty* list is
+  converted; a populated one is real data.
+
+It runs before the merge, so `_assert_no_key_loss` compares like with like — a
+deliberate drop must not read as the field-blanking failure that guard exists
+to catch — and it logs what it repaired rather than editing a live entity
+silently.
+
+Still worth raising with Teqblaze: their update endpoint rejects the entities
+their own read endpoint serves, and the 422 truncates its own error list
+("and 2 more errors"), which is what forced a diagnostic round-trip instead of
+a fix.
 
 ## 7. Suggested order of work
 

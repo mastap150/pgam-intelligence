@@ -360,6 +360,70 @@ def test_country_cap_skips_a_broken_integration() -> None:
     check("0 disables the rail", 501 in targets, str(list(targets)))
 
 
+def test_write_normalisation_matches_the_measured_offenders() -> None:
+    """The four fields tbx_type_probe found on 8 live demand sources.
+
+    TBX serves demand sources it will not accept back, which is why all 50
+    writes 422'd on 2026-08-31. Each repair must represent absence, never a
+    value we chose: vcr_optimization: 0 is a VCR target of zero, not an unset
+    one, and target_srcpm "default" vs "target" is a live trading setting.
+    """
+    print("\nthe payload is repaired to what the write schema accepts")
+    live = {
+        "id": 501,
+        "target_srcpm_value": None,      # 8/8 declared number, is null
+        "vcr_optimization": None,        # 8/8 declared number, is null
+        "geo_settings": [],              # 7/8 declared object, is []
+        "target_srcpm": None,            # 1/8 declared string, is null
+        "name": "Real Buyer",            # untouched
+        "margin_min": 7,                 # untouched
+    }
+    out, notes = tbm._normalise_for_write(live, "demand_source")
+
+    for field in ("target_srcpm_value", "vcr_optimization", "target_srcpm"):
+        check(f"{field}: the null is dropped, not coerced",
+              field not in out, str(out.get(field)))
+    check("geo_settings: [] becomes {}", out["geo_settings"] == {},
+          str(out["geo_settings"]))
+    check("no value is invented for a dropped field",
+          all(v is not None for v in out.values()), str(out))
+    check("fields that were fine are untouched",
+          out["name"] == "Real Buyer" and out["margin_min"] == 7, str(out))
+    check("the repairs are reported so they can be logged",
+          len(notes) == 4, str(notes))
+    check("the input is not mutated", live["geo_settings"] == [], str(live))
+
+    # A populated geo_settings must survive — only an EMPTY list is the PHP
+    # empty-associative-array tell. A non-empty list is real data.
+    out2, _ = tbm._normalise_for_write(
+        {"geo_settings": [{"country_id": 7}]}, "demand_source")
+    check("a non-empty list is left alone",
+          out2["geo_settings"] == [{"country_id": 7}], str(out2))
+
+    # Supply had zero mismatches; normalisation must stay a no-op there.
+    out3, notes3 = tbm._normalise_for_write(
+        {"id": 4, "name": "Pub", "margin_min": 5}, "supply_source")
+    check("a clean supply source is unchanged", notes3 == [], str(notes3))
+
+
+def test_normalisation_does_not_trip_the_key_loss_guard() -> None:
+    """Dropping a null is a repair; _assert_no_key_loss must not see it.
+
+    The guard compares the merged payload against the body it merged onto, so
+    normalising before the merge is what keeps a deliberate drop from reading
+    as the field-blanking failure the guard exists to catch.
+    """
+    print("\nthe repair does not read as field-blanking")
+    body, _ = tbm._normalise_for_write(
+        {"id": 1, "vcr_optimization": None, "geo_settings": []}, "demand_source")
+    merged = tbm._deep_merge(body, {"geo_settings": {"blacklist": [1]}})
+    check("no key loss is reported",
+          tbm._assert_no_key_loss(body, merged) in ([], None),
+          str(tbm._assert_no_key_loss(body, merged)))
+    check("the blacklist landed on a dict, not an empty list",
+          merged["geo_settings"] == {"blacklist": [1]}, str(merged))
+
+
 def test_partial_window_cannot_drive_a_write() -> None:
     """A pair that only traded on a day that timed out looks dead.
 
@@ -446,6 +510,8 @@ def main() -> int:
     test_ledger_round_trip()
     test_not_set_is_unattributed()
     test_country_cap_skips_a_broken_integration()
+    test_write_normalisation_matches_the_measured_offenders()
+    test_normalisation_does_not_trip_the_key_loss_guard()
     test_partial_window_cannot_drive_a_write()
     test_crash_exit_code_is_not_the_refusal_code()
     test_parser()
