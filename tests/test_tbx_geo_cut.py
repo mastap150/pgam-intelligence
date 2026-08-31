@@ -316,6 +316,50 @@ def test_ledger_round_trip() -> None:
           seen.get("replace") is True, str(seen))
 
 
+def test_not_set_is_unattributed() -> None:
+    """The live dry run's first real bug.
+
+    "Not set" is the platform's own label for a row it could not attribute to
+    a country. The guessed UNATTRIBUTED set did not contain it, so the filter
+    never fired; the country-id resolver caught it downstream and refused the
+    whole buyer, taking 62 valid countries with it on Zeta - RON Desktop.
+    """
+    print("\n'Not set' is a non-country, whatever its casing")
+    for label in ("Not set", "not set", "  NOT SET  ", "(none)", "None", "-"):
+        rows = [pair(501, label, 5_000_000),
+                pair(501, "BR", 5_000_000),
+                pair(501, "US", 1, imps=1, spend=90.0)]
+        targets, skipped = gc.select(rows, args_for())
+        blocked = targets.get(501, {}).get("countries", [])
+        check(f"{label!r} is not blacklisted", label not in blocked, str(blocked))
+        check(f"{label!r} does not cost the buyer its real countries",
+              blocked == ["BR"], str(blocked))
+
+
+def test_country_cap_skips_a_broken_integration() -> None:
+    """63 dead countries on one buyer is not a geo problem."""
+    print("\na buyer with too many dead countries is a source decision")
+    many = [pair(501, f"C{i}", 5_000_000) for i in range(30)]
+    many.append(pair(501, "US", 1, imps=1, spend=90.0))
+    targets, skipped = gc.select(many, args_for())
+    check("the buyer is skipped entirely", 501 not in targets, str(list(targets)))
+    check("the skip explains and points at NO-WIN",
+          any("broken integration" in why and "NO-WIN" in why
+              for _, why in skipped), str([w for _, w in skipped][:1]))
+
+    # Just under the cap is still ordinary geo waste.
+    few = [pair(502, f"C{i}", 5_000_000) for i in range(25)]
+    few.append(pair(502, "US", 1, imps=1, spend=90.0))
+    targets, _ = gc.select(few, args_for())
+    check("a buyer at the cap is still actionable",
+          len(targets.get(502, {}).get("countries", [])) == 25,
+          str(len(targets.get(502, {}).get("countries", []))))
+
+    # And the rail can be turned off deliberately.
+    targets, _ = gc.select(many, args_for(max_countries_per_buyer=0))
+    check("0 disables the rail", 501 in targets, str(list(targets)))
+
+
 def test_partial_window_cannot_drive_a_write() -> None:
     """A pair that only traded on a day that timed out looks dead.
 
@@ -342,7 +386,12 @@ def test_partial_window_cannot_drive_a_write() -> None:
         rc_apply = gc.main(["--apply"])
         refused_writes = list(calls)     # must be empty; the later two are not
         rc_dry = gc.main([])
-        rc_override = gc.main(["--apply", "--min-days-with-data", "3"])
+        # --ledger into a temp dir: without it this writes a real-looking
+        # geo-ledger-*.json into the repo root, and two of those were
+        # committed by mistake in #141.
+        with tempfile.TemporaryDirectory() as tmp:
+            rc_override = gc.main(["--apply", "--min-days-with-data", "3",
+                                   "--ledger", str(Path(tmp) / "ledger.json")])
     finally:
         gc.measure, gc.tbx.configured = real_measure, real_conf
         gc.tbm.set_demand_geo_blacklist = real_write
@@ -395,6 +444,8 @@ def main() -> int:
     test_dry_run_never_writes()
     test_partial_country_resolution_refuses_the_buyer()
     test_ledger_round_trip()
+    test_not_set_is_unattributed()
+    test_country_cap_skips_a_broken_integration()
     test_partial_window_cannot_drive_a_write()
     test_crash_exit_code_is_not_the_refusal_code()
     test_parser()
