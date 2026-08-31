@@ -55,3 +55,10 @@ data/compliance_matrix_*.csv
 
 # Seeded design canvas output (regenerated from the .dc.html working files)
 docs/design/**/attentive-buying-deal-desk.html
+
+# Write ledgers. These are run artifacts uploaded by the cut workflows, never
+# repo content — two test-fixture ledgers were committed by mistake in #141
+# and swept into that run's artifact, which makes an audit trail ambiguous
+# exactly where it must not be.
+geo-ledger-*.json
+cut-ledger-*.json

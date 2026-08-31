@@ -376,7 +376,11 @@ def list_companies(search: str | None = None, per_page: int = 250) -> list[dict]
 _READ_ONLY_FIELDS = {
     "supply_source": ("id", "margin_type", "margin_min", "margin_max",
                       "has_inactive_company"),
-    "demand_source": ("id", "operation_systems", "uuid"),
+    # has_inactive_company: on demand as well as supply. Found on supply first
+    # (source 264, 2026-08-28) and assumed supply-only; the first live geo dry
+    # run warned on all 40-odd demand sources it touched (2026-08-31).
+    "demand_source": ("id", "operation_systems", "uuid",
+                      "has_inactive_company"),
 }
 
 # The subset of the above that the spec cannot account for: fields the *live*
@@ -390,7 +394,7 @@ _READ_ONLY_FIELDS = {
 # the platform a key it never advertised accepting.
 _UNDECLARED_RESPONSE_FIELDS = {
     "supply_source": ("has_inactive_company",),
-    "demand_source": (),
+    "demand_source": ("has_inactive_company",),
 }
 
 # The OpenAPI request schema each entity's `/update` endpoint accepts. Used to

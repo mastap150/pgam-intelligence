@@ -33,7 +33,13 @@ What it refuses to do
    problem under a hundred country-level edits.
 4. **`--min-requests-day` sets a floor on volume**, so the run is about cost
    that is actually being paid, not a tail of pairs sending nine requests.
-5. **A partial window cannot drive a write.** Days time out at this grain
+5. **A buyer with a huge dead-geo list is skipped**, not blacklisted. If a
+   buyer takes real volume in 40 countries and buys in none of them, the
+   problem is the integration, not the geography — the first live dry run
+   proposed 63 countries on one buyer and 42 on another. `--max-countries-
+   per-buyer` (default 25) refuses those and points at the NO-WIN bucket,
+   where the decision belongs.
+6. **A partial window cannot drive a write.** Days time out at this grain
    routinely (§5.9), and `pull_pairs` now keeps the days that answered rather
    than losing the run. That is right for a report and wrong for a blacklist:
    a pair that only traded on the missing day looks dead. `--apply` therefore
@@ -93,9 +99,16 @@ _HDR = "=" * 78
 # EXCLUDE_BY_DEFAULT: not "risky", but decisions that belong to a person.
 EXCLUDE_BY_DEFAULT: dict[int, str] = {}
 
-# A country label the report could not attribute. Blacklisting it is not even
-# well-defined, and it is where a reporting gap would show up first.
-UNATTRIBUTED = {"(none)", "", "unknown", "n/a"}
+# Country labels that name no country. Blacklisting one is not even
+# well-defined, and this is where a reporting gap shows up first.
+#
+# "Not set" is the platform's own wording, learned the hard way on the first
+# live dry run (2026-08-31): the guessed set below did not include it, so the
+# filter never fired and five buyers were instead refused downstream by the
+# country-id resolver. Right outcome, wrong mechanism — Zeta - RON Desktop
+# #2372 lost 62 perfectly good countries because one row said "Not set".
+# Matching is case-folded and whitespace-stripped, so add the label as seen.
+UNATTRIBUTED = {"(none)", "", "unknown", "n/a", "not set", "none", "-"}
 
 
 def ledger_path() -> str:
@@ -174,6 +187,19 @@ def select(pairs: list[dict], args) -> tuple[dict[int, dict], list[tuple[dict, s
         bucket["pairs"].sort(key=lambda p: -p["requests_day"])
         bucket["requests_day"] = sum(p["requests_day"] for p in bucket["pairs"])
         bucket["spend_day"] = sum(p["spend_day"] for p in bucket["pairs"])
+
+    # Rail 5, applied last: a buyer's country count is only known once every
+    # pair has been collected, so it cannot live in the loop above.
+    if args.max_countries_per_buyer:
+        for did in [d for d, b in targets.items()
+                    if len(b["countries"]) > args.max_countries_per_buyer]:
+            bucket = targets.pop(did)
+            for pair in bucket["pairs"]:
+                skipped.append((pair,
+                                f"{len(bucket['countries'])} dead countries on "
+                                f"this one buyer — that is a broken integration, "
+                                f"not geo waste; use tbx_cut --side demand "
+                                f"--buckets NO-WIN"))
     return targets, skipped
 
 
@@ -311,6 +337,11 @@ def build_parser() -> argparse.ArgumentParser:
         description="Blacklist the DSP × country pairs that never trade.")
     parser.add_argument("--days", type=int, default=7,
                         help="settled days to re-measure over (default 7)")
+    parser.add_argument("--max-countries-per-buyer", type=int, default=25,
+                        help="skip a buyer with more than this many dead "
+                             "countries (default 25). That shape is a broken "
+                             "integration, not geo waste — see --buckets "
+                             "NO-WIN in tbx_cut. 0 disables the rail.")
     parser.add_argument("--min-days-with-data", type=int, default=0,
                         help="days that must answer before --apply may write. "
                              "0 (default) means all of them. A pair that only "
