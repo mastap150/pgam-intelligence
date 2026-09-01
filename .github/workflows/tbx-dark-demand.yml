@@ -1,0 +1,173 @@
+name: TBX Dark Demand (scheduled)
+
+# Demand sources returning ZERO bid responses for N days running.
+#
+# The third write-capable TBX workflow (tbx-cut.yml, tbx-geo-cut.yml) and the
+# FIRST that runs on a schedule. That difference is the whole reason for the
+# shape below.
+#
+# An endpoint that receives requests and answers none of them is a broken
+# integration, not a buyer declining to bid — every request sent to it is
+# outbound cost with no possible upside. tbx-cut's NO-WIN bucket cannot see
+# this: it aggregates wins over a window, so a DSP that went down on Tuesday
+# still has wins from Monday and never gets flagged. Recency is the point.
+#
+# Why the schedule REPORTS and does not write
+# -------------------------------------------
+# `apply` defaults to "no" and the cron does not override it. A daily job that
+# switches partners off unattended is a different risk from one a person runs:
+# the failure is discovered by a partner, at night, with nobody watching. So
+# the schedule surfaces what is dark and a human dispatches the apply — until
+# PGAM has watched it agree with reality for a while and decides otherwise.
+#
+# The measurement rail that matters most
+# --------------------------------------
+# A day whose query fails returns no rows, which is indistinguishable from a
+# day on which nobody answered. Summing a window would therefore read a
+# platform outage as the entire demand side going dark at once. The script
+# refuses to conclude anything from a window it could not fully measure and
+# exits 2. Given §5.9 — days do time out here, routinely — that is not a
+# hypothetical.
+#
+# Other rails, all in scripts/tbx_dark_demand.py:
+#   * each day must clear min_requests_day on its own
+#   * a source absent for part of the window is new, not dark
+#   * max_disable caps one run; overflow is reported, never dropped
+#   * every applied run writes a ledger, and --revert undoes exactly it
+
+on:
+  schedule:
+    # 09:15 UTC daily — after the US/Eastern settlement lag (§ET_CLOSE_LAG),
+    # so the most recent day is final rather than half-counted.
+    - cron: "15 9 * * *"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Type yes to actually disable. Anything else reports only."
+        required: false
+        default: "no"
+      days:
+        description: "Consecutive settled days that must ALL be dark"
+        required: false
+        default: "3"
+      min_requests_day:
+        description: "Each day must exceed this to count as a fair chance to answer"
+        required: false
+        default: "10000"
+      max_disable:
+        description: "Most sources one run may disable"
+        required: false
+        default: "25"
+      include:
+        description: "Only these demand ids, comma-separated"
+        required: false
+        default: ""
+      also_exclude:
+        description: "Demand ids to skip, comma-separated"
+        required: false
+        default: ""
+      revert_ledger:
+        description: "Path to a downloaded ledger to REVERT instead of cutting"
+        required: false
+        default: ""
+
+concurrency:
+  # Shares the platform's undocumented rate limit with every other TBX job.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dark-demand:
+    name: Disable demand sources that never answer
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      # Demand x date with requests_sum is lighter than the geo pair grain but
+      # still not an entity read. 300s, per §5.9.
+      TBX_TIMEOUT: "300"
+      # Opens ONLY on a literal "yes", which the cron never supplies, so a
+      # scheduled run cannot write however the script behaves.
+      TBX_ALLOW_WRITES: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == 'yes' && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        # Before the credential gate and before any write. The rail that keeps
+        # an unmeasured day from reading as a dark one is tested here; if it
+        # broke, this run must not reach the platform.
+        run: python3 tests/test_tbx_dark_demand.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: Say what this run will do
+        run: |
+          echo "trigger        : ${{ github.event_name }}"
+          echo "days           : ${{ inputs.days || '3' }}"
+          echo "min req/day    : ${{ inputs.min_requests_day || '10000' }}"
+          echo "max disable    : ${{ inputs.max_disable || '25' }}"
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then
+            echo "::warning::APPLY MODE — demand sources will be disabled on the live platform."
+          else
+            echo "REPORT ONLY — nothing will be written."
+          fi
+
+      - name: Revert a previous run
+        if: github.event_name == 'workflow_dispatch' && inputs.revert_ledger != ''
+        env:
+          IN_LEDGER: ${{ inputs.revert_ledger }}
+        run: |
+          ARGS="--revert $IN_LEDGER"
+          if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
+          python3 scripts/tbx_dark_demand.py $ARGS
+
+      - name: Dark demand
+        if: github.event_name == 'schedule' || inputs.revert_ledger == ''
+        env:
+          IN_DAYS: ${{ inputs.days || '3' }}
+          IN_MINREQ: ${{ inputs.min_requests_day || '10000' }}
+          IN_MAXCUT: ${{ inputs.max_disable || '25' }}
+          IN_INCLUDE: ${{ inputs.include }}
+          IN_EXCLUDE: ${{ inputs.also_exclude }}
+        run: |
+          ARGS="--days $IN_DAYS --min-requests-day $IN_MINREQ"
+          ARGS="$ARGS --max-disable $IN_MAXCUT"
+          if [ -n "$IN_INCLUDE" ]; then ARGS="$ARGS --include $IN_INCLUDE"; fi
+          if [ -n "$IN_EXCLUDE" ]; then ARGS="$ARGS --also-exclude $IN_EXCLUDE"; fi
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then ARGS="$ARGS --apply"; fi
+          echo "running: tbx_dark_demand.py $ARGS"
+          # Exit 1 = a write was refused or failed; 2 = the window could not be
+          # measured; 3 = platform unreachable. All three must fail the job:
+          # a scheduled detector that goes quiet when it cannot see is worse
+          # than one that goes red.
+          python3 scripts/tbx_dark_demand.py $ARGS
+
+      - name: Upload ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dark-ledger-${{ github.run_id }}
+          path: dark-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore
