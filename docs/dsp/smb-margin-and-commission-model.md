@@ -192,6 +192,62 @@ point of margin.
 8. **Harvest the referral credit** — $500 for a referred advertiser's first $500
    of spend, which is pure margin. Ask every account that renews.
 
+### Three numbers, three different places — do not mix them
+
+The commonest way to get this wrong is to try to express margin as a CPM inside
+Vibe. Margin is a **budget** decision, not a bid decision.
+
+| Number | Where it lives | Who sets it |
+|---|---|---|
+| **Price** — the $22–25 effective CPM | our IO / invoice to the advertiser | us, per §2 |
+| **Margin** — the gross-to-media split | the Vibe strategy **budget** | us, per §2 |
+| **Performance target** — cost per household, CPM, CPL | the Vibe **optimisation goal** | **the advertiser** |
+
+That third row is not optional. The optimisation playbook is explicit that its
+reference bounds are *"reference only. Never quote these numbers to the
+advertiser, and never use them to propose or pre-fill a value… The value always
+comes from the advertiser."* Our margin has no business in the optimisation goal.
+
+### Use automatic bidding — it is worth 22 points of margin
+
+Manual bidding needs a **≥$18 CPM bid to deliver at all**. Automatic bidding is
+what produced the $12.50. On the same $25 sell price:
+
+| Bidding mode | Clearing CPM | Media for 200,000 imps | Our margin |
+|---|---|---|---|
+| **Automatic** (achieved) | $12.50 | $2,500 | **50%** |
+| Manual (at the $18 floor) | $18.00 | $3,600 | 28% |
+
+Setting a manual CPM to "control" margin destroys it. Set the budget, pick the
+advertiser's optimisation goal, leave bidding automatic.
+
+### The build sequence for a $5,000/month buy
+
+1. Advertiser commits $5,000/month, **3-month minimum term** (§3).
+2. Choose the sell price: $22–25 effective CPM → we owe 200,000–227,000
+   impressions a month.
+3. Media budget = those impressions × our actual clearing CPM. Open at **65% of
+   gross ($3,250)** — see below — not at the 55% today's CPM would allow.
+4. Set the Vibe **strategy budget** at ~95% of that ($3,090), holding the rest as
+   pacing buffer.
+5. Set the **optimisation goal** from the advertiser's own number. Automatic
+   bidding.
+6. Reconcile on Vibe's reported spend at month end; move the split on renewal,
+   not mid-flight.
+
+**Open at 65% media / 35% margin, not 55/45.** Today's clearing would permit 45%,
+but that rests on one advertiser below Vibe's own realistic floor. 65% survives
+clearing at $15–18 without repricing, and it is far better to overdeliver in
+month 1 — which sits inside the 14-day learning phase and is where churn
+happens — than to underdeliver and argue about it. If month 1 clears near
+$12.50 you will have overdelivered against the IO: that is the renewal
+conversation, and the renewal is where you move to 55/45.
+
+**If the $5,000 is the whole contract rather than monthly**, do not stretch it
+across three months — $1,000/month of media is ~$33/day and too thin to deliver
+or optimise. Run it as a **6-week burst** instead (the awareness playbook's Burst
+profile), and set expectations as a burst, not an always-on campaign.
+
 ## 5. Ryan's commission
 
 ### Define "net" first
