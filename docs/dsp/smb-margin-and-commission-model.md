@@ -167,12 +167,16 @@ point of margin.
 
 ## 4. Budgeting a $5,000 spend — the mechanics
 
-1. **Vibe strategy budget is $3,000, never $5,000.** The one failure mode that
+1. **Vibe strategy budget is $3,250, never $5,000.** The one failure mode that
    destroys the deal is loading the advertiser's stated budget into Vibe. $5,000
-   is our top line; media sits below it.
-2. **Hold a pacing buffer.** Set the strategy at ~95% of allocated media
-   ($2,850) and keep $150 in reserve — it absorbs overdelivery and funds a
-   top-up if pacing lags late in the flight.
+   is our top line; media sits below it at 65% (§2).
+2. **The margin is the make-good reserve — no separate pacing buffer.** Vibe
+   budget is a cap, not a target, so it cannot overspend and holding a slice
+   back buys nothing. What can happen is a higher-than-expected clearing CPM
+   leaving us short of the impressions on the IO. At $3,250 media against the
+   30% floor there is **$250 of top-up headroom** before the floor breaks.
+   Needing more than that repeatedly is a pricing problem, not a topping-up
+   problem — reprice at renewal.
 3. **Collect from the advertiser upfront, card on file, before launch.** Vibe
    invoices us *continuously* — every $500 of balance or every 30 days,
    whichever comes first. Billing in arrears means we float the media on every
@@ -228,8 +232,8 @@ advertiser's optimisation goal, leave bidding automatic.
    impressions a month.
 3. Media budget = those impressions × our actual clearing CPM. Open at **65% of
    gross ($3,250)** — see below — not at the 55% today's CPM would allow.
-4. Set the Vibe **strategy budget** at ~95% of that ($3,090), holding the rest as
-   pacing buffer.
+4. Set the Vibe **strategy budget** to the full $3,250 — **per month**, not per
+   term. Budget is a cap, so there is nothing to hold back.
 5. Set the **optimisation goal** from the advertiser's own number. Automatic
    bidding.
 6. Reconcile on Vibe's reported spend at month end; move the split on renewal,
@@ -247,6 +251,16 @@ conversation, and the renewal is where you move to 55/45.
 across three months — $1,000/month of media is ~$33/day and too thin to deliver
 or optimise. Run it as a **6-week burst** instead (the awareness playbook's Burst
 profile), and set expectations as a burst, not an always-on campaign.
+
+**The one that will actually bite: the budget is monthly.** A 3-month term at
+$5,000/month is $15,000 gross and **$9,750** of media. Setting $3,250 once for
+the whole term funds a third of what was sold. Either set a monthly-recurring
+strategy budget or re-set it every month, and put it on the calendar.
+
+**What to watch, and when.** The number that says whether it is working is
+delivered impressions against what the IO promised (200,000–227,000/month at a
+$22–25 sell price). Check it at the **three-week mark**, not weekly — inside the
+14-day learning phase and with attribution lag, a weekly read is noise (§3).
 
 ## 5. Ryan's commission
 
