@@ -57,7 +57,7 @@ CUT = d("2026-08-20")
 
 def stub_fetch(rows):
     """Stand in for tb_unified.fetch, which needs a database."""
-    def _f(breakdown, metrics, start, end):
+    def _f(breakdown, metrics, start, end, side="supply"):
         return rows
     return _f
 
@@ -179,6 +179,74 @@ def test_zero_safe() -> None:
     check("no ZeroDivisionError on eCPM", out["2026-05"]["ecpm"] == 0.0)
 
 
+# ---------------------------------------------------------------------------
+# exclusion
+# ---------------------------------------------------------------------------
+
+def test_exclude_filters_by_entity() -> None:
+    print("\nexclusion drops matching counterparties, case-insensitively")
+    rows=[urow("2026-08-25",100.0,60.0,1000), urow("2026-08-25",25.0,15.0,250),
+          urow("2026-08-25",7.0,4.0,70)]
+    rows[0]["PUBLISHER"]="Illumin Display and Video"
+    rows[1]["PUBLISHER"]="Illumin - Video Unruly OTTA"
+    rows[2]["PUBLISHER"]="otta olv rtb"          # lowercase — must still match
+    out,_=with_stub(rows, lambda: pr.tb_leg(d("2026-08-25"), d("2026-08-25"), "OTTA"))
+    check("only the non-matching row survives", out[d("2026-08-25")]["gross"]==100.0,
+          out[d("2026-08-25")]["gross"])
+    check("lowercase name is matched too", out[d("2026-08-25")]["imps"]==1000)
+
+
+def test_exclude_folds_remaining_entities() -> None:
+    print("\nsurviving entities are folded back to one row per day")
+    rows=[urow("2026-08-25",100.0,60.0,1000), urow("2026-08-25",50.0,30.0,500)]
+    rows[0]["PUBLISHER"]="A"; rows[1]["PUBLISHER"]="B"
+    out,_=with_stub(rows, lambda: pr.tb_leg(d("2026-08-25"), d("2026-08-25"), "ZZZ"))
+    check("both kept and summed", out[d("2026-08-25")]["gross"]==150.0)
+    check("payout summed", out[d("2026-08-25")]["payout"]==90.0)
+    check("impressions summed", out[d("2026-08-25")]["imps"]==1500)
+
+
+def test_exclude_switches_breakdown() -> None:
+    print("\nexcluding reads the entity breakdown, not the date one")
+    seen={}
+    real=u.fetch
+    def spy(breakdown,metrics,start,end,side="supply"):
+        seen["breakdown"]=breakdown; seen["side"]=side; return []
+    u.fetch=spy
+    try:
+        pr.tb_leg(d("2026-08-25"), d("2026-08-25"))
+        check("no exclusion -> DATE breakdown", seen["breakdown"]=="DATE", seen)
+        pr.tb_leg(d("2026-08-25"), d("2026-08-25"), "OTTA", "demand")
+        check("exclusion -> PUBLISHER breakdown", seen["breakdown"]=="PUBLISHER", seen)
+        check("side is passed through", seen["side"]=="demand", seen)
+    finally:
+        u.fetch=real
+
+
+def test_heavier_is_conservative() -> None:
+    print("\nthe headline takes whichever side removes more")
+    sup={d("2026-08-25"):row(80.0)}     # removed more -> less left
+    dem={d("2026-08-25"):row(95.0)}
+    keep,side=pr.heavier(sup,dem)
+    check("keeps the smaller remainder", keep is sup and side=="supply",
+          (side, sum(v["gross"] for v in keep.values())))
+    keep2,side2=pr.heavier(dem,sup)
+    check("orientation does not matter", keep2 is sup and side2=="demand", side2)
+
+
+def test_tb_unified_has_both_sides() -> None:
+    print("\ntb_unified owns both sides, so no second rule exists")
+    check("supply and demand both declared", set(u.SIDES)=={"supply","demand"}, set(u.SIDES))
+    check("demand uses the demand tables",
+          u.SIDES["demand"][0].endswith("tb_daily_demand_revenue") and
+          u.SIDES["demand"][2].endswith("tbx_daily_demand_revenue"), u.SIDES["demand"])
+    try:
+        u.fetch("DATE",[],"2026-08-01","2026-08-02",side="sideways"); bad=False
+    except ValueError: bad=True
+    except Exception: bad=False
+    check("side is validated before any query", bad)
+
+
 def main() -> int:
     print("=" * 70)
     print("platform_revenue — offline checks")
@@ -191,6 +259,11 @@ def main() -> int:
     test_period_key()
     test_roll_up_maths()
     test_zero_safe()
+    test_exclude_filters_by_entity()
+    test_exclude_folds_remaining_entities()
+    test_exclude_switches_breakdown()
+    test_heavier_is_conservative()
+    test_tb_unified_has_both_sides()
     print("\n" + "=" * 70)
     print(f"{PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0

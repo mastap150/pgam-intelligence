@@ -75,6 +75,22 @@ LEGACY_NAME_COL = "publisher_name"
 TBX_TABLE = "pgam_direct.tbx_daily_supply_revenue"
 TBX_NAME_COL = "supply_name"
 
+# The demand side of the same marketplace. Same rule, same shape, different
+# tables — so it is a parameter here rather than a second implementation of
+# legs_for() somewhere else. Supply and demand are two views of one set of
+# impressions: each sums to the same gross, so they are alternatives to read,
+# never things to add.
+DEMAND_LEGACY_TABLE = "pgam_direct.tb_daily_demand_revenue"
+DEMAND_LEGACY_NAME_COL = "demand_name"
+DEMAND_TBX_TABLE = "pgam_direct.tbx_daily_demand_revenue"
+DEMAND_TBX_NAME_COL = "demand_name"
+
+SIDES = {
+    "supply": (LEGACY_TABLE, LEGACY_NAME_COL, TBX_TABLE, TBX_NAME_COL),
+    "demand": (DEMAND_LEGACY_TABLE, DEMAND_LEGACY_NAME_COL,
+               DEMAND_TBX_TABLE, DEMAND_TBX_NAME_COL),
+}
+
 
 def _env_date(var: str, default: str) -> date:
     raw = (os.environ.get(var) or default).strip()
@@ -118,7 +134,7 @@ def _rows(table: str, name_col: str, start: date, end: date,
     group = "report_date" + (f", {name_col}" if by_entity else "")
     select = ("report_date" + (f", {name_col} AS entity_name" if by_entity
                                else ", NULL::text AS entity_name"))
-    denom = "bids" if table == LEGACY_TABLE else "requests"
+    denom = "requests" if table.startswith("pgam_direct.tbx_") else "bids"
     sql = f"""
         SELECT {select},
                sum(impressions)   AS impressions,
@@ -148,19 +164,28 @@ def _rows(table: str, name_col: str, start: date, end: date,
     return out
 
 
-def fetch(breakdown: str, metrics: list | tuple, start_date, end_date) -> list[dict]:
+def fetch(breakdown: str, metrics: list | tuple, start_date, end_date,
+          side: str = "supply") -> list[dict]:
     """
     Drop-in replacement for `core.api.fetch_tb`, sourced per day.
 
     `metrics` is accepted and ignored — every column is cheap here and the
     signature exists so callers do not have to change shape.
+
+    `side` selects supply-source or demand-source tables. The cutover rule is
+    identical either way — that is the point of it living here — so a caller
+    that wants both reads twice rather than reimplementing legs_for().
     """
+    if side not in SIDES:
+        raise ValueError(f"side must be one of {sorted(SIDES)}, got {side!r}")
+    legacy_table, legacy_col, tbx_table, tbx_col = SIDES[side]
+
     start = date.fromisoformat(str(start_date)[:10])
     end = date.fromisoformat(str(end_date)[:10])
     by_entity = str(breakdown).upper() != "DATE"
 
-    legacy = _rows(LEGACY_TABLE, LEGACY_NAME_COL, start, end, by_entity)
-    tbx = _rows(TBX_TABLE, TBX_NAME_COL, start, end, by_entity)
+    legacy = _rows(legacy_table, legacy_col, start, end, by_entity)
+    tbx = _rows(tbx_table, tbx_col, start, end, by_entity)
 
     # Keep only the leg(s) that actually served each day, then fold. A split
     # day keeps both and they add; every other day keeps exactly one, so the

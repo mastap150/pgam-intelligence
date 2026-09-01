@@ -36,6 +36,26 @@ one rule is how a P&L and a Slack alert come to disagree about revenue, which
 is the exact problem that module was written to end; a fourth would reopen it.
 This script adds LL and the period arithmetic, and nothing else.
 
+Excluding a partner
+-------------------
+`--exclude PATTERN` (case-insensitive substring) drops a counterparty from
+every figure. The catch is that a marketplace has two sides and a partner can
+sit on both — OTTA is named on supply sources *and* demand endpoints — so
+"exclude OTTA" is not one number until you say which side you mean.
+
+What each leg can honestly do, at the best grain it has:
+
+    LL    ll_daily_partner_revenue is publisher x demand, so a row is dropped
+          when EITHER side matches. This is the exact answer.
+    TB    the supply and demand rollups are separate and TBX has no pair
+          table, so the exact answer is not available post-cutover. Both
+          one-sided views are computed and reported, and the headline uses
+          whichever removes MORE revenue — the conservative reading.
+
+The two TB views differ by however much of the partner's supply was bought by
+someone else (or vice versa). That gap is printed, not hidden: it is the size
+of the question the data cannot answer.
+
 Revenue is defined as the platform defines it:
 
     gross_revenue   what the advertiser paid   (dsp price)
@@ -54,6 +74,7 @@ Usage:
     python3 scripts/platform_revenue.py                      # YTD by month
     python3 scripts/platform_revenue.py --grain quarter
     python3 scripts/platform_revenue.py --from 2026-01-01 --to 2026-08-31
+    python3 scripts/platform_revenue.py --exclude OTTA
     python3 scripts/platform_revenue.py --json
 
 Requires PGAM_DIRECT_DATABASE_URL (or DATABASE_URL).
@@ -96,10 +117,23 @@ def _table_exists(conn, table: str) -> bool:
         return cur.fetchone() is not None
 
 
-def daily(conn, table: str, start: date, end: date) -> dict[date, dict]:
-    """Per-day totals for one source table. {} when the table is absent."""
+def daily(conn, table: str, start: date, end: date,
+          exclude: str | None = None,
+          name_cols: tuple[str, ...] = ()) -> dict[date, dict]:
+    """Per-day totals for one source table. {} when the table is absent.
+
+    `exclude` drops rows where any of `name_cols` contains the pattern. On the
+    LL table that is publisher_name and demand_name together, which is an
+    either-side match at pair grain — the exact exclusion.
+    """
     if not _table_exists(conn, table):
         return {}
+    where = "report_date BETWEEN %s AND %s"
+    params: list = [start, end]
+    if exclude and name_cols:
+        clauses = " OR ".join(f"coalesce({c},'') ILIKE %s" for c in name_cols)
+        where += f" AND NOT ({clauses})"
+        params += [f"%{exclude}%"] * len(name_cols)
     with conn.cursor() as cur:
         cur.execute(f"""
             SELECT report_date,
@@ -107,9 +141,9 @@ def daily(conn, table: str, start: date, end: date) -> dict[date, dict]:
                    sum(pub_payout)::float8,
                    sum(impressions)::bigint
             FROM pgam_direct.{table}
-            WHERE report_date BETWEEN %s AND %s
+            WHERE {where}
             GROUP BY report_date
-        """, (start, end))
+        """, tuple(params))
         return {
             r[0]: {"gross": r[1] or 0.0,
                    "payout": r[2] or 0.0,
@@ -128,24 +162,47 @@ def period_key(day: date, grain: str) -> str:
     return f"{day.year}-{day.month:02d}"
 
 
-def tb_leg(start: date, end: date) -> tuple[dict[date, dict], dict[date, str]]:
+def tb_leg(start: date, end: date, exclude: str | None = None,
+           side: str = "supply") -> tuple[dict[date, dict], dict[date, str]]:
     """The TB marketplace per day, straight out of `core.tb_unified`.
 
     No rule is applied here beyond reshaping its rows. `legs_for` supplies the
     origin label from the same module, so the report cannot describe a seam
     the numbers were not actually built with.
+
+    With `exclude`, the entity breakdown is read instead of the date one and
+    matching counterparties are dropped before the per-day fold. `side` picks
+    which roster the pattern is matched against; tb_unified applies the same
+    cutover rule either way.
     """
+    breakdown = "PUBLISHER" if exclude else "DATE"
+    needle = (exclude or "").lower()
     out: dict[date, dict] = {}
     origin: dict[date, str] = {}
-    for row in u.fetch("DATE", [], start.isoformat(), end.isoformat()):
+    for row in u.fetch(breakdown, [], start.isoformat(), end.isoformat(), side=side):
+        if exclude and needle in (row.get("PUBLISHER") or "").lower():
+            continue
         day = date.fromisoformat(row["DATE"])
-        out[day] = {"gross": row["GROSS_REVENUE"],
-                    "payout": row["PUB_PAYOUT"],
-                    "imps": int(row["IMPRESSIONS"])}
+        slot = out.setdefault(day, {"gross": 0.0, "payout": 0.0, "imps": 0})
+        slot["gross"] += row["GROSS_REVENUE"]
+        slot["payout"] += row["PUB_PAYOUT"]
+        slot["imps"] += int(row["IMPRESSIONS"])
         use_legacy, use_tbx = u.legs_for(day)
         origin[day] = ("legacy+tbx" if use_legacy and use_tbx
                        else "tbx" if use_tbx else "legacy")
     return out, origin
+
+
+def heavier(a: dict[date, dict], b: dict[date, dict]) -> tuple[dict[date, dict], str]:
+    """Of two one-sided exclusions, the one that removes more revenue.
+
+    Neither is wrong; they answer slightly different questions and only a pair
+    table could settle it. Taking the larger removal is the conservative
+    choice — it cannot overstate what is left.
+    """
+    ga = sum(v["gross"] for v in a.values())
+    gb = sum(v["gross"] for v in b.values())
+    return (a, "supply") if ga <= gb else (b, "demand")
 
 
 def roll_up(series: dict[date, dict], grain: str) -> dict[str, dict]:
@@ -206,7 +263,8 @@ def _table(title: str, periods: dict[str, dict], keys: list[str]) -> None:
 
 
 def report(ll: dict, tb: dict, tbx: dict, tb_series: dict, origin: dict,
-           start: date, end: date, grain: str, as_json: bool) -> int:
+           start: date, end: date, grain: str, as_json: bool,
+           exclude: str | None = None, excl: dict | None = None) -> int:
 
     platform: dict[date, dict] = {}
     for day in sorted(set(ll) | set(tb_series)):
@@ -233,6 +291,8 @@ def report(ll: dict, tb: dict, tbx: dict, tb_series: dict, origin: dict,
             "split_start": u.split_start().isoformat(),
             "cutover": u.cutover().isoformat(),
             "periods": keys,
+            "exclude": exclude,
+            "exclusion": (excl or {}).get("meta"),
             "legs": legs,
             "stitch": {
                 "overlap_days": [d.isoformat() for d in overlaps(tb, tbx)],
@@ -283,6 +343,31 @@ def report(ll: dict, tb: dict, tbx: dict, tb_series: dict, origin: dict,
     print("\n  These two are shown for coverage only. Do not add them together —")
     print("  section 3 combines them through core.tb_unified instead.")
 
+    # ---- 2b. the exclusion --------------------------------------------------
+    if excl:
+        m = excl["meta"]
+        print()
+        print(_HDR)
+        print(f"2b. EXCLUDING '{exclude}'")
+        print(_HDR)
+        print("  A marketplace has two sides and a partner can sit on both, so")
+        print("  this is not one number until you say which side you mean.\n")
+        print(f"  LL   pair grain (publisher x demand) — either side matches.")
+        print(f"       This is exact.")
+        print(f"         kept {m['ll_kept']:>14,.2f}   removed {m['ll_removed']:>12,.2f}"
+              f"   ({m['ll_pct']:.1f}% of LL)")
+        print(f"\n  TB   supply and demand rollups are separate and TBX has no pair")
+        print(f"       table, so the exact answer does not exist post-cutover.")
+        print(f"         supply-side kept {m['tb_supply']:>14,.2f}"
+              f"   removed {m['tb_supply_removed']:>12,.2f}")
+        print(f"         demand-side kept {m['tb_demand']:>14,.2f}"
+              f"   removed {m['tb_demand_removed']:>12,.2f}")
+        print(f"         the two differ by {abs(m['tb_supply']-m['tb_demand']):,.2f} —"
+              f" that gap is the size of")
+        print(f"         the question the data cannot answer.")
+        print(f"\n  Headline uses the {m['tb_side']} side: it removes more, so it cannot")
+        print(f"  overstate what is left.")
+
     # ---- 3. the platform ---------------------------------------------------
     print()
     print(_HDR)
@@ -308,6 +393,8 @@ def main() -> int:
     ap.add_argument("--from", dest="start", help="first day (YYYY-MM-DD), default Jan 1 this year")
     ap.add_argument("--to", dest="end", help="last day (YYYY-MM-DD), default yesterday")
     ap.add_argument("--grain", choices=("month", "quarter"), default="month")
+    ap.add_argument("--exclude", metavar="PATTERN",
+                    help="drop a counterparty (case-insensitive substring), e.g. OTTA")
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     args = ap.parse_args()
 
@@ -336,27 +423,50 @@ def main() -> int:
         print(f"  source   pgam_direct: {LL_TABLE}, {TB_TABLE}, {TBX_TABLE}")
         print(f"  TB rule  core.tb_unified — split {u.split_start()}, "
               f"cutover {u.cutover()}")
+        if args.exclude:
+            print(f"  exclude  '{args.exclude}' — see section 2b for what that "
+                  f"means on each leg")
         print( "  mode     READ ONLY — this script writes nothing")
         print()
 
     conn = psycopg.connect(dsn, autocommit=False)
     try:
         _read_only(conn)
-        ll = daily(conn, LL_TABLE, start, end)
+        ll_all = daily(conn, LL_TABLE, start, end)
         tb = daily(conn, TB_TABLE, start, end)
         tbx = daily(conn, TBX_TABLE, start, end)
+        ll = (daily(conn, LL_TABLE, start, end, args.exclude,
+                    ("publisher_name", "demand_name"))
+              if args.exclude else ll_all)
     finally:
         conn.close()
 
     # Opens its own connection, by design: the rule lives in one place and
     # this script does not reach around it.
-    tb_series, origin = tb_leg(start, end)
+    excl = None
+    if args.exclude:
+        sup, origin = tb_leg(start, end, args.exclude, "supply")
+        dem, _ = tb_leg(start, end, args.exclude, "demand")
+        tb_series, side = heavier(sup, dem)
+        g = lambda d: sum(v["gross"] for v in d.values())
+        tb_full, _ = tb_leg(start, end)
+        excl = {"meta": {
+            "pattern": args.exclude,
+            "ll_kept": g(ll), "ll_removed": g(ll_all) - g(ll),
+            "ll_pct": (100 * (g(ll_all) - g(ll)) / g(ll_all)) if g(ll_all) else 0.0,
+            "tb_supply": g(sup), "tb_supply_removed": g(tb_full) - g(sup),
+            "tb_demand": g(dem), "tb_demand_removed": g(tb_full) - g(dem),
+            "tb_side": side,
+        }}
+    else:
+        tb_series, origin = tb_leg(start, end)
 
     if not (ll or tb_series):
         print("No rows in any of the three tables over this range.", file=sys.stderr)
         return 1
 
-    return report(ll, tb, tbx, tb_series, origin, start, end, args.grain, args.json)
+    return report(ll, tb, tbx, tb_series, origin, start, end, args.grain,
+                  args.json, args.exclude, excl)
 
 
 if __name__ == "__main__":
