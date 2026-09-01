@@ -129,6 +129,30 @@ Never commit a credential to this repo to get it into a session. `.env` is
 gitignored for a reason, and the playbook records a real leak (2026-07-02) from
 exactly that shortcut.
 
+### A Neon credential does not help a cloud session anyway
+
+Measured 2026-09-01: outbound egress from a cloud session is policy-filtered
+down to `api.github.com`, the Anthropic APIs, and the package registries.
+`api.neon.tech` and `console.neon.tech` are refused at CONNECT, and Postgres
+on 5432 does not traverse an HTTPS proxy at all. So **no cloud session can
+query Neon, with or without a DSN** — pasting one in buys nothing and still
+puts an owner-level secret in a transcript.
+
+That makes the routing rule simple. Anything needing Neon runs where Neon is
+reachable:
+
+| Need | Run it |
+|---|---|
+| Ad-hoc query, exploration | Priyesh's laptop, `.env` loaded |
+| Scheduled or on-demand report | A GitHub Actions workflow, secrets as secrets |
+| Continuous jobs | The Render worker |
+
+A cloud session's job is to *write* that workflow, not to run the query. And
+because **this repository is public, its Actions logs are world-readable** —
+so a workflow handling revenue, cohort or contractor data delivers to Slack
+(or another private sink) and prints only a confirmation. See
+`.github/workflows/hasib-cohort-report.yml` for the shape.
+
 ### Where the environment variables live
 
 There is no settings page and no direct URL — only the selector:
