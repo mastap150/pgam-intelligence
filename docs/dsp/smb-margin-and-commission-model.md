@@ -1,165 +1,210 @@
 # SMB deals — margin floors and sales commission
 
 Companion to `docs/dsp/PGAM_DSP_RATE_CARD.md`. Covers the $3–5K buy band, which
-the rate card does not price. Two decisions live here: what margin an SMB deal
-has to carry, and what Ryan gets paid to close and hold the book.
+the rate card does not price, and which runs on **Vibe** — not the
+SpringServe/ClearLine stack the rate card assumes.
 
 Not yet approved — Priyesh is sole approver on P&L-affecting terms
 (`training/00-company.md`).
 
-## 1. Why 10% is the wrong number here
+## 1. Vibe changes the economics, in our favour
 
-The DSP takes a **10% platform fee** on direct/agency campaigns. That number
-was set against Amazon-Business-sized flights, where 10% of gross is a real
-sum and servicing is amortised over a big buy.
+Two facts, both confirmed against the platform rather than assumed.
 
-Servicing cost barely moves with deal size. The rate card promises, on every
-campaign: creative QA and trafficking, soft-launch validation, pacing touches,
-a **weekly written recap**, monthly reporting, and a QBR. Delivered as written
-on a one-month flight that is roughly:
+**There is no Vibe fee to model.** Vibe's billing rules: *"No platform,
+subscription, seat, or joining fees. Budget set = amount charged."* Whatever
+Vibe's own take is, it is invisible to us and inside the CPM we clear. So our
+media cost is exactly the strategy budget we set, and:
+
+```
+Vibe strategy budget = advertiser gross × (1 − margin)
+```
+
+**Our achieved CPM is $12.50.** Hatford Funding, Jun 1 – Aug 31 2026:
+$4,257.48 spend, 340,703 impressions, **$12.50 CPM**, 98.1% completion rate,
+$0.0625 cost per household. That is on automatic bidding.
+
+> Caveat: n=1. One advertiser, one quarter. Treat $12.50 as indicative and
+> re-check as the book grows — every margin number below moves with it.
+
+A $12.50 base CPM is the whole story. Managed CTV sells at $25–45. We can quote
+a market-competitive ~$20 CPM and still hold 40% margin.
+
+**And the servicing load collapses.** The rate card's 18.5h estimate was built
+on SpringServe: demand-tag wiring, the Wizard→SS field-mapping drops that force
+manual QA (`02-dsp-playbook.md`), ClearLine setup. None of that exists on Vibe.
+Creative approval is an automatic ACR scan, **~30 minutes, not days**. Campaign
+build and reporting are both reachable over the Vibe API.
 
 | Task | Hours |
 |---|---|
-| Kickoff + asset/brand-safety collection | 2.0 |
-| Wizard build + manual SS QA (known field-mapping drops, `02-dsp-playbook.md`) | 3.0 |
-| Soft launch delivery/attribution validation | 1.0 |
-| Pacing + optimisation touches (2h/wk) | 8.0 |
-| Weekly written recaps (0.75h × 4) | 3.0 |
-| Monthly report + invoicing/admin | 1.5 |
-| **Total** | **~18.5** |
+| Asset intake (form, not a kickoff call) | 0.5 |
+| Campaign + strategy build in Vibe | 1.0 |
+| Creative upload + ACR approval | 0.5 |
+| Launch + pacing check | 0.25 |
+| Optimisation touches (0.5h/wk) | 2.0 |
+| Automated monthly report + review, invoicing | 0.75 |
+| **Total** | **~5.0 → ~$270 at $60/h** |
 
-At a fully-loaded ops rate of ~$60/h that is **~$1,100 — 28% of a $4,000
-buy, before a cent of media margin.** A 10% fee on that deal is $400. The
-deal loses money.
+Down from ~$1,100. **This is what makes SMB viable at all** — the earlier case
+for a high margin was cost recovery against a load that Vibe removes.
 
-**So the fix is two-part, and the margin half is the smaller half:** raise the
-margin *and* strip the product so the cost base actually falls. A templated
-SMB flight — no kickoff call, no QBR, dashboard in place of a written recap,
-automated monthly summary — lands nearer 8 hours (~$480). Every number below
-assumes the stripped SKU. Sold as the full managed service, no margin fixes it.
+## 2. Margin: 40% target, 33% floor
 
-## 2. Margin floors
+At a $12.50 clearing CPM, a $5,000 gross buy:
 
-Target **40% net margin** in the $3–5K band, gliding down to the existing 10%
-platform fee at enterprise size.
+| Margin | Vibe budget | Impressions | Advertiser's effective CPM | Our net | Contribution* |
+|---|---|---|---|---|---|
+| 30% | $3,500 | 280,000 | $17.85 | $1,500 | $980 (19.6%) |
+| **40%** | **$3,000** | **240,000** | **$20.83** | **$2,000** | **$1,430 (28.6%)** |
+| 45% | $2,750 | 220,000 | $22.72 | $2,250 | $1,655 (33.1%) |
 
-| Advertiser spend / month | Target margin | Ryan can close at | Below floor |
-|---|---|---|---|
-| $3K – $5K | 40% | 33% | Priyesh approval |
-| $5K – $10K | 35% | 30% | Priyesh approval |
-| $10K – $25K | 28% | 22% | Priyesh approval |
-| $25K+ / agency | 15–20% | 12% | existing 10% platform fee |
+<sub>*after ~$270 servicing, 10% commission on net, and ~$100 amortised Meta CAC.</sub>
 
-The glide path is the argument to make to an advertiser who benchmarks us: the
-premium is cost recovery on a small buy, and it falls as they grow.
+**Target 40%.** Stretch to 45% where the advertiser is CPM-insensitive — most
+SMB buyers think in monthly budget, not CPM, and have no CTV reference point.
+**Floor 33%**, below which Priyesh approves.
 
-What a $4,000 buy actually returns:
+| Advertiser spend / month | Target | Ryan can close at |
+|---|---|---|
+| $2K – $5K | 40% (stretch 45%) | 33% |
+| $5K – $10K | 35% | 30% |
+| $10K – $25K | 28% | 22% |
+| $25K+ / agency | 15–20% | 12% |
 
-| | at 40% | at 25% | at 15% |
-|---|---|---|---|
-| Advertiser pays (gross) | $4,000 | $4,000 | $4,000 |
-| Media cost | $2,400 | $3,000 | $3,400 |
-| **Net (gross profit)** | **$1,600** | **$1,000** | **$600** |
-| Templated servicing (~8h @ $60) | ($480) | ($480) | ($480) |
-| Sales commission (10% of net) | ($160) | ($100) | ($60) |
-| **Contribution** | **$960** | **$420** | **$60** |
-| Contribution as % of gross | 24% | 11% | 1.5% |
+**Minimum drops to $2,000/month.** At $2,000 gross and 40%, net is $800 against
+~$270 servicing — thin but real. Below $2,000 the calendar cost wins; take it
+only self-serve with no managed touch.
 
-At 15% the deal is free work. That is the whole case for 40%.
+**Say the honest part out loud:** at 40% the advertiser pays $20.83 against the
+$12.50 they would pay signing up to Vibe themselves. Vibe *is* public
+self-serve, so the markup is discoverable. Our defence is the managed service,
+attention scoring and attribution — not opacity. Existing practice already
+applies (`00-company.md`: gross CPM never surfaces to the buying platform).
+The moment an advertiser asks which platform we buy on, or wants a media-plan
+breakdown, they have graduated to the $10K+ tier — switch that account to a
+transparent *media at cost + management fee* model rather than defending a
+blended CPM.
 
-**Minimum deal size: $3,000 per flight.** At $2,000 gross, 40% margin is $800
-net against ~$480 servicing — $320 contribution, not worth the calendar. Take
-anything below $3K only with a **one-time $500 onboarding fee**, or as pure
-self-serve with no managed touch at all.
+**CPM only.** Do not sell CPA-call below ~$10K/month: at a $100 CPA a $5K
+budget is 50 calls, we bear the media, and variance at that volume can flip a
+priced-for-profit flight into a loss.
 
-**SMB is CPM only.** Do not sell SKU 2 (CPA-call) below ~$10K/month. At a $100
-CPA a $4K budget is 30–50 calls; PGAM bears the media cost, and call-quality
-variance across 30 calls is wide enough to turn a priced-for-profit flight into
-a loss. Keep CPA for advertisers big enough for the law of large numbers.
+## 3. Budgeting a $5,000 spend — the mechanics
 
-Existing guardrails already work in our favour and should be pointed at this
-band: the buyer agent's one-way CPM ratchet means setup CPM is a ceiling and
-descending bids capture margin against real delivery, and `margin pause` halts
-a campaign that drops below threshold. Set that threshold to the floor column
-above, per tier.
+1. **Vibe strategy budget is $3,000, never $5,000.** The one failure mode that
+   destroys the deal is loading the advertiser's stated budget into Vibe. $5,000
+   is our top line; media sits below it.
+2. **Hold a pacing buffer.** Set the strategy at ~95% of allocated media
+   ($2,850) and keep $150 in reserve — it absorbs overdelivery and funds a
+   top-up if pacing lags late in the flight.
+3. **Collect from the advertiser upfront, card on file, before launch.** Vibe
+   invoices us *continuously* — every $500 of balance or every 30 days,
+   whichever comes first. Billing in arrears means we float the media on every
+   account at once.
+4. **Pre-fund the Vibe balance by ACH top-up; never run the book off card
+   charges.** Vibe supports **one primary and one backup card per account, shared
+   across all advertisers**, and a failed payment **pauses every active
+   campaign**. One card problem takes down the whole SMB book simultaneously.
+   Hold roughly a month of aggregate book media as balance, with a floor alert.
+5. **Automatic bidding.** Manual bidding needs ≥$18 CPM to deliver at all, which
+   would eat the margin outright; the $12.50 was achieved on automatic.
+6. **Reconcile on Vibe's reported spend, not the budget set.** Margin = gross
+   collected − Vibe actual spend. If Vibe underdelivers, extend the flight —
+   the rate card settles make-goods in impressions, so don't pocket it.
+7. **Onboarding compresses to 2–3 days**, not the rate card's 8, because ACR
+   approval is ~30 minutes. Sell that.
+8. **Harvest the referral credit** — $500 for a referred advertiser's first $500
+   of spend, which is pure margin. Ask every account that renews.
 
-## 3. Ryan's commission
+## 4. Ryan's commission
 
-### Define "net" before anything else
+### Define "net" first
 
-Ryan's agency deal is "15% of net". Two readings, and only one is solvent:
+Ryan's agency deal is "15% of net". Two readings, one solvent:
 
-- **Net = gross billings − media cost** (i.e. our margin dollars). On a $50K
-  agency flight at 10% margin: net $5,000, Ryan gets $750.
-- **Net = billings less the agency's 15%** (the traditional media meaning). On
-  the same flight: net $42,500, Ryan gets $6,375 — more than PGAM's entire
-  $5,000 margin.
+- **Net = gross billings − media cost** (our margin dollars). $50K agency flight
+  at 10% margin → net $5,000, Ryan gets $750.
+- **Net = billings less the agency's 15%** (traditional media usage) → net
+  $42,500, Ryan gets $6,375 against our entire $5,000 margin.
 
-The second reading is underwater on day one, so the first is what's meant.
-Write it into his agreement explicitly:
+The second is underwater on day one, so the first is what's meant. Put it in his
+agreement explicitly:
 
-> **Net** = gross billings collected − media cost − third-party ad-serving and
-> data fees. Not gross billings.
+> **Net** = gross billings collected − media cost (the Vibe strategy spend) −
+> third-party data fees. Not gross billings.
 
-This matters more than the percentage. It is also the discipline: paying on net
-means every dollar he discounts comes out of his own cheque.
+Paying on net is the discipline: every dollar he discounts comes out of his own
+cheque, so he cannot buy a close with our margin.
+
+### 7% on Meta leads? No — keep 10%
+
+The Meta CAC is a real cost and a fair thing to want covered. But the arithmetic
+does not support a rate cut:
+
+| | 10% | 7% |
+|---|---|---|
+| Per $5,000 deal (net $2,000) | $200 | $140 |
+| **Difference** | | **$60/deal** |
+| Over a 6-month account life | $1,200 | $840 |
+
+Against an account returning ~$12,000 net over six months, of which Meta CAC
+(~$600) and servicing (~$1,620) already take $2,220: cutting to 7% improves
+contribution by **$360 across the account's entire life** — roughly 3% of net on
+an account that returns over 70%. Immaterial to us.
+
+What it costs is not immaterial. At 7% against 15% on agency, SMB pays less than
+half per dollar, and he will quietly deprioritise the exact book he was brought
+in to build — a book that today is one advertiser. He is also already exposed to
+our pricing: paid on net, his cheque falls with every margin decision we make.
+
+**The 60-day churn clawback is the right tool for Meta-lead risk**, not a rate
+cut. It stops him burning paid leads on bad-fit advertisers to bank a
+commission. A blanket cut punishes good closes and bad closes identically.
+
+If you want more protection than the clawback gives, make the rate conditional
+rather than lower: **a close-rate gate** — if his close rate on PGAM-supplied
+Meta leads falls below ~10% over a quarter, the SMB rate steps to 7% for the
+following quarter. Lead waste becomes his problem; performance isn't punished.
 
 ### Recommended rates
 
 | Deal type | Rate | Basis |
 |---|---|---|
 | Agency (unchanged) | 15% of net | as today |
-| **SMB, PGAM-sourced lead** | **10% of net** | recurring, while the account spends |
+| **SMB, PGAM-sourced Meta lead** | **10% of net** | recurring, while the account spends |
 | **SMB, Ryan-sourced lead** | **15% of net** | recurring, while the account spends |
 | SMB closed below the tier floor | 7% of net | that deal only |
-| Account converted to unmanaged self-serve | 5% of net | residual |
+| Converted to unmanaged self-serve | 5% of net | residual |
 
-10% rather than 15% on inbound SMB because we supply the lead — the marketing
-cost is already borne, the cycle is two calls not two quarters, and the deal is
-templated with no RFP. The 15% agency rate pays for hunting, long cycles and
-relationship risk. Where Ryan does his own hunting, he gets the hunting rate.
-
-Not lower than 10%, because he also has to *hold* the book. Paid too little on
-a $4K account, he ignores thirty of them to chase one whale.
-
-### Terms
-
-- **Paid monthly on collected cash**, not on booking. No collection, no
-  commission.
-- **Recurring while active.** He keeps earning as long as the account spends —
-  that is what makes retention his problem too.
-- **Clawback** on any account that churns inside 60 days of launch. Stops
-  bad-fit closes.
-- **No commission on make-goods.** The rate card settles make-goods in
-  additional impressions, no cash — so they cut margin, and correctly cut his
-  net with it.
-- **Pricing authority** to the "can close at" column above. Below it, Priyesh
-  approves and that deal pays 7%.
-- **Accelerator:** in any calendar month where the SMB book clears $25K net,
-  all SMB net that month pays **13%**.
-- No cap.
+Terms: paid monthly **on collected cash**; recurring while the account spends;
+**60-day churn clawback**; no commission on make-goods; pricing authority to the
+floor column; **13% accelerator** in any month the SMB book clears $25K net; no
+cap. Plus the close-rate gate above if you want it.
 
 ### Does it pay him enough
 
-| Active SMB accounts | Gross/mo @ $4K | Net @ 40% | Ryan @ 10% | Annualised |
+At $5K accounts and 40% margin (net $2,000/account/month):
+
+| Active accounts | Gross/mo | Net/mo | Ryan @ 10% | Annualised |
 |---|---|---|---|---|
-| 10 | $40K | $16K | $1,600/mo | $19.2K |
-| 15 | $60K | $24K | $2,400/mo | $28.8K |
-| 30 | $120K | $48K | $4,800/mo | $57.6K |
-| 40 | $160K | $64K | $6,400/mo (13% accel: $8,320) | $76.8K–$99.8K |
+| 10 | $50K | $20K | $2,000/mo | $24K |
+| 15 | $75K | $30K | $3,000/mo | $36K |
+| 30 | $150K | $60K | $6,000/mo (13% accel: $7,800) | $72K–$93.6K |
 
-Per-hour it beats agency work at the bottom of the funnel: $160 for a deal that
-closes in two calls, against $750 for one that takes a quarter. Worth showing
-him that arithmetic — otherwise 15% vs 10% reads as a demotion.
+Show him the per-hour: $200 for a two-call close beats $750 for an agency deal
+that takes a quarter.
 
-## 4. Open questions for Priyesh
+## 5. Open questions for Priyesh
 
-1. **Does Ryan do the AdOps, or does AdOps?** If Ryan runs his own campaigns
-   the ~$480 servicing cost largely disappears into his comp, and 12–13% is the
-   fair rate. If AdOps still services, 10%. This changes the number.
-2. **Is the stripped SMB SKU approved?** The margin table is void if these
-   deals are sold with weekly written recaps and QBRs attached.
-3. **Volume floor on the inbound funnel.** 10% only holds if the leads are
-   genuinely arriving; if Ryan ends up prospecting them, it is 15% work.
-4. **Rate card v1.1** should add the SMB tier with the $3K minimum and the
-   CPM-only constraint, filling the `<TBD min spend>` placeholders in SKU 1.
+1. **Does Ryan run the Vibe campaigns himself?** If so the ~$270 servicing folds
+   into his comp and 12–13% is the fair rate. If AdOps runs them, 10%.
+2. **How much Vibe balance do we pre-fund, and who watches the floor?** A failed
+   payment pauses every client's campaign at once. This needs an owner and an
+   alert, not a card.
+3. **Is the Meta funnel producing?** 10% assumes leads arrive. If Ryan ends up
+   prospecting them, it is 15% work.
+4. **What is our actual Meta CAC per closed account?** The $600 above is an
+   assumption. It is the one input that would change the commission answer.
+5. **Rate card v1.1** should add the Vibe SMB tier: $2,000 minimum, CPM-only,
+   2–3 day onboarding, and SKU 1's `<TBD min spend>` / `<TBD weeks>` filled.
