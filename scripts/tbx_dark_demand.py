@@ -47,7 +47,11 @@ The rails
 5. **`--apply` plus `TBX_ALLOW_WRITES=1`**, and `core.tbx_mgmt` enforces the
    second independently.
 6. Every applied run writes a ledger; `--revert` undoes exactly it.
-7. **An unattended run announces itself.** The scheduled job auto-applies
+7. **A source already switched off is left alone.** The window is history,
+   and history does not change when a source is disabled — so yesterday's cut
+   is still dark today. Re-flagging it would spend the cap on no-ops and
+   re-announce the same names every morning.
+8. **An unattended run announces itself.** The scheduled job auto-applies
    (PGAM, 2026-09-01), so every applied run posts the sources it switched off
    to Slack. A silent automatic write is one nobody can audit until they think
    to look. A failed post never fails the run — the cut already happened, and
@@ -143,10 +147,35 @@ def pull_days(start: date, days: int) -> tuple[dict[int, dict], list[str]]:
     return seen, answered
 
 
-def select(seen: dict[int, dict], answered: list[str], args
-           ) -> tuple[list[dict], list[tuple[dict, str]]]:
-    """Sources dark on EVERY answered day. Returns (targets, skipped)."""
-    targets, skipped = [], []
+def live_status() -> dict[int, bool]:
+    """{demand id: currently enabled} — one paginated call, not one per source.
+
+    The report grain this script measures is *history*, and history does not
+    change when a source is switched off. So a source disabled yesterday is
+    still dark across the window today, and without this the job would re-flag
+    every cut it has ever made: spending its --max-disable budget on no-ops,
+    re-announcing them to Slack each morning, and burying anything new under
+    them. The first live run (2026-09-01) surfaced 68, of which 19 were
+    already off from the night before.
+    """
+    rows = tbm.list_demand_sources()
+    out: dict[int, bool] = {}
+    for row in rows:
+        did = row.get("id")
+        if did is None:
+            continue
+        out[int(did)] = bool(row.get("status"))
+    return out
+
+
+def select(seen: dict[int, dict], answered: list[str],
+           status: dict[int, bool], args
+           ) -> tuple[list[dict], list[tuple[dict, str]], list[dict]]:
+    """Sources dark on EVERY answered day.
+
+    Returns (targets, skipped, already_off).
+    """
+    targets, skipped, already_off = [], [], []
     for did, entry in seen.items():
         per_day = entry["per_day"]
         row = {"id": did, "name": entry["name"],
@@ -173,18 +202,29 @@ def select(seen: dict[int, dict], answered: list[str], args
             continue
         if args.include and did not in args.include:
             continue
+
+        # Dark, but already switched off — by an earlier run of this job, by
+        # tbx_cut, or by hand. Nothing to do, and it must not eat the cap.
+        # A source the dictionary does not know is treated the same way:
+        # writing to an entity whose current state we could not read is
+        # exactly the guess this script exists to avoid.
+        if not status.get(did, False):
+            already_off.append(row)
+            continue
+
         targets.append(row)
 
     targets.sort(key=lambda r: -r["requests_day"])
-    return targets, skipped
+    already_off.sort(key=lambda r: -r["requests_day"])
+    return targets, skipped, already_off
 
 
 def render(targets: list[dict], skipped: list[tuple[dict, str]],
-           answered: list[str], args) -> list[dict]:
+           already_off: list[dict], answered: list[str], args) -> list[dict]:
     print(f"\n{_HDR}\nDemand sources dark across {len(answered)} day(s)\n{_HDR}")
     print(f"  days measured: {', '.join(answered)}\n")
     if not targets:
-        print("  nothing is dark — every source answered on at least one day")
+        print("  nothing is dark and still switched on")
     for row in targets[:args.max_disable]:
         print(f"  {row['requests_day']:>15,.0f} req/day   0 responses   "
               f"{row['name']} #{row['id']}")
@@ -209,6 +249,18 @@ def render(targets: list[dict], skipped: list[tuple[dict, str]],
         print(f"\n  {len(skipped)} skipped:")
         for row, why in skipped:
             print(f"    · {row['name']} #{row['id']} — {why}")
+    if already_off:
+        total = sum(r["requests_day"] for r in already_off)
+        print(f"\n  {len(already_off)} dark but already disabled "
+              f"({total:,.0f} req/day, no longer being sent) — left alone:")
+        for row in already_off[:10]:
+            print(f"    · {row['name']} #{row['id']} "
+                  f"({row['requests_day']:,.0f} req/day)")
+        if len(already_off) > 10:
+            print(f"    · …and {len(already_off) - 10} more")
+        print("  These are history: the window still contains the requests "
+              "they were\n  sent before the switch-off, which is why they "
+              "keep appearing.")
     return targets[:args.max_disable]
 
 
@@ -364,8 +416,20 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     print(f"\n  {len(seen)} demand source(s) seen across {len(answered)} days")
-    targets, skipped = select(seen, answered, args)
-    to_cut = render(targets, skipped, answered, args)
+
+    # Which of them are still switched on. Without this the job re-flags its
+    # own past cuts forever (see live_status).
+    status = live_status()
+    if not status:
+        print("\n::error::the demand-source list came back empty, so this run "
+              "cannot tell a source that is already off from one that is "
+              "still running. Refusing to write. Re-run.", file=sys.stderr)
+        return 2
+    print(f"  {sum(1 for on in status.values() if on)} of {len(status)} "
+          f"currently enabled")
+
+    targets, skipped, already_off = select(seen, answered, status, args)
+    to_cut = render(targets, skipped, already_off, answered, args)
 
     if not to_cut:
         return 0
