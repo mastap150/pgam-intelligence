@@ -146,7 +146,7 @@ TB for 30 days the same way `tbx_recon.py` reconciles TBX. That produces the
 one artifact a platform decision actually needs — two platforms, the same
 inventory, comparable numbers — instead of a feature grid.
 
-### Option C — full TB replacement *(not now)*
+### Option C — full TB replacement *(not yet — see 5.4)*
 
 Only justified if all three hold:
 1. they demonstrate proportional traffic shaping and/or real bid shading that
@@ -156,6 +156,85 @@ Only justified if all three hold:
    publisher/demand IDs were never confirmed either way;
 3. the pricing beats TB's take by enough to fund ~4,400 LOC of re-integration
    plus a re-verified P&L row.
+
+Their custom-development offer bears directly on all three — §5.4.
+
+### 5.4 If the offer is custom development
+
+Their pitch includes custom work — "custom development services tailored to
+specific business needs." That is genuinely attractive, and it is the strongest
+argument yet for xe.works. It does not, however, satisfy condition 1 above.
+**A roadmap commitment is not a demonstration.** It moves the risk from "can
+the product do this" to "will this vendor deliver this, on time, and who owns
+it" — a different risk, not a smaller one.
+
+Four terms decide whether custom work is an asset or a trap:
+
+1. **Ownership and exclusivity.** If they build proportional traffic shaping
+   for PGAM, is it our IP, exclusive to us for a period, or a feature they ship
+   to every other customer — including our competitors — next quarter? And if
+   we leave, does it leave with us? This is the single most important
+   commercial term in the whole conversation.
+2. **Acceptance, not promises.** Milestone-based, with the demo running on
+   *our* traffic before any cutover. Payment tied to acceptance.
+3. **Lock-in.** Custom work is a lock-in amplifier. The more bespoke the
+   platform is to PGAM, the harder the exit and the more leverage they hold at
+   renewal. Teqblaze is generic, and that is an underrated feature when it
+   comes to leaving. Price the exit at signature, not later.
+4. **Capacity, on a 10–49 person vendor in Kyiv/Vilnius.** Ask for named
+   engineers, a written spec, and either source escrow or a stable documented
+   API contract. If two people build our shaping engine, we need to know what
+   happens when one of them is unavailable.
+
+#### The custom asks that would actually change the maths
+
+The instinct is to ask them to build *features*. The better trade is to ask
+them to **build away our integration cost**, because that is where Option C's
+real expense sits — not the licence, but ~4,400 LOC plus a re-verified P&L.
+In rough order of leverage:
+
+1. **Warehouse-grade data access** — log-level or ClickHouse-grade export, or
+   better, a direct push into our Neon `pgam_direct` schema. This is the
+   highest-leverage ask on the list. Most of `core/tb_*` and `core/tbx_*` and
+   most of the ETL jobs exist only to turn report endpoints into rows we
+   already know the shape of. A vendor-side feed deletes a large fraction of
+   the re-integration cost, and it is cheap for them.
+2. **Proportional traffic shaping per demand partner**, with a **verified
+   rollback** — "send this DSP 30% of today's volume", and the ability to
+   put it back. Note this is not only the §2.1 capability gap: it is also
+   gate 4 of the automation promotion gate in `optimization-cadence.md` §3.5,
+   which we cannot currently satisfy *because* TB's cuts are binary. Custom
+   shaping would unblock a decision that is stuck for structural reasons.
+3. **Stable, exportable entity IDs plus a mapping export.** The precise thing
+   that bit us TB → TBX. Make it a deliverable, not an assurance.
+4. **A real write API**: OpenAPI spec, a read-only credential role, documented
+   rate limits, and idempotent writes. TBX's double gate (`dry_run=True` plus
+   `TBX_ALLOW_WRITES=1`) exists because the write surface is a blunt
+   instrument; we should not have to rebuild that pattern a third time.
+5. **Contract-floor minimums as a first-class platform constraint**, so
+   `tb_contract_floor_sentry` does not need to exist as an hourly repair job.
+6. **GPM as a native metric** (gross revenue per million bid requests). Minor,
+   but it is the metric every supply decision here is actually made on.
+
+#### What does not change
+
+The sequencing. Two things still have to happen first, and neither is about
+xe.works:
+
+- **Run the TBX reconciliation.** Not for Teqblaze's sake — because it is the
+  harness that would tell us whether xe.works' numbers are right when they
+  arrive. Migrating a second time without a working correctness check is how
+  a bad number reaches the P&L unnoticed.
+- **Do the carve-out (Option B) before commissioning the custom build.** A
+  custom spec needs to be written by someone who has seen their platform carry
+  real PGAM inventory. Specifying a shaping engine for a marketplace they have
+  never run is how you get a feature that passes acceptance and fails in
+  production. The carve-out is also the cheapest possible negotiating
+  position: it is much easier to ask for exclusivity and escrow when you can
+  point at 30 days of your own data.
+
+Custom development turns Option C from "not now" into "plausibly yes, in this
+order." It does not turn it into "now."
 
 ## 6. Questions to put to them before any of the above
 
