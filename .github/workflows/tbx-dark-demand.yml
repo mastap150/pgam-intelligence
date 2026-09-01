@@ -12,13 +12,21 @@ name: TBX Dark Demand (scheduled)
 # this: it aggregates wins over a window, so a DSP that went down on Tuesday
 # still has wins from Monday and never gets flagged. Recency is the point.
 #
-# Why the schedule REPORTS and does not write
-# -------------------------------------------
-# `apply` defaults to "no" and the cron does not override it. A daily job that
-# switches partners off unattended is a different risk from one a person runs:
-# the failure is discovered by a partner, at night, with nobody watching. So
-# the schedule surfaces what is dark and a human dispatches the apply — until
-# PGAM has watched it agree with reality for a while and decides otherwise.
+# The schedule WRITES (PGAM, 2026-09-01)
+# --------------------------------------
+# This was report-only for its first hours; PGAM asked for auto-apply. A daily
+# job that switches partners off unattended fails differently from one a person
+# runs — the discovery is a partner calling, at night — so three things carry
+# that weight instead of a human:
+#
+#   * the partial-window refusal below, which is the difference between "dark"
+#     and "we could not see"
+#   * max_disable, which caps the blast radius of one bad morning at 25
+#   * a Slack post naming every source it switched off, so an unattended write
+#     is announced rather than discovered
+#
+# A manual dispatch still defaults to apply: "no", so a person poking at it
+# gets a dry run unless they say otherwise.
 #
 # The measurement rail that matters most
 # --------------------------------------
@@ -92,9 +100,11 @@ jobs:
       # Demand x date with requests_sum is lighter than the geo pair grain but
       # still not an entity read. 300s, per §5.9.
       TBX_TIMEOUT: "300"
-      # Opens ONLY on a literal "yes", which the cron never supplies, so a
-      # scheduled run cannot write however the script behaves.
-      TBX_ALLOW_WRITES: ${{ github.event_name == 'workflow_dispatch' && inputs.apply == 'yes' && '1' || '0' }}
+      # The cron writes; a manual dispatch writes only on a literal "yes".
+      TBX_ALLOW_WRITES: ${{ (github.event_name == 'schedule' || inputs.apply == 'yes') && '1' || '0' }}
+      # An unattended write must announce itself. Absent, the script logs that
+      # it skipped the post and the cut still stands.
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
       PYTHONUNBUFFERED: "1"
 
     steps:
@@ -129,6 +139,9 @@ jobs:
           echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
           if [ "$TBX_ALLOW_WRITES" = "1" ]; then
             echo "::warning::APPLY MODE — demand sources will be disabled on the live platform."
+            if [ "${{ github.event_name }}" = "schedule" ]; then
+              echo "::warning::UNATTENDED — this is the scheduled auto-apply run. Capped at ${{ inputs.max_disable || '25' }} sources; every write is in the ledger artifact and posted to Slack."
+            fi
           else
             echo "REPORT ONLY — nothing will be written."
           fi

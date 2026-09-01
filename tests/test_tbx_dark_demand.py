@@ -195,6 +195,61 @@ def test_dry_run_and_ledger_round_trip() -> None:
         dd.tbm.set_demand_source_status = real
 
 
+def test_unattended_run_announces_itself() -> None:
+    """The schedule auto-applies, so a write nobody sees is the failure mode."""
+    print("\nan applied run posts what it switched off")
+    posted = []
+    real = dd.slack
+    class FakeSlack:
+        @staticmethod
+        def send_text(text):
+            posted.append(text)
+    dd.slack = FakeSlack
+    try:
+        entries = [{"id": 501, "name": "Dead DSP", "requests_day": 5e5,
+                    "applied": True}]
+        dd.announce(entries, args_for(days=3), "dark-ledger-X.json")
+        check("something was posted", len(posted) == 1, str(posted))
+        body = posted[0]
+        check("it names the source", "Dead DSP #501" in body, body[:120])
+        check("it says how many days", "3 settled days" in body, body[:160])
+        check("it names the ledger for the undo",
+              "dark-ledger-X.json" in body, body[-160:])
+
+        posted.clear()
+        dd.announce([], args_for(), "x.json")
+        check("nothing applied means nothing posted", posted == [], str(posted))
+    finally:
+        dd.slack = real
+
+
+def test_a_failed_post_never_loses_the_cut() -> None:
+    print("\na broken webhook does not undo a write")
+    real = dd.slack
+    class Exploding:
+        @staticmethod
+        def send_text(text):
+            raise RuntimeError("webhook 500")
+    dd.slack = Exploding
+    try:
+        entries = [{"id": 1, "name": "X", "requests_day": 1.0, "applied": True}]
+        dd.announce(entries, args_for(), "l.json")     # must not raise
+        check("announce swallows the failure", True)
+    except Exception as exc:                            # noqa: BLE001
+        check("announce swallows the failure", False, str(exc))
+    finally:
+        dd.slack = real
+
+    # And with no slack module at all, which is the local-dev case.
+    dd_slack, dd.slack = dd.slack, None
+    try:
+        dd.announce([{"id": 1, "name": "X", "requests_day": 1.0,
+                      "applied": True}], args_for(), "l.json")
+        check("a missing slack module is not an error", True)
+    finally:
+        dd.slack = dd_slack
+
+
 def test_parser_and_defaults() -> None:
     print("\nargument surface")
     import re
@@ -221,6 +276,8 @@ def main() -> int:
     test_partial_window_refuses_to_conclude()
     test_max_disable_caps_a_run()
     test_dry_run_and_ledger_round_trip()
+    test_unattended_run_announces_itself()
+    test_a_failed_post_never_loses_the_cut()
     test_parser_and_defaults()
     print("\n" + "=" * 70)
     print(f"{PASS} passed, {FAIL} failed")
