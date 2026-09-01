@@ -1,0 +1,72 @@
+name: Require a Slack webhook
+description: >
+  Fail a scheduled job at startup when the webhook it delivers through is
+  missing, instead of letting it succeed into a void.
+
+# Why this exists (PGAM, 2026-09-01)
+# ----------------------------------
+# `core/slack.py` prints "No SLACK_WEBHOOK configured — skipping" and returns
+# cleanly. That is the right behaviour *inside* a script: losing a cut that
+# already happened because a webhook 500'd would be the worse outcome.
+#
+# It is the wrong behaviour for a scheduled job, because it makes two very
+# different states look identical from outside:
+#
+#     nothing to report          -> no Slack message
+#     could not reach anyone     -> no Slack message
+#
+# tbx_dark_demand disabled five demand sources unattended on 2026-09-01 and
+# announced none of them; the run was green. A sentry whose delivery is broken
+# is not a quiet sentry, it is a broken one, and it should be red.
+#
+# On a manual dispatch there is a person reading stdout, so the output is not
+# lost and a warning is enough. `enforce` is what draws that line — pass
+# `github.event_name == 'schedule'`.
+#
+# This runs before any work, so a job that cannot report does not first go and
+# change something on a live platform.
+
+inputs:
+  webhook:
+    description: The webhook value. Pass the secret straight through.
+    required: false
+    default: ""
+  name:
+    description: Secret name, used only in the message.
+    required: false
+    default: SLACK_WEBHOOK
+  enforce:
+    description: >
+      "true" fails the job when the webhook is absent; anything else warns.
+      Pass github.event_name == 'schedule'.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Check the webhook is present
+      shell: bash
+      env:
+        # Through env, never inline: an input interpolated into the script
+        # body would put the value in the rendered command line.
+        IN_WEBHOOK: ${{ inputs.webhook }}
+        IN_NAME: ${{ inputs.name }}
+        IN_ENFORCE: ${{ inputs.enforce }}
+      run: |
+        if [ -n "$IN_WEBHOOK" ]; then
+          echo "$IN_NAME is set — this run can report."
+          exit 0
+        fi
+        if [ "$IN_ENFORCE" != "true" ]; then
+          echo "::warning::$IN_NAME is not set, so nothing will be posted to \
+        Slack. You are reading this log, so the output is not lost — but the \
+        scheduled run of this same job would have had no way to reach anyone."
+          exit 0
+        fi
+        echo "::error::$IN_NAME is not set as an Actions secret, so this \
+        scheduled run has no way to deliver what it finds. Failing before \
+        doing any work rather than succeeding silently. Set it under \
+        Settings -> Secrets and variables -> Actions; the live value is in \
+        the Render dashboard for pgam-intelligence."
+        exit 1
