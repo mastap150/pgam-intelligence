@@ -40,6 +40,9 @@ name: TBX Dark Demand (scheduled)
 # Other rails, all in scripts/tbx_dark_demand.py:
 #   * each day must clear min_requests_day on its own
 #   * a source absent for part of the window is new, not dark
+#   * a source already switched off is left alone. The window is history, so
+#     yesterday's cut is still dark today; without this the job re-flags its
+#     own past work every morning and spends the cap on no-ops.
 #   * max_disable caps one run; overflow is reported, never dropped
 #   * every applied run writes a ledger, and --revert undoes exactly it
 

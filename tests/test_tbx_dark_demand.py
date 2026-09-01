@@ -55,10 +55,15 @@ def src(did, name, per_day):
     return {did: {"name": name, "per_day": dict(per_day)}}
 
 
+def all_on(seen):
+    """Status map in which every measured source is still switched on."""
+    return {did: True for did in seen}
+
+
 def test_dark_source_is_selected() -> None:
     print("\na source that answered nothing on every day")
     seen = src(501, "Dead DSP", {d: (500_000.0, 0.0) for d in DAYS})
-    targets, _ = dd.select(seen, DAYS, args_for())
+    targets, _, _ = dd.select(seen, DAYS, all_on(seen), args_for())
     check("it is selected", [t["id"] for t in targets] == [501], str(targets))
     check("the per-day request rate is reported",
           targets[0]["requests_day"] == 500_000.0, str(targets[0]))
@@ -69,7 +74,7 @@ def test_one_response_saves_it() -> None:
     for day in DAYS:
         per = {d: (500_000.0, 0.0) for d in DAYS}
         per[day] = (500_000.0, 1.0)          # answered exactly once
-        targets, _ = dd.select(src(501, "Blinker", per), DAYS, args_for())
+        targets, _, _ = dd.select(src(501, "Blinker", per), DAYS, {501: True}, args_for())
         check(f"one response on {day} spares it", targets == [], str(targets))
 
 
@@ -77,7 +82,7 @@ def test_a_new_source_is_not_dark() -> None:
     """Absent for part of the window means new, not silent."""
     print("\na source that appears mid-window")
     per = {DAYS[1]: (500_000.0, 0.0), DAYS[2]: (500_000.0, 0.0)}
-    targets, _ = dd.select(src(501, "Newcomer", per), DAYS, args_for())
+    targets, _, _ = dd.select(src(501, "Newcomer", per), DAYS, {501: True}, args_for())
     check("it is left alone", targets == [], str(targets))
 
 
@@ -85,20 +90,20 @@ def test_low_volume_day_disqualifies() -> None:
     print("\na day with too few requests is not a fair chance to answer")
     per = {d: (500_000.0, 0.0) for d in DAYS}
     per[DAYS[1]] = (9.0, 0.0)
-    targets, _ = dd.select(src(501, "Barely Used", per), DAYS, args_for())
+    targets, _, _ = dd.select(src(501, "Barely Used", per), DAYS, {501: True}, args_for())
     check("one thin day spares the source", targets == [], str(targets))
 
 
 def test_exclusions() -> None:
     print("\nexclusions")
     seen = src(501, "Dead DSP", {d: (500_000.0, 0.0) for d in DAYS})
-    targets, skipped = dd.select(seen, DAYS,
+    targets, skipped, _ = dd.select(seen, DAYS, all_on(seen),
                                  args_for(exclude={501: "ask the AM first"}))
     check("an excluded source is not selected", targets == [], str(targets))
     check("the reason is carried", any("AM" in w for _, w in skipped),
           str(skipped))
 
-    targets, _ = dd.select(seen, DAYS, args_for(include={999}))
+    targets, _, _ = dd.select(seen, DAYS, all_on(seen), args_for(include={999}))
     check("--include filters to the named ids", targets == [], str(targets))
 
 
@@ -152,12 +157,85 @@ def test_max_disable_caps_a_run() -> None:
     for i in range(40):
         seen.update(src(i, f"Dead {i}",
                         {d: (1_000_000.0 - i, 0.0) for d in DAYS}))
-    targets, _ = dd.select(seen, DAYS, args_for())
+    targets, _, _ = dd.select(seen, DAYS, all_on(seen), args_for())
     check("all 40 are detected", len(targets) == 40, str(len(targets)))
-    to_cut = dd.render(targets, [], DAYS, args_for(max_disable=25))
+    to_cut = dd.render(targets, [], [], DAYS, args_for(max_disable=25))
     check("only 25 are handed to the writer", len(to_cut) == 25, str(len(to_cut)))
     check("the biggest are the ones cut",
           to_cut[0]["requests_day"] == 1_000_000.0, str(to_cut[0]))
+
+
+def test_an_already_disabled_source_is_left_alone() -> None:
+    """The defect the first live run exposed.
+
+    The window is history. Disabling a source does not remove the requests it
+    was already sent, so yesterday's cut is still dark today — and without a
+    status check the job re-flags its own past work every morning, spends the
+    --max-disable cap on writes that change nothing, and buries whatever is
+    genuinely new underneath.
+    """
+    print("\nalready-disabled sources do not come back round")
+    seen = {}
+    seen.update(src(501, "Cut Last Night", {d: (900_000.0, 0.0) for d in DAYS}))
+    seen.update(src(502, "Newly Dark", {d: (100_000.0, 0.0) for d in DAYS}))
+
+    targets, _, already = dd.select(seen, DAYS, {501: False, 502: True},
+                                    args_for())
+    check("only the one still switched on is a target",
+          [r["id"] for r in targets] == [502], str(targets))
+    check("the one already off is reported, not dropped",
+          [r["id"] for r in already] == [501], str(already))
+
+    to_cut = dd.render(targets, [], already, DAYS, args_for())
+    check("and it is not handed to the writer",
+          [r["id"] for r in to_cut] == [502], str(to_cut))
+
+
+def test_an_unknown_source_is_not_written_to() -> None:
+    print("\na source missing from the dictionary is not guessed at")
+    seen = src(501, "Ghost", {d: (900_000.0, 0.0) for d in DAYS})
+    targets, _, already = dd.select(seen, DAYS, {999: True}, args_for())
+    check("not selected", targets == [], str(targets))
+    check("accounted for rather than silently dropped",
+          [r["id"] for r in already] == [501], str(already))
+
+
+def test_the_cap_is_spent_on_live_sources() -> None:
+    """max_disable must budget writes that do something."""
+    print("\nthe cap counts sources that are actually still on")
+    seen = {}
+    for i in range(40):
+        seen.update(src(i, f"Dead {i}", {d: (1_000_000.0 - i, 0.0)
+                                         for d in DAYS}))
+    # The 20 biggest were cut yesterday.
+    status = {i: i >= 20 for i in range(40)}
+    targets, _, already = dd.select(seen, DAYS, status, args_for())
+    check("20 already off", len(already) == 20, str(len(already)))
+    to_cut = dd.render(targets, [], already, DAYS, args_for(max_disable=25))
+    check("the remaining 20 all fit under the cap of 25",
+          len(to_cut) == 20, str(len(to_cut)))
+    check("and none of them is one that was already off",
+          all(r["id"] >= 20 for r in to_cut), str([r["id"] for r in to_cut]))
+
+
+def test_an_empty_status_map_refuses_to_write() -> None:
+    """Same class of failure as an unmeasured day: state we could not read."""
+    print("\nan unreadable demand list refuses to conclude anything")
+    calls = []
+    real_conf, real_pull = dd.tbx.configured, dd.pull_days
+    real_status, real_set = dd.live_status, dd.tbm.set_demand_source_status
+    dd.tbx.configured = lambda: True
+    dd.pull_days = lambda start, days: (
+        src(501, "Dead DSP", {d: (900_000.0, 0.0) for d in DAYS}), list(DAYS))
+    dd.live_status = lambda: {}
+    dd.tbm.set_demand_source_status = lambda *a, **k: calls.append(a)
+    try:
+        rc = dd.main(["--days", "3", "--apply"])
+    finally:
+        dd.tbx.configured, dd.pull_days = real_conf, real_pull
+        dd.live_status, dd.tbm.set_demand_source_status = real_status, real_set
+    check("exits 2", rc == 2, str(rc))
+    check("and wrote nothing", calls == [], str(calls))
 
 
 def test_dry_run_and_ledger_round_trip() -> None:
@@ -275,6 +353,10 @@ def main() -> int:
     test_failed_day_never_reads_as_silence()
     test_partial_window_refuses_to_conclude()
     test_max_disable_caps_a_run()
+    test_an_already_disabled_source_is_left_alone()
+    test_an_unknown_source_is_not_written_to()
+    test_the_cap_is_spent_on_live_sources()
+    test_an_empty_status_map_refuses_to_write()
     test_dry_run_and_ledger_round_trip()
     test_unattended_run_announces_itself()
     test_a_failed_post_never_loses_the_cut()
