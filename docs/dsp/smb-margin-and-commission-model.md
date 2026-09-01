@@ -24,8 +24,14 @@ Vibe strategy budget = advertiser gross × (1 − margin)
 $4,257.48 spend, 340,703 impressions, **$12.50 CPM**, 98.1% completion rate,
 $0.0625 cost per household. That is on automatic bidding.
 
-> Caveat: n=1. One advertiser, one quarter. Treat $12.50 as indicative and
-> re-check as the book grows — every margin number below moves with it.
+> **Caveat, and it matters more than it looks: n=1, and it is an outlier.**
+> One advertiser, one quarter. Vibe's own reference bounds call an Awareness
+> CPM target **below $15 "probably too low"** (too high above $40) — so $12.50
+> sits *beneath* the floor of what the platform considers a realistic ask. It
+> may reflect Hatford's vertical, geo, season, and no Live Sports rather than
+> what we will clear generally. **Every margin number below moves with this
+> figure**, so §2's rule is written to price off the clearing CPM rather than
+> off a fixed percentage.
 
 A $12.50 base CPM is the whole story. Managed CTV sells at $25–45. We can quote
 a market-competitive ~$20 CPM and still hold 40% margin.
@@ -49,7 +55,7 @@ build and reporting are both reachable over the Vibe API.
 Down from ~$1,100. **This is what makes SMB viable at all** — the earlier case
 for a high margin was cost recovery against a load that Vibe removes.
 
-## 2. Margin: 40% target, 33% floor
+## 2. Margin: price to an effective CPM, don't fix a percentage
 
 At a $12.50 clearing CPM, a $5,000 gross buy:
 
@@ -61,9 +67,28 @@ At a $12.50 clearing CPM, a $5,000 gross buy:
 
 <sub>*after ~$270 servicing, 10% commission on net, and ~$100 amortised Meta CAC.</sub>
 
-**Target 40%.** Stretch to 45% where the advertiser is CPM-insensitive — most
-SMB buyers think in monthly budget, not CPM, and have no CTV reference point.
-**Floor 33%**, below which Priyesh approves.
+**A fixed 40% is the wrong instrument.** It only works while we clear $12.50,
+and that figure is one advertiser sitting below Vibe's own realistic floor. If
+typical clearing turns out to be $18, a 40% margin puts the advertiser at a
+$33 effective CPM — close to Vibe's "too high" bound of $40, a price that is
+easy to beat and hard to defend.
+
+**The rule instead: price to a $22–25 effective CPM to the advertiser, cap
+margin at 45%, floor at 30%.** Margin then falls out of what we actually
+clear, and self-corrects if CPM rises:
+
+| We clear | Margin for a $25 effective CPM | Vibe budget on $5K | Impressions |
+|---|---|---|---|
+| $12.50 | 50% → **capped at 45%** | $2,750 | 220,000 |
+| $15.00 | 40% | $3,000 | 200,000 |
+| $18.00 | 28% | $3,600 | 200,000 |
+| $20.00 | 20% | $4,000 | 200,000 |
+| $22.00 | 12% → below floor, decline or reprice | $4,400 | 200,000 |
+
+At today's $12.50 that lands us at the 45% cap — so **40–45% is right now**,
+which is where the first draft landed, but for a reason that survives the CPM
+moving. $22–25 is comfortably inside Vibe's own $15–40 Awareness band and
+normal for managed CTV, so it is a price we can defend out loud.
 
 | Advertiser spend / month | Target | Ryan can close at |
 |---|---|---|
@@ -72,7 +97,8 @@ SMB buyers think in monthly budget, not CPM, and have no CTV reference point.
 | $10K – $25K | 28% | 22% |
 | $25K+ / agency | 15–20% | 12% |
 
-**Minimum drops to $2,000/month.** At $2,000 gross and 40%, net is $800 against
+**Minimum $2,000/month, and a 3-month minimum term** (see §3 — a one-month
+flight is half learning phase). At $2,000 gross and 40%, net is $800 against
 ~$270 servicing — thin but real. Below $2,000 the calendar cost wins; take it
 only self-serve with no managed touch.
 
@@ -90,7 +116,56 @@ blended CPM.
 budget is 50 calls, we bear the media, and variance at that volume can flip a
 priced-for-profit flight into a loss.
 
-## 3. Budgeting a $5,000 spend — the mechanics
+## 3. Does the margin hurt performance?
+
+Mostly no — but the reasons are specific, and the real threat to an SMB
+campaign is not the margin at all.
+
+**Efficiency: barely affected.** The optimisation playbook's own logic is
+diminishing returns — "the first dollar is most efficient, each additional
+dollar slightly less so." The dollars margin removes are therefore the *least*
+efficient ones. The advertiser's cost per outcome stays roughly intact; they get
+**fewer outcomes, not worse ones**. At $12.50 clearing, a $5K buy delivers
+~48,000 households at 40% margin against ~60,000 at 25% — a scale difference of
+about a fifth, not a quality difference.
+
+**Optimiser starvation: real, and it depends on the campaign goal.** The
+playbook is explicit that "the bidding algorithm requires data volume to learn,"
+and its sample-size guide says an observation needs ~100 conversions before it is
+even actionable. That splits SMB in two:
+
+- **Awareness / ABM** — the signal is impressions and households, which are
+  plentiful at a $2,750–3,000 media budget. Hold the full margin here.
+- **Leads / Sales / Traffic** — the signal is conversions. At $3,000 media and a
+  $50 cost per lead that is ~60 leads a month: below where the bidder can
+  optimise and below where our own reporting can separate signal from noise.
+  **Take less margin on performance goals, or require a larger budget** — this
+  is the one case where 40% genuinely buys a worse campaign.
+
+**The 14-day learning phase is the actual problem, and margin has nothing to do
+with it.** New campaigns carry a **14-day learning phase** during which
+performance is expected to fluctuate; pausing/resuming or duplicating with
+changes resets a further **5-day** phase. A one-month $5,000 flight spends
+roughly half its life learning, then gets judged on the result.
+
+Two consequences, both worth more than ten points of margin:
+
+1. **Sell a 3-month minimum term, not one-month flights.** Otherwise every SMB
+   advertiser churns on a false read of a campaign that never left its learning
+   phase — and we lose an LTV worth many times the margin difference.
+2. **Never pause/resume to manage pacing.** It resets a 5-day learning phase.
+   Adjust budget instead.
+
+**Also independent of margin:** with the 30-day default attribution window, the
+playbook says prioritise reach over frequency — a newly reached household opens a
+fresh window, while re-exposing one already in an open window adds almost
+nothing. Hatford ran ~5 exposures per household across the quarter, which is
+reasonable spacing, but the Insights tab's *Reached vs. Recalled* chart is the
+thing to watch: the closer Recalled tracks Reached, the more efficient the
+frequency strategy. There is performance available there without giving up a
+point of margin.
+
+## 4. Budgeting a $5,000 spend — the mechanics
 
 1. **Vibe strategy budget is $3,000, never $5,000.** The one failure mode that
    destroys the deal is loading the advertiser's stated budget into Vibe. $5,000
@@ -117,7 +192,7 @@ priced-for-profit flight into a loss.
 8. **Harvest the referral credit** — $500 for a referred advertiser's first $500
    of spend, which is pure margin. Ask every account that renews.
 
-## 4. Ryan's commission
+## 5. Ryan's commission
 
 ### Define "net" first
 
@@ -195,7 +270,7 @@ At $5K accounts and 40% margin (net $2,000/account/month):
 Show him the per-hour: $200 for a two-call close beats $750 for an agency deal
 that takes a quarter.
 
-## 5. Open questions for Priyesh
+## 6. Open questions for Priyesh
 
 1. **Does Ryan run the Vibe campaigns himself?** If so the ~$270 servicing folds
    into his comp and 12–13% is the fair rate. If AdOps runs them, 10%.
@@ -206,5 +281,9 @@ that takes a quarter.
    prospecting them, it is 15% work.
 4. **What is our actual Meta CAC per closed account?** The $600 above is an
    assumption. It is the one input that would change the commission answer.
-5. **Rate card v1.1** should add the Vibe SMB tier: $2,000 minimum, CPM-only,
-   2–3 day onboarding, and SKU 1's `<TBD min spend>` / `<TBD weeks>` filled.
+5. **Will we hold a 3-month minimum term?** §3 says a one-month flight is half
+   learning phase. This is the single biggest lever on SMB retention, and it is
+   a sales-posture decision, not a pricing one.
+6. **Rate card v1.1** should add the Vibe SMB tier: $2,000 minimum, 3-month
+   term, CPM-only, 2–3 day onboarding, margin priced to a $22–25 effective CPM,
+   and SKU 1's `<TBD min spend>` / `<TBD weeks>` filled.
