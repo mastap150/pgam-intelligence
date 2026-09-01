@@ -64,6 +64,10 @@ on:
         description: "Extra ids to skip, comma-separated"
         required: false
         default: ""
+      clear_default_excludes:
+        description: "Type yes to drop the built-in exclusions (Illumin RON cluster, Dexerto). Each one names a conversation that should happen first."
+        required: false
+        default: "no"
       revert_ledger:
         description: "Path to a downloaded ledger to REVERT instead of cutting"
         required: false
@@ -126,6 +130,9 @@ jobs:
           echo "max $/day      : ${{ inputs.max_revenue_day }}"
           echo "only these ids : ${{ inputs.include }}"
           echo "also excluded  : ${{ inputs.also_exclude }}"
+          if [ "${{ inputs.clear_default_excludes }}" = "yes" ]; then
+            echo "::warning::BUILT-IN EXCLUSIONS CLEARED — the Illumin RON cluster and Dexerto Display are eligible for this run."
+          fi
           echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
           if [ "${{ inputs.apply }}" = "yes" ]; then
             echo "::warning::APPLY MODE — sources will be disabled on the live platform."
@@ -151,11 +158,13 @@ jobs:
           IN_MAX_REV: ${{ inputs.max_revenue_day }}
           IN_EXCLUDE: ${{ inputs.also_exclude }}
           IN_INCLUDE: ${{ inputs.include }}
+          IN_CLEAR: ${{ inputs.clear_default_excludes }}
         run: |
           ARGS="--buckets $IN_BUCKETS --side $IN_SIDE --days $IN_DAYS"
           ARGS="$ARGS --max-revenue-day $IN_MAX_REV"
           if [ -n "$IN_INCLUDE" ]; then ARGS="$ARGS --include $IN_INCLUDE"; fi
           if [ -n "$IN_EXCLUDE" ]; then ARGS="$ARGS --also-exclude $IN_EXCLUDE"; fi
+          if [ "$IN_CLEAR" = "yes" ]; then ARGS="$ARGS --clear-default-excludes"; fi
           if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
           echo "running: tbx_cut.py $ARGS"
           # Exit 1 means at least one write was refused or failed, which must
