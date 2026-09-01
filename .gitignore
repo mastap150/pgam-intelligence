@@ -62,3 +62,4 @@ docs/design/**/attentive-buying-deal-desk.html
 # exactly where it must not be.
 geo-ledger-*.json
 cut-ledger-*.json
+dark-ledger-*.json
