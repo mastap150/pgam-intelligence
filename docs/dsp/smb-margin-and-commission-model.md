@@ -354,7 +354,69 @@ At $5K accounts and 40% margin (net $2,000/account/month):
 Show him the per-hour: $200 for a two-call close beats $750 for an agency deal
 that takes a quarter.
 
-## 6. Open questions for Priyesh
+## 6. The model
+
+Interactive version (live dials for margin, clearing CPM, churn, CAC):
+`https://claude.ai/code/artifact/a649a15a-c5cb-4ed2-a751-fd4410c20a43`
+
+Base case: **$5,000/month, 35% margin, $12.50 clearing CPM, 5h servicing at $60,
+Ryan at 10% of net, $600 Meta CAC, 3-month term, 20% monthly churn thereafter.**
+
+### One account, one month
+
+| | |
+|---|---|
+| Advertiser pays | $5,000 |
+| Media to Vibe | ($3,250) |
+| **Net (our margin)** | **$1,750** |
+| Servicing (5h @ $60) | ($300) |
+| Ryan @ 10% of net | ($175) |
+| **Contribution** | **$1,275** — 25.5% of gross |
+| Month 1 only, after CAC | $675 |
+
+Advertiser receives 260,081 impressions → **$19.22 effective CPM**. CAC payback
+**0.47 months**. At an 8-month life, LTV $10,200 → **17× CAC**.
+
+### Twelve months, ramping to 5 new accounts/month
+
+| Mo | New | Active | Gross | Net | Contribution | Cumulative | Ryan | Svc hrs |
+|---|---|---|---|---|---|---|---|---|
+| 1 | 2 | 2.0 | $10,000 | $3,500 | $1,350 | $1,350 | $350 | 10 |
+| 3 | 3 | 7.0 | $35,000 | $12,250 | $7,125 | $12,375 | $1,225 | 35 |
+| 6 | 4 | 15.7 | $78,520 | $27,482 | $17,623 | $54,460 | $2,748 | 79 |
+| 9 | 5 | 24.7 | $123,522 | $43,233 | $28,498 | $129,607 | $4,323 | 124 |
+| 12 | 5 | 29.7 | $148,643 | $52,025 | $34,904 | **$228,859** | $5,203 | **149** |
+
+Exit run-rate: **$148.6K/month gross, $52.0K net, $37.9K contribution.**
+Ryan's year 1: **$35,365**, exiting at a $62,430 annual rate.
+
+### Three things the model says that the margin debate does not
+
+1. **Churn sets the ceiling, not sales effort.** At 5 new accounts a month against
+   20% monthly churn the book asymptotes to **25 active accounts** — no amount of
+   selling passes it. Halving churn doubles the ceiling. That is the whole case
+   for the 3-month minimum term (§3), and it dwarfs any margin point.
+2. **Servicing breaks before the book does.** At 5h per account we cross one
+   full-time person's capacity around **month 12** (149h). Past that, the $300 per
+   account stops being a variable cost and becomes a hire — which has to be in
+   the plan before it arrives, not after.
+3. **The economics are not the constraint.** 25.5% contribution, sub-month CAC
+   payback, 17× LTV/CAC. The binding constraints are retention and servicing
+   capacity. Optimising margin here is optimising the wrong variable.
+
+### What would change the answer
+
+- **The clearing CPM.** $12.50 is n=1 and below Vibe's own realistic floor. At
+  $18 clearing, 35% margin puts the advertiser at $27.69 and 45% at $32.73 —
+  the margin case narrows sharply. This is the first thing to measure.
+- **Meta CAC.** $600 is a placeholder and the only input that would move the
+  10%-vs-7% commission decision.
+- **Churn.** The 20% assumption is a guess with no data behind it yet.
+
+Contribution excludes overhead — no platform, tooling, finance, or Priyesh's
+time. It is contribution margin, not profit.
+
+## 7. Open questions for Priyesh
 
 1. **Does Ryan run the Vibe campaigns himself?** If so the ~$270 servicing folds
    into his comp and 12–13% is the fair rate. If AdOps runs them, 10%.
