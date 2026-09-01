@@ -47,6 +47,11 @@ The rails
 5. **`--apply` plus `TBX_ALLOW_WRITES=1`**, and `core.tbx_mgmt` enforces the
    second independently.
 6. Every applied run writes a ledger; `--revert` undoes exactly it.
+7. **An unattended run announces itself.** The scheduled job auto-applies
+   (PGAM, 2026-09-01), so every applied run posts the sources it switched off
+   to Slack. A silent automatic write is one nobody can audit until they think
+   to look. A failed post never fails the run — the cut already happened, and
+   losing it over a webhook would be the worse outcome.
 
 Usage
 -----
@@ -79,6 +84,11 @@ sys.path.insert(0, __file__.rsplit("/scripts/", 1)[0])
 from core import tbx_api as tbx          # noqa: E402
 from core import tbx_mgmt as tbm         # noqa: E402
 from scripts import tbx_trim as trim     # noqa: E402
+
+try:                                     # optional: absent locally is fine
+    from core import slack               # noqa: E402
+except Exception:                        # noqa: BLE001
+    slack = None
 
 _HDR = "=" * 78
 
@@ -259,6 +269,37 @@ def revert(path: str, args) -> int:
     return 1 if failures else 0
 
 
+def announce(entries: list[dict], args, ledger: str) -> None:
+    """Tell Slack what an unattended run switched off.
+
+    A scheduled job that disables partners in silence is one nobody can audit
+    until someone thinks to look at an Actions log. The ledger is the record;
+    this is the notification that a record exists. Failure to post must never
+    fail the run — the write already happened, and losing the cut over a
+    webhook would be the worse outcome.
+    """
+    if slack is None or not entries:
+        return
+    total = sum(e["requests_day"] for e in entries)
+    lines = [f"• {e['name']} #{e['id']} — {e['requests_day']:,.0f} req/day"
+             for e in entries[:15]]
+    if len(entries) > 15:
+        lines.append(f"• …and {len(entries) - 15} more")
+    text = (
+        f"*TBX dark demand — {len(entries)} source(s) disabled automatically*\n"
+        f"Zero bid responses on all {args.days} settled days. "
+        f"{total:,.0f} requests/day removed.\n"
+        + "\n".join(lines)
+        + f"\n\nLedger `{ledger}` (artifact on the run). Undo:\n"
+        f"`tbx-dark-demand.yml` → revert_ledger = `{ledger}`, apply = yes"
+    )
+    try:
+        slack.send_text(text)
+    except Exception as exc:              # noqa: BLE001
+        print(f"[slack] notification failed, cut still stands: {exc}",
+              file=sys.stderr)
+
+
 def parse_ids(raw: str | None) -> set[int]:
     if not raw:
         return set()
@@ -344,6 +385,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"\nLedger: {path}")
         print(f"Undo with: python3 scripts/tbx_dark_demand.py "
               f"--revert {path} --apply")
+        announce([e for e in entries if e.get("applied")], args, path)
     return 1 if failures else 0
 
 
