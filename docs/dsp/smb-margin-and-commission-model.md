@@ -90,12 +90,26 @@ which is where the first draft landed, but for a reason that survives the CPM
 moving. $22–25 is comfortably inside Vibe's own $15–40 Awareness band and
 normal for managed CTV, so it is a price we can defend out loud.
 
-| Advertiser spend / month | Target | Ryan can close at |
-|---|---|---|
-| $2K – $5K | 40% (stretch 45%) | 33% |
-| $5K – $10K | 35% | 30% |
-| $10K – $25K | 28% | 22% |
-| $25K+ / agency | 15–20% | 12% |
+| Advertiser spend / month | Open at | Stretch to, once clearing is proven | Ryan can close at |
+|---|---|---|---|
+| $2K – $5K | **35%** | 45% | 30% |
+| $5K – $10K | 32% | 40% | 28% |
+| $10K – $25K | 25% | 30% | 20% |
+| $25K+ / agency | 15–20% | — | 12% |
+
+**Open every new SMB account at 35%, not 40%.** The two differ by $250 of net on
+a $5K deal — not the number that decides whether this line works — and 35%
+buys two things that matter more. It stays defensible one CPM-step further: if
+clearing turns out to be $18 rather than $12.50, 35% puts the advertiser at a
+$27.69 effective CPM against 40%'s $30, which is heading for Vibe's own
+"too high" bound. And it gives month 1 about 8% more media at exactly the point
+the 14-day learning phase is suppressing performance and the account is deciding
+whether to renew.
+
+The asymmetry settles it: **moving 35% → 45% at renewal is an easy conversation;
+moving 40% → 35% because we underdelivered is a refund conversation.** Reprice
+new business upward once we have a clearing CPM we trust — three or more
+advertisers with two months each — and leave existing accounts where they are.
 
 **Minimum $2,000/month, and a 3-month minimum term** (see §3 — a one-month
 flight is half learning phase). At $2,000 gross and 40%, net is $800 against
