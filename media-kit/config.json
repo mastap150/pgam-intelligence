@@ -1,0 +1,92 @@
+{
+  "_README": "Fill in every null with a REAL number, then re-run: python3 media-kit/build.py. Any field left null renders as a visible 'ADD DATA' chip and the data slides carry a TEMPLATE banner. Nothing here is estimated or invented — see media-kit/README.md for where each figure comes from.",
+
+  "brand": {
+    "property": "destination.com",
+    "kicker": "Advertising & Partnerships",
+    "tagline": "Travel guides read at the point of decision.",
+    "contact_name": "Priyesh Patel",
+    "contact_email": "ppatel@pgammedia.com",
+    "prepared_for": "Expedia",
+    "date": "September 2026"
+  },
+
+  "reach": {
+    "monthly_readers": null,
+    "monthly_pageviews": null,
+    "newsletter_subscribers": null,
+    "newsletter_open_rate_pct": null,
+    "newsletter_ctr_pct": null,
+    "avg_engaged_time_min": null,
+    "returning_reader_pct": null,
+    "pages_per_session": null
+  },
+
+  "geography": [
+    { "label": "United States", "pct": null },
+    { "label": "United Kingdom", "pct": null },
+    { "label": "Canada", "pct": null },
+    { "label": "Australia", "pct": null },
+    { "label": "Rest of world", "pct": null }
+  ],
+
+  "age": [
+    { "label": "18–24", "pct": null },
+    { "label": "25–34", "pct": null },
+    { "label": "35–44", "pct": null },
+    { "label": "45–54", "pct": null },
+    { "label": "55–64", "pct": null },
+    { "label": "65+", "pct": null }
+  ],
+
+  "gender": [
+    { "label": "Female", "pct": null },
+    { "label": "Male", "pct": null }
+  ],
+
+  "device": [
+    { "label": "Mobile", "pct": null },
+    { "label": "Desktop", "pct": null },
+    { "label": "Tablet", "pct": null }
+  ],
+
+  "intent": [
+    { "label": "Sessions landing on a destination or accommodation guide", "value": null, "unit": "%" },
+    { "label": "Sessions reaching the \"Where to Stay\" section", "value": null, "unit": "%" },
+    { "label": "Average engaged time on guide pages", "value": null, "unit": "min" },
+    { "label": "Outbound booking-partner clicks per month", "value": null, "unit": "" }
+  ],
+
+  "demographics_source_note": "GA4 Demographic details + In-market audiences, [DATE RANGE]. GA4 reports demographics only for the share of users with Google Signals active — coverage for this period was [XX]% of users. Newsletter figures from [ESP NAME], same period.",
+
+  "placements": [
+    {
+      "id": "in-article",
+      "name": "In-article display",
+      "sizes": "970×250, 728×90 desktop · 300×250 mobile",
+      "position": "After section 2 of every guide, and again at 60% scroll depth",
+      "note": "Viewable-on-scroll, lazy-loaded, one unit per viewport"
+    },
+    {
+      "id": "where-to-stay",
+      "name": "\"Where to Stay\" native module",
+      "sizes": "Responsive native card, 3 slots",
+      "position": "Inside the accommodation section of each destination guide",
+      "note": "Highest-intent unit — reader has chosen a destination and is choosing lodging"
+    },
+    {
+      "id": "sidebar",
+      "name": "Sticky sidebar",
+      "sizes": "300×600, 300×250",
+      "position": "Right rail, desktop only, sticky through the article body",
+      "note": "Persistent share of voice for the length of the read"
+    },
+    {
+      "id": "newsletter",
+      "name": "Newsletter sponsorship",
+      "sizes": "600×200 banner + 40 words + CTA link",
+      "position": "Top of issue, above the first editorial item",
+      "note": "Single sponsor per issue — no competing advertisers"
+    }
+  ]
+}
