@@ -56,6 +56,10 @@ on:
         description: "Absolute refusal above this $/day"
         required: false
         default: "1.0"
+      include:
+        description: "Only these ids, comma-separated. Still filtered against the fresh measurement, and max_revenue_day still overrides."
+        required: false
+        default: ""
       also_exclude:
         description: "Extra ids to skip, comma-separated"
         required: false
@@ -120,6 +124,7 @@ jobs:
           echo "side           : ${{ inputs.side }}"
           echo "days           : ${{ inputs.days }}"
           echo "max $/day      : ${{ inputs.max_revenue_day }}"
+          echo "only these ids : ${{ inputs.include }}"
           echo "also excluded  : ${{ inputs.also_exclude }}"
           echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
           if [ "${{ inputs.apply }}" = "yes" ]; then
@@ -145,9 +150,11 @@ jobs:
           IN_DAYS: ${{ inputs.days }}
           IN_MAX_REV: ${{ inputs.max_revenue_day }}
           IN_EXCLUDE: ${{ inputs.also_exclude }}
+          IN_INCLUDE: ${{ inputs.include }}
         run: |
           ARGS="--buckets $IN_BUCKETS --side $IN_SIDE --days $IN_DAYS"
           ARGS="$ARGS --max-revenue-day $IN_MAX_REV"
+          if [ -n "$IN_INCLUDE" ]; then ARGS="$ARGS --include $IN_INCLUDE"; fi
           if [ -n "$IN_EXCLUDE" ]; then ARGS="$ARGS --also-exclude $IN_EXCLUDE"; fi
           if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
           echo "running: tbx_cut.py $ARGS"
