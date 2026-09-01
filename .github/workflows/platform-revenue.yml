@@ -62,6 +62,10 @@ on:
         description: "Last day YYYY-MM-DD (default: yesterday)"
         required: false
         default: ""
+      exclude:
+        description: "Drop a counterparty from every figure, e.g. OTTA (case-insensitive substring). Blank = include everything."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -111,6 +115,7 @@ jobs:
           ARGS="--grain ${{ inputs.grain }}"
           if [ -n "${{ inputs.from }}" ]; then ARGS="$ARGS --from ${{ inputs.from }}"; fi
           if [ -n "${{ inputs.to }}" ]; then ARGS="$ARGS --to ${{ inputs.to }}"; fi
+          if [ -n "${{ inputs.exclude }}" ]; then ARGS="$ARGS --exclude ${{ inputs.exclude }}"; fi
           echo "Running: platform_revenue.py $ARGS"
           python3 scripts/platform_revenue.py $ARGS | tee platform_revenue.txt
           code=${PIPESTATUS[0]}
@@ -127,6 +132,11 @@ jobs:
             echo "## Platform revenue — marketplace only"
             echo
             echo "Grain \`${{ inputs.grain }}\` · TB rule from \`core/tb_unified\`"
+            if [ -n "${{ inputs.exclude }}" ]; then
+              echo
+              echo "Excluding \`${{ inputs.exclude }}\` — exact on LL (pair grain); on TB the"
+              echo "supply and demand views are both computed and the larger removal is used."
+            fi
             echo
             if [ "${{ steps.pre.outputs.present }}" != "true" ]; then
               echo "**Misconfigured** — \`PGAM_DIRECT_DATABASE_URL\` is not set, so nothing ran."
