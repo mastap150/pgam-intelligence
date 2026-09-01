@@ -9,8 +9,9 @@ name: hasib-cohort-report
 # The report needs two Neon databases: pgam_direct (MSN snapshots) and
 # boxingnews (article bylines — the only place cohort membership exists).
 # Neither is reachable from a Claude cloud session: those start from a
-# fresh clone with no credentials, and their egress policy does not allow
-# Neon at all, so pasting a DSN into a session does not help either.
+# fresh clone with no credentials, and cloud egress drops port 5432
+# outright (measured: TCP to every Neon region times out while 443 opens),
+# so psycopg cannot connect and pasting a DSN in does not help either.
 #
 # A Routine is worse than useless here — it was tried, and the only way to
 # feed it credentials was to inline both DSNs into its prompt, which

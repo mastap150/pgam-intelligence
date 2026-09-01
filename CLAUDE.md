@@ -131,12 +131,22 @@ exactly that shortcut.
 
 ### A Neon credential does not help a cloud session anyway
 
-Measured 2026-09-01: outbound egress from a cloud session is policy-filtered
-down to `api.github.com`, the Anthropic APIs, and the package registries.
-`api.neon.tech` and `console.neon.tech` are refused at CONNECT, and Postgres
-on 5432 does not traverse an HTTPS proxy at all. So **no cloud session can
-query Neon, with or without a DSN** — pasting one in buys nothing and still
-puts an owner-level secret in a transcript.
+Measured 2026-09-01, by port rather than by host:
+
+- **Port 443 leaves the container.** Raw TCP to `pypi.org:443`,
+  `neon.tech:443`, even `boxingnews.com:443` all connect. The HTTPS *proxy*
+  denies most hosts by policy (`boxingnews.com` → 403 at CONNECT), but that
+  policy is the proxy's, not the network's.
+- **Port 5432 is silently dropped.** TCP to `us-east-2.aws.neon.tech:5432`
+  and every other Neon region times out. Neon endpoint DNS resolves fine
+  (the wildcard answers even for a made-up endpoint), so this is an egress
+  rule on the port, not a name-resolution problem.
+
+So **`psycopg` cannot connect to Neon from a cloud session** — a pasted DSN
+does not change that, and it puts an owner-level secret in a transcript for
+nothing. Neon's SQL-over-HTTP endpoint (`https://<endpoint>/sql`, port 443)
+is the one untested possibility; do not assume it works until someone tries
+it, and do not paste a DSN to find out.
 
 That makes the routing rule simple. Anything needing Neon runs where Neon is
 reachable:
