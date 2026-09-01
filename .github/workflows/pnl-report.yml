@@ -1,0 +1,174 @@
+name: P&L report (month / quarter)
+
+# The numbers behind admin.pgammedia.com/admin/pnl, without the browser.
+#
+# The admin page renders two tables in the finance Neon database. This
+# workflow reads them directly, which matters for two reasons:
+#
+#   1. The dashboard sits behind Vercel deployment protection and an app
+#      login, so an agent session cannot reach the page even when a person
+#      can. The database it renders is reachable with one secret.
+#   2. The finance database reaches back further than the marketplace
+#      warehouse does. `pgam_direct` starts in late March; Q1 exists here
+#      and only here.
+#
+# NOT THE SAME REPORT AS platform-revenue.yml. That one reads pgam_direct —
+# what actually flowed through Teqblaze and LoopMe. This one reads the books'
+# inputs, which carry streams the warehouse never sees, FreeWheel above all:
+# FreeWheel spend is reported to PGAM but never transits the PGAM platforms,
+# so it is in `fw_gross_usd` and in `ssp_recon_daily` and nowhere in
+# `pgam_direct`. Do not reconcile the two totals to each other. Run both and
+# read the gap.
+#
+# READ-ONLY. The connection runs inside SET TRANSACTION READ ONLY and the
+# script contains no write statement — tests/test_pnl_report.py asserts that.
+# The TBX write gates are shut in the job env too, so a future edit here
+# cannot reach a mutation by accident.
+#
+# Setup — one time, by a repo admin. This is the step that is currently
+# missing, and it is the only thing between this workflow and a full P&L:
+#   Settings → Secrets and variables → Actions → New repository secret
+#     FINANCE_DATABASE_URL   Neon DSN for the finance database. Required.
+#                            NOT the same database as
+#                            PGAM_DIRECT_DATABASE_URL, which is already set.
+#   A read-only Postgres role is sufficient and preferable. The same secret
+#   unblocks the P&L impact check in tbx-neon-reports.yml, which has skipped
+#   on every run so far for exactly this reason.
+#
+# Run:  Actions → "P&L report (month / quarter)" → Run workflow
+#
+# Exit codes, matching the other Neon reports:
+#   0  a report was produced      1  nothing to report — look at it
+#   2  misconfigured
+# A 1 is a warning with the job still GREEN; only a 2 or an unexpected code
+# fails, because a red X should mean the tooling broke.
+#
+# No schedule, deliberately. This answers a question asked now. A recurring
+# run against a slow-moving answer is the cost pattern CLAUDE.md calls out.
+
+on:
+  workflow_dispatch:
+    inputs:
+      grain:
+        description: "month or quarter"
+        required: false
+        default: "month"
+        type: choice
+        options: ["month", "quarter"]
+      from:
+        description: "First day YYYY-MM-DD (default: 1 Jan of the --to year)"
+        required: false
+        default: ""
+      to:
+        description: "Last day YYYY-MM-DD (default: yesterday)"
+        required: false
+        default: ""
+      exclude_partner:
+        description: "Drop a demand partner from the partner section, e.g. sovrn (case-insensitive substring). The P&L columns are already aggregated and are not affected."
+        required: false
+        default: ""
+      top:
+        description: "Partners to list individually (0 = all)"
+        required: false
+        default: "25"
+
+permissions:
+  contents: read
+
+jobs:
+  pnl:
+    name: Roll up the P&L
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install "psycopg[binary]>=3.1.0" python-dotenv
+
+      - name: Offline sanity checks
+        run: python3 tests/test_pnl_report.py
+
+      - name: Check the DSN is present
+        id: pre
+        env:
+          FINANCE_DATABASE_URL: ${{ secrets.FINANCE_DATABASE_URL }}
+        run: |
+          if [ -z "${FINANCE_DATABASE_URL}" ]; then
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::error::FINANCE_DATABASE_URL is not set. Add it under Settings → Secrets and variables → Actions. It is a different database from PGAM_DIRECT_DATABASE_URL."
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+            echo "FINANCE_DATABASE_URL is set."
+          fi
+
+      - name: Roll up
+        if: steps.pre.outputs.present == 'true'
+        id: run
+        env:
+          FINANCE_DATABASE_URL: ${{ secrets.FINANCE_DATABASE_URL }}
+          TBX_ALLOW_WRITES: "0"
+          TBX_DRY_RUN: "true"
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set +e
+          ARGS="--grain ${{ inputs.grain }} --top ${{ inputs.top }}"
+          if [ -n "${{ inputs.from }}" ]; then ARGS="$ARGS --from ${{ inputs.from }}"; fi
+          if [ -n "${{ inputs.to }}" ]; then ARGS="$ARGS --to ${{ inputs.to }}"; fi
+          if [ -n "${{ inputs.exclude_partner }}" ]; then ARGS="$ARGS --exclude-partner ${{ inputs.exclude_partner }}"; fi
+          echo "Running: pnl_report.py $ARGS"
+          python3 scripts/pnl_report.py $ARGS | tee pnl_report.txt
+          code=${PIPESTATUS[0]}
+          python3 scripts/pnl_report.py $ARGS --json > pnl_report.json 2>/dev/null || true
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          set -e
+          if [ "$code" -eq 2 ]; then exit 2; fi
+          if [ "$code" -ne 0 ] && [ "$code" -ne 1 ]; then exit "$code"; fi
+
+      - name: Summarise
+        if: always()
+        run: |
+          {
+            echo "## PGAM P&L — the finance database"
+            echo
+            echo "Grain \`${{ inputs.grain }}\` · \`finance.daily_pnl_inputs\` + \`finance.ssp_recon_daily\`"
+            echo
+            if [ "${{ steps.pre.outputs.present }}" != "true" ]; then
+              echo "**Misconfigured** — \`FINANCE_DATABASE_URL\` is not set, so nothing ran."
+              echo
+              echo "It is a *different* Neon database from \`PGAM_DIRECT_DATABASE_URL\`."
+              echo "Add it under Settings → Secrets and variables → Actions; a read-only"
+              echo "role is enough. The same secret also unblocks the P&L impact check in"
+              echo "\`tbx-neon-reports.yml\`, which has skipped on every run so far."
+            elif [ "${{ steps.run.outputs.code }}" = "0" ]; then
+              echo "**Report produced.** Full output below and in the artifact."
+            elif [ "${{ steps.run.outputs.code }}" = "1" ]; then
+              echo "> [!WARNING]"
+              echo "> No rows over this range. Either it predates the table or \`pnl_sync\` has not covered it."
+            fi
+            echo
+            echo '> This is the books, not the marketplace. It carries FreeWheel and PMP,'
+            echo '> which never transit the PGAM platforms, so it will not match'
+            echo '> `platform-revenue.yml` and is not meant to. Run both; read the gap.'
+            echo
+            if [ -f pnl_report.txt ]; then
+              echo '```'
+              cat pnl_report.txt
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pnl-report-${{ github.run_id }}
+          path: |
+            pnl_report.txt
+            pnl_report.json
+          if-no-files-found: ignore
