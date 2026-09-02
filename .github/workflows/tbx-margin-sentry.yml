@@ -34,6 +34,12 @@ on:
     - cron: "0 12 * * *"
   workflow_dispatch:
     inputs:
+      side:
+        description: >-
+          supply or demand. Supply margin is read-only over this API, so a
+          finding there is a dashboard errand; demand margin IS writable.
+        required: false
+        default: "supply"
       days:
         description: "Settled days to average over"
         required: false
@@ -46,6 +52,14 @@ on:
         description: "Also list sources above their ceiling (yes/no)"
         required: false
         default: "no"
+      min_gross_day:
+        description: "Ignore sources below this $/day"
+        required: false
+        default: "10"
+      top:
+        description: "How many sources by revenue to read config for (one GET each)"
+        required: false
+        default: "40"
       slack:
         description: "Post to Slack (yes/no). Scheduled runs always post."
         required: false
@@ -105,10 +119,14 @@ jobs:
 
       - name: Margin sentry
         env:
+          IN_SIDE: ${{ inputs.side || 'supply' }}
           IN_DAYS: ${{ inputs.days || '7' }}
           IN_TOLERANCE: ${{ inputs.tolerance || '1.0' }}
+          IN_MINGROSS: ${{ inputs.min_gross_day || '10' }}
+          IN_TOP: ${{ inputs.top || '40' }}
         run: |
-          ARGS="--days $IN_DAYS --tolerance $IN_TOLERANCE"
+          ARGS="--side $IN_SIDE --days $IN_DAYS --tolerance $IN_TOLERANCE"
+          ARGS="$ARGS --min-gross-day $IN_MINGROSS --top $IN_TOP"
           # A scheduled run always posts; a manual one only when asked, so
           # testing a threshold change does not spam the channel.
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.slack }}" = "yes" ]; then
