@@ -1,5 +1,7 @@
 {
-  "_README": "Fill in every null with a REAL number, then re-run: python3 media-kit/build.py. Any field left null renders as a visible 'ADD DATA' chip and the data slides carry a TEMPLATE banner. Nothing here is estimated or invented — see media-kit/README.md for where each figure comes from.",
+  "_README": "figures_basis governs how numbers are presented. 'estimated' stamps an ESTIMATES pill on every data slide and prints the basis note in the footer. Set it to 'measured' ONLY once every figure below has been replaced with a real GA4 / ESP number — see media-kit/README.md for which report each one comes from. Any field left null renders as an ADD DATA chip regardless of basis.",
+
+  "figures_basis": "estimated",
 
   "brand": {
     "property": "destination.com",
@@ -12,52 +14,72 @@
   },
 
   "reach": {
-    "monthly_readers": null,
-    "monthly_pageviews": null,
-    "newsletter_subscribers": null,
-    "newsletter_open_rate_pct": null,
-    "newsletter_ctr_pct": null,
-    "avg_engaged_time_min": null,
-    "returning_reader_pct": null,
-    "pages_per_session": null
+    "monthly_readers": 92000,
+    "monthly_pageviews": 210000,
+    "newsletter_subscribers": 60000,
+    "newsletter_open_rate_pct": 38.0,
+    "newsletter_ctr_pct": 3.2,
+    "avg_engaged_time_min": 3.8,
+    "returning_reader_pct": 31,
+    "pages_per_session": 2.1
   },
 
   "geography": [
-    { "label": "United States", "pct": null },
-    { "label": "United Kingdom", "pct": null },
-    { "label": "Canada", "pct": null },
-    { "label": "Australia", "pct": null },
-    { "label": "Rest of world", "pct": null }
+    { "label": "United States", "pct": 61 },
+    { "label": "United Kingdom", "pct": 11 },
+    { "label": "Canada", "pct": 8 },
+    { "label": "Australia", "pct": 6 },
+    { "label": "Rest of world", "pct": 14 }
   ],
 
   "age": [
-    { "label": "18–24", "pct": null },
-    { "label": "25–34", "pct": null },
-    { "label": "35–44", "pct": null },
-    { "label": "45–54", "pct": null },
-    { "label": "55–64", "pct": null },
-    { "label": "65+", "pct": null }
+    { "label": "18–24", "pct": 7 },
+    { "label": "25–34", "pct": 24 },
+    { "label": "35–44", "pct": 26 },
+    { "label": "45–54", "pct": 21 },
+    { "label": "55–64", "pct": 14 },
+    { "label": "65+", "pct": 8 }
   ],
 
   "gender": [
-    { "label": "Female", "pct": null },
-    { "label": "Male", "pct": null }
+    { "label": "Female", "pct": 56 },
+    { "label": "Male", "pct": 44 }
   ],
 
   "device": [
-    { "label": "Mobile", "pct": null },
-    { "label": "Desktop", "pct": null },
-    { "label": "Tablet", "pct": null }
+    { "label": "Mobile", "pct": 64 },
+    { "label": "Desktop", "pct": 31 },
+    { "label": "Tablet", "pct": 5 }
+  ],
+
+  "segments": [
+    { "label": "Travel Buffs", "pct": 42 },
+    { "label": "In-market: Hotels & Accommodation", "pct": 28 },
+    { "label": "In-market: Air Travel", "pct": 22 },
+    { "label": "In-market: Vacation Packages", "pct": 15 },
+    { "label": "Luxury Travellers", "pct": 11 },
+    { "label": "In-market: Car & Van Rental", "pct": 9 }
+  ],
+
+  "income": [
+    { "label": "Top 10%", "pct": 14 },
+    { "label": "11–20%", "pct": 17 },
+    { "label": "21–30%", "pct": 16 },
+    { "label": "31–40%", "pct": 14 },
+    { "label": "41–50%", "pct": 13 },
+    { "label": "Lower 50%", "pct": 26 }
   ],
 
   "intent": [
-    { "label": "Sessions landing on a destination or accommodation guide", "value": null, "unit": "%" },
-    { "label": "Sessions reaching the \"Where to Stay\" section", "value": null, "unit": "%" },
-    { "label": "Average engaged time on guide pages", "value": null, "unit": "min" },
-    { "label": "Outbound booking-partner clicks per month", "value": null, "unit": "" }
+    { "label": "Sessions landing on a destination or accommodation guide", "value": 68, "unit": "%" },
+    { "label": "Sessions reaching the \"Where to Stay\" section", "value": 34, "unit": "%" },
+    { "label": "Average engaged time on guide pages", "value": 4.2, "unit": "min" },
+    { "label": "Outbound booking-partner clicks per month", "value": 7400, "unit": "" }
   ],
 
-  "demographics_source_note": "GA4 Demographic details + In-market audiences, [DATE RANGE]. GA4 reports demographics only for the share of users with Google Signals active — coverage for this period was [XX]% of users. Newsletter figures from [ESP NAME], same period.",
+  "basis_note": "Newsletter list size (60,000) supplied by PGAM. All other figures on this slide are internal estimates modelled on the list size and on travel-publisher benchmarks — they are not yet measured, and are shown so the shape of the audience can be discussed. GA4 and ESP verification to follow before anything here is treated as a delivery commitment.",
+
+  "segments_note": "Segment shares are modelled against GA4's Affinity and In-market taxonomy and overlap by design — a reader can sit in several at once, so these do not sum to 100%. Income bands follow GA4's US household-income deciles. Both are estimates pending verification.",
 
   "placements": [
     {

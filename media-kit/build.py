@@ -9,8 +9,13 @@ with headless Chromium, and writes JPGs to media-kit/out/.
 
 Any config value left as null renders as a visible "ADD DATA" chip, and the
 slides that depend on data carry a TEMPLATE banner until every figure on them
-is populated. Nothing is estimated: if a number is not in config.json, it does
-not appear in the output.
+is populated. Nothing is invented at render time: every number shown comes
+from config.json.
+
+config.json's `figures_basis` says how the numbers it holds were arrived at.
+While it reads "estimated", every data slide carries an amber ESTIMATES pill
+and prints `basis_note` in its footer, so a modelled figure is never presented
+as a measured one. Set it to "measured" only once the figures really are.
 """
 
 import json
@@ -101,6 +106,11 @@ h1,h2,h3,h4 { font-family:'Playfair Display','Liberation Serif',serif; font-weig
 .tmpl-banner { background:#B9481F; color:#fff; font-size:11.5px; font-weight:700; letter-spacing:1.6px;
       text-transform:uppercase; padding:9px 56px; display:flex; gap:12px; align-items:center; }
 .tmpl-banner span.dot { width:7px; height:7px; border-radius:50%; background:#F4A124; display:inline-block; }
+.est-pill { display:inline-flex; align-items:center; gap:7px; background:#FDF6E8; border:1px solid #E3C489;
+      color:#7A5000; font-size:9.5px; font-weight:700; letter-spacing:1.4px; text-transform:uppercase;
+      padding:6px 13px; border-radius:20px; white-space:nowrap; }
+.est-pill span.d { width:6px; height:6px; border-radius:50%; background:#D9922B; display:inline-block; }
+.shead .rt { display:flex; flex-direction:column; align-items:flex-end; gap:10px; }
 
 /* ---- stat tiles ---- */
 .tiles { display:flex; gap:16px; }
@@ -125,7 +135,9 @@ h1,h2,h3,h4 { font-family:'Playfair Display','Liberation Serif',serif; font-weig
 .row .fill { height:100%; background:var(--primary); border-radius:0 4px 4px 0; }
 .row .val { font-size:13.5px; font-weight:700; color:var(--ink); }
 .row .val.na { font-size:9.5px; font-weight:700; color:#B9481F; letter-spacing:.8px; }
-.chart.fill { flex:1; justify-content:center; gap:20px; min-height:0; }
+.chart .rows { display:flex; flex-direction:column; gap:11px; }
+.chart.fill { flex:1; min-height:0; }
+.chart.fill .rows { flex:1; justify-content:center; gap:20px; }
 .chart.fill .track { height:27px; }
 .stretch { height:100%; display:flex; flex-direction:column; justify-content:space-evenly; }
 
@@ -263,27 +275,31 @@ def tile(label, value, unit=""):
     return f'<div class="tile"><div class="k">{label}</div><div class="v">{v}</div></div>'
 
 
-def bars(title, items, maxpct=None, fill=False):
+def bars(title, items, maxpct=None, fill=False, label_width=None):
     vals = [i["pct"] for i in items if i.get("pct") is not None]
     top = maxpct or (max(vals) if vals else 100)
     top = max(top, 1)
+    # A long category name wraps to two lines in the default gutter and knocks the
+    # row off the baseline its neighbours sit on; widen the gutter instead.
+    style = f' style="grid-template-columns:{label_width}px 1fr 56px"' if label_width else ""
     rows = []
     for it in items:
         p = it.get("pct")
         if p is None:
             rows.append(
-                f'<div class="row"><div class="lab">{it["label"]}</div>'
+                f'<div class="row"{style}><div class="lab">{it["label"]}</div>'
                 f'<div class="track empty"></div><div class="val na">ADD</div></div>'
             )
         else:
             w = max(2.0, p / top * 100)
             rows.append(
-                f'<div class="row"><div class="lab">{it["label"]}</div>'
+                f'<div class="row"{style}><div class="lab">{it["label"]}</div>'
                 f'<div class="track"><div class="fill" style="width:{w:.1f}%"></div></div>'
                 f'<div class="val">{p}%</div></div>'
             )
     cls = "chart fill" if fill else "chart"
-    return f'<div class="{cls}"><div class="ct">{title}</div>{"".join(rows)}</div>'
+    return (f'<div class="{cls}"><div class="ct">{title}</div>'
+            f'<div class="rows">{"".join(rows)}</div></div>')
 
 
 SPLIT_COLORS = ["#1B6CA8", "#C4703E", "#0D9B76"]
@@ -311,10 +327,18 @@ def split_bar(title, items):
             f'<div class="split">{segs}</div>{leg}</div>')
 
 
-def head(num, title, sub, brand):
+def estimate_pill(cfg):
+    """Amber 'estimates' pill for slides whose figures are not yet measured."""
+    if cfg.get("figures_basis") != "estimated":
+        return ""
+    return ('<div class="est-pill"><span class="d"></span>'
+            'Estimates &middot; pending verification</div>')
+
+
+def head(num, title, sub, brand, pill=""):
     return (f'<div class="shead"><div><div class="num">{num}</div><h2>{title}</h2>'
             f'<div class="sub">{sub}</div></div>'
-            f'<div class="brandmark">{brand["property"]}</div></div>')
+            f'<div class="rt">{pill}<div class="brandmark">{brand["property"]}</div></div></div>')
 
 
 def banner_if_missing(*groups):
@@ -360,10 +384,10 @@ def slide_cover(c):
       {tile("Avg. engaged time", r["avg_engaged_time_min"], "min")}
       {tile("Returning readers", r["returning_reader_pct"], "%")}
     </div>
-    <div style="display:flex;justify-content:space-between;margin-top:26px;font-size:12px;
-         color:var(--ink-light);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:26px;
+         font-size:12px;color:var(--ink-light);">
       <span>{b['contact_name']} · {b['contact_email']}</span>
-      <span>Placement specifications and audience detail follow</span>
+      {estimate_pill(c) or '<span>Placement specifications and audience detail follow</span>'}
     </div>
   </div>
 </div>"""
@@ -599,7 +623,7 @@ def slide_reach(c):
 <div class="slide">
   {banner_if_missing(r["monthly_readers"], r["monthly_pageviews"], r["newsletter_subscribers"],
                      r["pages_per_session"], g)}
-  {head("Audience 01", "Reach and engagement", "Site and newsletter scale, and how deeply the audience reads.", c["brand"])}
+  {head("Audience 01", "Reach and engagement", "Newsletter and site scale, and how deeply the audience reads.", c["brand"], estimate_pill(c))}
   <div class="sbody" style="flex-direction:column;gap:26px;">
     <div class="tiles">
       {tile("Monthly readers", r["monthly_readers"])}
@@ -629,7 +653,7 @@ def slide_reach(c):
       </div>
     </div>
   </div>
-  <div class="sfoot">{c['demographics_source_note']}</div>
+  <div class="sfoot">{c['basis_note']}</div>
 </div>"""
 
 
@@ -650,7 +674,7 @@ def slide_demographics(c):
     return f"""
 <div class="slide">
   {banner_if_missing(a, gen, dev, intent)}
-  {head("Audience 02", "Who is reading", "Age, gender and device from GA4; intent measured from on-site behaviour.", c["brand"])}
+  {head("Audience 02", "Who is reading", "Age, gender and device against the GA4 taxonomy; intent from on-site behaviour.", c["brand"], estimate_pill(c))}
   <div class="sbody">
     <div style="flex:1;display:flex;flex-direction:column;">{bars("Age", a, fill=True)}</div>
     <div style="width:560px;flex-shrink:0;display:flex;flex-direction:column;gap:22px;">
@@ -665,7 +689,26 @@ def slide_demographics(c):
       </div>
     </div>
   </div>
-  <div class="sfoot">{c['demographics_source_note']}</div>
+  <div class="sfoot">{c['basis_note']}</div>
+</div>"""
+
+
+def slide_segments(c):
+    return f"""
+<div class="slide">
+  {head("Audience 03", "Interest and income segments",
+        "How the audience maps onto the affinity and in-market segments a travel buyer plans against.",
+        c["brand"], estimate_pill(c))}
+  <div class="sbody">
+    <div style="flex:1;display:flex;flex-direction:column;">
+      {bars("Affinity &amp; in-market segments — share of audience", c["segments"],
+             fill=True, label_width=232)}
+    </div>
+    <div style="width:520px;flex-shrink:0;display:flex;flex-direction:column;">
+      {bars("Household income decile (US)", c["income"], fill=True)}
+    </div>
+  </div>
+  <div class="sfoot">{c['segments_note']}</div>
 </div>"""
 
 
@@ -713,7 +756,8 @@ SLIDES = [
     ("05-newsletter-sponsorship", slide_newsletter),
     ("06-audience-reach", slide_reach),
     ("07-audience-demographics", slide_demographics),
-    ("08-placement-specs", slide_specs),
+    ("08-audience-segments", slide_segments),
+    ("09-placement-specs", slide_specs),
 ]
 
 
@@ -757,21 +801,76 @@ def render(name, body):
     return jpg_path, im.size, os.path.getsize(jpg_path)
 
 
+# ---------------------------------------------------------------- deck export
+
+DECK_BASENAME = "destination-com-media-kit"
+
+
+def build_deck(jpgs, cfg):
+    """Assemble the rendered slides into a PDF and a 16:9 PPTX."""
+    made = []
+
+    # PDF: 2400x1350 at 150dpi is exactly 16x9in, so pages come out full-bleed
+    # with no scaling and no margin.
+    pdf_path = os.path.join(OUT, DECK_BASENAME + ".pdf")
+    pages = [Image.open(j).convert("RGB") for j in jpgs]
+    pages[0].save(pdf_path, "PDF", save_all=True, append_images=pages[1:],
+                  resolution=150.0, title=f"{cfg['brand']['property']} media kit")
+    for im in pages:
+        im.close()
+    made.append(pdf_path)
+
+    try:
+        from pptx import Presentation
+        from pptx.util import Inches
+    except ImportError:
+        print("  (skipped .pptx — pip install python-pptx)")
+        return made
+
+    pptx_path = os.path.join(OUT, DECK_BASENAME + ".pptx")
+    prs = Presentation()
+    prs.slide_width, prs.slide_height = Inches(13.333), Inches(7.5)
+    blank = prs.slide_layouts[6]
+    for j in jpgs:
+        slide = prs.slides.add_slide(blank)
+        slide.shapes.add_picture(j, 0, 0, width=prs.slide_width, height=prs.slide_height)
+    prs.core_properties.title = f"{cfg['brand']['property']} media kit"
+    prs.core_properties.author = cfg["brand"]["contact_name"]
+    # PPTX core properties cap each field at 255 chars, so the full basis_note
+    # does not fit here — it is on the slides themselves, which is where it counts.
+    comment = f"Prepared for {cfg['brand']['prepared_for']}, {cfg['brand']['date']}."
+    if cfg.get("figures_basis") == "estimated":
+        comment += (" Audience figures are internal estimates pending GA4/ESP"
+                    " verification — see the note on each audience slide.")
+    prs.core_properties.comments = comment[:255]
+    prs.save(pptx_path)
+    made.append(pptx_path)
+    return made
+
+
 def main():
     os.makedirs(WORK, exist_ok=True)
     os.makedirs(OUT, exist_ok=True)
     cfg = load_cfg()
     print(f"Chromium: {CHROME}\n")
+    jpgs = []
     for name, fn in SLIDES:
         path, size, nbytes = render(name, fn(cfg))
+        jpgs.append(path)
         print(f"  {os.path.basename(path):38s} {size[0]}×{size[1]}  {nbytes/1024:6.0f} KB")
-    missing = sum(
-        1 for grp in (cfg["reach"].values(),)
-        for v in grp if v is None
-    )
-    print(f"\nWrote {len(SLIDES)} JPGs to {OUT}")
+    print(f"\nWrote {len(jpgs)} JPGs to {OUT}")
+
+    for d in build_deck(jpgs, cfg):
+        print(f"  {os.path.basename(d):38s} {os.path.getsize(d)/1024:6.0f} KB")
+
+    missing = [k for k, v in cfg["reach"].items() if v is None]
     if missing:
-        print(f"WARNING: {missing} reach figures still null — data slides carry the TEMPLATE banner.")
+        print(f"\nWARNING: {len(missing)} reach figures still null "
+              f"({', '.join(missing)}) — those slides carry the TEMPLATE banner.")
+    if cfg.get("figures_basis") == "estimated":
+        print("\nNOTE: figures_basis is \"estimated\" — every data slide carries the "
+              "ESTIMATES pill and prints basis_note in its footer.\n"
+              "      Set it to \"measured\" only once the figures are real.")
 
 
 if __name__ == "__main__":
