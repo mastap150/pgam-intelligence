@@ -1,0 +1,143 @@
+name: TBX Connection Margin
+
+# Margin per supply→demand CONNECTION, both sides' configured bands, and the
+# demand floor that lands each connection on a target total.
+#
+# The two sentries look at one side at a time; the net-margin report looks at
+# the blend. A per-connection target needs the pair grain, and this is the
+# only job that pulls it. It also checks each demand source is 1:1 — the only
+# case in which a demand floor is a per-connection lever at all.
+#
+# Writes are possible but narrow by construction: --apply requires --include,
+# a run is capped at max_apply connections, one step may not move a floor more
+# than max_raise_pp points, and a demand source that fans out is refused. A
+# margin change moves what a publisher is paid. It is commercial, not tuning.
+#
+# Dispatch-only. No schedule, no Slack dependency.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Type yes to actually raise demand floors. Anything else reports only."
+        required: false
+        default: "no"
+      include:
+        description: "Demand ids eligible to write, comma-separated. REQUIRED for apply."
+        required: false
+        default: ""
+      target:
+        description: "Total take % per connection"
+        required: false
+        default: "30"
+      days:
+        description: "Settled days to measure over"
+        required: false
+        default: "3"
+      top:
+        description: "Connections by gross to read config for (two GETs each)"
+        required: false
+        default: "40"
+      min_gross_day:
+        description: "Ignore connections below this $/day"
+        required: false
+        default: "5"
+      max_apply:
+        description: "Most demand sources one run may write"
+        required: false
+        default: "3"
+      max_raise_pp:
+        description: "Most a floor may move in one step, in points"
+        required: false
+        default: "15"
+      revert_ledger:
+        description: "Path to a downloaded ledger to REVERT instead of cutting"
+        required: false
+        default: ""
+
+concurrency:
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  connection-margin:
+    name: Margin per connection
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      TBX_TIMEOUT: "300"
+      TBX_ALLOW_WRITES: ${{ inputs.apply == 'yes' && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        run: python3 tests/test_tbx_connection_margin.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: Say what this run will do
+        run: |
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then
+            echo "::warning::APPLY MODE — demand margin floors will change on the live platform for: ${{ inputs.include }}"
+          else
+            echo "REPORT ONLY — nothing will be written."
+          fi
+
+      - name: Revert a previous run
+        if: inputs.revert_ledger != ''
+        env:
+          IN_LEDGER: ${{ inputs.revert_ledger }}
+        run: |
+          ARGS="--revert $IN_LEDGER"
+          if [ "${{ inputs.apply }}" = "yes" ]; then ARGS="$ARGS --apply"; fi
+          python3 scripts/tbx_connection_margin.py $ARGS
+
+      - name: Connection margin
+        if: inputs.revert_ledger == ''
+        env:
+          IN_TARGET: ${{ inputs.target || '30' }}
+          IN_DAYS: ${{ inputs.days || '3' }}
+          IN_TOP: ${{ inputs.top || '40' }}
+          IN_MINGROSS: ${{ inputs.min_gross_day || '5' }}
+          IN_MAXAPPLY: ${{ inputs.max_apply || '3' }}
+          IN_MAXRAISE: ${{ inputs.max_raise_pp || '15' }}
+          IN_INCLUDE: ${{ inputs.include }}
+        run: |
+          ARGS="--target $IN_TARGET --days $IN_DAYS --top $IN_TOP"
+          ARGS="$ARGS --min-gross-day $IN_MINGROSS --max-apply $IN_MAXAPPLY"
+          ARGS="$ARGS --max-raise-pp $IN_MAXRAISE"
+          if [ -n "$IN_INCLUDE" ]; then ARGS="$ARGS --include $IN_INCLUDE"; fi
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then ARGS="$ARGS --apply"; fi
+          echo "running: tbx_connection_margin.py $ARGS"
+          python3 scripts/tbx_connection_margin.py $ARGS
+
+      - name: Upload ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: margin-ledger-${{ github.run_id }}
+          path: margin-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore
