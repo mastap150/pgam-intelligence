@@ -1,0 +1,47 @@
+name: TBX SSP Recon Bridge
+
+# Hourly bridge: aggregate pgam_direct.tbx_daily_demand_revenue (populated
+# by agents/etl/tbx_revenue_etl) by canonical partner_key and UPSERT into
+# finance.ssp_recon_daily so /admin/finance partner rows reflect TB-side
+# revenue after the legacy `ssp.pgammedia.com` adx-report went dark.
+#
+# Redundant with the pgam-intelligence scheduler on Render — that runs the
+# same agent hourly at :43. This workflow is belt-and-suspenders: if the
+# Render scheduler stalls, missed rows still get bridged within the hour.
+# Both paths are idempotent (GREATEST semantics on pgam_ssp_dash), so
+# firing twice is a no-op.
+#
+# Trailing 3-day window per fire is enough for day-of settlement drift.
+# For a bigger backfill, dispatch manually with `days` input override.
+#
+# READ-only against the TBX warehouse table. Writes to finance.ssp_recon_daily
+# only, never to daily_pnl_inputs.
+
+on:
+  schedule:
+    - cron: "43 * * * *"   # every hour at :43, right after tbx_revenue_etl at :41
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Backfill window in days (default 3)'
+        required: false
+        default: '3'
+
+jobs:
+  bridge:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --quiet 'psycopg[binary]' python-dotenv
+      - name: Run TBX → ssp_recon_daily bridge
+        env:
+          PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+          FINANCE_DATABASE_URL:     ${{ secrets.FINANCE_DATABASE_URL }}
+        run: |
+          python -m agents.etl.tbx_ssp_recon_bridge --backfill "${{ github.event.inputs.days || '3' }}"
