@@ -69,6 +69,43 @@ def test_apply_and_revert():
     finally:
         dm.tbm.set_supply_source_fields = real
 
+def test_direct_mode_writes_the_top_level_band():
+    print("\ndirect mode: plan rails, set_supply_margin call, revert restores band")
+    rows = [dm.shape(ent(196, "indirect_suppliers")),          # range 5–30
+            dm.shape(ent(1503, "direct_inventory", has=False))]
+    todo, refused = dm.plan(rows, args_for(include={196, 1503}, margin_min=20.0, max_apply=5))
+    check("direct mode applies to direct inventory too (band is top-level)", len(todo) == 2, str(refused))
+    todo, refused = dm.plan(rows, args_for(include={196}, margin_min=35.0))
+    check("range band refuses min >= current max", not todo and any("max > min" in r for r in refused), str(refused))
+    todo, refused = dm.plan(rows, args_for(include={196}, margin_min=35.0, margin_max=40.0))
+    check("…unless max is raised with it", len(todo) == 1)
+    todo, refused = dm.plan(rows, args_for(include={196}, margin_min=5.0, margin_max=30.0))
+    check("unchanged band refused", not todo and any("already" in r for r in refused), str(refused))
+    fixed = dm.shape({**ent(35, "indirect_suppliers"), "margin_type": "fixed", "margin_max": 0})
+    todo, refused = dm.plan([fixed], args_for(include={35}, margin_min=15.0))
+    check("fixed band takes min alone", len(todo) == 1, str(refused))
+
+    seen = []
+    real = dm.tbm.set_supply_margin
+    dm.tbm.set_supply_margin = lambda sid, **kw: seen.append((sid, kw)) or {"applied": not kw["dry_run"], "verify_ok": True}
+    try:
+        s = dm.shape(ent(196, "indirect_suppliers"))
+        entries, fails = dm.apply([s], args_for(apply=False, margin_min=20.0))
+        check("set_supply_margin called, dry_run=True", seen and seen[0][1]["dry_run"] is True, str(seen))
+        check("margin_min=20 sent, no margin_max", seen[0][1].get("margin_min") == 20.0 and "margin_max" not in seen[0][1], str(seen))
+        check("entry tagged direct with prior band", entries[0]["mode"] == "direct" and entries[0]["before"] == {"margin_type": "range", "margin_min": 5.0, "margin_max": 30.0}, str(entries))
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, "l.json")
+            json.dump({"entries": [{**entries[0], "applied": True}]}, open(p, "w"))
+            seen.clear()
+            with redirect_stdout(io.StringIO()):
+                rc = dm.revert(p, args_for(apply=True))
+        check("revert ok", rc == 0)
+        check("revert restores range 5–30", seen[0][1]["margin_type"] == "range" and seen[0][1]["margin_min"] == 5.0 and seen[0][1]["margin_max"] == 30.0, str(seen))
+    finally:
+        dm.tbm.set_supply_margin = real
+
+
 def test_main_gates():
     print("\nmain gates")
     real_conf = dm.tbx.configured
@@ -87,7 +124,8 @@ def test_main_gates():
 
 def main():
     print("=" * 70 + "\ntbx_dynamic_margin — offline checks\n" + "=" * 70)
-    test_shape_and_type(); test_plan_rails(); test_apply_and_revert(); test_main_gates()
+    test_shape_and_type(); test_plan_rails(); test_apply_and_revert()
+    test_direct_mode_writes_the_top_level_band(); test_main_gates()
     print("\n" + "=" * 70 + f"\n{PASS} passed, {FAIL} failed")
     return 1 if FAIL else 0
 

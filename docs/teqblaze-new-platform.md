@@ -737,8 +737,24 @@ endpoints on Unruly #65 + Smaato #189; Verve RON Display East across
 Dexerto/Cox/TravelReveal/VerticalScope; Zeta - RON Desktop across five)
 cannot be landed on a per-connection target from the demand side at all.
 
+**Supply `margin_type/min/max` are NOT read-only — the spec is incomplete.**
+§6.1 concluded they were, because they are absent from `SupplySourceRequest`
+and every prior write stripped them per the set difference. That conclusion
+was never tested by a write. The first live `POST /supply-sources/196/update`
+(run 33814887759, 2026-09-03, the dynamic-margin test below) came back
+`422 margin_type / margin_min / margin_max REQUIRED`. So the endpoint
+demands them: `core.tbx_mgmt` now keeps them in the body
+(`_SPEC_OMITS_BUT_REQUIRED`) and `set_supply_margin()` changes them
+explicitly. Required is not yet proven *honoured* — that is what
+`scripts/tbx_dynamic_margin.py --margin-min` on one source answers via the
+post-write verify read (a `verify ✗` on `margin_min` means the platform
+accepted the POST and ignored the field). If honoured, the fan-out
+connections above become reachable from the supply side, one source at a
+time, with no ID mapping and nothing to ask Teqblaze for.
+
 **The supply-side field that IS in the write schema.** `margin_type/min/max`
-on supply are read-only (above), but `SupplySourceRequest.source` is
+on supply were called read-only (above, now superseded); separately,
+`SupplySourceRequest.source` is
 `oneOf [DirectInventoryResource, IndirectSuppliersResource]` and the
 indirect shape carries `is_dynamic_margin` (bool) and `dynamic_margin`
 (number, "%", example 30). Both are writable via

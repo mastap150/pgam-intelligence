@@ -45,6 +45,23 @@ Rails
 4. `dry_run=True` per call plus `TBX_ALLOW_WRITES=1`, enforced independently
    by core.tbx_mgmt. Ledger; `--revert` restores the exact prior pair.
 
+Direct mode (added 2026-09-03)
+------------------------------
+The first live dynamic-margin write (source 196, run 33814887759) never got
+to test the field: the update endpoint answered `422 margin_type /
+margin_min / margin_max REQUIRED`. The spec omits those three from
+`SupplySourceRequest`, which is the whole reason §6.1 called them read-only
+— nobody had tried. Required is not the same as honoured, but it is a
+strong hint, so this tool now has a second mode that sets the top-level
+band directly via `core.tbx_mgmt.set_supply_margin`:
+
+    --margin-min 20 [--margin-max 40]     write the band, not dynamic_margin
+
+Same rails: one source, `--include`, dry-run default, ledger, `--revert`
+restores the exact prior band. `_apply_update` re-reads after the write, so
+a `verify ✗` on `margin_min` is the platform ignoring the field — the
+answer to question 2 for Teqblaze, either way.
+
 Exit codes: 0 ok · 1 a write refused/failed · 2 nothing readable or creds
 absent · 3 platform unreachable
 """
@@ -111,15 +128,43 @@ def render(rows: list[dict]) -> None:
               f"{'yes' if s['is_dynamic_margin'] else 'no':<5} "
               f"{s['dynamic_margin']:>5.1f} "
               f"{'ON' if s['is_smart_floor'] else 'off':<10} {s['name']}")
-    print("\n  'band' is margin_type/min/max — read-only over this API (§6.1).\n"
+    print("\n  'band' is margin_type/min/max — omitted from the write schema but\n"
+          "  REQUIRED by the live update endpoint (§6.1a); --margin-min writes it.\n"
           "  'dyn' is is_dynamic_margin/dynamic_margin — in the write schema on\n"
-          "  indirect-supplier sources. What it governs is what a test answers.")
+          "  indirect-supplier sources. What either governs is what a test answers.")
+
+
+def direct_mode(args) -> bool:
+    return args.margin_min is not None or args.margin_max is not None
+
+
+def _fnum(v) -> float | None:
+    try:
+        return None if v is None else float(v)
+    except (TypeError, ValueError):
+        return None
 
 
 def plan(rows: list[dict], args) -> tuple[list[dict], list[str]]:
     todo, refused = [], []
     for s in rows:
         if s["id"] not in args.include:
+            continue
+        if direct_mode(args):
+            cur_min, cur_max = _fnum(s["margin_min"]), _fnum(s["margin_max"])
+            new_min = args.margin_min if args.margin_min is not None else cur_min
+            new_max = args.margin_max if args.margin_max is not None else cur_max
+            if s["margin_type"] != "fixed" and new_min is not None \
+                    and new_max is not None and new_max <= new_min:
+                refused.append(f"supply {s['id']}: {s['margin_type']} band needs "
+                               f"max > min, got {new_min:g}–{new_max:g} "
+                               f"(pass --margin-max too)")
+                continue
+            if new_min == cur_min and new_max == cur_max:
+                refused.append(f"supply {s['id']}: band already "
+                               f"{s['margin_type']} {cur_min}–{cur_max}")
+                continue
+            todo.append(s)
             continue
         if not is_indirect(s):
             refused.append(f"supply {s['id']}: type '{s['type']}' is not "
@@ -132,7 +177,47 @@ def plan(rows: list[dict], args) -> tuple[list[dict], list[str]]:
     return todo[:args.max_apply], refused
 
 
+def apply_direct(todo: list[dict], args) -> tuple[list[dict], int]:
+    """Direct mode: write the top-level band via set_supply_margin."""
+    entries, failures = [], 0
+    for s in todo:
+        kw = {}
+        if args.margin_min is not None:
+            kw["margin_min"] = args.margin_min
+        if args.margin_max is not None:
+            kw["margin_max"] = args.margin_max
+        reason = (f"tbx_dynamic_margin DIRECT: {s['name']} band "
+                  f"{s['margin_type']} {s['margin_min']}–{s['margin_max']} → "
+                  + ", ".join(f"{k}={v:g}" for k, v in kw.items()))
+        try:
+            result = tbm.set_supply_margin(
+                s["id"], actor=args.actor, reason=reason,
+                dry_run=not args.apply, **kw)
+        except Exception as exc:                       # noqa: BLE001
+            print(f"  ✗ supply {s['id']} ({s['name']}): {exc}", file=sys.stderr)
+            failures += 1
+            continue
+        if args.apply and not result.get("applied"):
+            print(f"  ✗ supply {s['id']} refused: {result.get('refused', '?')}",
+                  file=sys.stderr)
+            failures += 1
+            continue
+        entries.append({
+            "mode": "direct",
+            "sid": s["id"], "name": s["name"],
+            "before": {"margin_type": s["margin_type"],
+                       "margin_min": _fnum(s["margin_min"]),
+                       "margin_max": _fnum(s["margin_max"])},
+            "after": kw,
+            "applied": bool(result.get("applied")),
+            "verify_ok": result.get("verify_ok"),
+        })
+    return entries, failures
+
+
 def apply(todo: list[dict], args) -> tuple[list[dict], int]:
+    if direct_mode(args):
+        return apply_direct(todo, args)
     entries, failures = [], 0
     for s in todo:
         reason = (f"tbx_dynamic_margin TEST: {s['name']} band "
@@ -178,11 +263,19 @@ def revert(path: str, args) -> int:
     for e in entries:
         b = e["before"]
         try:
-            result = tbm.set_supply_source_fields(
-                e["sid"], is_dynamic_margin=b["is_dynamic_margin"],
-                dynamic_margin=b["dynamic_margin"], actor=args.actor,
-                reason=f"revert of {os.path.basename(path)}",
-                dry_run=not args.apply)
+            if e.get("mode") == "direct":
+                result = tbm.set_supply_margin(
+                    e["sid"], margin_type=b.get("margin_type"),
+                    margin_min=b.get("margin_min"), margin_max=b.get("margin_max"),
+                    actor=args.actor,
+                    reason=f"revert of {os.path.basename(path)}",
+                    dry_run=not args.apply)
+            else:
+                result = tbm.set_supply_source_fields(
+                    e["sid"], is_dynamic_margin=b["is_dynamic_margin"],
+                    dynamic_margin=b["dynamic_margin"], actor=args.actor,
+                    reason=f"revert of {os.path.basename(path)}",
+                    dry_run=not args.apply)
         except Exception as exc:                       # noqa: BLE001
             print(f"  ✗ supply {e['sid']}: {exc}", file=sys.stderr)
             failures += 1
@@ -191,6 +284,9 @@ def revert(path: str, args) -> int:
             print(f"  ✗ supply {e['sid']} refused: {result.get('refused', '?')}",
                   file=sys.stderr)
             failures += 1
+        elif e.get("mode") == "direct":
+            print(f"  ✓ supply {e['sid']} {e['name']} → band "
+                  f"{b.get('margin_type')} {b.get('margin_min')}–{b.get('margin_max')}")
         else:
             print(f"  ✓ supply {e['sid']} {e['name']} → "
                   f"dynamic {b['is_dynamic_margin']}/{b['dynamic_margin']:g}")
@@ -209,6 +305,12 @@ def build_parser() -> argparse.ArgumentParser:
                    help="supply ids eligible for --apply (required with it)")
     p.add_argument("--set", type=float, default=30.0,
                    help="dynamic_margin %% to set on --include (default 30)")
+    p.add_argument("--margin-min", type=float, default=None,
+                   help="DIRECT mode: set the top-level margin_min on --include "
+                        "instead of dynamic_margin")
+    p.add_argument("--margin-max", type=float, default=None,
+                   help="DIRECT mode: set the top-level margin_max (range bands "
+                        "need max > min)")
     p.add_argument("--max-apply", type=int, default=1,
                    help="this is a test; default 1")
     p.add_argument("--apply", action="store_true")
@@ -243,12 +345,19 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     todo, refused = plan(rows, args)
-    print(f"\n{_HDR}\nDynamic-margin write this run would make\n{_HDR}")
+    what = "Supply margin-band" if direct_mode(args) else "Dynamic-margin"
+    print(f"\n{_HDR}\n{what} write this run would make\n{_HDR}")
     for why in refused:
         print(f"  · refused — {why}")
     for s in todo:
         flag = "  ⚠ is_smart_floor is ON — platform optimiser owns this source's floor" \
                if s["is_smart_floor"] else ""
+        if direct_mode(args):
+            tgt_min = args.margin_min if args.margin_min is not None else s["margin_min"]
+            tgt_max = args.margin_max if args.margin_max is not None else s["margin_max"]
+            print(f"  supply {s['id']} {s['name']}: band {s['margin_type']} "
+                  f"{s['margin_min']}–{s['margin_max']} → {tgt_min}–{tgt_max}{flag}")
+            continue
         print(f"  supply {s['id']} {s['name']}: is_dynamic_margin "
               f"{s['is_dynamic_margin']} → True, dynamic_margin "
               f"{s['dynamic_margin']:g} → {args.set:g}{flag}")
@@ -262,13 +371,26 @@ def main(argv: list[str] | None = None) -> int:
         path = args.ledger or ledger_path()
         with open(path, "w") as fh:
             json.dump({"created": datetime.now(timezone.utc).isoformat(),
-                       "actor": args.actor, "set": args.set, "entries": entries},
+                       "actor": args.actor,
+                       "mode": "direct" if direct_mode(args) else "dynamic",
+                       "set": args.set, "margin_min": args.margin_min,
+                       "margin_max": args.margin_max, "entries": entries},
                       fh, indent=2)
         print(f"\nLedger: {path}\nUndo: python3 scripts/tbx_dynamic_margin.py "
               f"--revert {path} --apply")
-        print("\nMeasure the next SETTLED day for this source (tbx-net-margin or\n"
-              "tbx-connection-margin). If its take rate moved to the value set,\n"
-              "the supply side is writable. If not, revert and tell Teqblaze.")
+        if direct_mode(args):
+            bad = [e for e in entries if e.get("verify_ok") is False]
+            if bad:
+                print("\n⚠ verify ✗ — the platform accepted the POST but the band did\n"
+                      "  not change. Supply margin is NOT honoured over this API;\n"
+                      "  that is the answer for Teqblaze.")
+            else:
+                print("\nverify ✓ — the band changed on the platform. Measure the next\n"
+                      "SETTLED day (tbx-connection-margin) to see it in the take rate.")
+        else:
+            print("\nMeasure the next SETTLED day for this source (tbx-net-margin or\n"
+                  "tbx-connection-margin). If its take rate moved to the value set,\n"
+                  "the supply side is writable. If not, revert and tell Teqblaze.")
     return 1 if failures else 0
 
 
