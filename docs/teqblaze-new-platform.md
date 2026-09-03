@@ -771,6 +771,51 @@ the way §6.1a describes, the settled 2026-09-04 should read high-20s. If it
 reads unchanged, the supply band is a config field the auction does not
 consult, and both writes should be reverted from their ledgers.
 
+**The stacking is compound, and the demand band rests at its floor.** The
+2026-09-01→02 settled connections read against live bands: Cox Media Group
+#310 `fixed 10` → Verve East #1711 `range 5–35` realised **14.5%** =
+1 − 0.90 × 0.95; → Verve East #1677 `range 7–40` realised **16.3%** =
+1 − 0.90 × 0.93; VerticalScope #1645 `fixed 10` reproduces both to the
+decimal. So for a fan-out demand endpoint at floor *d*, the supply band
+that lands the connection on 30% is `s = 1 − 0.70 / (1 − d)`: 26.3% at
+d = 5, 24.7% at d = 7. The additive proposal in `tbx_connection_margin`
+overstates slightly; the compound column is the one to read.
+
+**Direct-inventory sources may refuse every update.** Cox Media Group #310
+(`source.type = direct_inventory`) returned `422 source.placements.0.video.
+placing: The Placing field is required when Video Linearity is set to
+Non-linear/Out-stream` on a margin-only update (run 33816714153). The
+platform is rejecting its own stored placement on the round-trip — the same
+family as the §6.3 null/`[]` repairs, but inventing a `placing` value would
+change a placement's video config to move a margin, so `_normalise_for_write`
+does not do it. Cox stays at `fixed 10` until either the placement is fixed
+in the UI or Teqblaze accepts a partial update. VerticalScope #1645 (also
+direct inventory) went through: `fixed 10 → fixed 25`, `verify ✓`, run
+33816670821.
+
+**Supply-band writes of 2026-09-03 (all `verify ✓`, each its own
+`dynmargin-ledger-*` run artifact, one source per run).** Chosen with the
+compound rule above against the demand floors already in place, so that no
+connection double-counts a demand raise from the 09-02/09-03 rollout:
+
+| supply | before | after | why | run |
+|---|---|---|---|---|
+| Start.IO EU #196 | range 2–40 | range 20–40 | first test of the write | 33816010381 |
+| Illumin - Video Unruly OTTA #65 | adaptive 5–95 | range 20–95 | fan-out over OTTA (d≈7) → ~25.6% | 33816319420 |
+| VerticalScope #1645 | fixed 10 | fixed 25 | Verve East legs at d=5/7 → 28.8/30.3% | 33816670821 |
+| Illumin Display and Video EU #194 | range 2–30 | range 10–30 | Synatix legs already at d=20–22 → 28–30% | 33816767374 |
+| Illumin - Onetag and AdaptMX #95 | range 5–12 | range 10–12 | AdaptMX legs at d=22 → 29.8% | 33816809181 |
+| Illumin Display and Video #23 | adaptive 5–95 | range 25–95 | Zeta/Verve fan-outs at d=5/7 → 28.8/30.3% | 33816852128 |
+| Start.IO APAC #244 | range 2–35 | range 10–35 | Magnite #2238 at d=22 → 29.8% | 33816888188 |
+| Start.IO Video #76 | fixed 7 | fixed 10 | Magnite #2073 at d=22 → 29.8% | 33816925353 |
+| Cox Media Group #310 | fixed 10 | **unchanged** | 422 on placement round-trip, above | 33816714153 |
+
+Unruly #65 was set to 20 before the compound rule was read off the data;
+26 would land its OTTA legs on 30 exactly. Left at 20 deliberately — it is
+the largest source in the book and the first day at a floor should be
+measured before the second step. Read the settled 2026-09-04 with
+`tbx-connection-margin` (`days=1`) before touching any of these again.
+
 **The supply-side field that IS in the write schema.** `margin_type/min/max`
 on supply were called read-only (above, now superseded); separately,
 `SupplySourceRequest.source` is

@@ -999,7 +999,7 @@ def set_supply_margin(
 
     Same band rules as demand (§6.1a): `fixed` carries `margin_min` only,
     `range` needs `margin_max` strictly above `margin_min`, and `adaptive`
-    may ignore the floor. Mirrors `set_demand_margin`'s validation.
+    may ignore the floor. The demand-side counterpart is `set_demand_economics`.
     """
     changes: dict[str, Any] = {}
     if margin_type is not None:
