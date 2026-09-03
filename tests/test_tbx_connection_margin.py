@@ -104,6 +104,53 @@ def test_plan_refuses_what_it_must():
     check("uncapped: 5 + 23.1 = 28.1", abs(todo2[0]["margin_min"] - 28.1) < 1e-9, str(todo2))
 
 
+def test_three_defects_from_the_2026_09_03_rollout():
+    """Each of these cost a write on the live platform before it was a test."""
+    print("\nfixed sends one number; max stays strictly above min; adaptive is refused")
+    pairs = {}
+    pairs.update(pair(10, 500, 300.0, 10.0, dname="FixedZero"))   # #35
+    pairs.update(pair(11, 501, 300.0, 19.3, dname="TightMax"))    # #2408
+    pairs.update(pair(12, 502, 300.0, 6.9, dname="Adaptive"))     # #1986
+    s_cfg = {i: {"type": "fixed", "min": 10.0, "max": 10.0} for i in (10, 11, 12)}
+    d_cfg = {500: {"type": "fixed", "min": 0.0, "max": 0.0},
+             501: {"type": "range", "min": 15.0, "max": 25.0},
+             502: {"type": "adaptive", "min": 5.0, "max": 95.0}}
+    fan = cm.fanout(pairs, 5.0, 3)
+    a = args_for(include={500, 501, 502}, max_raise_pp=50.0)
+    todo, refused = cm.plan_writes(cm.assess(pairs, DAYS, s_cfg, d_cfg, fan, a), a)
+    by = {w["did"]: w for w in todo}
+    check("fixed band: margin_max is None (not sent)",
+          500 in by and by[500]["margin_max"] is None, str(by.get(500)))
+    check("fixed band: floor still proposed", by[500]["margin_min"] == 20.0, str(by[500]))
+    w = by[501]
+    check("proposal 15 + (30 - 19.3) = 25.7 clears the 25 ceiling",
+          abs(w["margin_min"] - 25.7) < 1e-9, str(w))
+    check("so the ceiling is lifted STRICTLY above the floor, not to it",
+          w["margin_max"] > w["margin_min"], str(w))
+    check("by the headroom constant",
+          abs(w["margin_max"] - (25.7 + cm.MAX_HEADROOM_PP)) < 1e-9, str(w))
+    check("adaptive band is refused, not written", 502 not in by, str(by))
+    check("and the refusal names why", any("adaptive" in r and "502" in r for r in refused),
+          str(refused))
+
+    # a ceiling already above the floor is left alone
+    d_cfg[501] = {"type": "range", "min": 15.0, "max": 40.0}
+    todo, _ = cm.plan_writes(cm.assess(pairs, DAYS, s_cfg, d_cfg, fan, a), a)
+    check("ceiling above the new floor is untouched",
+          {w["did"]: w for w in todo}[501]["margin_max"] == 40.0, str(todo))
+
+    # the write path honours a None max
+    seen = []
+    real = cm.tbm.set_demand_economics
+    cm.tbm.set_demand_economics = lambda did, **kw: seen.append((did, kw)) or {"applied": False}
+    try:
+        cm.apply_writes([by[500]], args_for(apply=False))
+    finally:
+        cm.tbm.set_demand_economics = real
+    check("fixed: margin_max is not in the call", "margin_max" not in seen[0][1], str(seen))
+    check("fixed: margin_min is", seen[0][1]["margin_min"] == 20.0, str(seen))
+
+
 def test_max_apply_caps_the_run():
     print("\n--max-apply")
     pairs = {}
@@ -193,6 +240,7 @@ def main():
     test_fixed_band_collapses_max_to_min()
     test_fanout_detects_one_to_many()
     test_plan_refuses_what_it_must()
+    test_three_defects_from_the_2026_09_03_rollout()
     test_max_apply_caps_the_run()
     test_apply_needs_include_and_never_writes_book_wide()
     test_partial_window_refuses()
