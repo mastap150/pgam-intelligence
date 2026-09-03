@@ -135,7 +135,8 @@ def render(rows: list[dict]) -> None:
 
 
 def direct_mode(args) -> bool:
-    return args.margin_min is not None or args.margin_max is not None
+    return (args.margin_min is not None or args.margin_max is not None
+            or getattr(args, "margin_type", None) is not None)
 
 
 def _fnum(v) -> float | None:
@@ -152,15 +153,22 @@ def plan(rows: list[dict], args) -> tuple[list[dict], list[str]]:
             continue
         if direct_mode(args):
             cur_min, cur_max = _fnum(s["margin_min"]), _fnum(s["margin_max"])
+            new_type = args.margin_type or s["margin_type"]
             new_min = args.margin_min if args.margin_min is not None else cur_min
             new_max = args.margin_max if args.margin_max is not None else cur_max
-            if s["margin_type"] != "fixed" and new_min is not None \
+            if new_type != "fixed" and new_min is not None \
                     and new_max is not None and new_max <= new_min:
-                refused.append(f"supply {s['id']}: {s['margin_type']} band needs "
+                refused.append(f"supply {s['id']}: {new_type} band needs "
                                f"max > min, got {new_min:g}–{new_max:g} "
                                f"(pass --margin-max too)")
                 continue
-            if new_min == cur_min and new_max == cur_max:
+            if s["margin_type"] == "adaptive" and new_type == "adaptive" \
+                    and args.margin_min is not None:
+                refused.append(f"supply {s['id']}: adaptive ignores margin_min on "
+                               f"demand (§6.1a) — pass --margin-type range to "
+                               f"convert, as --convert-adaptive does")
+                continue
+            if new_type == s["margin_type"] and new_min == cur_min and new_max == cur_max:
                 refused.append(f"supply {s['id']}: band already "
                                f"{s['margin_type']} {cur_min}–{cur_max}")
                 continue
@@ -182,13 +190,15 @@ def apply_direct(todo: list[dict], args) -> tuple[list[dict], int]:
     entries, failures = [], 0
     for s in todo:
         kw = {}
+        if args.margin_type is not None and args.margin_type != s["margin_type"]:
+            kw["margin_type"] = args.margin_type
         if args.margin_min is not None:
             kw["margin_min"] = args.margin_min
         if args.margin_max is not None:
             kw["margin_max"] = args.margin_max
         reason = (f"tbx_dynamic_margin DIRECT: {s['name']} band "
                   f"{s['margin_type']} {s['margin_min']}–{s['margin_max']} → "
-                  + ", ".join(f"{k}={v:g}" for k, v in kw.items()))
+                  + ", ".join(f"{k}={v}" for k, v in kw.items()))
         try:
             result = tbm.set_supply_margin(
                 s["id"], actor=args.actor, reason=reason,
@@ -305,6 +315,10 @@ def build_parser() -> argparse.ArgumentParser:
                    help="supply ids eligible for --apply (required with it)")
     p.add_argument("--set", type=float, default=30.0,
                    help="dynamic_margin %% to set on --include (default 30)")
+    p.add_argument("--margin-type", choices=("fixed", "adaptive", "range"),
+                   default=None,
+                   help="DIRECT mode: change the band type first (adaptive "
+                        "ignores margin_min; convert to range to make it take)")
     p.add_argument("--margin-min", type=float, default=None,
                    help="DIRECT mode: set the top-level margin_min on --include "
                         "instead of dynamic_margin")
@@ -355,8 +369,10 @@ def main(argv: list[str] | None = None) -> int:
         if direct_mode(args):
             tgt_min = args.margin_min if args.margin_min is not None else s["margin_min"]
             tgt_max = args.margin_max if args.margin_max is not None else s["margin_max"]
+            tgt_type = args.margin_type or s["margin_type"]
             print(f"  supply {s['id']} {s['name']}: band {s['margin_type']} "
-                  f"{s['margin_min']}–{s['margin_max']} → {tgt_min}–{tgt_max}{flag}")
+                  f"{s['margin_min']}–{s['margin_max']} → {tgt_type} "
+                  f"{tgt_min}–{tgt_max}{flag}")
             continue
         print(f"  supply {s['id']} {s['name']}: is_dynamic_margin "
               f"{s['is_dynamic_margin']} → True, dynamic_margin "
@@ -373,7 +389,8 @@ def main(argv: list[str] | None = None) -> int:
             json.dump({"created": datetime.now(timezone.utc).isoformat(),
                        "actor": args.actor,
                        "mode": "direct" if direct_mode(args) else "dynamic",
-                       "set": args.set, "margin_min": args.margin_min,
+                       "set": args.set, "margin_type": args.margin_type,
+                       "margin_min": args.margin_min,
                        "margin_max": args.margin_max, "entries": entries},
                       fh, indent=2)
         print(f"\nLedger: {path}\nUndo: python3 scripts/tbx_dynamic_margin.py "

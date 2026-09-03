@@ -84,6 +84,24 @@ def test_direct_mode_writes_the_top_level_band():
     fixed = dm.shape({**ent(35, "indirect_suppliers"), "margin_type": "fixed", "margin_max": 0})
     todo, refused = dm.plan([fixed], args_for(include={35}, margin_min=15.0))
     check("fixed band takes min alone", len(todo) == 1, str(refused))
+    adap = dm.shape({**ent(65, "indirect_suppliers"), "margin_type": "adaptive", "margin_min": 5, "margin_max": 95})
+    todo, refused = dm.plan([adap], args_for(include={65}, margin_min=20.0))
+    check("adaptive + margin_min alone refused", not todo and any("--margin-type range" in r for r in refused), str(refused))
+    todo, refused = dm.plan([adap], args_for(include={65}, margin_type="range", margin_min=20.0))
+    check("adaptive → range 20–95 planned", len(todo) == 1, str(refused))
+    todo, refused = dm.plan([adap], args_for(include={65}, margin_type="adaptive"))
+    check("same type, same band refused as unchanged", not todo and any("already" in r for r in refused), str(refused))
+    seen2 = []
+    real2 = dm.tbm.set_supply_margin
+    dm.tbm.set_supply_margin = lambda sid, **kw: seen2.append((sid, kw)) or {"applied": False, "verify_ok": None}
+    try:
+        dm.apply([adap], args_for(apply=False, margin_type="range", margin_min=20.0))
+        check("margin_type=range and margin_min=20 sent together", seen2[0][1].get("margin_type") == "range" and seen2[0][1].get("margin_min") == 20.0, str(seen2))
+        seen2.clear()
+        dm.apply([fixed], args_for(apply=False, margin_type="fixed", margin_min=15.0))
+        check("unchanged type is not re-sent", "margin_type" not in seen2[0][1], str(seen2))
+    finally:
+        dm.tbm.set_supply_margin = real2
 
     seen = []
     real = dm.tbm.set_supply_margin
