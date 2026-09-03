@@ -190,6 +190,11 @@ def main() -> int:
     ap.add_argument("--only", help="comma-separated subset, e.g. vercel,render")
     ap.add_argument("--json", action="store_true", dest="as_json",
                     help="emit JSON instead of a table")
+    ap.add_argument("--strict", action="store_true",
+                    help="also exit non-zero when a token is simply unset "
+                         "(default: only a set-but-rejected token fails, so a "
+                         "credential you have not created yet is reported "
+                         "without turning the run red)")
     args = ap.parse_args()
 
     wanted = None
@@ -236,7 +241,11 @@ def main() -> int:
         if not fails and not warns:
             print("all platforms reachable and authenticated")
 
-    return 1 if any(r["status"] == FAIL for r in rows) else 0
+    rejected = [r for r in rows if r["status"] == FAIL and r["stage"] == "auth"]
+    unset = [r for r in rows if r["status"] == FAIL and r["stage"] == "token"]
+    if rejected:
+        return 1
+    return 1 if (args.strict and unset) else 0
 
 
 if __name__ == "__main__":
