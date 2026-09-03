@@ -235,9 +235,18 @@ def main() -> int:
         if warns:
             print(f"{len(warns)} unverified: "
                   f"{', '.join(r['name'] for r in warns)}")
-            print("  A blocked host is a sandbox network policy, not a bad "
-                  "token — do not rotate\n  a credential over one. Run this "
-                  "locally or via .github/workflows/platform-doctor.yml.")
+            # Only the network-stage warnings are about the sandbox. Printing
+            # that advice under a 403 scope warning sends the reader chasing
+            # the wrong cause — which is the exact failure this tool exists
+            # to prevent.
+            if any(r["stage"] == "network" for r in warns):
+                print("  A blocked host is a sandbox network policy, not a bad "
+                      "token — do not rotate\n  a credential over one. Run this "
+                      "locally or via .github/workflows/platform-doctor.yml.")
+            if any(r["stage"] == "auth" for r in warns):
+                print("  A 403 means the credential works but is scoped away "
+                      "from the probe endpoint.\n  Expected for a narrow key, "
+                      "and for the repo-scoped GITHUB_TOKEN on a runner.")
         if not fails and not warns:
             print("all platforms reachable and authenticated")
 
