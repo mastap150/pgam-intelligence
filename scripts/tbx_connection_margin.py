@@ -87,6 +87,9 @@ from scripts import tbx_trim as trim     # noqa: E402
 
 _HDR = "=" * 78
 METRICS = ["imps_sum", "dsp_price_sum", "ssp_price_sum"]
+# When a raise pushes the floor past the ceiling, the ceiling moves to
+# floor + this. Never floor == ceiling: the platform 422s on equality.
+MAX_HEADROOM_PP = 5.0
 
 
 def ledger_path() -> str:
@@ -271,6 +274,16 @@ def plan_writes(rows: list[dict], args) -> tuple[list[dict], list[str]]:
         if r["take"] >= args.target - 0.5:
             refused.append(f"demand {r['did']}: already at target ({r['take']:.1f}%)")
             continue
+        kind = r["d_band"]["type"]
+        # 2026-09-03, demand 1986: POST returned 200 and margin_min stayed at
+        # 5. The update endpoint does not honour the floor on an `adaptive`
+        # band — the same shape as the supply-side fields in §6.1. Converting
+        # the type is a mechanism change this tool does not make on its own.
+        if kind == "adaptive":
+            refused.append(f"demand {r['did']}: band is adaptive — the update "
+                           f"endpoint ignores margin_min on that type (verified "
+                           f"no-op on #1986). Convert to range first.")
+            continue
         new_min = round(p["additive"], 1)
         raise_pp = new_min - r["d_band"]["min"]
         if raise_pp > args.max_raise_pp:
@@ -281,7 +294,15 @@ def plan_writes(rows: list[dict], args) -> tuple[list[dict], list[str]]:
         if new_min <= 0:
             refused.append(f"demand {r['did']}: proposal {new_min}% is not a margin")
             continue
-        new_max = max(r["d_band"]["max"], new_min)
+        # A fixed band has one number; the platform reports margin_max as 0
+        # for it and a verify on that field is noise (demand 35, 2026-09-03).
+        if kind == "fixed":
+            new_max = None
+        else:
+            # The platform requires max STRICTLY above min — equality is a 422
+            # ("Max Margin Value must be greater than 25.7", demand 2408).
+            cur_max = r["d_band"]["max"]
+            new_max = cur_max if cur_max > new_min else round(new_min + MAX_HEADROOM_PP, 1)
         todo.append({
             "did": r["did"], "dname": r["dname"], "sid": r["sid"],
             "sname": r["sname"], "take": r["take"], "gross_day": r["gross_day"],
@@ -298,10 +319,12 @@ def apply_writes(todo: list[dict], args) -> tuple[list[dict], int]:
                   f"{w['take']:.1f}% vs target {args.target:g}%; demand floor "
                   f"{w['before']['min']:g}% → {w['margin_min']:g}%{w['note']}")
         try:
+            kwargs = {"margin_min": w["margin_min"]}
+            if w.get("margin_max") is not None:
+                kwargs["margin_max"] = w["margin_max"]
             result = tbm.set_demand_economics(
-                w["did"], margin_min=w["margin_min"], margin_max=w["margin_max"],
-                actor=args.actor, reason=reason, dry_run=not args.apply,
-                demand_name=w["dname"])
+                w["did"], actor=args.actor, reason=reason,
+                dry_run=not args.apply, demand_name=w["dname"], **kwargs)
         except Exception as exc:                       # noqa: BLE001
             print(f"  ✗ demand {w['did']} ({w['dname']}): {exc}", file=sys.stderr)
             failures += 1
@@ -328,10 +351,13 @@ def revert(path: str, args) -> int:
     for e in entries:
         b = e["before"]
         try:
+            kwargs = {"margin_min": b["min"]}
+            if b.get("type") != "fixed":
+                kwargs["margin_max"] = b["max"]
             result = tbm.set_demand_economics(
-                e["did"], margin_min=b["min"], margin_max=b["max"],
-                actor=args.actor, reason=f"revert of {os.path.basename(path)}",
-                dry_run=not args.apply, demand_name=e.get("dname"))
+                e["did"], actor=args.actor,
+                reason=f"revert of {os.path.basename(path)}",
+                dry_run=not args.apply, demand_name=e.get("dname"), **kwargs)
         except Exception as exc:                       # noqa: BLE001
             print(f"  ✗ demand {e['did']}: {exc}", file=sys.stderr)
             failures += 1
@@ -427,9 +453,10 @@ def main(argv: list[str] | None = None) -> int:
     for why in refused:
         print(f"  · refused — {why}")
     for w in todo:
+        mx = ("(fixed — single value)" if w["margin_max"] is None
+              else f"(max {w['before']['max']:g}% → {w['margin_max']:g}%)")
         print(f"  {w['dname']} #{w['did']} on {w['sname']} #{w['sid']}: "
-              f"floor {w['before']['min']:g}% → {w['margin_min']:g}% "
-              f"(max {w['before']['max']:g}% → {w['margin_max']:g}%){w['note']}")
+              f"floor {w['before']['min']:g}% → {w['margin_min']:g}% {mx}{w['note']}")
     if not todo:
         return 0
     if not args.apply:
