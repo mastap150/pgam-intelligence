@@ -759,6 +759,18 @@ for a rollout. Note #196 has `is_smart_floor` ON — the platform optimiser
 owns its *floor*; margin is a different lever, so the two do not fight, but
 it is the first source where both are set.
 
+Applied the same evening to the standing fan-out example: **Illumin - Video
+Unruly OTTA #65** read `adaptive 5–95` (smart floor ON). Adaptive ignores
+`margin_min` on the demand side, so the write converted the type too:
+`--margin-type range --margin-min 20` → `range 20–95`, `verify ✓` (run
+33816319420, ledger `dynmargin-ledger-20260903T230921Z`, 23:09 UTC). That
+is the largest source in the book moving from an adaptive band the platform
+was resting near 5 to a 20-point floor. Illumin's company-grain take was
+13.9% on 2026-09-03; if the supply band stacks with the OTTA demand bands
+the way §6.1a describes, the settled 2026-09-04 should read high-20s. If it
+reads unchanged, the supply band is a config field the auction does not
+consult, and both writes should be reverted from their ledgers.
+
 **The supply-side field that IS in the write schema.** `margin_type/min/max`
 on supply were called read-only (above, now superseded); separately,
 `SupplySourceRequest.source` is
