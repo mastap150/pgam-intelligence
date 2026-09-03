@@ -829,23 +829,42 @@ trimmed so no leg projects past 45%). Rails: 4 writes/run, 10pp/step,
 absolute caps (demand 40, supply 30), adaptive → range on write,
 `partner_freeze` on both sides, and the runaway guard: a connection whose
 realised take sits ≥3pp below what its configured floors already imply is
-*alerted*, never raised — the platform is not applying a floor there and a
-higher one would not help. Cox #310 is excluded in config (the 422 above).
-Every run posts writes and alerts to Slack; ledger + `--revert`.
+never raised. Whether that is "floor not honoured" or "floor raised since
+the measured day" is decided by the current *unsettled* day: the bands are
+read now, the take was realised yesterday, so the tool also pulls today's
+partial take (never to size a raise — only as the in-flight signal). Today
+still below the implied floor → **alert**, not honoured. Today at or above
+it → band changed since; **hold** for a settled day. Today ≥ trigger →
+in flight; hold. The first dry run (2026-09-03 23:45 UTC, measuring 09-02
+against bands written 09-02/03) would otherwise have alerted on all 28 of
+that day's writes. Cox #310 is excluded in config (the 422 above). Every run
+posts writes and alerts to Slack; ledger + `--revert`.
 
 **Dark pairs** — `scripts/tbx_dark_pairs.py`, workflow `tbx-dark-pairs.yml`,
 daily 09:35 UTC (after `tbx-dark-demand` at 09:15), applies on schedule. A
 supply → demand connection with **zero bid responses on all of the last 3
 settled days** and ≥10,000 requests on each of those days is paused by
-editing the supply source's demand list: `is_allowed_sources=false` is a
-blocklist (add the id), `true` an allowlist (remove it). Whole-dark DSPs are
-left to `tbx-dark-demand`; a pair is refused when the write would empty an
-allowlist or when an allowlist does not contain a demand that is nevertheless
-receiving requests (the list is not governing what we think). Rails: every
-day answered, present all days, demand live and answering elsewhere,
-`partner_freeze`, 10 pauses/run, ledger records the exact prior list,
-`--revert` restores it. Note the list replaces wholesale on the wire, so a
-revert also undoes any hand edit to that list made in between.
+editing an allow/block list. Both entities carry `is_allowed_sources` +
+a list of the other side's ids + `companies[]`, and the spec's wording is
+"Companies and Supply Sources is allowed": a pair can be let through by the
+*company* even when the id is absent from the list — the first dry run
+showed Erie News Now #1503 receiving requests from thirteen demand ids not
+in its allowlist. So the tool picks a side, in order: supply blocklist
+(add the demand id) → demand blocklist (add the supply id) → supply
+allowlist, only if it contains the id, the demand's company is not in the
+supply's `companies`, and the list would not empty (remove the id) → same on
+the demand side → otherwise an **alert** naming why (company allow on both
+sides, id absent yet traffic flowing, would empty a list). A pair already
+blocked on either side yet still carrying requests is also an alert ("pause
+not effective"), never a second write. Whole-dark DSPs are left to
+`tbx-dark-demand`. Rails: every day answered, present all days, demand live
+and answering elsewhere, `partner_freeze`, 10 pauses/run, ledger records the
+exact prior list, `--revert` restores it. The list replaces wholesale on the
+wire, so a revert also undoes any hand edit to that list made in between.
+First dry run (settled 08-31→09-02): 120 qualifying pairs, all on
+allowlist-mode supplies; the largest are burgerpixel.net #1337 → SmileWanted
+#1753/#1673 at 9.3M/8.1M req/day and Cas.ai Video #290 → OpenWeb #2383 /
+SmileWanted #1673 at 2.5M each.
 
 **The supply-side field that IS in the write schema.** `margin_type/min/max`
 on supply were called read-only (above, now superseded); separately,

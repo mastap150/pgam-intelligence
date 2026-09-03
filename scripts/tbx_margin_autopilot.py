@@ -161,15 +161,50 @@ def band_step(b: dict, want: float, cap: float, max_raise: float) -> dict:
             "margin_type": convert, "note": note}
 
 
+# ----------------------------------------------------------------- partial
+
+def partial_today(last_settled, min_gross: float = 1.0) -> dict[tuple, float]:
+    """
+    {(sid, did): take%} for the days AFTER the last settled one, up to now —
+    normally just today, unsettled. Never used to size a raise (partial days
+    inflate proposals); used only to tell "band changed since yesterday"
+    from "floor not honoured". Returns {} when nothing answered.
+    """
+    today = datetime.now(timezone.utc).date()
+    start = last_settled + timedelta(days=1)
+    ndays = (today - start).days + 1
+    if ndays < 1:
+        return {}
+    print(f"\n  reading the unsettled day(s) {start} → {today} for the in-flight check")
+    pairs, answered = cm.pull_pairs(start, ndays)
+    if not answered:
+        print("  (no partial-day data answered — in-flight check unavailable)")
+        return {}
+    out = {}
+    for key, e in pairs.items():
+        if e["gross"] >= min_gross:
+            out[key] = (e["gross"] - e["payout"]) / e["gross"] * 100.0
+    return out
+
+
 # ------------------------------------------------------------------ decide
 
-def decide(rows: list[dict], cfg: dict) -> tuple[list[dict], list[str], list[str]]:
+def decide(rows: list[dict], cfg: dict, partial: dict | None = None
+           ) -> tuple[list[dict], list[str], list[str]]:
     """
     rows: output of tbx_connection_margin.assess (sorted by gross desc).
+    partial: {(sid, did): take%} for the CURRENT, unsettled day — the one
+    signal that says whether a band changed after the measured day. The
+    bands are read now; the take was realised yesterday. If yesterday sits
+    below what today's bands imply, either the platform ignores the floor
+    (alert) or the floor was raised since (hold and wait). Today's partial
+    take tells the two apart: still below the implied floor → not honoured;
+    at or above it → in flight.
     Returns (writes, alerts, notes). Alerts are things a human should see;
     notes are refusals that need no action.
     """
     trig, target = cfg["trigger_pct"], cfg["target_pct"]
+    partial = partial or {}
     todo, alerts, notes = [], [], []
     by_sid: dict[int, list[dict]] = {}
     for r in rows:
@@ -187,12 +222,27 @@ def decide(rows: list[dict], cfg: dict) -> tuple[list[dict], list[str], list[str
         if not s_b or not d_b or not s_b.get("type") or not d_b.get("type"):
             alerts.append(f"{tag}: margin config unreadable — nothing written")
             continue
+        today = partial.get((r["sid"], r["did"]))
+        if today is not None and today >= trig:
+            notes.append(f"{tag}: today's partial take is {today:.1f}% ≥ {trig:g}% — a "
+                         f"change is already in flight; waiting for it to settle")
+            continue
         implied = compound(effective_floor(s_b), effective_floor(d_b))
         if r["take"] < implied - cfg["not_honoured_gap_pp"]:
+            if today is None:
+                notes.append(f"{tag}: below what the current floors imply "
+                             f"({implied:.1f}%) and no partial-day read to say whether "
+                             f"the band changed since — holding one day")
+                continue
+            if today >= implied - cfg["not_honoured_gap_pp"]:
+                notes.append(f"{tag}: band changed after the measured day — today's "
+                             f"partial take {today:.1f}% is consistent with the current "
+                             f"floors ({implied:.1f}%); waiting for a settled day")
+                continue
             alerts.append(f"{tag}: realised is {implied - r['take']:.1f}pp BELOW what "
-                          f"the configured floors imply ({implied:.1f}%) — the "
-                          f"platform is not applying a floor here; raising it "
-                          f"would not help. Not written.")
+                          f"the configured floors imply ({implied:.1f}%), and today's "
+                          f"partial ({today:.1f}%) is too — the platform is not applying "
+                          f"a floor here; raising it would not help. Not written.")
             continue
 
         if r["one_to_one"]:
@@ -217,6 +267,15 @@ def decide(rows: list[dict], cfg: dict) -> tuple[list[dict], list[str], list[str
         legs = by_sid[r["sid"]]
         gross = sum(l["gross_day"] for l in legs) or 1e-9
         wtake = sum(l["gross_day"] * l["take"] for l in legs) / gross
+        today_legs = [(l, partial.get((l["sid"], l["did"]))) for l in legs]
+        if any(t is not None for _, t in today_legs):
+            g2 = sum(l["gross_day"] for l, t in today_legs if t is not None) or 1e-9
+            wtoday = sum(l["gross_day"] * t for l, t in today_legs if t is not None) / g2
+            if wtoday >= trig:
+                notes.append(f"{tag}: fan-out; today's partial weighted take on supply "
+                             f"#{r['sid']} is {wtoday:.1f}% ≥ {trig:g}% — a change is "
+                             f"already in flight; waiting for it to settle")
+                continue
         if wtake >= trig:
             notes.append(f"{tag}: fan-out; supply-weighted take across "
                          f"{len(legs)} leg(s) is {wtake:.1f}% ≥ {trig:g}% — the low "
@@ -424,7 +483,8 @@ def main(argv: list[str] | None = None) -> int:
                      fan, cm_args)
     cm.render(rows, answered, cm_args)
 
-    todo, alerts, notes = decide(rows, cfg)
+    partial = partial_today(end)
+    todo, alerts, notes = decide(rows, cfg, partial)
     print(f"\n{_HDR}\nAutopilot decision (trigger {cfg['trigger_pct']:g}%)\n{_HDR}")
     for a in alerts:
         print(f"  ⚠ {a}")
