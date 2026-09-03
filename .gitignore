@@ -65,3 +65,5 @@ cut-ledger-*.json
 dark-ledger-*.json
 margin-ledger-*.json
 dynmargin-ledger-*.json
+autopilot-ledger-*.json
+pairs-ledger-*.json
