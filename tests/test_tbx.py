@@ -221,8 +221,11 @@ def test_read_only_stripping() -> None:
     supply = {"id": 22, "name": "s", "margin_type": "fixed", "margin_min": 10,
               "margin_max": 50, "status": True, "source": {"floor_price": 1.0}}
     stripped = tbm._strip_read_only(supply, "supply_source")
-    check("supply read-only fields dropped",
-          set(stripped) == {"name", "status", "source"}, str(sorted(stripped)))
+    # margin_type/min/max stay: the update endpoint REQUIRES them (2026-09-03).
+    check("supply read-only fields dropped, margin band kept",
+          set(stripped) == {"name", "status", "source",
+                            "margin_type", "margin_min", "margin_max"},
+          str(sorted(stripped)))
     check("original not mutated", "id" in supply)
 
     demand = {"id": 91, "name": "d", "operation_systems": [1, 2],
@@ -251,11 +254,21 @@ def test_strip_list_matches_spec() -> None:
             continue
         from_spec = tbm.read_only_fields_from_spec(kind)
         undeclared = set(tbm._UNDECLARED_RESPONSE_FIELDS.get(kind, ()))
+        required = set(tbm._SPEC_OMITS_BUT_REQUIRED.get(kind, ()))
         declared = set(tbm._READ_ONLY_FIELDS[kind])
         check(f"{kind}: strip list matches the spec",
-              declared == from_spec | undeclared,
+              declared == (from_spec - required) | undeclared,
               f"declared={sorted(declared)} spec={sorted(from_spec)} "
-              f"undeclared={sorted(undeclared)}")
+              f"undeclared={sorted(undeclared)} required={sorted(required)}")
+        # A required-but-omitted field is only a legitimate exception while
+        # the spec really does omit it from the write schema. Once a
+        # re-vendor declares it, the entry is stale.
+        check(f"{kind}: every spec-omits-but-required field is absent from the write schema",
+              not (required & accepted),
+              f"now declared: {sorted(required & accepted)}")
+        check(f"{kind}: spec-omits-but-required fields survive the strip",
+              all(k in tbm._strip_read_only({k: 1 for k in required | {'id'}}, kind)
+                  for k in required))
         # An exception is only legitimate while the spec really is silent on
         # it. Once a re-vendor picks the field up, the entry is stale and the
         # set difference alone should carry it.
@@ -270,8 +283,12 @@ def test_unknown_write_keys() -> None:
     check("a clean supply payload has no undeclared keys",
           tbm.unknown_write_keys({"name": "s", "status": True}, "supply_source") == [])
     check("a read-only field left in is flagged",
-          tbm.unknown_write_keys({"name": "s", "margin_type": "fixed"},
-                                 "supply_source") == ["margin_type"])
+          tbm.unknown_write_keys({"name": "s", "id": 1},
+                                 "supply_source") == ["id"])
+    check("supply margin fields are NOT flagged (the endpoint requires them)",
+          tbm.unknown_write_keys({"name": "s", "margin_type": "fixed",
+                                  "margin_min": 1, "margin_max": 2},
+                                 "supply_source") == [])
     check("demand uuid is flagged when left in",
           "uuid" in tbm.unknown_write_keys({"name": "d", "uuid": "x"}, "demand_source"))
     check("uuid is NOT flagged on supply (its write schema accepts it)",

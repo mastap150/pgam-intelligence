@@ -2,8 +2,10 @@ name: TBX Dynamic Margin (supply-side test)
 
 # The one supply-side margin field in the write schema, read and — on ONE
 # source, behind every gate — set, so the next settled day can say what it
-# governs. margin_type/min/max on supply are read-only (§6.1); this is not.
-# What it DOES is unverified, which is exactly why max_apply defaults to 1.
+# governs. margin_type/min/max on supply were thought read-only (§6.1) until
+# the live endpoint said they are REQUIRED (2026-09-03) — the margin_min /
+# margin_max inputs write that band directly (§6.1a). Either way what a
+# write DOES is unverified, which is exactly why max_apply defaults to 1.
 # Dispatch-only. Ledger + revert.
 
 on:
@@ -18,9 +20,17 @@ on:
         required: false
         default: ""
       set:
-        description: "dynamic_margin % to set"
+        description: "dynamic_margin % to set (ignored in direct mode)"
         required: false
         default: "30"
+      margin_min:
+        description: "DIRECT mode: set top-level margin_min on include (the band the endpoint says is REQUIRED)"
+        required: false
+        default: ""
+      margin_max:
+        description: "DIRECT mode: set top-level margin_max (range bands need max > min)"
+        required: false
+        default: ""
       apply:
         description: "Type yes to write. Anything else reports only."
         required: false
@@ -69,7 +79,11 @@ jobs:
         run: |
           echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
           if [ "$TBX_ALLOW_WRITES" = "1" ]; then
-            echo "::warning::APPLY — dynamic margin will be switched on for supply: ${{ inputs.include }} at ${{ inputs.set || '30' }}%"
+            if [ -n "${{ inputs.margin_min }}${{ inputs.margin_max }}" ]; then
+              echo "::warning::APPLY — DIRECT: supply ${{ inputs.include }} margin band → min=${{ inputs.margin_min || '(keep)' }} max=${{ inputs.margin_max || '(keep)' }}"
+            else
+              echo "::warning::APPLY — dynamic margin will be switched on for supply: ${{ inputs.include }} at ${{ inputs.set || '30' }}%"
+            fi
           else echo "REPORT ONLY"; fi
       - name: Revert a previous run
         if: inputs.revert_ledger != ''
@@ -84,8 +98,12 @@ jobs:
           IN_INCLUDE: ${{ inputs.include }}
           IN_SET: ${{ inputs.set || '30' }}
           IN_MAX: ${{ inputs.max_apply || '1' }}
+          IN_MMIN: ${{ inputs.margin_min }}
+          IN_MMAX: ${{ inputs.margin_max }}
         run: |
           ARGS="--set $IN_SET --max-apply $IN_MAX"
+          [ -n "$IN_MMIN" ] && ARGS="$ARGS --margin-min $IN_MMIN"
+          [ -n "$IN_MMAX" ] && ARGS="$ARGS --margin-max $IN_MMAX"
           [ -n "$IN_IDS" ] && ARGS="$ARGS --ids $IN_IDS"
           [ -n "$IN_INCLUDE" ] && ARGS="$ARGS --include $IN_INCLUDE"
           [ "$TBX_ALLOW_WRITES" = "1" ] && ARGS="$ARGS --apply"

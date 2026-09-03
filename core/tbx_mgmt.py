@@ -40,8 +40,10 @@ The spec's `*Resource` (read) and `*Request` (write) schemas are close but
 not identical:
 
   * `SupplySourceResource` adds `id` and source-level `margin_type` /
-    `margin_min` / `margin_max`, none of which `SupplySourceRequest`
-    accepts.
+    `margin_min` / `margin_max`. The spec says `SupplySourceRequest` accepts
+    none of them; the live endpoint REQUIRES the three margin fields
+    (422 when absent, 2026-09-03), so only `id` is actually stripped — see
+    `_SPEC_OMITS_BUT_REQUIRED`.
   * `DemandSourceResource` adds `id`, `operation_systems` and `uuid`, none of
     which `DemandSourceRequest` accepts. `uuid` is the asymmetric one — the
     *supply* write schema does accept it — and it was missing from the strip
@@ -374,8 +376,12 @@ def list_companies(search: str | None = None, per_page: int = 250) -> list[dict]
 # the spec in agreement — `python3 tests/test_tbx.py` fails if they diverge,
 # allowing only the hand-named exceptions in `_UNDECLARED_RESPONSE_FIELDS`.
 _READ_ONLY_FIELDS = {
-    "supply_source": ("id", "margin_type", "margin_min", "margin_max",
-                      "has_inactive_company"),
+    # margin_type/min/max used to be here, on the spec's word. The first live
+    # supply update that stripped them (source 196, run 33814887759,
+    # 2026-09-03) came back `422 margin_type/margin_min/margin_max REQUIRED`.
+    # The platform demands them, so they stay in the body; see
+    # `_SPEC_OMITS_BUT_REQUIRED`.
+    "supply_source": ("id", "has_inactive_company"),
     # has_inactive_company: on demand as well as supply. Found on supply first
     # (source 264, 2026-08-28) and assumed supply-only; the first live geo dry
     # run warned on all 40-odd demand sources it touched (2026-08-31).
@@ -395,6 +401,21 @@ _READ_ONLY_FIELDS = {
 _UNDECLARED_RESPONSE_FIELDS = {
     "supply_source": ("has_inactive_company",),
     "demand_source": ("has_inactive_company",),
+}
+
+# The opposite drift: fields the write schema OMITS which the live update
+# endpoint nonetheless REQUIRES. The spec's set difference says "read-only,
+# strip them"; the platform says "required" and 422s when they are absent.
+# The platform wins — these are kept in every update body and are not counted
+# as undeclared by `unknown_write_keys`. Whether a *changed* value is honoured
+# is a separate question, answered per field by a verified live write
+# (`scripts/tbx_dynamic_margin.py --margin-min ...`); §6.1a of the platform
+# doc carries the current answer.
+#
+# supply margin_type/margin_min/margin_max: 422 REQUIRED on source 196
+# (run 33814887759, 2026-09-03) when stripped per the spec.
+_SPEC_OMITS_BUT_REQUIRED = {
+    "supply_source": ("margin_type", "margin_min", "margin_max"),
 }
 
 # The OpenAPI request schema each entity's `/update` endpoint accepts. Used to
@@ -533,6 +554,7 @@ def unknown_write_keys(payload: dict, kind: str) -> list[str]:
     accepted = write_schema_fields(kind)
     if not accepted:
         return []
+    accepted = accepted | frozenset(_SPEC_OMITS_BUT_REQUIRED.get(kind, ()))
     return sorted(k for k in payload if k not in accepted)
 
 
@@ -954,6 +976,46 @@ def set_supply_source_fields(
                            action="set_supply_source_fields", dry_run=dry_run)
     result["clamps"] = clamps
     return result
+
+
+def set_supply_margin(
+    supply_source_id: int,
+    *,
+    margin_type: str | None = None,
+    margin_min: float | None = None,
+    margin_max: float | None = None,
+    actor: str = "manual",
+    reason: str = "",
+    dry_run: bool | None = None,
+) -> dict:
+    """
+    Set the top-level margin band on a SUPPLY source.
+
+    The vendored spec omits `margin_type/min/max` from `SupplySourceRequest`,
+    so §6.1 called them read-only; the live update endpoint says they are
+    REQUIRED (source 196, 2026-09-03). This writer changes them explicitly.
+    Whether a changed value is honoured is what `_apply_update`'s verify
+    read answers — a `verify_ok: False` is a silent no-op, not success.
+
+    Same band rules as demand (§6.1a): `fixed` carries `margin_min` only,
+    `range` needs `margin_max` strictly above `margin_min`, and `adaptive`
+    may ignore the floor. Mirrors `set_demand_margin`'s validation.
+    """
+    changes: dict[str, Any] = {}
+    if margin_type is not None:
+        if margin_type not in ("fixed", "adaptive", "range"):
+            raise ValueError("margin_type must be 'fixed', 'adaptive' or 'range'")
+        changes["margin_type"] = margin_type
+    if margin_min is not None:
+        changes["margin_min"] = float(margin_min)
+    if margin_max is not None:
+        changes["margin_max"] = float(margin_max)
+    if not changes:
+        raise ValueError("set_supply_margin called with nothing to change")
+    return _apply_update("supply_source", supply_source_id, changes,
+                         actor=actor,
+                         reason=reason or f"supply margin {sorted(changes)}",
+                         action="set_supply_margin", dry_run=dry_run)
 
 
 def set_supply_allowed_demand(
