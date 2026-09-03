@@ -807,7 +807,7 @@ connection double-counts a demand raise from the 09-02/09-03 rollout:
 | Illumin - Onetag and AdaptMX #95 | range 5–12 | range 10–12 | AdaptMX legs at d=22 → 29.8% | 33816809181 |
 | Illumin Display and Video #23 | adaptive 5–95 | range 25–95 | Zeta/Verve fan-outs at d=5/7 → 28.8/30.3% | 33816852128 |
 | Start.IO APAC #244 | range 2–35 | range 10–35 | Magnite #2238 at d=22 → 29.8% | 33816888188 |
-| Start.IO Video #76 | fixed 7 | fixed 10 | Magnite #2073 at d=22 → 29.8% | 33816925353 |
+| Start.IO Video #76 | fixed 7 | fixed 10, then **range 10–35** | Magnite #2073 at d=22 → 29.8%; converted to range on request, ceiling matches #244 | 33816925353, 33817527283 |
 | Cox Media Group #310 | fixed 10 | **unchanged** | 422 on placement round-trip, above | 33816714153 |
 
 Unruly #65 was set to 20 before the compound rule was read off the data;
