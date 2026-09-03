@@ -46,6 +46,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     env:
+      GITHUB_TOKEN:   ${{ secrets.GITHUB_TOKEN }}
       VERCEL_TOKEN:   ${{ secrets.VERCEL_TOKEN }}
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       NEON_API_KEY:   ${{ secrets.NEON_API_KEY }}

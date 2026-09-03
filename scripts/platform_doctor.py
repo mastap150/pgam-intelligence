@@ -190,6 +190,11 @@ def main() -> int:
     ap.add_argument("--only", help="comma-separated subset, e.g. vercel,render")
     ap.add_argument("--json", action="store_true", dest="as_json",
                     help="emit JSON instead of a table")
+    ap.add_argument("--strict", action="store_true",
+                    help="also exit non-zero when a token is simply unset "
+                         "(default: only a set-but-rejected token fails, so a "
+                         "credential you have not created yet is reported "
+                         "without turning the run red)")
     args = ap.parse_args()
 
     wanted = None
@@ -230,13 +235,26 @@ def main() -> int:
         if warns:
             print(f"{len(warns)} unverified: "
                   f"{', '.join(r['name'] for r in warns)}")
-            print("  A blocked host is a sandbox network policy, not a bad "
-                  "token — do not rotate\n  a credential over one. Run this "
-                  "locally or via .github/workflows/platform-doctor.yml.")
+            # Only the network-stage warnings are about the sandbox. Printing
+            # that advice under a 403 scope warning sends the reader chasing
+            # the wrong cause — which is the exact failure this tool exists
+            # to prevent.
+            if any(r["stage"] == "network" for r in warns):
+                print("  A blocked host is a sandbox network policy, not a bad "
+                      "token — do not rotate\n  a credential over one. Run this "
+                      "locally or via .github/workflows/platform-doctor.yml.")
+            if any(r["stage"] == "auth" for r in warns):
+                print("  A 403 means the credential works but is scoped away "
+                      "from the probe endpoint.\n  Expected for a narrow key, "
+                      "and for the repo-scoped GITHUB_TOKEN on a runner.")
         if not fails and not warns:
             print("all platforms reachable and authenticated")
 
-    return 1 if any(r["status"] == FAIL for r in rows) else 0
+    rejected = [r for r in rows if r["status"] == FAIL and r["stage"] == "auth"]
+    unset = [r for r in rows if r["status"] == FAIL and r["stage"] == "token"]
+    if rejected:
+        return 1
+    return 1 if (args.strict and unset) else 0
 
 
 if __name__ == "__main__":
