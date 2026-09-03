@@ -10,20 +10,33 @@ supply. This is the pair-grain version of the same idea, for the DSP that
 answers some publishers and ignores others: "Magnite - Aditude Display #566"
 takes 266k requests a day from one supply source and returns nothing, while
 buying happily elsewhere. Disabling the DSP would be wrong; sending it that
-supply is pure outbound cost. The lever is the supply source's
-demand allow/block list — the connection is paused, both parties stay live.
+supply is pure outbound cost. The lever is an allow/block list — the
+connection is paused, both parties stay live.
 
-Where the write lands
----------------------
-`SupplySourceRequest.is_allowed_sources` (bool) + `demand_sources[]` (ints).
-`false` = the list is a BLOCKLIST → pause = add the demand id.
-`true`  = the list is an ALLOWLIST → pause = remove the demand id.
-The list replaces wholesale on the wire (§6.2 shape), so the current list is
-read first and the full intended set is written; the ledger records the
-exact prior list and `--revert` puts it back. Two things are refused rather
-than guessed: emptying an allowlist (its meaning is undocumented), and an
-allowlist that does not contain a demand which is nevertheless receiving
-requests (the list is not governing what we think it is).
+Where the write lands — and why it has to pick a side
+-----------------------------------------------------
+Both entities carry the same shape: `is_allowed_sources` (bool) plus a list
+of the other side's ids (`demand_sources[]` on supply, `supply_sources[]` on
+demand) plus `companies[]`. `false` = BLOCKLIST, `true` = ALLOWLIST, and the
+spec's own wording is "Companies and Supply Sources is allowed" — a pair can
+be let through by the *company* even when the id is absent from the list.
+The first dry run showed exactly that: Erie News Now #1503 receives requests
+from thirteen demand ids that are not in its allowlist.
+
+So removing an id from an allowlist is not a pause when a company-level
+allow covers the pair, and the tool never assumes it is. Per pair, in order:
+
+    1. supply is a BLOCKLIST         → add the demand id there
+    2. demand is a BLOCKLIST         → add the supply id there
+    3. supply ALLOWLIST contains the demand id, and the demand's company is
+       NOT in the supply's companies, and the list would not empty
+                                     → remove the demand id
+    4. same on the demand side       → remove the supply id
+    5. otherwise                     → refused, with the reason, as an alert
+
+Lists replace wholesale on the wire (§6.2 shape): the current list is read,
+the full intended set is written, the exact prior list is ledgered, and
+`--revert` puts it back.
 
 Rails — the dark_demand rules, at pair grain
 --------------------------------------------
@@ -36,12 +49,13 @@ Rails — the dark_demand rules, at pair grain
 4. The DEMAND source must have answered somewhere else in the window. If it
    answered nowhere it is dark, and that is `tbx_dark_demand`'s job — one
    automation per failure mode, so nothing is switched off twice.
-5. The demand source must be live; a pair already paused (already in the
-   blocklist / out of the allowlist) is left alone and does not eat the cap.
+5. The demand source must be live. A pair that is *already* blocked on
+   either side yet still carries requests is an ALERT ("pause not
+   effective"), never a second write.
 6. `core.partner_freeze` — a frozen partner's demand is never touched.
 7. `--max-pause` caps a run (default 10). `--apply` plus `TBX_ALLOW_WRITES=1`,
    enforced independently by core.tbx_mgmt. Ledger; `--revert`.
-8. An unattended run announces every pause to Slack.
+8. An unattended run announces every pause and every alert to Slack.
 
 Exit codes: 0 ok / nothing to do · 1 a write failed · 2 creds absent or
 window unmeasured · 3 platform unreachable
@@ -65,6 +79,7 @@ from scripts import tbx_dark_demand as dd                # noqa: E402
 
 _HDR = "=" * 78
 METRICS = ["requests_sum", "responses_sum"]
+ALERT = "ALERT: "
 
 
 def ledger_path() -> str:
@@ -113,31 +128,91 @@ def demand_responses(seen: dict[tuple, dict]) -> dict[int, float]:
     return out
 
 
+def _ints(raw) -> list[int]:
+    out = []
+    for x in raw or []:
+        try:
+            out.append(int(x["id"] if isinstance(x, dict) else x))
+        except (TypeError, ValueError, KeyError):
+            pass
+    return out
+
+
+def _lists(cfg: dict, key: str) -> dict:
+    try:
+        company = int(cfg.get("company_id")) if cfg.get("company_id") is not None else None
+    except (TypeError, ValueError):
+        company = None
+    return {"is_allowed": bool(cfg.get("is_allowed_sources")),
+            "ids": _ints(cfg.get(key)), "companies": _ints(cfg.get("companies")),
+            "company_id": company, "name": cfg.get("name")}
+
+
 def supply_lists(sids: set[int]) -> dict[int, dict]:
     out = {}
     for sid in sorted(sids):
         try:
-            cfg = tbm.get_supply_source(sid) or {}
+            out[sid] = _lists(tbm.get_supply_source(sid) or {}, "demand_sources")
         except Exception as exc:                       # noqa: BLE001
             print(f"  ! supply {sid}: {exc}", file=sys.stderr)
-            continue
-        raw = cfg.get("demand_sources") or []
-        ids = []
-        for x in raw:
-            try:
-                ids.append(int(x["id"] if isinstance(x, dict) else x))
-            except (TypeError, ValueError, KeyError):
-                pass
-        out[sid] = {"is_allowed": bool(cfg.get("is_allowed_sources")),
-                    "demand_sources": ids, "name": cfg.get("name")}
+    return out
+
+
+def demand_lists(dids: set[int]) -> dict[int, dict]:
+    out = {}
+    for did in sorted(dids):
+        try:
+            out[did] = _lists(tbm.get_demand_source(did) or {}, "supply_sources")
+        except Exception as exc:                       # noqa: BLE001
+            print(f"  ! demand {did}: {exc}", file=sys.stderr)
     return out
 
 
 # ------------------------------------------------------------------- select
 
-def select(seen, answered, dresp, status, lists, args
+def choose_side(sid: int, did: int, S: dict, D: dict) -> tuple[str | None, str]:
+    """Which list to edit, or (None, why not). Blocklists first."""
+    if not S["is_allowed"] and did in S["ids"]:
+        return None, (ALERT + "already in the supply's blocklist yet still receiving "
+                      "requests — pause not effective")
+    if not D["is_allowed"] and sid in D["ids"]:
+        return None, (ALERT + "already in the demand's blocklist yet still receiving "
+                      "requests — pause not effective")
+    if not S["is_allowed"]:
+        return "supply_block", ""
+    if not D["is_allowed"]:
+        return "demand_block", ""
+    why = []
+    if did in S["ids"]:
+        if D["company_id"] is not None and D["company_id"] in S["companies"]:
+            why.append(f"supply allowlist also allows the demand's company "
+                       f"#{D['company_id']}")
+        elif len(S["ids"]) <= 1:
+            why.append("removing it would empty the supply allowlist")
+        else:
+            return "supply_allow", ""
+    else:
+        why.append("demand id not in the supply allowlist yet traffic flows"
+                   + (f" (company #{D['company_id']} allowed)"
+                      if D["company_id"] in S["companies"] else ""))
+    if sid in D["ids"]:
+        if S["company_id"] is not None and S["company_id"] in D["companies"]:
+            why.append(f"demand allowlist also allows the supply's company "
+                       f"#{S['company_id']}")
+        elif len(D["ids"]) <= 1:
+            why.append("removing it would empty the demand allowlist")
+        else:
+            return "demand_allow", ""
+    else:
+        why.append("supply id not in the demand allowlist yet traffic flows"
+                   + (f" (company #{S['company_id']} allowed)"
+                      if S["company_id"] in D["companies"] else ""))
+    return None, ALERT + "no unambiguous pause: " + "; ".join(why) + " — needs a human"
+
+
+def select(seen, answered, dresp, status, slists, dlists, args
            ) -> tuple[list[dict], list[tuple[dict, str]]]:
-    """Pairs dark on every answered day, with the write each one needs."""
+    """Pairs dark on every answered day, each with the write it needs."""
     targets, held = [], []
     n = len(answered)
     for (sid, did), e in seen.items():
@@ -150,7 +225,6 @@ def select(seen, answered, dresp, status, lists, args
             continue                                   # not a fair chance
         if any(per_day[d][1] > 0 for d in answered):
             continue                                   # it answered
-        tag = f"{e['sname']} #{sid} → {e['dname']} #{did}"
         if args.include and (did not in args.include and sid not in args.include):
             continue
         if did in args.exclude or sid in args.exclude:
@@ -165,71 +239,70 @@ def select(seen, answered, dresp, status, lists, args
         if partner_freeze.is_frozen(demand_id=did, demand_name=e["dname"]):
             held.append((row, "frozen partner"))
             continue
-        lst = lists.get(sid)
-        if lst is None:
-            held.append((row, "supply allow/block list unreadable"))
+        S, D = slists.get(sid), dlists.get(did)
+        if S is None or D is None:
+            held.append((row, "allow/block list unreadable on one side"))
             continue
-        ids = lst["demand_sources"]
-        if not lst["is_allowed"]:                      # blocklist
-            if did in ids:
-                held.append((row, "already in the supply's blocklist"))
-                continue
-            row["mode"] = "block"
-        else:                                          # allowlist
-            if did not in ids:
-                held.append((row, "allowlist does not contain this demand yet it "
-                                  "receives requests — list not governing; refusing"))
-                continue
-            if len(ids) <= 1:
-                held.append((row, "would empty the allowlist; its meaning is "
-                                  "undocumented — refusing"))
-                continue
-            row["mode"] = "allow"
+        mode, why = choose_side(sid, did, S, D)
+        if mode is None:
+            held.append((row, why))
+            continue
+        row["mode"] = mode
         targets.append(row)
     targets.sort(key=lambda r: -r["requests_day"])
     return targets, held
 
 
-def plan_writes(targets: list[dict], lists: dict[int, dict]) -> list[dict]:
-    """One write per supply source carrying every paused pair on it."""
-    by_sid: dict[int, list[dict]] = {}
+def plan_writes(targets: list[dict], slists: dict, dlists: dict) -> list[dict]:
+    """One write per (side, entity) carrying every paused pair on it."""
+    groups: dict[tuple, list[dict]] = {}
     for t in targets:
-        by_sid.setdefault(t["sid"], []).append(t)
+        side = "supply" if t["mode"].startswith("supply") else "demand"
+        key = (side, t["sid"] if side == "supply" else t["did"])
+        groups.setdefault(key, []).append(t)
     writes = []
-    for sid, ts in by_sid.items():
-        lst = lists[sid]
-        before = list(lst["demand_sources"])
-        dids = [t["did"] for t in ts]
+    for (side, eid), ts in groups.items():
+        lst = slists[eid] if side == "supply" else dlists[eid]
+        before = list(lst["ids"])
+        others = [t["did"] if side == "supply" else t["sid"] for t in ts]
         if lst["is_allowed"]:
-            after = [d for d in before if d not in dids]
+            after = [x for x in before if x not in others]
         else:
-            after = before + [d for d in dids if d not in before]
-        writes.append({"sid": sid, "sname": ts[0]["sname"],
-                       "is_allowed": lst["is_allowed"],
-                       "before": before, "after": after,
-                       "pairs": [{"did": t["did"], "dname": t["dname"],
-                                  "requests_day": t["requests_day"]} for t in ts]})
+            after = before + [x for x in others if x not in before]
+        writes.append({"side": side, "id": eid,
+                       "name": ts[0]["sname"] if side == "supply" else ts[0]["dname"],
+                       "is_allowed": lst["is_allowed"], "before": before, "after": after,
+                       "pairs": [{"sid": t["sid"], "sname": t["sname"], "did": t["did"],
+                                  "dname": t["dname"], "requests_day": t["requests_day"]}
+                                 for t in ts]})
     return writes
 
 
 # -------------------------------------------------------------------- write
 
+def _write(side: str, eid: int, ids: list[int], is_allowed: bool, actor, reason, dry_run):
+    if side == "supply":
+        return tbm.set_supply_allowed_demand(eid, ids, is_allowed=is_allowed,
+                                             actor=actor, reason=reason, dry_run=dry_run)
+    return tbm.set_demand_allowed_supply(eid, ids, is_allowed=is_allowed,
+                                         actor=actor, reason=reason, dry_run=dry_run)
+
+
 def apply(writes: list[dict], args) -> tuple[list[dict], int]:
     entries, failures = [], 0
     for w in writes:
-        names = ", ".join(f"{p['dname']} #{p['did']}" for p in w["pairs"])
-        reason = (f"tbx_dark_pairs: 0 bid responses on all {args.days} settled days "
-                  f"from {w['sname']} → {names}")
+        pairs = ", ".join(f"{p['sname']} #{p['sid']} → {p['dname']} #{p['did']}"
+                          for p in w["pairs"])
+        reason = (f"tbx_dark_pairs: 0 bid responses on all {args.days} settled days: {pairs}")
         try:
-            result = tbm.set_supply_allowed_demand(
-                w["sid"], w["after"], is_allowed=w["is_allowed"],
-                actor=args.actor, reason=reason, dry_run=not args.apply)
+            result = _write(w["side"], w["id"], w["after"], w["is_allowed"],
+                            args.actor, reason, not args.apply)
         except Exception as exc:                       # noqa: BLE001
-            print(f"  ✗ supply {w['sid']} ({w['sname']}): {exc}", file=sys.stderr)
+            print(f"  ✗ {w['side']} {w['id']} ({w['name']}): {exc}", file=sys.stderr)
             failures += 1
             continue
         if args.apply and not result.get("applied"):
-            print(f"  ✗ supply {w['sid']} refused: {result.get('refused', '?')}",
+            print(f"  ✗ {w['side']} {w['id']} refused: {result.get('refused', '?')}",
                   file=sys.stderr)
             failures += 1
             continue
@@ -245,25 +318,23 @@ def revert(path: str, args) -> int:
     if not entries:
         print(f"{path} records no applied writes — nothing to revert.")
         return 0
-    print(f"Restoring demand lists on {len(entries)} supply source(s) from {path}"
+    print(f"Restoring lists on {len(entries)} entit(y/ies) from {path}"
           f"{'' if args.apply else '  (DRY RUN)'}\n")
     failures = 0
     for e in entries:
         try:
-            result = tbm.set_supply_allowed_demand(
-                e["sid"], e["before"], is_allowed=e["is_allowed"],
-                actor=args.actor, reason=f"revert of {os.path.basename(path)}",
-                dry_run=not args.apply)
+            result = _write(e["side"], e["id"], e["before"], e["is_allowed"], args.actor,
+                            f"revert of {os.path.basename(path)}", not args.apply)
         except Exception as exc:                       # noqa: BLE001
-            print(f"  ✗ supply {e['sid']}: {exc}", file=sys.stderr)
+            print(f"  ✗ {e['side']} {e['id']}: {exc}", file=sys.stderr)
             failures += 1
             continue
         if args.apply and not result.get("applied"):
-            print(f"  ✗ supply {e['sid']} refused: {result.get('refused', '?')}",
+            print(f"  ✗ {e['side']} {e['id']} refused: {result.get('refused', '?')}",
                   file=sys.stderr)
             failures += 1
         else:
-            print(f"  ✓ supply {e['sid']} {e['sname']} → "
+            print(f"  ✓ {e['side']} {e['id']} {e['name']} → "
                   f"{'allow' if e['is_allowed'] else 'block'}list restored "
                   f"({len(e['before'])} ids)")
     return 1 if failures else 0
@@ -279,7 +350,7 @@ def render(targets, held, writes, answered, args) -> None:
         print("  none")
     for t in targets[:args.max_pause]:
         print(f"  {t['requests_day']:>12,.0f} req/day   {t['sname']} #{t['sid']} → "
-              f"{t['dname']} #{t['did']}   [{t['mode']}list]")
+              f"{t['dname']} #{t['did']}   [{t['mode']}]")
     over = targets[args.max_pause:]
     if over:
         print(f"\n  ⚠ {len(over)} more exceed --max-pause {args.max_pause} and will NOT "
@@ -287,29 +358,50 @@ def render(targets, held, writes, answered, args) -> None:
         for t in over[:10]:
             print(f"    {t['requests_day']:>12,.0f}   {t['sname']} #{t['sid']} → "
                   f"{t['dname']} #{t['did']}")
-    if held:
-        print(f"\n  held ({len(held)}):")
-        for row, why in held[:15]:
+    alerts = [(r, w[len(ALERT):]) for r, w in held if w.startswith(ALERT)]
+    quiet = [(r, w) for r, w in held if not w.startswith(ALERT)]
+    if alerts:
+        print(f"\n  alerts ({len(alerts)}) — pairs still carrying requests that this "
+              f"tool cannot pause unambiguously:")
+        for row, why in alerts[:15]:
             print(f"    {row['requests_day']:>12,.0f}   {row['sname']} #{row['sid']} → "
                   f"{row['dname']} #{row['did']}: {why}")
-        if len(held) > 15:
-            print(f"    … {len(held) - 15} more")
+        if len(alerts) > 15:
+            print(f"    … {len(alerts) - 15} more")
+    if quiet:
+        print(f"\n  held ({len(quiet)}):")
+        for row, why in quiet[:10]:
+            print(f"    {row['requests_day']:>12,.0f}   {row['sname']} #{row['sid']} → "
+                  f"{row['dname']} #{row['did']}: {why}")
+        if len(quiet) > 10:
+            print(f"    … {len(quiet) - 10} more")
     if writes:
-        print(f"\n  writes: {len(writes)} supply list(s) — "
-              + "; ".join(f"#{w['sid']} {'allow' if w['is_allowed'] else 'block'}list "
+        print(f"\n  writes: {len(writes)} list(s) — "
+              + "; ".join(f"{w['side']} #{w['id']} {'allow' if w['is_allowed'] else 'block'}list "
                           f"{len(w['before'])} → {len(w['after'])} ids" for w in writes))
 
 
-def announce(entries: list[dict], args, ledger: str) -> None:
-    pairs = [(e["sname"], e["sid"], p) for e in entries for p in e["pairs"]]
-    if not pairs:
+def announce(entries: list[dict], held, args, ledger: str | None) -> None:
+    pairs = [p for e in entries for p in e["pairs"]]
+    alerts = [(r, w[len(ALERT):]) for r, w in held if w.startswith(ALERT)]
+    if not pairs and not alerts:
         return
-    lines = [f"TBX dark pairs — paused {len(pairs)} connection(s): 0 bid responses on all "
-             f"{args.days} settled days, ≥ {args.min_requests_day:,.0f} req/day."]
-    for sname, sid, p in pairs:
-        lines.append(f"  • {sname} #{sid} → {p['dname']} #{p['did']}  "
-                     f"({p['requests_day']:,.0f} req/day)")
-    lines.append(f"Ledger {ledger} (run artifact). Undo: tbx_dark_pairs.py --revert.")
+    lines = []
+    if pairs:
+        lines.append(f"TBX dark pairs — paused {len(pairs)} connection(s): 0 bid responses "
+                     f"on all {args.days} settled days, ≥ {args.min_requests_day:,.0f} req/day.")
+        for p in pairs:
+            lines.append(f"  • {p['sname']} #{p['sid']} → {p['dname']} #{p['did']}  "
+                         f"({p['requests_day']:,.0f} req/day)")
+        if ledger:
+            lines.append(f"Ledger {ledger} (run artifact). Undo: tbx_dark_pairs.py --revert.")
+    if alerts:
+        lines.append(f"⚠ {len(alerts)} dark connection(s) this tool cannot pause unambiguously:")
+        for r, why in alerts[:8]:
+            lines.append(f"  • {r['sname']} #{r['sid']} → {r['dname']} #{r['did']} "
+                         f"({r['requests_day']:,.0f} req/day): {why}")
+        if len(alerts) > 8:
+            lines.append(f"  … {len(alerts) - 8} more in the run log")
     try:
         from core import slack
         slack.send_text("\n".join(lines))
@@ -371,33 +463,36 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     dresp = demand_responses(seen)
 
-    # Only read config for supplies that have a candidate pair on them.
-    n = len(answered)
-    cand_sids = {sid for (sid, did), e in seen.items()
-                 if all(d in e["per_day"] for d in answered)
-                 and all(e["per_day"][d][0] >= args.min_requests_day for d in answered)
-                 and all(e["per_day"][d][1] == 0 for d in answered)}
-    lists = supply_lists(cand_sids)
+    # Config is read only for entities with a candidate pair on them.
+    cand = [(sid, did) for (sid, did), e in seen.items()
+            if all(d in e["per_day"] for d in answered)
+            and all(e["per_day"][d][0] >= args.min_requests_day for d in answered)
+            and all(e["per_day"][d][1] == 0 for d in answered)
+            and dresp.get(did, 0.0) > 0 and status.get(did, False)]
+    print(f"  {len(cand)} candidate pair(s); reading lists for "
+          f"{len({s for s, _ in cand})} supply + {len({d for _, d in cand})} demand ...")
+    slists = supply_lists({s for s, _ in cand})
+    dlists = demand_lists({d for _, d in cand})
 
-    targets, held = select(seen, answered, dresp, status, lists, args)
-    writes = plan_writes(targets[:args.max_pause], lists)
+    targets, held = select(seen, answered, dresp, status, slists, dlists, args)
+    writes = plan_writes(targets[:args.max_pause], slists, dlists)
     render(targets, held, writes, answered, args)
-    if not writes:
-        return 0
-    if not args.apply:
-        print(f"\n{_HDR}\nDRY RUN — nothing was written.\n{_HDR}")
-    print()
-    entries, failures = apply(writes, args)
-    if args.apply and entries:
-        path = args.ledger or ledger_path()
-        with open(path, "w") as fh:
-            json.dump({"created": datetime.now(timezone.utc).isoformat(),
-                       "actor": args.actor, "days": args.days,
-                       "min_requests_day": args.min_requests_day,
-                       "measured": answered, "entries": entries}, fh, indent=2)
-        print(f"\nLedger: {path}\nUndo: python3 scripts/tbx_dark_pairs.py --revert {path} --apply")
-        if args.slack:
-            announce(entries, args, path)
+    entries, failures, path = [], 0, None
+    if writes:
+        if not args.apply:
+            print(f"\n{_HDR}\nDRY RUN — nothing was written.\n{_HDR}")
+        print()
+        entries, failures = apply(writes, args)
+        if args.apply and entries:
+            path = args.ledger or ledger_path()
+            with open(path, "w") as fh:
+                json.dump({"created": datetime.now(timezone.utc).isoformat(),
+                           "actor": args.actor, "days": args.days,
+                           "min_requests_day": args.min_requests_day,
+                           "measured": answered, "entries": entries}, fh, indent=2)
+            print(f"\nLedger: {path}\nUndo: python3 scripts/tbx_dark_pairs.py --revert {path} --apply")
+    if args.slack and args.apply:
+        announce(entries, held, args, path)
     return 1 if failures else 0
 
 

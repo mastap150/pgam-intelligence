@@ -79,12 +79,34 @@ def test_one_to_one_demand_raise():
 
 
 def test_not_honoured_alerts():
-    print("\nfloors not honoured → alert, never a write")
-    # configured floors imply 1-(.9)(.78)=29.8 but realised 12 → platform ignoring
+    print("\nbelow the implied floor → hold, in-flight, or not-honoured alert; never a write")
+    # configured floors imply 1-(.9)(.78)=29.8 but realised 12
     r = row(1, 2, 12.0, 100, band("range", 10, 30), band("range", 22, 35))
     todo, alerts, notes = ap.decide([r], cfg())
-    check("no write", not todo)
-    check("alert raised", alerts and "not applying" in alerts[0], str(alerts))
+    check("no partial read → held one day, no write, no alert", not todo and not alerts and any("holding one day" in n for n in notes), str(notes))
+    todo, alerts, notes = ap.decide([r], cfg(), partial={(1, 2): 29.5})
+    check("partial ≥ trigger → in flight; held", not todo and not alerts and any("in flight" in n for n in notes), str(notes))
+    # implied 1-(.9)(.88)=20.8; realised 12 is below; partial 18.5 is consistent with the floors
+    r2 = row(1, 2, 12.0, 100, band("fixed", 10), band("range", 12, 35))
+    todo, alerts, notes = ap.decide([r2], cfg(), partial={(1, 2): 18.5})
+    check("partial consistent with floors → band changed since; held", not todo and not alerts and any("band changed" in n for n in notes), str(notes))
+    todo, alerts, notes = ap.decide([r], cfg(), partial={(1, 2): 12.4})
+    check("partial also below → not-honoured alert", not todo and alerts and "not applying" in alerts[0], str(alerts))
+    ok = row(1, 3, 18.0, 100, band("range", 10, 30), band("range", 5, 35))   # implied 14.5, realised 18 → raise
+    todo, alerts, notes = ap.decide([ok], cfg(), partial={(1, 3): 31.0})
+    check("partial ≥ trigger → in flight, held", not todo and any("in flight" in n for n in notes), str(notes))
+    todo, alerts, notes = ap.decide([ok], cfg(), partial={(1, 3): 17.0})
+    check("partial still low → raise proceeds", len(todo) == 1)
+    s = band("fixed", 10)
+    legs = [row(65, 1758, 15.0, 200, s, band("range", 7, 35), one=False, peers=[65, 189]),
+            row(65, 1932, 14.0, 300, s, band("range", 7, 35), one=False, peers=[65, 189])]
+    real = ap.partner_freeze.is_frozen
+    ap.partner_freeze.is_frozen = lambda **k: False
+    try:
+        todo, _, notes = ap.decide(legs, cfg(), partial={(65, 1758): 28.0, (65, 1932): 27.0})
+        check("fan-out: partial weighted ≥ trigger → in flight, held", not todo and any("in flight" in n for n in notes), str(notes))
+    finally:
+        ap.partner_freeze.is_frozen = real
 
 
 def test_fanout_supply_raise():
