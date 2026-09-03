@@ -279,11 +279,18 @@ def plan_writes(rows: list[dict], args) -> tuple[list[dict], list[str]]:
         # 5. The update endpoint does not honour the floor on an `adaptive`
         # band — the same shape as the supply-side fields in §6.1. Converting
         # the type is a mechanism change this tool does not make on its own.
+        convert = None
         if kind == "adaptive":
-            refused.append(f"demand {r['did']}: band is adaptive — the update "
-                           f"endpoint ignores margin_min on that type (verified "
-                           f"no-op on #1986). Convert to range first.")
-            continue
+            if not args.convert_adaptive:
+                refused.append(f"demand {r['did']}: band is adaptive — the update "
+                               f"endpoint ignores margin_min on that type (verified "
+                               f"no-op on #1986). Pass --convert-adaptive to switch "
+                               f"it to range with the same bounds first.")
+                continue
+            # Explicitly asked for. The band bounds are kept; only the
+            # mechanism changes, and the ledger records the prior type so
+            # --revert puts it back.
+            convert = "range"
         new_min = round(p["additive"], 1)
         raise_pp = new_min - r["d_band"]["min"]
         if raise_pp > args.max_raise_pp:
@@ -308,6 +315,7 @@ def plan_writes(rows: list[dict], args) -> tuple[list[dict], list[str]]:
             "sname": r["sname"], "take": r["take"], "gross_day": r["gross_day"],
             "before": dict(r["d_band"]),
             "margin_min": new_min, "margin_max": new_max, "note": note,
+            "margin_type": convert,
         })
     return todo[:args.max_apply], refused
 
@@ -322,6 +330,8 @@ def apply_writes(todo: list[dict], args) -> tuple[list[dict], int]:
             kwargs = {"margin_min": w["margin_min"]}
             if w.get("margin_max") is not None:
                 kwargs["margin_max"] = w["margin_max"]
+            if w.get("margin_type"):
+                kwargs["margin_type"] = w["margin_type"]
             result = tbm.set_demand_economics(
                 w["did"], actor=args.actor, reason=reason,
                 dry_run=not args.apply, demand_name=w["dname"], **kwargs)
@@ -354,6 +364,8 @@ def revert(path: str, args) -> int:
             kwargs = {"margin_min": b["min"]}
             if b.get("type") != "fixed":
                 kwargs["margin_max"] = b["max"]
+            if e.get("margin_type") and b.get("type"):
+                kwargs["margin_type"] = b["type"]        # converted → put the type back
             result = tbm.set_demand_economics(
                 e["did"], actor=args.actor,
                 reason=f"revert of {os.path.basename(path)}",
@@ -395,6 +407,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--max-apply", type=int, default=3)
     p.add_argument("--max-raise-pp", type=float, default=15.0,
                    help="most a floor may move in one step (default 15)")
+    p.add_argument("--convert-adaptive", action="store_true",
+                   help="an adaptive demand band ignores margin_min on update; "
+                        "with this flag it is switched to range (same bounds) "
+                        "and then raised. A mechanism change — explicit only.")
     p.add_argument("--apply", action="store_true")
     p.add_argument("--revert", metavar="LEDGER")
     p.add_argument("--actor", default="tbx_connection_margin")
@@ -455,6 +471,8 @@ def main(argv: list[str] | None = None) -> int:
     for w in todo:
         mx = ("(fixed — single value)" if w["margin_max"] is None
               else f"(max {w['before']['max']:g}% → {w['margin_max']:g}%)")
+        if w.get("margin_type"):
+            mx += f"  [type {w['before']['type']} → {w['margin_type']}]"
         print(f"  {w['dname']} #{w['did']} on {w['sname']} #{w['sid']}: "
               f"floor {w['before']['min']:g}% → {w['margin_min']:g}% {mx}{w['note']}")
     if not todo:

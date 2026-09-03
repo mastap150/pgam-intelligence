@@ -712,6 +712,42 @@ again, with a partner in the loop.
 
 ---
 
+### 6.1a Demand-side margin writes: what the platform actually accepts (2026-09-03)
+
+Learned from the first live rollout of `scripts/tbx_connection_margin.py`
+(runs 33811533316 → 33813113628, 17 writes verified). Each of these cost a
+live write before it was a rule.
+
+| demand `margin_type` | what happens on `POST /demand-sources/{id}/update` |
+|---|---|
+| `range` | `margin_min` / `margin_max` both honoured. **`margin_max` must be strictly greater than `margin_min`** — equality is `422 "Max Margin Value must be greater than N"` (demand 2408). |
+| `fixed` | one number, in `margin_min`. The platform reports `margin_max` as **0** regardless of what is sent, so a verify on that field is noise and the field should not be sent (demand 35). |
+| `adaptive` | **`margin_min` is silently ignored**: the POST returns 200 and the value does not change (demand 1986, live 5 → expected 20, verify ✗). Switching the type to `range` with the same bounds makes the floor take; that is a mechanism change and the tool does it only under `--convert-adaptive`. |
+
+The two sides **stack**: realised take exceeded the demand ceiling on 9
+connections and the supply ceiling on 2 (2026-09-02 sentry runs). On thin
+connections the adaptive/range demand band sits at its floor, and the
+realised total moved ~1:1 with the floor when tested (demand 2185: floor
+5 → 20 at 08:55 ET, day realised 14.9% ≈ 15/24 h at ~19.7%). Raising a
+floor 15 points cost that connection ~30% of its gross; net still improved.
+
+A demand floor is a per-connection lever **only where the connection is
+1:1**. A demand endpoint that buys across several supply sources (the OTTA
+endpoints on Unruly #65 + Smaato #189; Verve RON Display East across
+Dexerto/Cox/TravelReveal/VerticalScope; Zeta - RON Desktop across five)
+cannot be landed on a per-connection target from the demand side at all.
+
+**The supply-side field that IS in the write schema.** `margin_type/min/max`
+on supply are read-only (above), but `SupplySourceRequest.source` is
+`oneOf [DirectInventoryResource, IndirectSuppliersResource]` and the
+indirect shape carries `is_dynamic_margin` (bool) and `dynamic_margin`
+(number, "%", example 30). Both are writable via
+`set_supply_source_fields`. What they govern is unverified — every source
+read so far has `is_dynamic_margin: false` — and is the subject of
+`scripts/tbx_dynamic_margin.py`, which sets it on one source at a time so a
+settled day can answer. If it moves the realised take, the fan-out
+connections above become reachable without Teqblaze opening anything.
+
 ### 6.2 The three `geo_settings` lists replace wholesale on the wire
 
 `geo_settings.bid_floor[]`, `geo_settings.qps[]` and `geo_settings.blacklist[]`
