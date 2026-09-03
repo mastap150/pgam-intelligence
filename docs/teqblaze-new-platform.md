@@ -745,12 +745,19 @@ was never tested by a write. The first live `POST /supply-sources/196/update`
 `422 margin_type / margin_min / margin_max REQUIRED`. So the endpoint
 demands them: `core.tbx_mgmt` now keeps them in the body
 (`_SPEC_OMITS_BUT_REQUIRED`) and `set_supply_margin()` changes them
-explicitly. Required is not yet proven *honoured* — that is what
-`scripts/tbx_dynamic_margin.py --margin-min` on one source answers via the
-post-write verify read (a `verify ✗` on `margin_min` means the platform
-accepted the POST and ignored the field). If honoured, the fan-out
-connections above become reachable from the supply side, one source at a
-time, with no ID mapping and nothing to ask Teqblaze for.
+explicitly. **Honoured at the configuration level — verified 2026-09-03
+23:05 UTC** (run 33816010381, ledger `dynmargin-ledger-20260903T230533Z`):
+`scripts/tbx_dynamic_margin.py --margin-min 20 --include 196 --apply` moved
+Start.IO EU #196 from `range 2–40` to `range 20–40`, and the post-write
+re-read returned the new band (`verify ✓`). So the supply band is a real
+write, and the fan-out connections above are reachable from the supply
+side, one source at a time, with no ID mapping and nothing to ask Teqblaze
+for. Still open: whether the auction *applies* the changed supply band the
+way the demand band demonstrably does (§6.1a, demand 2185). Read #196's
+connections on the first settled day at the new band before leaning on it
+for a rollout. Note #196 has `is_smart_floor` ON — the platform optimiser
+owns its *floor*; margin is a different lever, so the two do not fight, but
+it is the first source where both are set.
 
 **The supply-side field that IS in the write schema.** `margin_type/min/max`
 on supply were called read-only (above, now superseded); separately,
