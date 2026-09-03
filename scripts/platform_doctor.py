@@ -148,10 +148,16 @@ def check_platform(name: str, spec: dict) -> dict:
 
     if resp.status_code in (200, 201, 204):
         return {**row, "status": OK, "stage": "auth", "detail": "authenticated"}
-    if resp.status_code in (401, 403):
+    if resp.status_code == 401:
         return {**row, "status": FAIL, "stage": "auth",
-                "detail": f"HTTP {resp.status_code} — token rejected "
-                          f"(expired, revoked, or wrong scope)"}
+                "detail": "HTTP 401 — token rejected (expired or revoked)"}
+    if resp.status_code == 403:
+        # Valid credential, insufficient scope for this probe. Expected for a
+        # deliberately narrow key (a send-only SendGrid key cannot read
+        # /v3/scopes), so this is not a failure.
+        return {**row, "status": WARN, "stage": "auth",
+                "detail": "HTTP 403 — token accepted but lacks scope for this "
+                          "probe (fine for a deliberately narrow key)"}
     return {**row, "status": WARN, "stage": "auth",
             "detail": f"HTTP {resp.status_code} — unexpected, token may be fine"}
 

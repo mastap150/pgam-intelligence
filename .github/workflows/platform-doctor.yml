@@ -64,9 +64,16 @@ jobs:
         run: pip install --quiet 'requests>=2.31.0'
 
       - name: Run platform doctor
+        # ONLY goes through env, never interpolated into the script body:
+        # `${{ inputs.x }}` inside a run: block is a script-injection vector.
+        env:
+          ONLY: ${{ inputs.only }}
         run: |
-          python3 scripts/platform_doctor.py \
-            ${{ inputs.only && format('--only {0}', inputs.only) || '' }}
+          if [ -n "$ONLY" ]; then
+            python3 scripts/platform_doctor.py --only "$ONLY"
+          else
+            python3 scripts/platform_doctor.py
+          fi
 
       - name: Audit DSN env vars
         if: always()
