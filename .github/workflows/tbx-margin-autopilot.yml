@@ -1,0 +1,96 @@
+name: TBX Margin Autopilot
+
+# The standing margin rule: a connection whose realised take fell below the
+# trigger (25%) on the last settled day gets the one floor that lands it on
+# target (30%) — demand floor on a 1:1 connection, supply band on a fan-out.
+# Rule and every threshold live in config/tbx_margin_autopilot.json; edit by
+# PR; enabled=false there is the kill switch. Rails in the script docstring.
+#
+# Scheduled runs APPLY. Dispatch is report-only unless apply=yes. Every
+# applied run uploads its ledger; --revert restores the prior bands.
+
+on:
+  schedule:
+    - cron: "30 12 * * *"      # 08:30 ET — after margin-sentry (12:00) and nowin-watch (12:10)
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Type yes to write. Anything else reports only."
+        required: false
+        default: "no"
+      slack:
+        description: "Post the summary to Slack (yes/no). Scheduled runs always post."
+        required: false
+        default: "no"
+      revert_ledger:
+        description: "Path to a downloaded autopilot ledger to REVERT"
+        required: false
+        default: ""
+
+concurrency:
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  autopilot:
+    name: Margin autopilot
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      TBX_TIMEOUT: "300"
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      TBX_ALLOW_WRITES: ${{ (github.event_name == 'schedule' || inputs.apply == 'yes') && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/require-slack
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          enforce: ${{ github.event_name == 'schedule' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests python-dotenv
+      - name: Offline sanity checks
+        run: |
+          python3 tests/test_tbx_margin_autopilot.py
+          python3 tests/test_tbx_connection_margin.py
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set."; exit 1; fi
+      - name: Say what this run will do
+        run: |
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          echo "config:"; cat config/tbx_margin_autopilot.json
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then
+            echo "::warning::APPLY — floors below the trigger will be raised per config/tbx_margin_autopilot.json"
+          else echo "REPORT ONLY"; fi
+      - name: Revert a previous run
+        if: inputs.revert_ledger != ''
+        env: { IN_LEDGER: "${{ inputs.revert_ledger }}" }
+        run: |
+          ARGS="--revert $IN_LEDGER"; [ "$TBX_ALLOW_WRITES" = "1" ] && ARGS="$ARGS --apply"
+          python3 scripts/tbx_margin_autopilot.py $ARGS
+      - name: Margin autopilot
+        if: inputs.revert_ledger == ''
+        run: |
+          ARGS=""
+          [ "$TBX_ALLOW_WRITES" = "1" ] && ARGS="$ARGS --apply"
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.slack }}" = "yes" ]; then ARGS="$ARGS --slack"; fi
+          echo "running: tbx_margin_autopilot.py $ARGS"
+          python3 scripts/tbx_margin_autopilot.py $ARGS
+      - name: Upload ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autopilot-ledger-${{ github.run_id }}
+          path: autopilot-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore

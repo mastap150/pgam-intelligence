@@ -816,6 +816,37 @@ the largest source in the book and the first day at a floor should be
 measured before the second step. Read the settled 2026-09-04 with
 `tbx-connection-margin` (`days=1`) before touching any of these again.
 
+### 6.1b The two standing rules (added 2026-09-03, on request)
+
+**Margin autopilot** — `scripts/tbx_margin_autopilot.py`, workflow
+`tbx-margin-autopilot.yml`, daily 12:30 UTC, applies on schedule. Rule and
+every threshold in `config/tbx_margin_autopilot.json` (`enabled: false` is
+the kill switch; edit by PR). On the last settled day, any connection with
+realised take **below 25%** gets the one floor that lands it on 30% by the
+compound rule above: the DEMAND floor on a 1:1 connection, the SUPPLY band
+on a fan-out (judged on the source's gross-weighted take across all legs,
+trimmed so no leg projects past 45%). Rails: 4 writes/run, 10pp/step,
+absolute caps (demand 40, supply 30), adaptive → range on write,
+`partner_freeze` on both sides, and the runaway guard: a connection whose
+realised take sits ≥3pp below what its configured floors already imply is
+*alerted*, never raised — the platform is not applying a floor there and a
+higher one would not help. Cox #310 is excluded in config (the 422 above).
+Every run posts writes and alerts to Slack; ledger + `--revert`.
+
+**Dark pairs** — `scripts/tbx_dark_pairs.py`, workflow `tbx-dark-pairs.yml`,
+daily 09:35 UTC (after `tbx-dark-demand` at 09:15), applies on schedule. A
+supply → demand connection with **zero bid responses on all of the last 3
+settled days** and ≥10,000 requests on each of those days is paused by
+editing the supply source's demand list: `is_allowed_sources=false` is a
+blocklist (add the id), `true` an allowlist (remove it). Whole-dark DSPs are
+left to `tbx-dark-demand`; a pair is refused when the write would empty an
+allowlist or when an allowlist does not contain a demand that is nevertheless
+receiving requests (the list is not governing what we think). Rails: every
+day answered, present all days, demand live and answering elsewhere,
+`partner_freeze`, 10 pauses/run, ledger records the exact prior list,
+`--revert` restores it. Note the list replaces wholesale on the wire, so a
+revert also undoes any hand edit to that list made in between.
+
 **The supply-side field that IS in the write schema.** `margin_type/min/max`
 on supply were called read-only (above, now superseded); separately,
 `SupplySourceRequest.source` is
