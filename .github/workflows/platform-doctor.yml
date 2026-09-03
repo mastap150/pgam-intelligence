@@ -1,0 +1,86 @@
+name: platform-doctor
+
+# Verify every platform credential from somewhere that can actually reach them.
+#
+# A cloud session (claude.ai/code) cannot: its network policy denies CONNECT to
+# api.vercel.com, api.render.com, api.neon.tech, api.resend.com,
+# api.sendgrid.com and admin.pgammedia.com, and its environment variable box is
+# not a secrets store — anyone using the environment can read it. An Actions
+# runner has open egress and real encrypted secrets, so this is the supported
+# way to exercise these tokens from a session.
+#
+#     Actions -> platform-doctor -> Run workflow
+#
+# Secrets to add at Settings -> Secrets and variables -> Actions. Every one is
+# optional: an unset token reports FAIL for that row and leaves the rest alone,
+# so wire them up as you create them rather than all at once.
+#
+#     VERCEL_TOKEN     vercel.com/account/settings/tokens
+#     RENDER_API_KEY   dashboard.render.com/u/settings#api-keys
+#     NEON_API_KEY     console.neon.tech/app/settings/api-keys
+#     RESEND_API_KEY   resend.com/api-keys
+#     SENDGRID_KEY     app.sendgrid.com/settings/api_keys
+#
+# GITHUB_TOKEN is injected by Actions; nothing to add for it.
+#
+# This job only ever performs authenticated READS — an identity or list
+# endpoint per platform. It writes nothing and deploys nothing.
+
+on:
+  workflow_dispatch:
+    inputs:
+      only:
+        description: "Comma-separated subset (blank = all)"
+        required: false
+        default: ""
+
+concurrency:
+  group: platform-doctor
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  doctor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      VERCEL_TOKEN:   ${{ secrets.VERCEL_TOKEN }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      NEON_API_KEY:   ${{ secrets.NEON_API_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      SENDGRID_KEY:   ${{ secrets.SENDGRID_KEY }}
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install requests
+        run: pip install --quiet 'requests>=2.31.0'
+
+      - name: Run platform doctor
+        # ONLY goes through env, never interpolated into the script body:
+        # `${{ inputs.x }}` inside a run: block is a script-injection vector.
+        env:
+          ONLY: ${{ inputs.only }}
+        run: |
+          if [ -n "$ONLY" ]; then
+            python3 scripts/platform_doctor.py --only "$ONLY"
+          else
+            python3 scripts/platform_doctor.py
+          fi
+
+      - name: Audit DSN env vars
+        if: always()
+        env:
+          PGAM_DIRECT_DATABASE_URL:  ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+          BOXINGNEWS_DATABASE_URL:   ${{ secrets.BOXINGNEWS_DATABASE_URL }}
+          FINANCE_DATABASE_URL:      ${{ secrets.FINANCE_DATABASE_URL }}
+          HEALTHNATION_DATABASE_URL: ${{ secrets.HEALTHNATION_DATABASE_URL }}
+          DSP_DATABASE_URL:          ${{ secrets.DSP_DATABASE_URL }}
+        run: python3 scripts/neon_admin.py --check-dsn
