@@ -1,0 +1,101 @@
+name: TBX Dynamic Margin (supply-side test)
+
+# The one supply-side margin field in the write schema, read and — on ONE
+# source, behind every gate — set, so the next settled day can say what it
+# governs. margin_type/min/max on supply are read-only (§6.1); this is not.
+# What it DOES is unverified, which is exactly why max_apply defaults to 1.
+# Dispatch-only. Ledger + revert.
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: "Supply ids to READ (comma-separated)"
+        required: false
+        default: ""
+      include:
+        description: "Supply id(s) eligible to WRITE. Required for apply."
+        required: false
+        default: ""
+      set:
+        description: "dynamic_margin % to set"
+        required: false
+        default: "30"
+      apply:
+        description: "Type yes to write. Anything else reports only."
+        required: false
+        default: "no"
+      max_apply:
+        description: "Most sources one run may write (default 1 — it's a test)"
+        required: false
+        default: "1"
+      revert_ledger:
+        description: "Path to a downloaded ledger to REVERT"
+        required: false
+        default: ""
+
+concurrency:
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dynamic-margin:
+    name: Supply dynamic margin
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      TBX_TIMEOUT: "300"
+      TBX_ALLOW_WRITES: ${{ inputs.apply == 'yes' && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests python-dotenv
+      - name: Offline sanity checks
+        run: python3 tests/test_tbx_dynamic_margin.py
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set."; exit 1; fi
+      - name: Say what this run will do
+        run: |
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then
+            echo "::warning::APPLY — dynamic margin will be switched on for supply: ${{ inputs.include }} at ${{ inputs.set || '30' }}%"
+          else echo "REPORT ONLY"; fi
+      - name: Revert a previous run
+        if: inputs.revert_ledger != ''
+        env: { IN_LEDGER: "${{ inputs.revert_ledger }}" }
+        run: |
+          ARGS="--revert $IN_LEDGER"; [ "${{ inputs.apply }}" = "yes" ] && ARGS="$ARGS --apply"
+          python3 scripts/tbx_dynamic_margin.py $ARGS
+      - name: Dynamic margin
+        if: inputs.revert_ledger == ''
+        env:
+          IN_IDS: ${{ inputs.ids }}
+          IN_INCLUDE: ${{ inputs.include }}
+          IN_SET: ${{ inputs.set || '30' }}
+          IN_MAX: ${{ inputs.max_apply || '1' }}
+        run: |
+          ARGS="--set $IN_SET --max-apply $IN_MAX"
+          [ -n "$IN_IDS" ] && ARGS="$ARGS --ids $IN_IDS"
+          [ -n "$IN_INCLUDE" ] && ARGS="$ARGS --include $IN_INCLUDE"
+          [ "$TBX_ALLOW_WRITES" = "1" ] && ARGS="$ARGS --apply"
+          echo "running: tbx_dynamic_margin.py $ARGS"
+          python3 scripts/tbx_dynamic_margin.py $ARGS
+      - name: Upload ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: dynmargin-ledger-${{ github.run_id }}
+          path: dynmargin-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore

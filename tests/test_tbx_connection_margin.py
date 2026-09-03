@@ -151,6 +151,43 @@ def test_three_defects_from_the_2026_09_03_rollout():
     check("fixed: margin_min is", seen[0][1]["margin_min"] == 20.0, str(seen))
 
 
+def test_convert_adaptive_is_explicit_and_reversible():
+    print("\n--convert-adaptive switches the type only when asked, and revert restores it")
+    pairs = pair(12, 502, 300.0, 6.9, dname="Adaptive")
+    s_cfg = {12: {"type": "range", "min": 2.0, "max": 30.0}}
+    d_cfg = {502: {"type": "adaptive", "min": 5.0, "max": 95.0}}
+    fan = cm.fanout(pairs, 5.0, 3)
+    a = args_for(include={502})
+    todo, refused = cm.plan_writes(cm.assess(pairs, DAYS, s_cfg, d_cfg, fan, a), a)
+    check("without the flag: refused, names the flag",
+          todo == [] and any("--convert-adaptive" in r for r in refused), str(refused))
+    a2 = args_for(include={502}, convert_adaptive=True)
+    todo, refused = cm.plan_writes(cm.assess(pairs, DAYS, s_cfg, d_cfg, fan, a2), a2)
+    check("with the flag: planned", len(todo) == 1, str(refused))
+    w = todo[0]
+    check("type set to range", w["margin_type"] == "range", str(w))
+    check("floor raised (capped 15)", w["margin_min"] == 20.0, str(w))
+    check("ceiling kept at 95", w["margin_max"] == 95.0, str(w))
+    seen = []
+    real = cm.tbm.set_demand_economics
+    cm.tbm.set_demand_economics = lambda did, **kw: seen.append((did, kw)) or {"applied": True}
+    try:
+        with redirect_stdout(io.StringIO()):
+            cm.apply_writes(todo, args_for(apply=True))
+        check("margin_type=range in the write", seen[0][1].get("margin_type") == "range", str(seen))
+        import json, tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, "l.json")
+            json.dump({"entries": [{**w, "applied": True}]}, open(p, "w"))
+            seen.clear()
+            with redirect_stdout(io.StringIO()):
+                cm.revert(p, args_for(apply=True))
+        check("revert restores type adaptive", seen[0][1].get("margin_type") == "adaptive", str(seen))
+        check("and the 5/95 band", seen[0][1]["margin_min"] == 5.0 and seen[0][1]["margin_max"] == 95.0, str(seen))
+    finally:
+        cm.tbm.set_demand_economics = real
+
+
 def test_max_apply_caps_the_run():
     print("\n--max-apply")
     pairs = {}
@@ -241,6 +278,7 @@ def main():
     test_fanout_detects_one_to_many()
     test_plan_refuses_what_it_must()
     test_three_defects_from_the_2026_09_03_rollout()
+    test_convert_adaptive_is_explicit_and_reversible()
     test_max_apply_caps_the_run()
     test_apply_needs_include_and_never_writes_book_wide()
     test_partial_window_refuses()

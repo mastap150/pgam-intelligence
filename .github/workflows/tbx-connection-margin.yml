@@ -50,6 +50,10 @@ on:
         description: "Most a floor may move in one step, in points"
         required: false
         default: "15"
+      convert_adaptive:
+        description: "yes = switch adaptive demand bands to range (same bounds) so the floor takes. A mechanism change."
+        required: false
+        default: "no"
       revert_ledger:
         description: "Path to a downloaded ledger to REVERT instead of cutting"
         required: false
@@ -129,6 +133,7 @@ jobs:
           ARGS="$ARGS --min-gross-day $IN_MINGROSS --max-apply $IN_MAXAPPLY"
           ARGS="$ARGS --max-raise-pp $IN_MAXRAISE"
           if [ -n "$IN_INCLUDE" ]; then ARGS="$ARGS --include $IN_INCLUDE"; fi
+          if [ "${{ inputs.convert_adaptive }}" = "yes" ]; then ARGS="$ARGS --convert-adaptive"; fi
           if [ "$TBX_ALLOW_WRITES" = "1" ]; then ARGS="$ARGS --apply"; fi
           echo "running: tbx_connection_margin.py $ARGS"
           python3 scripts/tbx_connection_margin.py $ARGS
