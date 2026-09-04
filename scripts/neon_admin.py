@@ -113,7 +113,17 @@ class Neon:
             die("401 from Neon. NEON_API_KEY is missing, expired, or revoked.")
         if resp.status_code == 403:
             die("403 from Neon. The key lacks access to this project.")
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            # Neon puts the actual reason in the body. raise_for_status() throws
+            # it away and leaves a bare status code, which is useless in a tool
+            # whose entire job is to say what went wrong.
+            detail = ""
+            try:
+                body = resp.json()
+                detail = body.get("message") or body.get("error") or str(body)
+            except ValueError:
+                detail = resp.text[:300]
+            die(f"{resp.status_code} from Neon on GET {path}: {detail}")
         return resp.json()
 
     def list_projects(self) -> List[dict]:
