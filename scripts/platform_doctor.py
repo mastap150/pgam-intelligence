@@ -66,7 +66,7 @@ PLATFORMS: Dict[str, dict] = {
     },
     "neon": {
         "env": "NEON_API_KEY",
-        "url": "https://api.neon.tech/api/v2/users/me",
+        "url": "https://console.neon.tech/api/v2/users/me",
         "unlocks": "scripts/neon_admin.py --list-projects",
     },
     "resend": {
