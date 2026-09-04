@@ -107,8 +107,12 @@ class Neon:
             "Accept": "application/json",
         })
 
-    def _get(self, path: str, **kw) -> dict:
+    def _get(self, path: str, soft: bool = False, **kw) -> dict:
+        """soft=True returns {} on any error instead of exiting — for probing
+        an endpoint that may legitimately not apply to this account."""
         resp = self.session.get(f"{API}{path}", timeout=30, **kw)
+        if soft and resp.status_code >= 400:
+            return {}
         if resp.status_code == 401:
             die("401 from Neon. NEON_API_KEY is missing, expired, or revoked.")
         if resp.status_code == 403:
@@ -126,8 +130,15 @@ class Neon:
             die(f"{resp.status_code} from Neon on GET {path}: {detail}")
         return resp.json()
 
-    def list_projects(self) -> List[dict]:
-        return self._get("/projects").get("projects", [])
+    def list_orgs(self) -> List[dict]:
+        """Neon accounts can be personal or organization-scoped. An org-scoped
+        key is refused on a bare GET /projects with 'org_id is required'."""
+        return self._get("/users/me/organizations", soft=True).get(
+            "organizations", [])
+
+    def list_projects(self, org_id: str | None = None) -> List[dict]:
+        params = {"org_id": org_id} if org_id else None
+        return self._get("/projects", params=params).get("projects", [])
 
     def list_branches(self, project_id: str) -> List[dict]:
         return self._get(f"/projects/{project_id}/branches").get("branches", [])
@@ -141,8 +152,10 @@ class Neon:
         ).get("roles", [])
 
 
-def cmd_list_projects(nc: Neon) -> int:
-    projects = nc.list_projects()
+def cmd_list_projects(nc: Neon, orgs: List[str | None]) -> int:
+    projects: List[dict] = []
+    for org_id in orgs:
+        projects.extend(nc.list_projects(org_id))
     print(f"{len(projects)} project(s):")
     for p in sorted(projects, key=lambda x: x.get("name", "")):
         print(f"  {p.get('name', '?'):<28} {p.get('id', '?'):<24} "
@@ -159,7 +172,25 @@ def cmd_list_branches(nc: Neon, project_id: str) -> int:
     return 0
 
 
-def cmd_inventory(nc: Neon) -> int:
+def resolve_orgs(nc: Neon, explicit: str | None) -> List[str | None]:
+    """Which org ids to enumerate. [None] means a personal account.
+
+    Prefers an explicit --org / NEON_ORG_ID, else asks Neon what this key can
+    see. Every org is walked rather than just the first, because the DSN we are
+    hunting for may not live in the one that happens to sort first.
+    """
+    if explicit:
+        return [explicit]
+    orgs = nc.list_orgs()
+    if orgs:
+        for o in orgs:
+            print(f"org  {o.get('name', '?')}  [{o.get('id', '?')}]")
+        print()
+        return [o.get("id") for o in orgs if o.get("id")]
+    return [None]
+
+
+def cmd_inventory(nc: Neon, orgs: List[str | None]) -> int:
     """Map every project to its endpoint hosts and role names.
 
     Read-only, and deliberately so. Its job is to answer "which project, branch
@@ -170,7 +201,9 @@ def cmd_inventory(nc: Neon) -> int:
     Role names only. Neon returns passwords from a separate endpoint that this
     script never calls.
     """
-    projects = nc.list_projects()
+    projects: List[dict] = []
+    for org_id in orgs:
+        projects.extend(nc.list_projects(org_id))
     print(f"{len(projects)} project(s)\n")
 
     for p in sorted(projects, key=lambda x: x.get("name", "")):
@@ -219,6 +252,10 @@ def main() -> int:
                          "names, to identify which one backs a given DSN "
                          "(read-only)")
     ap.add_argument("--project", help="Neon project id")
+    ap.add_argument("--org", default=None,
+                    help="Neon organization id (default: $NEON_ORG_ID, else "
+                         "discovered from the key). Org-scoped keys are "
+                         "refused on a bare project list without one.")
     ap.add_argument("--list-branches", action="store_true",
                     help="list branches in --project")
     args = ap.parse_args()
@@ -239,11 +276,13 @@ def main() -> int:
 
     nc = Neon(key)
 
+    orgs = resolve_orgs(nc, args.org or os.environ.get("NEON_ORG_ID"))
+
     if args.inventory:
-        return cmd_inventory(nc)
+        return cmd_inventory(nc, orgs)
 
     if args.list_projects:
-        return cmd_list_projects(nc)
+        return cmd_list_projects(nc, orgs)
 
     if not args.project:
         die("--project is required with --list-branches")
