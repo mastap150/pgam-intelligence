@@ -107,24 +107,55 @@ class Neon:
             "Accept": "application/json",
         })
 
-    def _get(self, path: str, **kw) -> dict:
+    def _get(self, path: str, soft: bool = False, **kw) -> dict:
+        """soft=True returns {} on any error instead of exiting — for probing
+        an endpoint that may legitimately not apply to this account."""
         resp = self.session.get(f"{API}{path}", timeout=30, **kw)
+        if soft and resp.status_code >= 400:
+            return {}
         if resp.status_code == 401:
             die("401 from Neon. NEON_API_KEY is missing, expired, or revoked.")
         if resp.status_code == 403:
             die("403 from Neon. The key lacks access to this project.")
-        resp.raise_for_status()
+        if resp.status_code >= 400:
+            # Neon puts the actual reason in the body. raise_for_status() throws
+            # it away and leaves a bare status code, which is useless in a tool
+            # whose entire job is to say what went wrong.
+            detail = ""
+            try:
+                body = resp.json()
+                detail = body.get("message") or body.get("error") or str(body)
+            except ValueError:
+                detail = resp.text[:300]
+            die(f"{resp.status_code} from Neon on GET {path}: {detail}")
         return resp.json()
 
-    def list_projects(self) -> List[dict]:
-        return self._get("/projects").get("projects", [])
+    def list_orgs(self) -> List[dict]:
+        """Neon accounts can be personal or organization-scoped. An org-scoped
+        key is refused on a bare GET /projects with 'org_id is required'."""
+        return self._get("/users/me/organizations", soft=True).get(
+            "organizations", [])
+
+    def list_projects(self, org_id: str | None = None) -> List[dict]:
+        params = {"org_id": org_id} if org_id else None
+        return self._get("/projects", params=params).get("projects", [])
 
     def list_branches(self, project_id: str) -> List[dict]:
         return self._get(f"/projects/{project_id}/branches").get("branches", [])
 
+    def list_endpoints(self, project_id: str) -> List[dict]:
+        return self._get(f"/projects/{project_id}/endpoints").get("endpoints", [])
 
-def cmd_list_projects(nc: Neon) -> int:
-    projects = nc.list_projects()
+    def list_roles(self, project_id: str, branch_id: str) -> List[dict]:
+        return self._get(
+            f"/projects/{project_id}/branches/{branch_id}/roles"
+        ).get("roles", [])
+
+
+def cmd_list_projects(nc: Neon, orgs: List[str | None]) -> int:
+    projects: List[dict] = []
+    for org_id in orgs:
+        projects.extend(nc.list_projects(org_id))
     print(f"{len(projects)} project(s):")
     for p in sorted(projects, key=lambda x: x.get("name", "")):
         print(f"  {p.get('name', '?'):<28} {p.get('id', '?'):<24} "
@@ -141,6 +172,71 @@ def cmd_list_branches(nc: Neon, project_id: str) -> int:
     return 0
 
 
+def resolve_orgs(nc: Neon, explicit: str | None) -> List[str | None]:
+    """Which org ids to enumerate. [None] means a personal account.
+
+    Prefers an explicit --org / NEON_ORG_ID, else asks Neon what this key can
+    see. Every org is walked rather than just the first, because the DSN we are
+    hunting for may not live in the one that happens to sort first.
+    """
+    if explicit:
+        return [explicit]
+    orgs = nc.list_orgs()
+    if orgs:
+        for o in orgs:
+            print(f"org  {o.get('name', '?')}  [{o.get('id', '?')}]")
+        print()
+        return [o.get("id") for o in orgs if o.get("id")]
+    return [None]
+
+
+def cmd_inventory(nc: Neon, orgs: List[str | None]) -> int:
+    """Map every project to its endpoint hosts and role names.
+
+    Read-only, and deliberately so. Its job is to answer "which project, branch
+    and role is behind this DSN host?" before anyone resets a password — the
+    hostname in a connection string does not name its project, and guessing
+    wrong rotates a credential some other service is still using.
+
+    Role names only. Neon returns passwords from a separate endpoint that this
+    script never calls.
+    """
+    projects: List[dict] = []
+    for org_id in orgs:
+        projects.extend(nc.list_projects(org_id))
+    print(f"{len(projects)} project(s)\n")
+
+    for p in sorted(projects, key=lambda x: x.get("name", "")):
+        pid = p.get("id", "?")
+        print(f"{p.get('name', '?')}   [{pid}]   {p.get('region_id', '?')}")
+
+        endpoints = nc.list_endpoints(pid)
+        by_branch: Dict[str, List[str]] = {}
+        for e in endpoints:
+            by_branch.setdefault(e.get("branch_id", ""), []).append(
+                f"{e.get('host', '?')} ({e.get('type', '?')})"
+            )
+
+        for b in nc.list_branches(pid):
+            bid = b.get("id", "?")
+            flag = " default" if b.get("default") else ""
+            print(f"    branch {b.get('name', '?')}{flag}   [{bid}]")
+            for host in by_branch.get(bid, []):
+                print(f"      host  {host}")
+            try:
+                roles = [r.get("name", "?") for r in nc.list_roles(pid, bid)]
+            except Exception as exc:
+                roles = [f"<unreadable: {type(exc).__name__}>"]
+            if roles:
+                print(f"      roles {', '.join(roles)}")
+        print()
+
+    print("Match a DSN to a project by its host, then rotate that project's role.\n"
+          "Resetting a role password invalidates every connection string using it,\n"
+          "everywhere — Vercel, Render, Actions secrets and any local .env alike.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Inspect Neon projects and audit this repo's DSN env vars.",
@@ -151,7 +247,15 @@ def main() -> int:
                     help="audit DSN env vars locally (no API key, no network)")
     ap.add_argument("--list-projects", action="store_true",
                     help="list Neon projects")
+    ap.add_argument("--inventory", action="store_true",
+                    help="map every project to its endpoint hosts and role "
+                         "names, to identify which one backs a given DSN "
+                         "(read-only)")
     ap.add_argument("--project", help="Neon project id")
+    ap.add_argument("--org", default=None,
+                    help="Neon organization id (default: $NEON_ORG_ID, else "
+                         "discovered from the key). Org-scoped keys are "
+                         "refused on a bare project list without one.")
     ap.add_argument("--list-branches", action="store_true",
                     help="list branches in --project")
     args = ap.parse_args()
@@ -159,7 +263,7 @@ def main() -> int:
     if args.check_dsn:
         return cmd_check_dsn()
 
-    if not (args.list_projects or args.list_branches):
+    if not (args.list_projects or args.list_branches or args.inventory):
         ap.print_help()
         return 0
 
@@ -172,8 +276,13 @@ def main() -> int:
 
     nc = Neon(key)
 
+    orgs = resolve_orgs(nc, args.org or os.environ.get("NEON_ORG_ID"))
+
+    if args.inventory:
+        return cmd_inventory(nc, orgs)
+
     if args.list_projects:
-        return cmd_list_projects(nc)
+        return cmd_list_projects(nc, orgs)
 
     if not args.project:
         die("--project is required with --list-branches")

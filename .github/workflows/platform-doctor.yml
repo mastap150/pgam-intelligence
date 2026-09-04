@@ -33,6 +33,11 @@ on:
         description: "Comma-separated subset (blank = all)"
         required: false
         default: ""
+      neon_inventory:
+        description: "Also map Neon projects to hosts and role names (read-only)"
+        type: boolean
+        required: false
+        default: false
 
 concurrency:
   group: platform-doctor
@@ -75,6 +80,10 @@ jobs:
           else
             python3 scripts/platform_doctor.py
           fi
+
+      - name: Neon inventory (which project backs which DSN)
+        if: inputs.neon_inventory
+        run: python3 scripts/neon_admin.py --inventory
 
       - name: Audit DSN env vars
         if: always()
