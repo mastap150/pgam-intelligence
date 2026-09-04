@@ -1,0 +1,21 @@
+{
+  "_comment": "Rule for scripts/tbx_margin_autopilot.py. Edit by PR; the scheduled run reads this file from main. enabled=false is the kill switch.",
+  "enabled": true,
+  "trigger_pct": 25.0,
+  "target_pct": 30.0,
+  "days": 1,
+  "min_gross_day": 10.0,
+  "top": 80,
+  "max_writes": 4,
+  "max_raise_pp": 10.0,
+  "demand_floor_cap_pct": 40.0,
+  "supply_floor_cap_pct": 30.0,
+  "overshoot_cap_pct": 45.0,
+  "not_honoured_gap_pp": 3.0,
+  "fee_pct": 8.0,
+  "exclude_supply": [310],
+  "exclude_demand": [],
+  "_exclude_notes": {
+    "310": "Cox Media Group: direct inventory, update 422s on its own stored placement (2026-09-03). Remove once the placement is fixed in the UI."
+  }
+}

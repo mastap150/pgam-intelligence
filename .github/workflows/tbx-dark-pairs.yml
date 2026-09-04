@@ -1,0 +1,116 @@
+name: TBX Dark Pairs (pause 0-response connections)
+
+# A supply → demand connection that has returned zero bid responses on every
+# one of the last 3 settled days, with ≥10k requests each day, is paused by
+# editing the supply source's demand allow/block list. The DSP stays live for
+# the supplies it does answer. Rails and the measurement discipline are in
+# the script docstring; whole-DSP darkness is tbx-dark-demand's job.
+#
+# Scheduled runs APPLY (after tbx-dark-demand at 09:15 UTC has taken the
+# whole-dark sources). Dispatch is report-only unless apply=yes.
+
+on:
+  schedule:
+    - cron: "35 9 * * *"
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Settled days that must ALL be dark"
+        required: false
+        default: "3"
+      min_requests_day:
+        description: "Each day must carry at least this many requests"
+        required: false
+        default: "10000"
+      max_pause:
+        description: "Most connections one run may pause"
+        required: false
+        default: "10"
+      include:
+        description: "Only these supply/demand ids (comma-separated)"
+        required: false
+        default: ""
+      exclude:
+        description: "Never these supply/demand ids"
+        required: false
+        default: ""
+      apply:
+        description: "Type yes to write. Anything else reports only."
+        required: false
+        default: "no"
+      revert_ledger:
+        description: "Path to a downloaded pairs ledger to REVERT"
+        required: false
+        default: ""
+
+concurrency:
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  dark-pairs:
+    name: Pause 0-response connections
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      TBX_TIMEOUT: "300"
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      TBX_ALLOW_WRITES: ${{ (github.event_name == 'schedule' || inputs.apply == 'yes') && '1' || '0' }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/require-slack
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          enforce: ${{ github.event_name == 'schedule' }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install --quiet requests python-dotenv
+      - name: Offline sanity checks
+        run: python3 tests/test_tbx_dark_pairs.py
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set."; exit 1; fi
+      - name: Say what this run will do
+        run: |
+          echo "TBX_ALLOW_WRITES = $TBX_ALLOW_WRITES"
+          if [ "$TBX_ALLOW_WRITES" = "1" ]; then
+            echo "::warning::APPLY — 0-response connections will be paused via the supply demand list"
+          else echo "REPORT ONLY"; fi
+      - name: Revert a previous run
+        if: inputs.revert_ledger != ''
+        env: { IN_LEDGER: "${{ inputs.revert_ledger }}" }
+        run: |
+          ARGS="--revert $IN_LEDGER"; [ "$TBX_ALLOW_WRITES" = "1" ] && ARGS="$ARGS --apply"
+          python3 scripts/tbx_dark_pairs.py $ARGS
+      - name: Dark pairs
+        if: inputs.revert_ledger == ''
+        env:
+          IN_DAYS: ${{ inputs.days || '3' }}
+          IN_MIN: ${{ inputs.min_requests_day || '10000' }}
+          IN_MAX: ${{ inputs.max_pause || '10' }}
+          IN_INCLUDE: ${{ inputs.include }}
+          IN_EXCLUDE: ${{ inputs.exclude }}
+        run: |
+          ARGS="--days $IN_DAYS --min-requests-day $IN_MIN --max-pause $IN_MAX"
+          [ -n "$IN_INCLUDE" ] && ARGS="$ARGS --include $IN_INCLUDE"
+          [ -n "$IN_EXCLUDE" ] && ARGS="$ARGS --exclude $IN_EXCLUDE"
+          [ "$TBX_ALLOW_WRITES" = "1" ] && ARGS="$ARGS --apply --slack"
+          echo "running: tbx_dark_pairs.py $ARGS"
+          python3 scripts/tbx_dark_pairs.py $ARGS
+      - name: Upload ledger
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pairs-ledger-${{ github.run_id }}
+          path: pairs-ledger-*.json
+          retention-days: 90
+          if-no-files-found: ignore

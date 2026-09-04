@@ -1,0 +1,118 @@
+name: TBX Net Margin (after the Teqblaze fee)
+
+# What PGAM actually keeps.
+#
+# Every other margin job in this repo reports the take rate —
+# (dsp_price_sum - ssp_price_sum) / dsp_price_sum — which is the spread
+# between what the buyer paid and what the publisher was paid. Teqblaze
+# bills a percentage of gross on top of that, so the take rate overstates
+# what PGAM keeps by the whole fee.
+#
+# On a gross-based fee the arithmetic collapses to net% = take% - fee%, and
+# two consequences follow that the take rate alone hides:
+#
+#   * a source whose take rate is below the fee LOSES money per impression
+#   * the fee's bite is a share of the spread, not the gross: at a 30% take
+#     it costs 27% of the margin, at 12% it costs 67%, at 10% it costs 80%
+#
+# READ-ONLY. TBX_ALLOW_WRITES is never set here and the script imports no
+# write path. Dispatch-only on purpose: there is no schedule, so it needs no
+# Slack webhook and adds no recurring cost.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: "Specific days, space or comma separated (blank = use lookback)"
+        required: false
+        default: ""
+      lookback:
+        description: "Settled days back, when dates is blank"
+        required: false
+        default: "1"
+      fee_pct:
+        description: "Teqblaze fee as a percentage"
+        required: false
+        default: "8"
+      fee_base:
+        description: "gross or margin — what the fee is charged on"
+        required: false
+        default: "gross"
+      target_net:
+        description: "Net margin % to size the adjustment against"
+        required: false
+        default: "10"
+      min_gross:
+        description: "Ignore sources below this gross across the window"
+        required: false
+        default: "1"
+
+concurrency:
+  # Shares the platform's undocumented rate limit with every other TBX job.
+  group: tbx-data-pull
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  net-margin:
+    name: Realised margin after the fee
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      TBX_EMAIL: ${{ secrets.TBX_EMAIL }}
+      TBX_PASSWORD: ${{ secrets.TBX_PASSWORD }}
+      TBX_TIMEZONE: US/Eastern
+      # Money metrics at supply-source grain are lighter than the request
+      # counters, but §5.9 latency swings apply to any grain. 300s.
+      TBX_TIMEOUT: "300"
+      TBX_ALLOW_WRITES: "0"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install --quiet requests python-dotenv
+
+      - name: Offline sanity checks
+        # The fee identity is the whole output. If it broke, this run must
+        # not produce a number anyone acts on.
+        run: python3 tests/test_tbx_net_margin.py
+
+      - name: Verify credentials are present
+        run: |
+          if [ -z "$TBX_EMAIL" ] || [ -z "$TBX_PASSWORD" ]; then
+            echo "::error::TBX_EMAIL / TBX_PASSWORD are not set as Actions secrets."
+            exit 1
+          fi
+
+      - name: Net margin
+        env:
+          IN_DATES: ${{ inputs.dates }}
+          IN_LOOKBACK: ${{ inputs.lookback || '1' }}
+          IN_FEE: ${{ inputs.fee_pct || '8' }}
+          IN_BASE: ${{ inputs.fee_base || 'gross' }}
+          IN_TARGET: ${{ inputs.target_net || '10' }}
+          IN_MINGROSS: ${{ inputs.min_gross || '1' }}
+        run: |
+          ARGS="--fee-pct $IN_FEE --fee-base $IN_BASE"
+          ARGS="$ARGS --target-net $IN_TARGET --min-gross $IN_MINGROSS"
+          if [ -n "$IN_DATES" ]; then
+            for d in $(echo "$IN_DATES" | tr ',' ' '); do
+              ARGS="$ARGS --date $d"
+            done
+          else
+            ARGS="$ARGS --lookback $IN_LOOKBACK"
+          fi
+          echo "running: tbx_net_margin.py $ARGS"
+          # Exit 1 means at least one source nets negative after the fee —
+          # a finding, and red on purpose, the same convention tbx-take-rate
+          # uses. 2 = nothing measurable, 3 = platform unreachable.
+          python3 scripts/tbx_net_margin.py $ARGS

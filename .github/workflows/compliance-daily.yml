@@ -38,6 +38,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # Dispatch-only today (the schedule above is commented out), so this
+      # always warns rather than fails. It is here so that restoring the cron
+      # also restores a delivery guarantee, rather than quietly not having one.
+      - name: A scheduled run must be able to report
+        uses: ./.github/actions/require-slack
+        with:
+          webhook: ${{ secrets.SLACK_WEBHOOK }}
+          enforce: ${{ github.event_name == 'schedule' }}
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:

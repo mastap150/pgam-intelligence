@@ -712,6 +712,172 @@ again, with a partner in the loop.
 
 ---
 
+### 6.1a Demand-side margin writes: what the platform actually accepts (2026-09-03)
+
+Learned from the first live rollout of `scripts/tbx_connection_margin.py`
+(runs 33811533316 → 33813113628, 17 writes verified). Each of these cost a
+live write before it was a rule.
+
+| demand `margin_type` | what happens on `POST /demand-sources/{id}/update` |
+|---|---|
+| `range` | `margin_min` / `margin_max` both honoured. **`margin_max` must be strictly greater than `margin_min`** — equality is `422 "Max Margin Value must be greater than N"` (demand 2408). |
+| `fixed` | one number, in `margin_min`. The platform reports `margin_max` as **0** regardless of what is sent, so a verify on that field is noise and the field should not be sent (demand 35). |
+| `adaptive` | **`margin_min` is silently ignored**: the POST returns 200 and the value does not change (demand 1986, live 5 → expected 20, verify ✗). Switching the type to `range` with the same bounds makes the floor take; that is a mechanism change and the tool does it only under `--convert-adaptive`. |
+
+The two sides **stack**: realised take exceeded the demand ceiling on 9
+connections and the supply ceiling on 2 (2026-09-02 sentry runs). On thin
+connections the adaptive/range demand band sits at its floor, and the
+realised total moved ~1:1 with the floor when tested (demand 2185: floor
+5 → 20 at 08:55 ET, day realised 14.9% ≈ 15/24 h at ~19.7%). Raising a
+floor 15 points cost that connection ~30% of its gross; net still improved.
+
+A demand floor is a per-connection lever **only where the connection is
+1:1**. A demand endpoint that buys across several supply sources (the OTTA
+endpoints on Unruly #65 + Smaato #189; Verve RON Display East across
+Dexerto/Cox/TravelReveal/VerticalScope; Zeta - RON Desktop across five)
+cannot be landed on a per-connection target from the demand side at all.
+
+**Supply `margin_type/min/max` are NOT read-only — the spec is incomplete.**
+§6.1 concluded they were, because they are absent from `SupplySourceRequest`
+and every prior write stripped them per the set difference. That conclusion
+was never tested by a write. The first live `POST /supply-sources/196/update`
+(run 33814887759, 2026-09-03, the dynamic-margin test below) came back
+`422 margin_type / margin_min / margin_max REQUIRED`. So the endpoint
+demands them: `core.tbx_mgmt` now keeps them in the body
+(`_SPEC_OMITS_BUT_REQUIRED`) and `set_supply_margin()` changes them
+explicitly. **Honoured at the configuration level — verified 2026-09-03
+23:05 UTC** (run 33816010381, ledger `dynmargin-ledger-20260903T230533Z`):
+`scripts/tbx_dynamic_margin.py --margin-min 20 --include 196 --apply` moved
+Start.IO EU #196 from `range 2–40` to `range 20–40`, and the post-write
+re-read returned the new band (`verify ✓`). So the supply band is a real
+write, and the fan-out connections above are reachable from the supply
+side, one source at a time, with no ID mapping and nothing to ask Teqblaze
+for. Still open: whether the auction *applies* the changed supply band the
+way the demand band demonstrably does (§6.1a, demand 2185). Read #196's
+connections on the first settled day at the new band before leaning on it
+for a rollout. Note #196 has `is_smart_floor` ON — the platform optimiser
+owns its *floor*; margin is a different lever, so the two do not fight, but
+it is the first source where both are set.
+
+Applied the same evening to the standing fan-out example: **Illumin - Video
+Unruly OTTA #65** read `adaptive 5–95` (smart floor ON). Adaptive ignores
+`margin_min` on the demand side, so the write converted the type too:
+`--margin-type range --margin-min 20` → `range 20–95`, `verify ✓` (run
+33816319420, ledger `dynmargin-ledger-20260903T230921Z`, 23:09 UTC). That
+is the largest source in the book moving from an adaptive band the platform
+was resting near 5 to a 20-point floor. Illumin's company-grain take was
+13.9% on 2026-09-03; if the supply band stacks with the OTTA demand bands
+the way §6.1a describes, the settled 2026-09-04 should read high-20s. If it
+reads unchanged, the supply band is a config field the auction does not
+consult, and both writes should be reverted from their ledgers.
+
+**The stacking is compound, and the demand band rests at its floor.** The
+2026-09-01→02 settled connections read against live bands: Cox Media Group
+#310 `fixed 10` → Verve East #1711 `range 5–35` realised **14.5%** =
+1 − 0.90 × 0.95; → Verve East #1677 `range 7–40` realised **16.3%** =
+1 − 0.90 × 0.93; VerticalScope #1645 `fixed 10` reproduces both to the
+decimal. So for a fan-out demand endpoint at floor *d*, the supply band
+that lands the connection on 30% is `s = 1 − 0.70 / (1 − d)`: 26.3% at
+d = 5, 24.7% at d = 7. The additive proposal in `tbx_connection_margin`
+overstates slightly; the compound column is the one to read.
+
+**Direct-inventory sources may refuse every update.** Cox Media Group #310
+(`source.type = direct_inventory`) returned `422 source.placements.0.video.
+placing: The Placing field is required when Video Linearity is set to
+Non-linear/Out-stream` on a margin-only update (run 33816714153). The
+platform is rejecting its own stored placement on the round-trip — the same
+family as the §6.3 null/`[]` repairs, but inventing a `placing` value would
+change a placement's video config to move a margin, so `_normalise_for_write`
+does not do it. Cox stays at `fixed 10` until either the placement is fixed
+in the UI or Teqblaze accepts a partial update. VerticalScope #1645 (also
+direct inventory) went through: `fixed 10 → fixed 25`, `verify ✓`, run
+33816670821.
+
+**Supply-band writes of 2026-09-03 (all `verify ✓`, each its own
+`dynmargin-ledger-*` run artifact, one source per run).** Chosen with the
+compound rule above against the demand floors already in place, so that no
+connection double-counts a demand raise from the 09-02/09-03 rollout:
+
+| supply | before | after | why | run |
+|---|---|---|---|---|
+| Start.IO EU #196 | range 2–40 | range 20–40 | first test of the write | 33816010381 |
+| Illumin - Video Unruly OTTA #65 | adaptive 5–95 | range 20–95 | fan-out over OTTA (d≈7) → ~25.6% | 33816319420 |
+| VerticalScope #1645 | fixed 10 | fixed 25 | Verve East legs at d=5/7 → 28.8/30.3% | 33816670821 |
+| Illumin Display and Video EU #194 | range 2–30 | range 10–30 | Synatix legs already at d=20–22 → 28–30% | 33816767374 |
+| Illumin - Onetag and AdaptMX #95 | range 5–12 | range 10–12 | AdaptMX legs at d=22 → 29.8% | 33816809181 |
+| Illumin Display and Video #23 | adaptive 5–95 | range 25–95 | Zeta/Verve fan-outs at d=5/7 → 28.8/30.3% | 33816852128 |
+| Start.IO APAC #244 | range 2–35 | range 10–35 | Magnite #2238 at d=22 → 29.8% | 33816888188 |
+| Start.IO Video #76 | fixed 7 | fixed 10, then **range 10–35** | Magnite #2073 at d=22 → 29.8%; converted to range on request, ceiling matches #244 | 33816925353, 33817527283 |
+| Cox Media Group #310 | fixed 10 | **unchanged** | 422 on placement round-trip, above | 33816714153 |
+
+Unruly #65 was set to 20 before the compound rule was read off the data;
+26 would land its OTTA legs on 30 exactly. Left at 20 deliberately — it is
+the largest source in the book and the first day at a floor should be
+measured before the second step. Read the settled 2026-09-04 with
+`tbx-connection-margin` (`days=1`) before touching any of these again.
+
+### 6.1b The two standing rules (added 2026-09-03, on request)
+
+**Margin autopilot** — `scripts/tbx_margin_autopilot.py`, workflow
+`tbx-margin-autopilot.yml`, daily 12:30 UTC, applies on schedule. Rule and
+every threshold in `config/tbx_margin_autopilot.json` (`enabled: false` is
+the kill switch; edit by PR). On the last settled day, any connection with
+realised take **below 25%** gets the one floor that lands it on 30% by the
+compound rule above: the DEMAND floor on a 1:1 connection, the SUPPLY band
+on a fan-out (judged on the source's gross-weighted take across all legs,
+trimmed so no leg projects past 45%). Rails: 4 writes/run, 10pp/step,
+absolute caps (demand 40, supply 30), adaptive → range on write,
+`partner_freeze` on both sides, and the runaway guard: a connection whose
+realised take sits ≥3pp below what its configured floors already imply is
+never raised. Whether that is "floor not honoured" or "floor raised since
+the measured day" is decided by the current *unsettled* day: the bands are
+read now, the take was realised yesterday, so the tool also pulls today's
+partial take (never to size a raise — only as the in-flight signal). Today
+still below the implied floor → **alert**, not honoured. Today at or above
+it → band changed since; **hold** for a settled day. Today ≥ trigger →
+in flight; hold. The first dry run (2026-09-03 23:45 UTC, measuring 09-02
+against bands written 09-02/03) would otherwise have alerted on all 28 of
+that day's writes. Cox #310 is excluded in config (the 422 above). Every run
+posts writes and alerts to Slack; ledger + `--revert`.
+
+**Dark pairs** — `scripts/tbx_dark_pairs.py`, workflow `tbx-dark-pairs.yml`,
+daily 09:35 UTC (after `tbx-dark-demand` at 09:15), applies on schedule. A
+supply → demand connection with **zero bid responses on all of the last 3
+settled days** and ≥10,000 requests on each of those days is paused by
+editing an allow/block list. Both entities carry `is_allowed_sources` +
+a list of the other side's ids + `companies[]`, and the spec's wording is
+"Companies and Supply Sources is allowed": a pair can be let through by the
+*company* even when the id is absent from the list — the first dry run
+showed Erie News Now #1503 receiving requests from thirteen demand ids not
+in its allowlist. So the tool picks a side, in order: supply blocklist
+(add the demand id) → demand blocklist (add the supply id) → supply
+allowlist, only if it contains the id, the demand's company is not in the
+supply's `companies`, and the list would not empty (remove the id) → same on
+the demand side → otherwise an **alert** naming why (company allow on both
+sides, id absent yet traffic flowing, would empty a list). A pair already
+blocked on either side yet still carrying requests is also an alert ("pause
+not effective"), never a second write. Whole-dark DSPs are left to
+`tbx-dark-demand`. Rails: every day answered, present all days, demand live
+and answering elsewhere, `partner_freeze`, 10 pauses/run, ledger records the
+exact prior list, `--revert` restores it. The list replaces wholesale on the
+wire, so a revert also undoes any hand edit to that list made in between.
+First dry run (settled 08-31→09-02): 120 qualifying pairs, all on
+allowlist-mode supplies; the largest are burgerpixel.net #1337 → SmileWanted
+#1753/#1673 at 9.3M/8.1M req/day and Cas.ai Video #290 → OpenWeb #2383 /
+SmileWanted #1673 at 2.5M each.
+
+**The supply-side field that IS in the write schema.** `margin_type/min/max`
+on supply were called read-only (above, now superseded); separately,
+`SupplySourceRequest.source` is
+`oneOf [DirectInventoryResource, IndirectSuppliersResource]` and the
+indirect shape carries `is_dynamic_margin` (bool) and `dynamic_margin`
+(number, "%", example 30). Both are writable via
+`set_supply_source_fields`. What they govern is unverified — every source
+read so far has `is_dynamic_margin: false` — and is the subject of
+`scripts/tbx_dynamic_margin.py`, which sets it on one source at a time so a
+settled day can answer. If it moves the realised take, the fan-out
+connections above become reachable without Teqblaze opening anything.
+
 ### 6.2 The three `geo_settings` lists replace wholesale on the wire
 
 `geo_settings.bid_floor[]`, `geo_settings.qps[]` and `geo_settings.blacklist[]`

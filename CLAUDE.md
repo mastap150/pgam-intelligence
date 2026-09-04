@@ -179,6 +179,72 @@ sessions started afterwards; a running session keeps what it began with.
 
 Docs: https://code.claude.com/docs/en/cloud-environments#set-environment-variables
 
+## Cloud sessions: what actually works
+
+Verified 2026-09-02 from inside a cloud session. Written down because a
+session burned real tokens rediscovering it, and the section above ("Cloud
+sessions and credentials") is true about *secrets* but silent about
+*connectors* — which is where the confusion comes from.
+
+**Connectors are not env vars.** Vercel, monday.com, HubSpot, Apollo, Gmail,
+Meta, QuickBooks and Vibe attach as MCP connectors over OAuth. They never read
+`VERCEL_TOKEN` or `MONDAY_API_TOKEN` from the environment, and they work in a
+cloud session with no `.env` present. A session can be fully authorized for
+Vercel via the connector and still be unable to run
+`scripts/vercel_env_sync.py`, because that script wants a plain env var. Those
+are two different access paths; don't diagnose one by testing the other.
+
+| | authenticated? | how |
+|---|---|---|
+| GitHub | yes, as `mastap150` | `GITHUB_TOKEN` injected by the harness |
+| Vercel | yes, team `team_8j7qA4FwBXkobcMfdhJj1umB` | connector OAuth |
+| monday, HubSpot, Apollo, Gmail, Meta, QuickBooks, Vibe | yes | connector OAuth |
+| `MONDAY_API_TOKEN`, `MSN_*`, `TBX_*` | **no** — unset | would need the env box |
+
+Write tools are present for the connected platforms (`deploy_to_vercel`,
+GitHub `push_files` / `create_pull_request`, monday `create_item`, HubSpot
+`manage_crm_objects`, Meta `ads_create_campaign`, …). "Claude can't write to
+X any more" is almost never an auth revocation — check the three causes below
+first.
+
+### GitHub is scoped per session, and Claude attaches repos itself
+
+A cloud session starts attached to **one** repo. The account can push to ~34
+(`healthnation-web`, `boxingnews`, `pgam-direct`, `destination-com`,
+`adviceguru-web`, `attune-tv-ads`, `pgam-dsp-dashboard`, …). Locally you had
+the `gh` CLI and all of them at once; here `gh` does not exist.
+
+**Claude: use `add_repo` to attach what the task needs. Do not ask the user to
+supply repo details, and do not report a repo as inaccessible before calling
+`list_repos`.** Attach the two or three repos the task touches — not the whole
+set. Every attached repo's `CLAUDE.md`, skills and plugins load into context
+on every subsequent turn, so a speculative bulk attach is exactly the
+context-re-ingestion cost the usage policy below is about. Cross-repo work
+belongs in a fresh session with a narrow attach list, not in a long session
+that accumulated repos.
+
+### Connectors toggled off in a chat have zero tools
+
+Asana, Atlassian, Box, Canva, Figma, Intercom, Linear, Notion and Stripe show
+`enabledInChat: false`. If a task needs one, no tools are loaded and the
+session can only stop and ask. That is a per-chat connector-settings toggle,
+not a re-auth. `ListConnectors` reports `connected` and `enabledInChat`
+separately — check both before concluding anything about access.
+
+### The one genuine write gap
+
+Vercel **environment variables** cannot be written from a cloud session: the
+connector exposes no env-var write tool (see "Setting Vercel env vars from a
+session" above), and `VERCEL_TOKEN` is unset. Everything else on Vercel —
+deploys, projects, protection settings — is writable through the connector.
+
+### Before blaming access
+
+Check `get_session` → `external_metadata.rate_limit_info`. An account in
+overage with `status: "rejected"` produces failures that feel exactly like
+lost permissions. Overage also shortens the cache TTL, which compounds the
+cost problem — treat it as a reason to shorten sessions, per the policy below.
+
 ## Claude usage efficiency policy
 
 Spend on this account is dominated by **context re-ingestion, not generation**.
