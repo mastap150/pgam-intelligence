@@ -122,6 +122,14 @@ class Neon:
     def list_branches(self, project_id: str) -> List[dict]:
         return self._get(f"/projects/{project_id}/branches").get("branches", [])
 
+    def list_endpoints(self, project_id: str) -> List[dict]:
+        return self._get(f"/projects/{project_id}/endpoints").get("endpoints", [])
+
+    def list_roles(self, project_id: str, branch_id: str) -> List[dict]:
+        return self._get(
+            f"/projects/{project_id}/branches/{branch_id}/roles"
+        ).get("roles", [])
+
 
 def cmd_list_projects(nc: Neon) -> int:
     projects = nc.list_projects()
@@ -141,6 +149,51 @@ def cmd_list_branches(nc: Neon, project_id: str) -> int:
     return 0
 
 
+def cmd_inventory(nc: Neon) -> int:
+    """Map every project to its endpoint hosts and role names.
+
+    Read-only, and deliberately so. Its job is to answer "which project, branch
+    and role is behind this DSN host?" before anyone resets a password — the
+    hostname in a connection string does not name its project, and guessing
+    wrong rotates a credential some other service is still using.
+
+    Role names only. Neon returns passwords from a separate endpoint that this
+    script never calls.
+    """
+    projects = nc.list_projects()
+    print(f"{len(projects)} project(s)\n")
+
+    for p in sorted(projects, key=lambda x: x.get("name", "")):
+        pid = p.get("id", "?")
+        print(f"{p.get('name', '?')}   [{pid}]   {p.get('region_id', '?')}")
+
+        endpoints = nc.list_endpoints(pid)
+        by_branch: Dict[str, List[str]] = {}
+        for e in endpoints:
+            by_branch.setdefault(e.get("branch_id", ""), []).append(
+                f"{e.get('host', '?')} ({e.get('type', '?')})"
+            )
+
+        for b in nc.list_branches(pid):
+            bid = b.get("id", "?")
+            flag = " default" if b.get("default") else ""
+            print(f"    branch {b.get('name', '?')}{flag}   [{bid}]")
+            for host in by_branch.get(bid, []):
+                print(f"      host  {host}")
+            try:
+                roles = [r.get("name", "?") for r in nc.list_roles(pid, bid)]
+            except Exception as exc:
+                roles = [f"<unreadable: {type(exc).__name__}>"]
+            if roles:
+                print(f"      roles {', '.join(roles)}")
+        print()
+
+    print("Match a DSN to a project by its host, then rotate that project's role.\n"
+          "Resetting a role password invalidates every connection string using it,\n"
+          "everywhere — Vercel, Render, Actions secrets and any local .env alike.")
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="Inspect Neon projects and audit this repo's DSN env vars.",
@@ -151,6 +204,10 @@ def main() -> int:
                     help="audit DSN env vars locally (no API key, no network)")
     ap.add_argument("--list-projects", action="store_true",
                     help="list Neon projects")
+    ap.add_argument("--inventory", action="store_true",
+                    help="map every project to its endpoint hosts and role "
+                         "names, to identify which one backs a given DSN "
+                         "(read-only)")
     ap.add_argument("--project", help="Neon project id")
     ap.add_argument("--list-branches", action="store_true",
                     help="list branches in --project")
@@ -159,7 +216,7 @@ def main() -> int:
     if args.check_dsn:
         return cmd_check_dsn()
 
-    if not (args.list_projects or args.list_branches):
+    if not (args.list_projects or args.list_branches or args.inventory):
         ap.print_help()
         return 0
 
@@ -171,6 +228,9 @@ def main() -> int:
             "  (--check-dsn needs no key and works offline)")
 
     nc = Neon(key)
+
+    if args.inventory:
+        return cmd_inventory(nc)
 
     if args.list_projects:
         return cmd_list_projects(nc)
