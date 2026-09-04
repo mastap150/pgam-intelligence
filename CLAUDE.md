@@ -129,6 +129,40 @@ Never commit a credential to this repo to get it into a session. `.env` is
 gitignored for a reason, and the playbook records a real leak (2026-07-02) from
 exactly that shortcut.
 
+### A Neon credential does not help a cloud session anyway
+
+Measured 2026-09-01, by port rather than by host:
+
+- **Port 443 leaves the container.** Raw TCP to `pypi.org:443`,
+  `neon.tech:443`, even `boxingnews.com:443` all connect. The HTTPS *proxy*
+  denies most hosts by policy (`boxingnews.com` → 403 at CONNECT), but that
+  policy is the proxy's, not the network's.
+- **Port 5432 is silently dropped.** TCP to `us-east-2.aws.neon.tech:5432`
+  and every other Neon region times out. Neon endpoint DNS resolves fine
+  (the wildcard answers even for a made-up endpoint), so this is an egress
+  rule on the port, not a name-resolution problem.
+
+So **`psycopg` cannot connect to Neon from a cloud session** — a pasted DSN
+does not change that, and it puts an owner-level secret in a transcript for
+nothing. Neon's SQL-over-HTTP endpoint (`https://<endpoint>/sql`, port 443)
+is the one untested possibility; do not assume it works until someone tries
+it, and do not paste a DSN to find out.
+
+That makes the routing rule simple. Anything needing Neon runs where Neon is
+reachable:
+
+| Need | Run it |
+|---|---|
+| Ad-hoc query, exploration | Priyesh's laptop, `.env` loaded |
+| Scheduled or on-demand report | A GitHub Actions workflow, secrets as secrets |
+| Continuous jobs | The Render worker |
+
+A cloud session's job is to *write* that workflow, not to run the query. And
+because **this repository is public, its Actions logs are world-readable** —
+so a workflow handling revenue, cohort or contractor data delivers to Slack
+(or another private sink) and prints only a confirmation. See
+`.github/workflows/hasib-cohort-report.yml` for the shape.
+
 ### Where the environment variables live
 
 There is no settings page and no direct URL — only the selector:

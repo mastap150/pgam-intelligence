@@ -1,0 +1,122 @@
+name: hasib-cohort-report
+
+# Monthly AI-rotation vs Hasib cohort report for BoxingNews on MSN:
+# articles published, MSN ingest rate, total views, views per ingested
+# article, est. payout — delivered to Slack.
+#
+# WHY A WORKFLOW AND NOT A SESSION OR A ROUTINE
+# ─────────────────────────────────────────────
+# The report needs two Neon databases: pgam_direct (MSN snapshots) and
+# boxingnews (article bylines — the only place cohort membership exists).
+# Neither is reachable from a Claude cloud session: those start from a
+# fresh clone with no credentials, and cloud egress drops port 5432
+# outright (measured: TCP to every Neon region times out while 443 opens),
+# so psycopg cannot connect and pasting a DSN in does not help either.
+#
+# A Routine is worse than useless here — it was tried, and the only way to
+# feed it credentials was to inline both DSNs into its prompt, which
+# `list_triggers` then echoed back in full for four weeks. See
+# docs/security/ for that incident. GitHub Actions is the compliant path:
+# secrets stay secrets, and the job runs where Neon is reachable.
+#
+# WHY SLACK AND NOT THE RUN LOG
+# ─────────────────────────────
+# This repository is PUBLIC, so its Actions logs are world-readable. Cohort
+# page views, revenue estimates and a named contractor's per-article
+# performance do not belong in one. The script prints only a delivery
+# confirmation; the numbers go to Slack. Do not add --stdout here.
+
+on:
+  schedule:
+    # 06:00 UTC on the 6th. The prior month has then had 5+ days for MSN
+    # peaks to settle, which is the earliest the numbers are trustworthy.
+    - cron: '0 6 6 * *'
+  workflow_dispatch:
+    inputs:
+      month:
+        description: 'Month to report as YYYY-MM (blank = last settled month)'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  group: hasib-cohort-report
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PGAM_DIRECT_DATABASE_URL: ${{ secrets.PGAM_DIRECT_DATABASE_URL }}
+      BOXINGNEWS_DATABASE_URL: ${{ secrets.BOXINGNEWS_DATABASE_URL }}
+      SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+      PYTHONUNBUFFERED: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight — required secrets present and DSN shapes valid
+        # Same failure mode msn-insights.yml documents: a malformed secret
+        # dies deep inside psycopg with the value redacted to `***`, making
+        # the real error unreadable. Assert the shape up front, and never
+        # echo a value. BOXINGNEWS_DATABASE_URL is the one most likely to
+        # be missing — it is newer than the other workflows' secrets.
+        run: |
+          set -euo pipefail
+          fail=0
+          for var in PGAM_DIRECT_DATABASE_URL BOXINGNEWS_DATABASE_URL; do
+            val="${!var:-}"
+            if [ -z "$val" ]; then
+              echo "::error title=Missing required secret::$var — add it under Settings → Secrets and variables → Actions. Prefer a scoped read-only role over neondb_owner; the GRANTs are on branch claude/hasib-routine-credentials-2873hq, not yet merged (this job only issues SELECTs)."
+              fail=1
+              continue
+            fi
+            case "$val" in
+              postgresql://*|postgres://*) ;;
+              *) echo "::error title=Malformed DSN::$var does not start with postgresql:// or postgres://. Value not logged."; fail=1; continue ;;
+            esac
+            case "$val" in
+              *@*/*) ;;
+              *) echo "::error title=Malformed DSN::$var missing user@host/database segments. Value not logged."; fail=1 ;;
+            esac
+          done
+          if [ -z "${SLACK_WEBHOOK:-}" ]; then
+            echo "::error title=Missing required secret::SLACK_WEBHOOK — the report has nowhere to go, and it must not be printed to a public log."
+            fail=1
+          fi
+          [ "$fail" -eq 0 ] || exit 1
+          echo "preflight ok: both DSN shapes valid, Slack webhook present"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install deps
+        # core/config.py imports python-dotenv at module load, so core.slack
+        # takes the job down with ModuleNotFoundError without it — the same
+        # regression msn-insights.yml hit on 2026-08-04.
+        run: |
+          python -m pip install --upgrade pip
+          pip install "psycopg[binary]>=3.1.0" "requests>=2.31.0" "python-dotenv>=1.0.0"
+
+      - name: Build and deliver cohort report
+        # No --stdout: public repo, public logs. Numbers go to Slack only.
+        # The dispatch input goes through env, not ${{ }} inside the script
+        # body — interpolating it directly would let a dispatcher inject
+        # shell. The script validates the format and rejects anything that
+        # is not YYYY-MM.
+        env:
+          MONTH: ${{ inputs.month }}
+        run: |
+          set -euo pipefail
+          if [ -n "${MONTH:-}" ]; then
+            python -m scripts.hasib_month_report --month "$MONTH"
+          else
+            python -m scripts.hasib_month_report
+          fi
