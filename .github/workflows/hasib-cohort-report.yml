@@ -71,7 +71,7 @@ jobs:
           for var in PGAM_DIRECT_DATABASE_URL BOXINGNEWS_DATABASE_URL; do
             val="${!var:-}"
             if [ -z "$val" ]; then
-              echo "::error title=Missing required secret::$var — add it under Settings → Secrets and variables → Actions. Prefer a scoped read-only role over neondb_owner; the GRANTs are in docs/security/ (this job only issues SELECTs)."
+              echo "::error title=Missing required secret::$var — add it under Settings → Secrets and variables → Actions. Prefer a scoped read-only role over neondb_owner; the GRANTs are on branch claude/hasib-routine-credentials-2873hq, not yet merged (this job only issues SELECTs)."
               fail=1
               continue
             fi
