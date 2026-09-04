@@ -8,7 +8,7 @@ Two jobs, one of which works with no network at all:
                     This is the one that catches "the agent silently did
                     nothing because a DSN was missing".
 
-    everything else Neon management API (api.neon.tech), needs:
+    everything else Neon management API (console.neon.tech/api/v2), needs:
                     export NEON_API_KEY=...   # console.neon.tech -> API Keys
 
 Usage
@@ -31,7 +31,7 @@ from urllib.parse import urlparse
 
 import requests
 
-API = "https://api.neon.tech/api/v2"
+API = "https://console.neon.tech/api/v2"
 
 # Every DSN env var read anywhere in this repo, and who needs it. Keep in step
 # with .env.example — a name added there and not here is invisible to --check-dsn.
