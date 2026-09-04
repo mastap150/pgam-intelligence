@@ -120,6 +120,9 @@ QPS_DEMAND_NAME_BLOCKLIST = (
 # further auto-raises so that the partner-total stays at ~12k.
 QPS_PARTNER_ID_BLOCKLIST = frozenset({
     27,   # Cas.ai — 2026-08-11, capped at 12k partner-total
+    55,   # Axis — 2026-08-31 per Priyesh. 12 active demands, current caps
+          #        1500-6000. 6 demands over cap right now (auto-scanner
+          #        would 2x them); block preserves current caps as-is.
 })
 
 
