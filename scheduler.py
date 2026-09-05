@@ -791,6 +791,42 @@ def setup_schedule():
         )
 
     # ─────────────────────────────────────────────────────────────────
+    # Destination.com Video Engine (DVE)
+    # ─────────────────────────────────────────────────────────────────
+    # Content intelligence → concepts → scripts → rendered Shorts → QA →
+    # approval queue → YouTube → analytics → learning. Architecture doc:
+    # docs/destination-video-architecture.md. Gated by PGAM_DVE_ENABLED
+    # because it needs its own deps at runtime (ffmpeg on PATH for
+    # rendering; ANTHROPIC_API_KEY for generation) — everything degrades
+    # gracefully without them (render jobs record blocked, generation
+    # falls back offline + QA-warns), but there's no point ticking on a
+    # host that has neither. Publishing is additionally double-gated:
+    # human approval (MANUAL mode) AND DVE_ALLOW_PUBLISH=1.
+    if _os.getenv("PGAM_DVE_ENABLED") == "1":
+        dve_ingestion   = _import("video.ingestion")
+        dve_opportunity = _import("video.opportunity")
+        dve_production  = _import("video.pipeline", "run_production")
+        dve_analytics   = _import("video.analytics")
+        dve_learning    = _import("video.learning")
+        dve_longform    = _import("video.longform")
+        # Source sweep every 6h, lightly offset from the hourly ETL block.
+        for t in ("00:07", "06:07", "12:07", "18:07"):
+            schedule.every().day.at(t).do(_run("dve_ingestion", dve_ingestion))
+        # Daily opportunity ranking before the production window opens.
+        schedule.every().day.at("06:00").do(_run("dve_opportunity", dve_opportunity))
+        # Production every 2h through the working day; the job itself
+        # stops at the daily target and the fatigue thresholds.
+        for t in ("07:10", "09:10", "11:10", "13:10", "15:10", "17:10"):
+            schedule.every().day.at(t).do(_run("dve_production", dve_production))
+        # Hourly: due performance snapshots (1h/6h/24h/72h/7d/30d) +
+        # comment sweeps on the 6h/24h/72h/7d marks.
+        schedule.every().hour.at(":23").do(_run("dve_analytics", dve_analytics))
+        # Daily learning pass after the morning snapshots.
+        schedule.every().day.at("07:00").do(_run("dve_learning", dve_learning))
+        # Weekly long-form expansion recommendations.
+        schedule.every().monday.at("07:30").do(_run("dve_longform", dve_longform))
+
+    # ─────────────────────────────────────────────────────────────────
     # Outbound SDR — daily lead loader (Apollo → HubSpot → Instantly)
     # ─────────────────────────────────────────────────────────────────
     # Weekday 09:00 ET. The agent itself is dry-run by default

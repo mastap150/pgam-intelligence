@@ -1,0 +1,61 @@
+{
+  "brand": {
+    "name": "Destination.com",
+    "goal": "modern, premium, elegant, editorial, travel-first",
+    "logo_path": "assets/brand/destination-logo-white.png",
+    "watermark_opacity": 0.85
+  },
+  "colors": {
+    "ink": "#101418",
+    "paper": "#FFFFFF",
+    "accent": "#0E7C66",
+    "accent_soft": "#DFF3EE",
+    "fare_drop": "#C8402A",
+    "news_alert": "#B3261E",
+    "caption_bg": "#101418CC",
+    "caption_text": "#FFFFFF"
+  },
+  "typography": {
+    "display": "Fraunces",
+    "text": "Inter",
+    "caption_size_px": 58,
+    "caption_max_lines": 2,
+    "title_size_px": 88,
+    "label_size_px": 40,
+    "font_dir": "assets/brand/fonts"
+  },
+  "layout": {
+    "width": 1080,
+    "height": 1920,
+    "safe_margin_px": 96,
+    "caption_baseline_from_bottom_px": 420,
+    "logo_position": "top_center",
+    "location_label_position": "top_left"
+  },
+  "components": {
+    "logo": {"height_px": 64, "margin_top_px": 72},
+    "location_label": {"style": "pill", "bg": "#101418B3", "text": "#FFFFFF"},
+    "fare_drop_card": {
+      "title": "FARE DROP",
+      "title_color": "#FFFFFF",
+      "bg": "#C8402A",
+      "price_size_px": 140,
+      "route_size_px": 72,
+      "footnote": "Fare found at time of publishing. Prices can change."
+    },
+    "price_card": {"bg": "#101418E6", "price_color": "#FFFFFF"},
+    "route_graphic": {"line_color": "#0E7C66", "dot_color": "#FFFFFF"},
+    "map_animation": {"style": "minimal_dark", "highlight": "#0E7C66"},
+    "lower_third": {"bg": "#101418CC", "accent_bar": "#0E7C66"},
+    "article_source_label": {"prefix": "From Destination.com", "size_px": 34},
+    "cta": {"default_text": "More at Destination.com", "bg": "#0E7C66"},
+    "end_card": {"duration_seconds": 2.0, "bg": "#101418", "show_logo": true},
+    "points_card": {"bg": "#1A2B4A", "accent": "#E8C36A"},
+    "news_alert": {"label": "TRAVEL NEWS", "bg": "#B3261E", "show_source_and_date": true}
+  },
+  "audio": {
+    "music_lufs": -24,
+    "voice_lufs": -16,
+    "music_duck_db": -8
+  }
+}
